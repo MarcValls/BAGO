@@ -33,30 +33,39 @@ function Get-AbsoluteGitDir([string]$RepositoryRoot) {
     return [System.IO.Path]::GetFullPath((Join-Path $RepositoryRoot $raw))
 }
 
-function Assert-RequiredPrWorkflows([int]$PrNumber, [object[]]$RequiredWorkflowNames) {
-    $jsonText = (gh pr checks $PrNumber --repo $ExpectedRepository --json name,state,bucket,workflow | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0) { throw "Unable to enumerate PR checks for required-workflow validation" }
-    if (-not $jsonText) { throw "PR has no check evidence after watch completed" }
+function Wait-ForRequiredWorkflowRuns([string]$CandidateSha, [object[]]$RequiredWorkflowNames) {
+    for ($attempt = 0; $attempt -lt 1080; $attempt++) {
+        $jsonText = (gh run list --repo $ExpectedRepository --commit $CandidateSha --event pull_request --limit 100 --json workflowName,status,conclusion,createdAt,url | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0) { throw "Unable to enumerate workflow runs for exact candidate $CandidateSha" }
 
-    $checks = @($jsonText | ConvertFrom-Json)
-    foreach ($requiredName in @($RequiredWorkflowNames)) {
-        $required = [string]$requiredName
-        $workflowChecks = @($checks | Where-Object { $_.workflow -eq $required })
-        if ($workflowChecks.Count -eq 0) {
-            throw "Required PR workflow '$required' is missing for the exact candidate"
+        $runs = @()
+        if ($jsonText) { $runs = @($jsonText | ConvertFrom-Json) }
+        $allPassed = $true
+
+        foreach ($requiredName in @($RequiredWorkflowNames)) {
+            $required = [string]$requiredName
+            $matches = @($runs | Where-Object { $_.workflowName -eq $required })
+            if ($matches.Count -eq 0) {
+                $allPassed = $false
+                continue
+            }
+
+            $latest = $matches | Sort-Object -Property createdAt -Descending | Select-Object -First 1
+            if ($latest.status -eq "completed") {
+                if ($latest.conclusion -ne "success") {
+                    throw "Required PR workflow '$required' concluded '$($latest.conclusion)' for candidate $CandidateSha ($($latest.url))"
+                }
+            } else {
+                $allPassed = $false
+            }
         }
 
-        $badChecks = @($workflowChecks | Where-Object { $_.bucket -in @("fail", "cancel", "pending") })
-        if ($badChecks.Count -gt 0) {
-            $summary = ($badChecks | ForEach-Object { "$($_.name)=$($_.bucket)/$($_.state)" }) -join ", "
-            throw "Required PR workflow '$required' has non-passing checks: $summary"
-        }
-
-        $passingChecks = @($workflowChecks | Where-Object { $_.bucket -eq "pass" })
-        if ($passingChecks.Count -eq 0) {
-            throw "Required PR workflow '$required' has no passing check; skipped-only evidence is insufficient"
-        }
+        if ($allPassed) { return }
+        Start-Sleep -Seconds 5
     }
+
+    $requiredText = (@($RequiredWorkflowNames) -join ", ")
+    throw "Required PR workflows did not all reach success for candidate $CandidateSha: $requiredText"
 }
 
 function Wait-ForConfirmedMerge([int]$PrNumber, [string]$CandidateSha) {
@@ -290,7 +299,7 @@ Objective: $($front.objective)
 
 Independent local preverification: **PREVERIFIED** for candidate `$candidateSha`.
 
-Final VERIFIED state still requires repository PR checks for this exact SHA, including every workflow named in the remediation execution policy. VALIDATED additionally requires GitHub to confirm the PR as merged. Any head movement invalidates this preverification.
+Final VERIFIED state still requires every workflow named in the remediation execution policy to complete successfully for this exact SHA, followed by the complete PR check set. VALIDATED additionally requires GitHub to confirm the PR as merged. Any head movement invalidates this preverification.
 "@
                     $prUrl = (gh pr create --repo $ExpectedRepository --base $($Plan.base_branch) --head $branch --title "[$($front.id)] $($front.title)" --body $body | Out-String).Trim()
                     if ($LASTEXITCODE -ne 0) { throw "PR creation failed" }
@@ -298,15 +307,15 @@ Final VERIFIED state still requires repository PR checks for this exact SHA, inc
                 }
 
                 Write-Ledger $front "PR_OPEN" "pr=$prNumber candidate=$candidateSha"
-                Invoke-Checked { gh pr checks $prNumber --repo $ExpectedRepository --watch --fail-fast } "PR checks"
+                Wait-ForRequiredWorkflowRuns -CandidateSha $candidateSha -RequiredWorkflowNames $requiredPrWorkflows
+                Invoke-Checked { gh pr checks $prNumber --repo $ExpectedRepository } "complete PR checks"
 
                 $headJson = (gh pr view $prNumber --repo $ExpectedRepository --json headRefOid | Out-String).Trim()
                 if ($LASTEXITCODE -ne 0) { throw "could not resolve PR head after checks" }
                 $headNow = ($headJson | ConvertFrom-Json).headRefOid
                 if ($headNow -ne $candidateSha) { throw "PR head moved after preverification: expected $candidateSha got $headNow" }
 
-                Assert-RequiredPrWorkflows -PrNumber $prNumber -RequiredWorkflowNames $requiredPrWorkflows
-                Write-Ledger $front "VERIFIED" "pr=$prNumber candidate=$candidateSha; independent preverification plus required green PR workflows"
+                Write-Ledger $front "VERIFIED" "pr=$prNumber candidate=$candidateSha; independent preverification plus required workflow runs and complete green PR checks"
 
                 if ($NoMerge) {
                     $stoppedAtVerified = $front.id
