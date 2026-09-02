@@ -116,15 +116,15 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
         'ExpectedRepository = "MarcValls/BAGO"',
         'Unknown StartAt',
         'required_pr_workflows',
-        'Assert-RequiredPrWorkflows',
-        "Required PR workflow '$required' is missing for the exact candidate",
-        "skipped-only evidence is insufficient",
+        'Wait-ForRequiredWorkflowRuns',
+        'gh run list --repo $ExpectedRepository --commit $CandidateSha --event pull_request',
+        "Required PR workflow '$required' concluded",
+        'complete PR checks',
         'first non-empty line must be exactly PASS, FAIL, or BLOCKED',
         'BAGO_VERDICT: PREVERIFIED',
         'Get-BagoPreverificationVerdict',
         'candidate HEAD changed during read-only verification',
         'PR head moved after preverification',
-        'gh pr checks',
         '--match-head-commit $candidateSha',
         'Wait-ForConfirmedMerge',
         '$view.state -eq "MERGED"',
@@ -135,6 +135,11 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
     ]
     for fragment in required_fragments:
         assert fragment in text
+
+    # Avoid a known registration race: the supervisor must not immediately
+    # enter gh-pr-checks watch mode before GitHub has registered the required
+    # workflow runs for the exact candidate SHA.
+    assert "gh pr checks $prNumber --repo $ExpectedRepository --watch" not in text
 
     # Avoid a partial-success hazard: branch deletion must not be fused into
     # the merge command, because a cleanup failure could obscure a successful
