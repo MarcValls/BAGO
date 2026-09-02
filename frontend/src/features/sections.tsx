@@ -1883,6 +1883,18 @@ export function ControlSections(props: Props) {
       ['vision', 'Visión', 'review'],
       ['configuration', 'Configuración', 'cog']
     ] as const;
+    const selectOperationView = (id: typeof operationView) => {
+      setOperationView(id);
+      if (id === 'configuration') {
+        // Opening the configuration surface is an explicit read of its
+        // backend authority. The cards also hydrate themselves on mount, but
+        // preloading here keeps the transition deterministic in Electron.
+        void Promise.all([
+          props.client.getAutoConfigStatus(),
+          props.client.getModelBlacklist(),
+        ]).catch(() => undefined);
+      }
+    };
     const providerCenter = <ProviderCenterModule
       title="Centro de proveedores"
       subtitle="Configura proveedores, elige modelos para la sesión y controla el router desde una sola superficie."
@@ -1940,7 +1952,7 @@ export function ControlSections(props: Props) {
     return (
       <div className="system-surface contextual-surface operation-surface" {...inspectMenuAttrs(screenSelection, props.onInspect)}>
         <nav className="contextual-subnav operation-subnav" aria-label="Herramientas de Operaciones">
-          {operationTabs.map(([id, label, icon]) => <button key={id} type="button" className={operationView === id ? 'is-active' : ''} aria-current={operationView === id ? 'page' : undefined} onClick={() => setOperationView(id)}>
+          {operationTabs.map(([id, label, icon]) => <button key={id} type="button" className={operationView === id ? 'is-active' : ''} aria-current={operationView === id ? 'page' : undefined} onClick={() => selectOperationView(id)}>
             <Icon name={icon} size={14} /> {label}
           </button>)}
         </nav>

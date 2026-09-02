@@ -109,12 +109,34 @@ def test_builder_resolves_installer_version_from_canonical_authority() -> None:
     builder = BUILDER.read_text(encoding="utf-8")
     workflow = (ROOT / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")
 
-    assert r"backend\release_version.txt" in builder
+    assert r'Join-Path $repoRoot "release_version.txt"' in builder
+    assert r'backend\release_version.txt' not in builder
     assert '$version = "' not in builder, "builder must not hard-code a mutable product version"
     assert "-SkipBuild -Version $version" in workflow
-    assert "backend/release_version.txt" in workflow, (
+    assert "release_version.txt" in workflow, (
         "version authority changes must trigger the installer workflow"
     )
+    assert "backend/release_version.txt" not in workflow
+    assert "node-version: '22.16.0'" in workflow
+    assert "python-version: '3.14.5'" in workflow
+    assert "nsis-3.10.zip" in workflow
+
+
+def test_workflows_pin_the_official_nsis_310_zip_digest() -> None:
+    """CI must reject a mirror error page as well as a tampered NSIS archive."""
+    expected_url = "https://sourceforge.net/projects/nsis/files/NSIS%203/3.10/nsis-3.10.zip/download"
+    expected_sha = "FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110"
+    workflows = (
+        ROOT / ".github" / "workflows" / "build-installer.yml",
+        ROOT / ".github" / "workflows" / "build-release-installer.yml",
+        ROOT / ".github" / "workflows" / "canonical-ci.yml",
+    )
+    for workflow in workflows:
+        text = workflow.read_text(encoding="utf-8")
+        assert expected_url in text
+        assert expected_sha in text
+        assert "curl.exe --fail --location --retry 3 --output $zip" in text
+        assert "prdownloads.sourceforge.net/nsis/nsis-3.10.zip" not in text
 
 
 def test_embedded_nsi_payload_includes_and_passes_distribution_hash_sidecar() -> None:

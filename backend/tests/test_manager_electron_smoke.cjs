@@ -319,10 +319,15 @@ function baseArgs(target) {
     const initialConversations = await window.evaluate(async () => fetch('/conversations').then((response) => response.json()));
     const initialConversationId = initialConversations.active_conversation_id;
     const initialConversationCount = initialConversations.count;
-    const createConversationResponse = window.waitForResponse((response) => (
-      new URL(response.url()).pathname === '/conversations'
-      && response.request().method() === 'POST'
-    ));
+    const conversationResponse = (action) => window.waitForResponse((response) => {
+      if (new URL(response.url()).pathname !== '/conversations' || response.request().method() !== 'POST') return false;
+      try { return JSON.parse(response.request().postData() || '{}').action === action; } catch { return false; }
+    });
+    const workspaceConversationResponse = (conversationId) => window.waitForResponse((response) => {
+      if (new URL(response.url()).pathname !== '/workspace/conversation' || response.request().method() !== 'POST') return false;
+      try { return JSON.parse(response.request().postData() || '{}').conversation_id === conversationId; } catch { return false; }
+    });
+    const createConversationResponse = conversationResponse('create');
     const scopeConversationResponse = window.waitForResponse((response) => (
       new URL(response.url()).pathname === '/workspace/conversation'
       && response.request().method() === 'POST'
@@ -338,6 +343,8 @@ function baseArgs(target) {
     const scopedConversation = await scopedConversationHttpResponse.json();
     assert.strictEqual(scopedConversation.ok, true);
     assert.strictEqual(scopedConversation.conversation_id, createdConversationId);
+    await window.waitForFunction((title) => [...document.querySelectorAll('.chat-conversation-list article.is-active')]
+      .some((item) => (item.textContent || '').includes(title)), createdConversations.conversation.title, { timeout: 30000 });
     const conversationScreenshotPath = String(process.env.BAGO_ELECTRON_CONVERSATION_SCREENSHOT || '').trim();
     if (conversationScreenshotPath) {
       fs.mkdirSync(path.dirname(conversationScreenshotPath), { recursive: true });
@@ -347,37 +354,43 @@ function baseArgs(target) {
     const historyToggle = window.locator('.chat-conversation-menu summary');
     await historyToggle.click();
     const createdTitle = createdConversations.conversation.title;
-    await window.locator('.chat-conversation-list article.is-active').getByRole('button', { name: `Renombrar ${createdTitle}`, exact: true }).click();
+    const conversationArticle = (conversationId) => window.locator(`.chat-conversation-list article[data-conversation-id="${conversationId}"]`);
+    await conversationArticle(createdConversationId).getByRole('button', { name: `Renombrar ${createdTitle}`, exact: true }).click();
     const renamedTitle = 'Conversación smoke renombrada';
     await window.getByLabel('Título de conversación').fill(renamedTitle);
-    const renameConversationResponse = window.waitForResponse((response) => (
-      new URL(response.url()).pathname === '/conversations'
-      && response.request().method() === 'POST'
-    ));
+    const renameConversationResponse = conversationResponse('rename');
     await window.getByRole('button', { name: 'Guardar', exact: true }).click();
     const renamedConversations = await (await renameConversationResponse).json();
+    assert.strictEqual(renamedConversations.conversation.conversation_id, createdConversationId);
     assert.strictEqual(renamedConversations.conversation.title, renamedTitle);
 
     const initialConversation = renamedConversations.conversations.find((item) => item.conversation_id === initialConversationId);
     assert.ok(initialConversation, 'initial conversation disappeared after rename');
-    const switchConversationResponse = window.waitForResponse((response) => (
-      new URL(response.url()).pathname === '/conversations'
-      && response.request().method() === 'POST'
-    ));
-    await window.locator('.chat-conversation-list article', { hasText: initialConversation.title }).locator('.chat-conversation-open').click();
+    const switchConversationResponse = conversationResponse('switch');
+    const switchScopeResponse = workspaceConversationResponse(initialConversationId);
+    await conversationArticle(initialConversationId).locator('.chat-conversation-open').click();
     const switchedConversations = await (await switchConversationResponse).json();
     assert.strictEqual(switchedConversations.active_conversation_id, initialConversationId);
+    const switchScopeHttpResponse = await switchScopeResponse;
+    assert.strictEqual(switchScopeHttpResponse.status(), 200);
+    assert.strictEqual((await switchScopeHttpResponse.json()).conversation_id, initialConversationId);
+    await window.waitForFunction((title) => [...document.querySelectorAll('.chat-conversation-list article.is-active')]
+      .some((item) => (item.textContent || '').includes(title)), initialConversation.title, { timeout: 30000 });
 
     if (!await window.locator('.chat-conversation-menu').evaluate((details) => details.open)) {
       await historyToggle.click();
     }
-    const archiveConversationResponse = window.waitForResponse((response) => (
-      new URL(response.url()).pathname === '/conversations'
-      && response.request().method() === 'POST'
-    ));
-    await window.getByRole('button', { name: `Archivar ${renamedTitle}`, exact: true }).click();
+    const archiveConversationResponse = conversationResponse('archive');
+    await conversationArticle(createdConversationId).getByRole('button', { name: `Archivar ${renamedTitle}`, exact: true }).click();
     const archivedConversations = await (await archiveConversationResponse).json();
-    assert.strictEqual(archivedConversations.active_conversation_id, initialConversationId);
+    assert.strictEqual(archivedConversations.conversation.conversation_id, createdConversationId);
+    assert.strictEqual(archivedConversations.active_conversation_id, initialConversationId, JSON.stringify({
+      initialConversationId,
+      createdConversationId,
+      switchedActiveConversationId: switchedConversations.active_conversation_id,
+      archivedActiveConversationId: archivedConversations.active_conversation_id,
+      archivedConversations: archivedConversations.conversations,
+    }));
     assert.strictEqual(archivedConversations.count, initialConversationCount);
     assert.strictEqual(archivedConversations.conversations.some((item) => item.conversation_id === createdConversationId), false);
 
@@ -429,6 +442,12 @@ function baseArgs(target) {
     assert.strictEqual(await operation.count(), 1);
     await operation.click();
     const operationNav = window.getByRole('navigation', { name: 'Herramientas de Operaciones' });
+    const operationReady = await operationNav.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
+    if (!operationReady) {
+      // The sidebar can rerender while a background bootstrap completes.
+      // Retry the same explicit user gesture, then require the final surface.
+      await operation.click();
+    }
     await operationNav.waitFor({ state: 'visible', timeout: 30000 });
     const operationLabels = ['Proveedores', 'Runtime', 'Memoria', 'Visión', 'Configuración'];
     for (const label of operationLabels) {

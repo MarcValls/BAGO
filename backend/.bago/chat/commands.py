@@ -394,7 +394,10 @@ def cmd_load(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict
     if not args:
         return {"ok": False, "message": "Uso: /load <session_id>"}
     sid = args[0]
-    loaded = SessionManager.load(sid, base_path=str(mgr.base_path))
+    # `base_path` is the temporary session mirror when it is ready; loading
+    # must start from the durable, explicit project root instead.
+    project_root = getattr(mgr, "project_root", None) or mgr.base_path
+    loaded = SessionManager.load(sid, base_path=str(project_root))
 
     # Cerrar recursos de la sesión anterior (knowledge y embeddings tienen
     # conexiones SQLite propias; store no necesita cierre explícito)

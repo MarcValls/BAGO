@@ -1,6 +1,6 @@
-# BAGO v4.9.2
+# BAGO v4.9.3
 
-[![Version](https://img.shields.io/badge/version-4.9.2-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2)
+[![Version](https://img.shields.io/badge/version-4.9.3-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3)
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
@@ -11,7 +11,7 @@
 
 ---
 
-## Novedades en 4.9.2
+## Novedades en 4.9.3
 
 ### Hotfix del instalador
 - El instalador NSIS incorpora y valida el sidecar SHA-256 del ZIP de distribución antes de sustituir la instalación existente.
@@ -107,7 +107,7 @@ BAGO/
 
 ### Opción A — Instalador Windows (recomendado)
 
-Descarga `bago-4.9.2-setup.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2) y ejecútalo. El instalador:
+Descarga `bago-4.9.3-setup.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3) y ejecútalo. El instalador:
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
 - El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
@@ -296,6 +296,7 @@ npm run sh:status
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
+| [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3) | 2026-09-01 | `bago-4.9.3-setup.exe` |
 | [v4.9.2](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2) | 2026-08-29 | `bago-4.9.2-setup.exe` |
 | [v4.9.1](https://github.com/MarcValls/BAGO/releases/tag/v4.9.1) | 2026-08-25 | `BAGO-Installation-Manager-4.9.1-win-x64.exe` · `bago-v4.9.1.zip` |
 | [v4.9.0](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0) | 2026-08-18 | `BAGO-Installation-Manager-4.9.0-win-x64.exe` · `bago-v4.9.0.zip` |
@@ -314,11 +315,11 @@ python -m pytest backend/tests
 npm run build
 
 # 3. Empaquetar backend runtime
-python backend/scripts/package_v4.py --version 4.9.2
+python backend/scripts/package_v4.py --version 4.9.3
 
 # 4. Crear o mover el tag a HEAD
-# git tag -a v4.9.2 -m "BAGO v4.9.2"
-# git push origin v4.9.2
+# git tag -a v4.9.3 -m "BAGO v4.9.3"
+# git push origin v4.9.3
 # La subida del release corre vía .github/workflows/release.yml usando gh release upload
 ```
 

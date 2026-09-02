@@ -102,12 +102,22 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
   const session = raw.session || {};
   const menuStateRaw = readMenuStateValue(raw);
   const workspaceMeta = raw.workspace || {};
+  const workspaceBinding = readRecord(workspaceMeta.binding);
+  const workspaceStatus = readRecord(workspaceMeta.status);
   const binding = session.binding || {};
   const statusWorkspaceState = readRecord(status.workspace_state);
   const sessionWorkspaceState = readRecord(session.workspace_state);
-  const projectRoot = String(status.project_root || status.repo_root || binding.project_root || '');
-  const workspaceRoot = String(status.workspace_state_root || session.binding?.workspace_state_root || '');
-  const scopeRoot = String(status.workspace_scope_root || binding.workspace_scope_root || projectRoot || '');
+  const projectRoot = String(
+    status.project_root || status.repo_root || workspaceMeta.root || workspaceBinding.project_root
+    || workspaceStatus.project_root || binding.project_root || ''
+  );
+  // `root` is the user project scope. `.gabo` remains an internal state root
+  // and must never become the conversation workspace.
+  const scopeRoot = String(
+    status.workspace_scope_root || workspaceMeta.scope_root || workspaceBinding.workspace_scope_root
+    || workspaceStatus.workspace_scope_root || binding.workspace_scope_root || projectRoot || ''
+  );
+  const workspaceRoot = scopeRoot;
   const mirrorRoot = String(status.workspace_mirror_root || binding.workspace_mirror_root || '');
   const contextRoot = String(status.workspace_context_root || binding.workspace_context_root || '');
   const authorizedRoot = String(status.authorized_root || binding.authorized_root || scopeRoot || '');

@@ -31,12 +31,12 @@ This is the BAGO monorepo. BAGO is a local AI control plane: the session is the 
 - Project trust is required to load project-local `.pi/` settings and `.agents/skills/`.
 - Use `/tree`, `/fork`, `/compact`, or `/clone` to manage long-running BAGO sessions.
 
-## BAGOx behavior overlay (PROPOSED_RC)
+## BAGOx behavior overlay (ACTIVE_CANON)
 
 This is a scoped projection of the Codex fragment from
-`BAGOx-BEHAVIOR-PACKAGE-v1.2-RC1`, anchored to the external
+`BAGOx Behavior Package v1.3-RC1-FIX2`, anchored to the external
 `MANIFEST.sha256` SHA-256
-`239534797e0f5ba0957aef5513508c350494ebc59185b6c1372d7bd2ae22387c`.
+`f916e385ba55cff4b27dd9696c42b3d22dbb83ad00595572e77385766c9fb3eb`.
 It adopts only stable agent-behavior rules; package templates, schemas,
 hooks, and BAGOx-only state mechanisms remain outside this repository until
 separately adopted. BAGOx behavior rules do not themselves modify BAGO canon

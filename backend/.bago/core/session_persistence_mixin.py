@@ -667,7 +667,13 @@ class SessionPersistenceMixin:
         if path.exists():
             data = json.loads(path.read_text(encoding="utf-8"))
             saved_project = data.get("project_root") or data.get("workspace_state_root")
-            bp = Path(saved_project) if saved_project and Path(saved_project).exists() else Path(base_path or os.getcwd())
+            # An explicit launch workspace is the current authority. A saved
+            # session describes historical context and must not redirect an
+            # Electron/API launch to a previous project.
+            if base_path and str(base_path).strip():
+                bp = Path(base_path)
+            else:
+                bp = Path(saved_project) if saved_project and Path(saved_project).exists() else Path(os.getcwd())
             mgr = cls(
                 session_id=data["session_id"],
                 provider=data["provider"],
@@ -698,17 +704,23 @@ class SessionPersistenceMixin:
             # loading the session. A persisted value is historical metadata,
             # never authority after moving between source and an installation.
             mgr.framework_root = resolve_framework_root()
-            mgr.project_root = data.get("project_root", str(bp))
-            mgr.workspace_state_root = data.get("workspace_state_root", str(Path(bp) / ".gabo"))
-            mgr.workspace_scope_root = data.get("workspace_scope_root", str(bp))
-            mgr.workspace_mirror_root = data.get("workspace_mirror_root", str(getattr(mgr, "base_path", bp)))
-            mgr.workspace_work_root = str(getattr(mgr, "base_path", bp))
-            mgr.workspace_id = data.get("workspace_id", "")
-            mgr.workspace_manifest = Path(mgr.workspace_state_root) / "workspace.json"
-            mgr.workspace_binding = resolve_workspace_binding(mgr.project_root).to_dict()
-            mgr.workspace_binding["workspace_id"] = mgr.workspace_id or mgr.workspace_binding.get("workspace_id", "")
-            mgr.repo_root = data.get("repo_root", "")
-            mgr.repo_branch = data.get("repo_branch", "")
+            explicit_workspace = bool(base_path and str(base_path).strip())
+            if not explicit_workspace:
+                mgr.project_root = data.get("project_root", str(bp))
+                mgr.workspace_state_root = data.get("workspace_state_root", str(Path(bp) / ".gabo"))
+                mgr.workspace_scope_root = data.get("workspace_scope_root", str(bp))
+                mgr.workspace_mirror_root = data.get("workspace_mirror_root", str(getattr(mgr, "base_path", bp)))
+                mgr.workspace_work_root = str(getattr(mgr, "base_path", bp))
+                mgr.workspace_id = data.get("workspace_id", "")
+                mgr.workspace_manifest = Path(mgr.workspace_state_root) / "workspace.json"
+                mgr.workspace_binding = resolve_workspace_binding(mgr.project_root).to_dict()
+                mgr.workspace_binding["workspace_id"] = mgr.workspace_id or mgr.workspace_binding.get("workspace_id", "")
+                # The persisted Git identity describes the restored workspace.
+                # With an explicit workspace, SessionManager already derives its
+                # identity from that launch target; restoring the old values
+                # would make the otherwise valid binding look mismatched.
+                mgr.repo_root = data.get("repo_root", "")
+                mgr.repo_branch = data.get("repo_branch", "")
             return mgr
 
         store_base = next(

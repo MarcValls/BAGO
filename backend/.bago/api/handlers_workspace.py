@@ -91,6 +91,11 @@ def _workspace_payload(mgr: Any) -> dict[str, Any]:
         "session_id": getattr(mgr, "session_id", "?"),
         "provider": getattr(mgr, "provider", "?"),
         "model": getattr(mgr, "model", "?"),
+        # The interactive client scopes conversations to the user project,
+        # never to its internal .gabo state directory.
+        "root": project_root,
+        "state_root": workspace_root,
+        "scope_root": workspace_scope_root,
         "status": status,
         "workspace_state": workspace_state,
         "welcome_state": welcome_state,
