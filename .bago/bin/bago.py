@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -23,7 +24,7 @@ from typing import Any
 _LIFECYCLE = ("PROPOSED", "PREPARED", "EXECUTED", "VERIFIED", "VALIDATED")
 _MANUAL_STATES = frozenset(_LIFECYCLE[:3])
 _REMEDIATION_RECEIPT_CONTRACT = "bago.third-party-remediation-verification.v1"
-_INDEPENDENT_REVIEW_CONTRACT = "bago.independent-review.v1"
+_INDEPENDENT_REVIEW_CONTRACT = "bago.independent-review.github.v2"
 
 
 def _repo_root() -> Path:
@@ -175,6 +176,82 @@ def _verify_remediation_package(package: Path) -> dict[str, Any]:
         return _load_json_object(report, "recalculated verification receipt")
 
 
+def _github_repository_from_origin(origin: Any) -> str:
+    """Return the GitHub owner/repository identity configured for this checkout."""
+    if not isinstance(origin, str):
+        raise ValueError("current repository has no GitHub origin")
+    match = re.fullmatch(
+        r"(?:https://github\.com/|git@github\.com:)([^/\s]+)/([^/\s]+?)(?:\.git)?/?",
+        origin.strip(),
+    )
+    if not match:
+        raise ValueError("current repository origin is not a GitHub repository")
+    return f"{match.group(1)}/{match.group(2)}"
+
+
+def _github_pull_review(repository: str, pull_request: int, review_id: int) -> dict[str, Any]:
+    """Load an authenticated GitHub pull-request review, failing closed on error."""
+    try:
+        result = subprocess.run(
+            [
+                "gh", "api", "--method", "GET",
+                f"repos/{repository}/pulls/{pull_request}/reviews/{review_id}",
+            ],
+            cwd=_repo_root(),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except OSError as exc:
+        raise ValueError(f"GitHub review provenance is unavailable: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"rc={result.returncode}"
+        raise ValueError(f"GitHub review provenance is unavailable: {detail[-300:]}")
+    try:
+        value = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"GitHub review provenance is invalid JSON: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError("GitHub review provenance is not a JSON object")
+    return value
+
+
+def _verify_independent_review(review: dict[str, Any], fp: dict[str, Any], candidate: str, package_sha: str) -> bool:
+    """Verify review content and GitHub-authenticated provenance for a candidate."""
+    if review.get("contract") != _INDEPENDENT_REVIEW_CONTRACT or review.get("result") != "PASS":
+        return False
+    reviewer = review.get("reviewer")
+    provenance = review.get("github")
+    if not isinstance(reviewer, str) or not reviewer.strip() or not isinstance(provenance, dict):
+        return False
+    repository = provenance.get("repository")
+    pull_request = provenance.get("pull_request")
+    review_id = provenance.get("review_id")
+    if (
+        not isinstance(repository, str)
+        or repository != _github_repository_from_origin(fp.get("remote"))
+        or isinstance(pull_request, bool)
+        or not isinstance(pull_request, int)
+        or pull_request <= 0
+        or isinstance(review_id, bool)
+        or not isinstance(review_id, int)
+        or review_id <= 0
+        or review.get("candidate_sha") != candidate
+        or review.get("package_sha256") != package_sha
+    ):
+        return False
+    remote_review = _github_pull_review(repository, pull_request, review_id)
+    remote_user = remote_review.get("user")
+    return (
+        remote_review.get("state") == "APPROVED"
+        and remote_review.get("commit_id") == candidate
+        and isinstance(remote_user, dict)
+        and remote_user.get("login") == reviewer
+    )
+
+
 def _has_current_protected_receipt(state: dict[str, Any], fp: dict[str, Any]) -> bool:
     receipt = state.get("protected_receipt")
     if not isinstance(receipt, dict) or fp.get("dirty"):
@@ -200,14 +277,8 @@ def _has_current_protected_receipt(state: dict[str, Any], fp: dict[str, Any]) ->
         )
         review_path = Path(str(receipt["review"]))
         review = _load_json_object(review_path, "independent review receipt")
-        return verified and (
-            review.get("contract") == _INDEPENDENT_REVIEW_CONTRACT
-            and review.get("result") == "PASS"
-            and isinstance(review.get("reviewer"), str)
-            and bool(review["reviewer"].strip())
-            and review.get("candidate_sha") == fp.get("commit")
-            and review.get("package_sha256") == receipt["package_sha256"]
-            and receipt.get("review_sha256") == _sha_file(review_path)
+        return verified and receipt.get("review_sha256") == _sha_file(review_path) and _verify_independent_review(
+            review, fp, str(fp.get("commit")), str(receipt["package_sha256"])
         )
     except (KeyError, OSError, ValueError):
         return False
@@ -405,12 +476,10 @@ def cmd_consume_remediation_receipt(args: argparse.Namespace) -> int:
         if not args.review:
             raise ValueError(f"{target} requires --review with an independent review receipt")
         review = _load_json_object(Path(args.review).resolve(), "independent review receipt")
-        if review.get("contract") != _INDEPENDENT_REVIEW_CONTRACT or review.get("result") != "PASS":
-            raise ValueError("independent review receipt does not report PASS under the required contract")
-        if not isinstance(review.get("reviewer"), str) or not review["reviewer"].strip():
-            raise ValueError("independent review receipt has no reviewer identity")
-        if review.get("candidate_sha") != candidate or review.get("package_sha256") != package_sha:
-            raise ValueError("independent review receipt is not bound to this candidate and package")
+        if not _verify_independent_review(review, fp, candidate, package_sha):
+            raise ValueError(
+                "independent review receipt is not a GitHub-authenticated APPROVED review bound to this candidate"
+            )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

@@ -95,6 +95,20 @@ def provenance(repo: Path, baseline_ref: str, candidate_ref: str) -> dict:
     }
 
 
+def resolve_gestor_candidate_ref(gestor: Path, candidate_ref: str | None) -> str:
+    """Resolve the gestor candidate without borrowing BAGO's Git identity.
+
+    The two repositories are independent.  An omitted gestor ref therefore
+    means the gestor repository's current HEAD, rather than the BAGO
+    ``--candidate-ref`` passed to this command.
+    """
+    requested_ref = candidate_ref or "HEAD"
+    resolved_ref = text(gestor, "rev-parse", "--verify", f"{requested_ref}^{{commit}}")
+    if not resolved_ref:
+        raise RuntimeError(f"gestor candidate ref cannot be resolved: {requested_ref}")
+    return resolved_ref
+
+
 def changed_files(repo: Path, baseline_ref: str, candidate_ref: str) -> list[str]:
     tracked = text(repo, "diff", "--name-only", "--diff-filter=ACMRT", baseline_ref, candidate_ref).splitlines()
     return sorted(set(filter(None, tracked)))
@@ -245,13 +259,11 @@ def build(
         if source_audit is not None:
             ingest_source_audit(source_audit, audit / "source-audit", bago_baseline)
         recovered_dirty_boundary = ingest_recovered_dirty_boundary(audit, bago_baseline)
+        gestor_candidate = resolve_gestor_candidate_ref(gestor.resolve(), gestor_candidate_ref)
 
         repositories = (
             ("bago", ROOT, bago_baseline, candidate_ref),
-            # A BAGO candidate SHA is not a Git object in the independent
-            # gestor repository. Keep both candidate identities explicit
-            # rather than fabricating a cross-repository ref.
-            ("gestor", gestor.resolve(), gestor_baseline, gestor_candidate_ref or candidate_ref),
+            ("gestor", gestor.resolve(), gestor_baseline, gestor_candidate),
         )
         for label, repo, baseline_ref, repository_candidate_ref in repositories:
             if not (repo / ".git").exists():
@@ -285,7 +297,7 @@ def build(
             "candidate_ref": candidate_ref,
             "repository_candidates": {
                 "bago": candidate_ref,
-                "gestor": gestor_candidate_ref or candidate_ref,
+                "gestor": gestor_candidate,
             },
             "required_gates": list(REQUIRED_GATES),
             "created_at": datetime.now(timezone.utc).isoformat(),
