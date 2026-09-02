@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "name": "BAGO 15-point governed remediation",
   "base_branch": "main",
   "execution_policy": {
@@ -10,7 +10,8 @@
     "auto_merge_only_after_ci": true,
     "self_certification_forbidden": true,
     "failure_policy": "stop_and_block",
-    "evidence_required": true
+    "evidence_required": true,
+    "required_pr_workflows": ["Canonical CI", "Validate Expected", "njsscan sarif"]
   },
   "fronts": [
     {
