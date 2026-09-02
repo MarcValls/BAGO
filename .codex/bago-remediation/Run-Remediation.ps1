@@ -182,18 +182,45 @@ function Get-AbsoluteGitDir([string]$RepositoryRoot) {
     return [System.IO.Path]::GetFullPath((Join-Path $RepositoryRoot $raw))
 }
 
-function Wait-ForRequiredWorkflowRuns([string]$CandidateSha, [object[]]$RequiredWorkflowNames) {
+function Resolve-TrustedRequiredWorkflowIds([object[]]$RequiredWorkflowNames) {
+    # Bind each required gate to the stable numeric workflow ID GitHub assigns
+    # to its registered `.github/workflows/*.yml` definition, instead of
+    # trusting the human-readable `name:` alone. A candidate that adds or
+    # renames a different workflow file to reuse a required display name gets
+    # a distinct ID and therefore cannot satisfy this gate.
+    $jsonText = (gh api "repos/$ExpectedRepository/actions/workflows" --paginate --jq '.workflows[] | {id,name,path,state}' | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "Unable to enumerate trusted workflow definitions for $ExpectedRepository" }
+
+    $lines = @($jsonText -split '\r?\n' | Where-Object { $_ })
+    $definitions = @($lines | ForEach-Object { $_ | ConvertFrom-Json })
+
+    $ids = [ordered]@{}
+    foreach ($requiredName in @($RequiredWorkflowNames)) {
+        $required = [string]$requiredName
+        $active = @($definitions | Where-Object { $_.name -eq $required -and $_.state -eq "active" })
+        if ($active.Count -eq 0) {
+            throw "Required PR workflow '$required' has no active registered workflow definition in $ExpectedRepository"
+        }
+        if ($active.Count -gt 1) {
+            throw "Required PR workflow '$required' matches more than one active workflow definition in $ExpectedRepository; each critical property must have one authority"
+        }
+        $ids[$required] = [int64]$active[0].id
+    }
+    return $ids
+}
+
+function Wait-ForRequiredWorkflowRuns([string]$CandidateSha, [System.Collections.Specialized.OrderedDictionary]$RequiredWorkflowIds) {
     for ($attempt = 0; $attempt -lt 1080; $attempt++) {
-        $jsonText = (gh run list --repo $ExpectedRepository --commit $CandidateSha --event pull_request --limit 100 --json workflowName,status,conclusion,createdAt,url | Out-String).Trim()
+        $jsonText = (gh run list --repo $ExpectedRepository --commit $CandidateSha --event pull_request --limit 100 --json workflowName,workflowDatabaseId,status,conclusion,createdAt,url | Out-String).Trim()
         if ($LASTEXITCODE -ne 0) { throw "Unable to enumerate workflow runs for exact candidate $CandidateSha" }
 
         $runs = @()
         if ($jsonText) { $runs = @($jsonText | ConvertFrom-Json) }
         $allPassed = $true
 
-        foreach ($requiredName in @($RequiredWorkflowNames)) {
-            $required = [string]$requiredName
-            $matches = @($runs | Where-Object { $_.workflowName -eq $required })
+        foreach ($required in $RequiredWorkflowIds.Keys) {
+            $requiredId = [int64]$RequiredWorkflowIds[$required]
+            $matches = @($runs | Where-Object { [int64]$_.workflowDatabaseId -eq $requiredId })
             if ($matches.Count -eq 0) {
                 $allPassed = $false
                 continue
@@ -202,7 +229,7 @@ function Wait-ForRequiredWorkflowRuns([string]$CandidateSha, [object[]]$Required
             $latest = $matches | Sort-Object -Property createdAt -Descending | Select-Object -First 1
             if ($latest.status -eq "completed") {
                 if ($latest.conclusion -ne "success") {
-                    throw "Required PR workflow '$required' concluded '$($latest.conclusion)' for candidate $CandidateSha ($($latest.url))"
+                    throw "Required PR workflow '$required' (id=$requiredId) concluded '$($latest.conclusion)' for candidate $CandidateSha ($($latest.url))"
                 }
             } else {
                 $allPassed = $false
@@ -213,7 +240,7 @@ function Wait-ForRequiredWorkflowRuns([string]$CandidateSha, [object[]]$Required
         Start-Sleep -Seconds 5
     }
 
-    $requiredText = (@($RequiredWorkflowNames) -join ", ")
+    $requiredText = (@($RequiredWorkflowIds.Keys) -join ", ")
     throw "Required PR workflows did not all reach success for candidate $CandidateSha: $requiredText"
 }
 
@@ -279,8 +306,16 @@ Assert-PlanContract $Plan
 $implementationTask = [string]$Plan.execution_policy.implementation_task
 $verificationTask = [string]$Plan.execution_policy.verification_task
 $requiredPrWorkflows = @($Plan.execution_policy.required_pr_workflows)
+$requiredPrWorkflowIds = Resolve-TrustedRequiredWorkflowIds -RequiredWorkflowNames $requiredPrWorkflows
 $WorkpackManifest = Get-Content $WorkpackManifestPath -Raw | ConvertFrom-Json
 Assert-WorkpackTaskContract -Manifest $WorkpackManifest -ImplementationTaskId $implementationTask -VerificationTaskId $verificationTask
+
+# Bind every candidate to this exact trusted plan snapshot: the implementation
+# task must not alter remediation-plan.json, and this hash is recorded in the
+# ledger for evidence. Reconciled against the worktree's copy after each
+# front's implementation commit (see the "candidate plan drift" check below).
+$PlanHash = (Get-FileHash -Path $PlanPath -Algorithm SHA256).Hash
+$PlanRepoRelativePath = [System.IO.Path]::GetRelativePath($Repo, (Resolve-Path $PlanPath).Path) -replace '\\', '/'
 
 $safeRunId = ($RunId -replace '[^A-Za-z0-9._-]+','-').Trim('-')
 if (-not $safeRunId) { throw "RunId must contain at least one safe character" }
@@ -409,10 +444,24 @@ Execution rules:
                 Invoke-Checked { git commit -m "fix($($front.id.ToLowerInvariant())): $($front.title)" } "git commit"
                 $candidateSha = (git rev-parse HEAD | Out-String).Trim()
                 if ($LASTEXITCODE -ne 0 -or $candidateSha -notmatch '^[0-9a-f]{40}$') { throw "invalid candidate SHA" }
+
+                # Bind this candidate to the exact trusted plan snapshot loaded at
+                # supervisor startup: the implementation task must not alter
+                # remediation-plan.json (acceptance criteria, required workflows,
+                # base branch), or the candidate could be recorded VERIFIED under
+                # a policy different from the one that was reviewed and approved.
+                $worktreePlanPath = Join-Path $worktree $PlanRepoRelativePath
+                if (-not (Test-Path $worktreePlanPath)) {
+                    throw "Candidate deleted the trusted remediation plan at $PlanRepoRelativePath"
+                }
+                $candidatePlanHash = (Get-FileHash -Path $worktreePlanPath -Algorithm SHA256).Hash
+                if ($candidatePlanHash -ne $PlanHash) {
+                    throw "Candidate modified the trusted remediation plan (expected sha256:$PlanHash got sha256:$candidatePlanHash); the implementation task must not alter remediation-plan.json"
+                }
             }
             finally { Pop-Location }
 
-            Write-Ledger $front "EXECUTED" "base=$baseSha candidate=$candidateSha branch=$branch"
+            Write-Ledger $front "EXECUTED" "base=$baseSha candidate=$candidateSha branch=$branch; plan_sha256=$PlanHash"
 
             $verifyExtra = @"
 INDEPENDENT_PREVERIFICATION_TARGET
@@ -489,7 +538,7 @@ Final VERIFIED state still requires every workflow named in the remediation exec
                 }
 
                 Write-Ledger $front "PR_OPEN" "pr=$prNumber candidate=$candidateSha"
-                Wait-ForRequiredWorkflowRuns -CandidateSha $candidateSha -RequiredWorkflowNames $requiredPrWorkflows
+                Wait-ForRequiredWorkflowRuns -CandidateSha $candidateSha -RequiredWorkflowIds $requiredPrWorkflowIds
                 Wait-ForCompletePrChecks -PrNumber $prNumber
 
                 $headJson = (gh pr view $prNumber --repo $ExpectedRepository --json headRefOid,baseRefName | Out-String).Trim()

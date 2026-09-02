@@ -162,9 +162,15 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
         'maximum physical length is 64 characters',
         'Unknown StartAt',
         'required_pr_workflows',
+        'function Resolve-TrustedRequiredWorkflowIds',
+        'repos/$ExpectedRepository/actions/workflows',
+        'has no active registered workflow definition',
+        'matches more than one active workflow definition',
+        '$requiredPrWorkflowIds = Resolve-TrustedRequiredWorkflowIds -RequiredWorkflowNames $requiredPrWorkflows',
         'Wait-ForRequiredWorkflowRuns',
-        'gh run list --repo $ExpectedRepository --commit $CandidateSha --event pull_request',
-        "Required PR workflow '$required' concluded",
+        'gh run list --repo $ExpectedRepository --commit $CandidateSha --event pull_request --limit 100 --json workflowName,workflowDatabaseId,status,conclusion,createdAt,url',
+        '[int64]$_.workflowDatabaseId -eq $requiredId',
+        "Required PR workflow '$required' (id=$requiredId) concluded",
         'function Wait-ForCompletePrChecks',
         'if ($checksExit -eq 0) { return }',
         'if ($checksExit -ne 8) { throw "PR checks failed for pr=$PrNumber (gh pr checks exit code $checksExit)" }',
@@ -186,10 +192,20 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
         'GitHub confirmed MERGED',
         'Evidence/worktree is preserved',
         'NoMerge stops after VERIFIED front',
+        '$PlanHash = (Get-FileHash -Path $PlanPath -Algorithm SHA256).Hash',
+        '$candidatePlanHash = (Get-FileHash -Path $worktreePlanPath -Algorithm SHA256).Hash',
+        'Candidate modified the trusted remediation plan',
+        'Candidate deleted the trusted remediation plan',
+        'plan_sha256=$PlanHash',
         '$safeRunId',
     ]
     for fragment in required_fragments:
         assert fragment in text
+
+    # Required-workflow identity must be pinned to the trusted registered
+    # workflow ID, not matched by display name alone: a candidate that adds a
+    # different workflow file reusing a required name must not satisfy the gate.
+    assert "Where-Object { $_.workflowName -eq $required }" not in text
 
     # The task IDs are plan authority, not supervisor constants.
     assert '-Task "20-implement-approved-pr"' not in text
