@@ -122,6 +122,8 @@ try {
         ($entry | ConvertTo-Json -Compress) | Add-Content -Path $LedgerPath -Encoding utf8
     }
 
+    $stoppedAtVerified = $null
+
     for ($i = $startIndex; $i -lt $Plan.fronts.Count; $i++) {
         $front = $Plan.fronts[$i]
         $slug = ($front.title.ToLowerInvariant() -replace '[^a-z0-9]+','-').Trim('-')
@@ -203,11 +205,14 @@ Verification rules:
 - Verify the exact candidate SHA and inspect the diff against base $baseSha.
 - Re-run relevant repository-defined local tests/checks and targeted falsification tests.
 - Acceptance items that explicitly require GitHub PR CI or a confirmed merge are DEFERRED_EXTERNAL gates owned by the supervisor after this pass; do not claim they have already happened.
-- Return PREVERIFIED only when every non-deferred acceptance criterion is demonstrated by evidence and no blocking condition exists.
-- Return BLOCKED or FAILED on missing local evidence, skipped relevant local tests, regression, stale authority, unverifiable claims, or candidate mismatch.
-- End the report with exactly one candidate line and exactly one verdict line in this machine-readable form:
+- Preserve the workpack task contract: the first non-empty line must be exactly PASS, FAIL, or BLOCKED.
+- Use PASS only when every non-deferred acceptance criterion is demonstrated by evidence and no blocking condition exists.
+- Use FAIL or BLOCKED on missing local evidence, skipped relevant local tests, regression, stale authority, unverifiable claims, or candidate mismatch.
+- End the report with exactly one candidate line and exactly one mapped machine verdict line:
+  PASS    -> BAGO_VERDICT: PREVERIFIED
+  FAIL    -> BAGO_VERDICT: FAILED
+  BLOCKED -> BAGO_VERDICT: BLOCKED
   BAGO_CANDIDATE_SHA: $candidateSha
-  BAGO_VERDICT: PREVERIFIED|BLOCKED|FAILED
 "@
             & $Workpack -Task "22-verify-change" -RepoRoot $worktree -RunId "$RunId-$($front.id)-verify" -Extra $verifyExtra
             if ($LASTEXITCODE -ne 0) { throw "verification agent failed" }
@@ -271,8 +276,10 @@ Final VERIFIED state still requires repository PR checks for this exact SHA. VAL
 
                 Write-Ledger $front "VERIFIED" "pr=$prNumber candidate=$candidateSha; independent preverification plus green PR checks"
 
-                if (-not $NoMerge) {
-                    Invoke-Checked { gh pr merge $prNumber --repo $ExpectedRepository --squash } "PR merge request"
+                if ($NoMerge) {
+                    $stoppedAtVerified = $front.id
+                } else {
+                    Invoke-Checked { gh pr merge $prNumber --repo $ExpectedRepository --squash --match-head-commit $candidateSha } "PR merge request"
                     $mergeSha = Wait-ForConfirmedMerge -PrNumber $prNumber -CandidateSha $candidateSha
                     Write-Ledger $front "VALIDATED" "pr=$prNumber candidate=$candidateSha merge=$mergeSha; GitHub confirmed MERGED"
                 }
@@ -281,6 +288,11 @@ Final VERIFIED state still requires repository PR checks for this exact SHA. VAL
 
             Invoke-Checked { git worktree remove --force $worktree } "remove completed worktree"
             git branch -D $branch 2>$null | Out-Null
+
+            if ($stoppedAtVerified) {
+                Write-Host "NoMerge stops after VERIFIED front $stoppedAtVerified so the next front cannot be based on origin/main without this unmerged dependency."
+                break
+            }
         }
         catch {
             Write-Ledger $front "BLOCKED" ("worktree=$worktree branch=$branch; " + $_.Exception.Message)
@@ -290,7 +302,11 @@ Final VERIFIED state still requires repository PR checks for this exact SHA. VAL
     }
 
     Write-Host ""
-    Write-Host "All selected remediation fronts completed under governed gates."
+    if ($stoppedAtVerified) {
+        Write-Host "Stopped safely at VERIFIED $stoppedAtVerified because -NoMerge was requested. Merge that PR before continuing dependent fronts."
+    } else {
+        Write-Host "All selected remediation fronts completed under governed gates."
+    }
     Write-Host "Ledger: $LedgerPath"
 }
 finally {
