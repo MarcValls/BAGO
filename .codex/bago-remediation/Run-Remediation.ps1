@@ -232,14 +232,18 @@ function Wait-ForCompletePrChecks([int]$PrNumber) {
     throw "PR checks did not reach a complete state for pr=$PrNumber within the bounded polling window"
 }
 
-function Wait-ForConfirmedMerge([int]$PrNumber, [string]$CandidateSha) {
+function Wait-ForConfirmedMerge([int]$PrNumber, [string]$CandidateSha, [string]$ExpectedBaseBranch) {
     for ($attempt = 0; $attempt -lt 120; $attempt++) {
-        $jsonText = (gh pr view $PrNumber --repo $ExpectedRepository --json state,mergedAt,mergeCommit,headRefOid | Out-String).Trim()
+        $jsonText = (gh pr view $PrNumber --repo $ExpectedRepository --json state,mergedAt,mergeCommit,headRefOid,baseRefName | Out-String).Trim()
         if ($LASTEXITCODE -ne 0) { throw "Unable to read PR state after merge request" }
         $view = $jsonText | ConvertFrom-Json
 
         if ($view.headRefOid -ne $CandidateSha) {
             throw "PR head moved while awaiting merge confirmation: expected $CandidateSha got $($view.headRefOid)"
+        }
+
+        if ($view.baseRefName -ne $ExpectedBaseBranch) {
+            throw "PR base branch moved while awaiting merge confirmation: expected $ExpectedBaseBranch got $($view.baseRefName)"
         }
 
         if ($view.state -eq "MERGED" -and $view.mergedAt) {
@@ -488,10 +492,12 @@ Final VERIFIED state still requires every workflow named in the remediation exec
                 Wait-ForRequiredWorkflowRuns -CandidateSha $candidateSha -RequiredWorkflowNames $requiredPrWorkflows
                 Wait-ForCompletePrChecks -PrNumber $prNumber
 
-                $headJson = (gh pr view $prNumber --repo $ExpectedRepository --json headRefOid | Out-String).Trim()
+                $headJson = (gh pr view $prNumber --repo $ExpectedRepository --json headRefOid,baseRefName | Out-String).Trim()
                 if ($LASTEXITCODE -ne 0) { throw "could not resolve PR head after checks" }
-                $headNow = ($headJson | ConvertFrom-Json).headRefOid
+                $prView = $headJson | ConvertFrom-Json
+                $headNow = $prView.headRefOid
                 if ($headNow -ne $candidateSha) { throw "PR head moved after preverification: expected $candidateSha got $headNow" }
+                if ($prView.baseRefName -ne $Plan.base_branch) { throw "PR base branch moved: expected $($Plan.base_branch) got $($prView.baseRefName)" }
 
                 Write-Ledger $front "VERIFIED" "pr=$prNumber candidate=$candidateSha; independent preverification plus required workflow runs and complete green PR checks"
 
@@ -499,7 +505,7 @@ Final VERIFIED state still requires every workflow named in the remediation exec
                     $stoppedAtVerified = $front.id
                 } else {
                     Invoke-Checked { gh pr merge $prNumber --repo $ExpectedRepository --squash --match-head-commit $candidateSha } "PR merge request"
-                    $mergeSha = Wait-ForConfirmedMerge -PrNumber $prNumber -CandidateSha $candidateSha
+                    $mergeSha = Wait-ForConfirmedMerge -PrNumber $prNumber -CandidateSha $candidateSha -ExpectedBaseBranch $Plan.base_branch
                     Write-Ledger $front "VALIDATED" "pr=$prNumber candidate=$candidateSha merge=$mergeSha; GitHub confirmed MERGED"
                 }
             }
