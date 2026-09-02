@@ -334,9 +334,17 @@ def test_github_review_provenance_requires_matching_approved_review(monkeypatch)
         "package_sha256": "package-sha",
         "github": {"repository": "example/BAGO", "pull_request": 200, "review_id": 123},
     }
+    approved_body = "\n".join((
+        "attestation: bago.protected-remediation-attestation.v1",
+        "contract: bago.independent-review.github.v2",
+        "result: PASS",
+        f"candidate_sha: {'a' * 40}",
+        "package_sha256: package-sha",
+    ))
     monkeypatch.setattr(module, "_github_pull_review", lambda *_args: {
         "state": "APPROVED", "commit_id": "a" * 40,
         "user": {"login": "independent-test-reviewer"},
+        "body": approved_body,
     })
     fingerprint = {"remote": "git@github.com:example/BAGO.git"}
     assert module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
@@ -344,15 +352,37 @@ def test_github_review_provenance_requires_matching_approved_review(monkeypatch)
     monkeypatch.setattr(module, "_github_pull_review", lambda *_args: {
         "state": "APPROVED", "commit_id": "b" * 40,
         "user": {"login": "independent-test-reviewer"},
+        "body": approved_body,
     })
     assert not module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
 
     monkeypatch.setattr(module, "_github_pull_review", lambda *_args: {
         "state": "APPROVED", "commit_id": "a" * 40,
-        "user": {"login": "different-github-user"},
+        "user": {"login": "different-github-user"}, "body": approved_body,
     })
     assert not module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
 
+
+@pytest.mark.parametrize("body", [
+    "",
+    "attestation: bago.protected-remediation-attestation.v1\ncontract: bago.independent-review.github.v2\nresult: PASS\ncandidate_sha: " + "a" * 40,
+    "attestation: bago.protected-remediation-attestation.v1\ncontract: bago.independent-review.github.v2\nresult: PASS\ncandidate_sha: " + "a" * 40 + "\npackage_sha256: different-package",
+])
+def test_github_review_provenance_rejects_missing_or_mismatched_package_attestation(monkeypatch, body: str) -> None:
+    module = _module()
+    review = {
+        "contract": "bago.independent-review.github.v2", "result": "PASS",
+        "reviewer": "independent-test-reviewer", "candidate_sha": "a" * 40,
+        "package_sha256": "package-sha",
+        "github": {"repository": "example/BAGO", "pull_request": 200, "review_id": 123},
+    }
+    monkeypatch.setattr(module, "_github_pull_review", lambda *_args: {
+        "state": "APPROVED", "commit_id": "a" * 40,
+        "user": {"login": "independent-test-reviewer"}, "body": body,
+    })
+    assert not module._verify_independent_review(
+        review, {"remote": "git@github.com:example/BAGO.git"}, "a" * 40, "package-sha"
+    )
 
 def test_github_review_provenance_fails_closed_when_api_is_unavailable(monkeypatch) -> None:
     module = _module()

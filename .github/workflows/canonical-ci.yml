@@ -42,24 +42,7 @@ jobs:
           cache: npm
 
       - name: Validate version consistency
-        shell: pwsh
-        run: |
-          $rootVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $frontendVersion = (Get-Content frontend/package.json -Raw | ConvertFrom-Json).version
-          $electronVersion = (Get-Content electron-viewer/package.json -Raw | ConvertFrom-Json).version
-          $backendVersion = (Get-Content backend/release_version.txt -Raw).Trim()
-          $uiVersion = (Get-Content frontend/public/ui_config.json -Raw | ConvertFrom-Json).version
-
-          $versions = @($rootVersion, $frontendVersion, $electronVersion, $backendVersion, $uiVersion) | Select-Object -Unique
-          if ($versions.Count -ne 1) {
-            throw "Version drift detectado entre componentes BAGO"
-          }
-
-          if ("${{ github.ref }}".StartsWith("refs/tags/")) {
-            if ("v$rootVersion" -ne "${{ github.ref_name }}") {
-              throw "La tag ${{ github.ref_name }} no coincide con la versión $rootVersion"
-            }
-          }
+        run: python scripts/verify_version_consistency.py --tag "${{ github.ref_name }}" --is-tag "${{ startsWith(github.ref, 'refs/tags/') }}"
 
       - name: Install Python test dependencies
         run: python -m pip install pytest==9.0.3 numpy==2.4.4 tzdata

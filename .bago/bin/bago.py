@@ -25,6 +25,7 @@ _LIFECYCLE = ("PROPOSED", "PREPARED", "EXECUTED", "VERIFIED", "VALIDATED")
 _MANUAL_STATES = frozenset(_LIFECYCLE[:3])
 _REMEDIATION_RECEIPT_CONTRACT = "bago.third-party-remediation-verification.v1"
 _INDEPENDENT_REVIEW_CONTRACT = "bago.independent-review.github.v2"
+_GITHUB_REVIEW_ATTESTATION = "bago.protected-remediation-attestation.v1"
 
 
 def _repo_root() -> Path:
@@ -227,6 +228,25 @@ def _github_pull_review(repository: str, pull_request: int, review_id: int) -> d
     return value
 
 
+def _github_review_attestation_matches(remote_review: dict[str, Any], candidate: str, package_sha: str) -> bool:
+    """Require the GitHub-hosted approval body to bind the remediation package."""
+    body = remote_review.get("body")
+    if not isinstance(body, str):
+        return False
+    fields: dict[str, str] = {}
+    for line in body.splitlines():
+        match = re.fullmatch(r"\s*([a-z0-9_]+)\s*:\s*([^\s]+)\s*", line)
+        if match:
+            fields[match.group(1)] = match.group(2)
+    return (
+        fields.get("attestation") == _GITHUB_REVIEW_ATTESTATION
+        and fields.get("contract") == _INDEPENDENT_REVIEW_CONTRACT
+        and fields.get("result") == "PASS"
+        and fields.get("candidate_sha") == candidate
+        and fields.get("package_sha256") == package_sha
+    )
+
+
 def _verify_independent_review(review: dict[str, Any], fp: dict[str, Any], candidate: str, package_sha: str) -> bool:
     """Verify review content and GitHub-authenticated provenance for a candidate."""
     if review.get("contract") != _INDEPENDENT_REVIEW_CONTRACT or review.get("result") != "PASS":
@@ -258,6 +278,7 @@ def _verify_independent_review(review: dict[str, Any], fp: dict[str, Any], candi
         and remote_review.get("commit_id") == candidate
         and isinstance(remote_user, dict)
         and remote_user.get("login") == reviewer
+        and _github_review_attestation_matches(remote_review, candidate, package_sha)
     )
 
 
