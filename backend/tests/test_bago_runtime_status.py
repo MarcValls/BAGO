@@ -384,6 +384,41 @@ def test_github_review_provenance_rejects_missing_or_mismatched_package_attestat
         review, {"remote": "git@github.com:example/BAGO.git"}, "a" * 40, "package-sha"
     )
 
+
+@pytest.mark.parametrize("field, value", [
+    ("attestation", "bago.protected-remediation-attestation.v1"),
+    ("contract", "bago.independent-review.github.v2"),
+    ("result", "PASS"),
+    ("candidate_sha", "a" * 40),
+    ("package_sha256", "package-sha"),
+])
+@pytest.mark.parametrize("duplicate_value", ["same", "different"])
+def test_github_review_provenance_rejects_duplicate_binding_fields(monkeypatch, field: str, value: str, duplicate_value: str) -> None:
+    module = _module()
+    expected = {
+        "attestation": "bago.protected-remediation-attestation.v1",
+        "contract": "bago.independent-review.github.v2",
+        "result": "PASS",
+        "candidate_sha": "a" * 40,
+        "package_sha256": "package-sha",
+    }
+    repeated = expected[field] if duplicate_value == "same" else f"different-{value}"
+    body = "\n".join(f"{key}: {item}" for key, item in expected.items()) + f"\n{field}: {repeated}"
+    review = {
+        "contract": expected["contract"], "result": expected["result"],
+        "reviewer": "independent-test-reviewer", "candidate_sha": expected["candidate_sha"],
+        "package_sha256": expected["package_sha256"],
+        "github": {"repository": "example/BAGO", "pull_request": 200, "review_id": 123},
+    }
+    monkeypatch.setattr(module, "_github_pull_review", lambda *_args: {
+        "state": "APPROVED", "commit_id": expected["candidate_sha"],
+        "user": {"login": "independent-test-reviewer"}, "body": body,
+    })
+    assert not module._verify_independent_review(
+        review, {"remote": "git@github.com:example/BAGO.git"}, expected["candidate_sha"], expected["package_sha256"]
+    )
+
+
 def test_github_review_provenance_fails_closed_when_api_is_unavailable(monkeypatch) -> None:
     module = _module()
     monkeypatch.setattr(

@@ -233,18 +233,21 @@ def _github_review_attestation_matches(remote_review: dict[str, Any], candidate:
     body = remote_review.get("body")
     if not isinstance(body, str):
         return False
-    fields: dict[str, str] = {}
+    required = {
+        "attestation": _GITHUB_REVIEW_ATTESTATION,
+        "contract": _INDEPENDENT_REVIEW_CONTRACT,
+        "result": "PASS",
+        "candidate_sha": candidate,
+        "package_sha256": package_sha,
+    }
+    fields: dict[str, list[str]] = {key: [] for key in required}
     for line in body.splitlines():
         match = re.fullmatch(r"\s*([a-z0-9_]+)\s*:\s*([^\s]+)\s*", line)
-        if match:
-            fields[match.group(1)] = match.group(2)
-    return (
-        fields.get("attestation") == _GITHUB_REVIEW_ATTESTATION
-        and fields.get("contract") == _INDEPENDENT_REVIEW_CONTRACT
-        and fields.get("result") == "PASS"
-        and fields.get("candidate_sha") == candidate
-        and fields.get("package_sha256") == package_sha
-    )
+        if match and match.group(1) in fields:
+            fields[match.group(1)].append(match.group(2))
+    # A review body is authenticated GitHub data, but it is still free-form
+    # Markdown. Require one unambiguous declaration of every bound property.
+    return all(fields[key] == [value] for key, value in required.items())
 
 
 def _verify_independent_review(review: dict[str, Any], fp: dict[str, Any], candidate: str, package_sha: str) -> bool:
