@@ -344,10 +344,21 @@ $PlanHash = (Get-FileHash -Path $PlanPath -Algorithm SHA256).Hash
 # [System.IO.Path]::GetRelativePath is a .NET Core / PowerShell 7+ API and is
 # not present in Windows PowerShell 5.1 (powershell.exe), which is how this
 # script is documented to run. Compute the relative path with plain string
-# manipulation instead, which works identically on both hosts.
+# manipulation instead, which works identically on both hosts. A plain
+# StartsWith prefix check is not sufficient: "C:\src\BAGO-old" shares a
+# string prefix with "C:\src\BAGO" without being inside it, so the match must
+# additionally land on a directory boundary (the next character after the
+# repo root must be a path separator, or the plan path must equal the repo
+# root exactly).
 $planAbsolute = (Resolve-Path $PlanPath).Path
-$repoAbsolute = (Resolve-Path $Repo).Path
-if (-not $planAbsolute.StartsWith($repoAbsolute, [System.StringComparison]::OrdinalIgnoreCase)) {
+$repoAbsolute = ((Resolve-Path $Repo).Path).TrimEnd('\', '/')
+$planStartsWithRepo = $planAbsolute.StartsWith($repoAbsolute, [System.StringComparison]::OrdinalIgnoreCase)
+$boundaryOk = $planStartsWithRepo -and (
+    $planAbsolute.Length -eq $repoAbsolute.Length -or
+    $planAbsolute[$repoAbsolute.Length] -eq '\' -or
+    $planAbsolute[$repoAbsolute.Length] -eq '/'
+)
+if (-not $boundaryOk) {
     throw "Remediation plan path $planAbsolute is not inside the repository root $repoAbsolute"
 }
 $PlanRepoRelativePath = $planAbsolute.Substring($repoAbsolute.Length).TrimStart('\', '/') -replace '\\', '/'

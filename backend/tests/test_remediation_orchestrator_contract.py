@@ -206,11 +206,19 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
         '$path = [string]$RequiredWorkflowIds[$required].path',
         'git diff --name-only $BaseSha HEAD',
         '$planAbsolute = (Resolve-Path $PlanPath).Path',
-        '$repoAbsolute = (Resolve-Path $Repo).Path',
+        "$repoAbsolute = ((Resolve-Path $Repo).Path).TrimEnd('\\', '/')",
         'is not inside the repository root',
+        "$planAbsolute.StartsWith($repoAbsolute, [System.StringComparison]::OrdinalIgnoreCase)",
+        "$planAbsolute[$repoAbsolute.Length] -eq '\\' -or",
     ]
     for fragment in required_fragments:
         assert fragment in text
+
+    # A plain StartsWith prefix check on the repo root is not sufficient: a
+    # sibling directory sharing a string prefix (e.g. "BAGO-old" vs "BAGO")
+    # must not be accepted as "inside" the repository. The match must land on
+    # a directory boundary.
+    assert 'boundaryOk' in text
 
     # A required workflow's numeric ID stays stable even if a candidate edits
     # the trusted `.yml` file's content in place (e.g. gutting its jobs to a
