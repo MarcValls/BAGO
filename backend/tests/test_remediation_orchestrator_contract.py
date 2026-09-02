@@ -178,6 +178,8 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
         '--match-head-commit $candidateSha',
         'Wait-ForConfirmedMerge',
         '$view.state -eq "MERGED"',
+        '-cne $Plan.base_branch',
+        '-cne $ExpectedBaseBranch',
         'PR base branch moved: expected $($Plan.base_branch) got $($prView.baseRefName)',
         'PR base branch moved while awaiting merge confirmation: expected $ExpectedBaseBranch got $($view.baseRefName)',
         '-ExpectedBaseBranch $Plan.base_branch',
@@ -202,6 +204,24 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
     # enter gh-pr-checks watch mode before GitHub has registered the required
     # workflow runs for the exact candidate SHA.
     assert "gh pr checks $prNumber --repo $ExpectedRepository --watch" not in text
+
+    # Front preparation (fetch base, resolve base SHA, create worktree) must
+    # be inside the per-front try block so a failure there is recorded as
+    # BLOCKED with evidence, instead of leaving the ledger stuck at PREPARED.
+    prepared_index = text.index('Write-Ledger $front "PREPARED"')
+    fetch_base_index = text.index('Invoke-Checked { git fetch origin $($Plan.base_branch) } "fetch base"')
+    try_index = text.index("try {", prepared_index)
+    assert prepared_index < try_index < fetch_base_index, (
+        "front preparation (fetch/resolve base SHA/create worktree) must be inside the "
+        "per-front try block so failures there are caught and recorded as BLOCKED"
+    )
+
+    # Case-only retargeting (e.g. "main" -> "Main") must not bypass the base
+    # branch guard: PowerShell's default `-ne` is case-insensitive, so both
+    # base-branch checks must use the case-sensitive `-cne` operator.
+    assert "$prView.baseRefName -ne $Plan.base_branch" not in text
+    assert "$view.baseRefName -ne $ExpectedBaseBranch" not in text
+
 
     # The origin check must be anchored (no leading `^`) so a lookalike host
     # such as "evilgithub.com" cannot satisfy it merely by containing

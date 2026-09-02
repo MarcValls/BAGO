@@ -242,7 +242,7 @@ function Wait-ForConfirmedMerge([int]$PrNumber, [string]$CandidateSha, [string]$
             throw "PR head moved while awaiting merge confirmation: expected $CandidateSha got $($view.headRefOid)"
         }
 
-        if ($view.baseRefName -ne $ExpectedBaseBranch) {
+        if ($view.baseRefName -cne $ExpectedBaseBranch) {
             throw "PR base branch moved while awaiting merge confirmation: expected $ExpectedBaseBranch got $($view.baseRefName)"
         }
 
@@ -359,17 +359,18 @@ try {
         Write-Host "============================================================"
         Write-Ledger $front "PREPARED" "starting front"
 
-        Invoke-Checked { git fetch origin $($Plan.base_branch) } "fetch base"
-        $baseSha = (git rev-parse "origin/$($Plan.base_branch)" | Out-String).Trim()
-        if ($LASTEXITCODE -ne 0 -or -not $baseSha) { throw "Could not resolve base SHA" }
+        try {
+            Invoke-Checked { git fetch origin $($Plan.base_branch) } "fetch base"
+            $baseSha = (git rev-parse "origin/$($Plan.base_branch)" | Out-String).Trim()
+            if ($LASTEXITCODE -ne 0 -or -not $baseSha) { throw "Could not resolve base SHA" }
 
-        if (Test-Path $worktree) {
-            throw "Worktree path already exists and will not be destroyed automatically: $worktree"
-        }
-        Invoke-Checked { git worktree add -b $branch $worktree $baseSha } "create worktree"
+            if (Test-Path $worktree) {
+                throw "Worktree path already exists and will not be destroyed automatically: $worktree"
+            }
+            Invoke-Checked { git worktree add -b $branch $worktree $baseSha } "create worktree"
 
-        $acceptance = ($front.acceptance | ForEach-Object { "- $_" }) -join "`n"
-        $extra = @"
+            $acceptance = ($front.acceptance | ForEach-Object { "- $_" }) -join "`n"
+            $extra = @"
 APPROVED_REMEDIATION_FRONT
 ID: $($front.id)
 Priority: $($front.priority)
@@ -389,15 +390,14 @@ Execution rules:
 - If the front is too broad for one safe PR, implement the smallest dependency-safe slice that makes measurable progress and explicitly return BLOCKED with the remaining decomposition instead of claiming success.
 "@
 
-        if ($DryRun) {
-            Write-Host "DRY RUN: would invoke implementation task $implementationTask and verification task $verificationTask for $($front.id) on $branch"
-            Write-Ledger $front "DRY_RUN" "base=$baseSha branch=$branch; no agent mutation executed"
-            Invoke-Checked { git worktree remove --force $worktree } "remove dry-run worktree"
-            git branch -D $branch 2>$null | Out-Null
-            continue
-        }
+            if ($DryRun) {
+                Write-Host "DRY RUN: would invoke implementation task $implementationTask and verification task $verificationTask for $($front.id) on $branch"
+                Write-Ledger $front "DRY_RUN" "base=$baseSha branch=$branch; no agent mutation executed"
+                Invoke-Checked { git worktree remove --force $worktree } "remove dry-run worktree"
+                git branch -D $branch 2>$null | Out-Null
+                continue
+            }
 
-        try {
             & $Workpack -Task $implementationTask -RepoRoot $worktree -RunId $implementationRunId -Extra $extra
             if ($LASTEXITCODE -ne 0) { throw "implementation agent failed" }
 
@@ -497,7 +497,7 @@ Final VERIFIED state still requires every workflow named in the remediation exec
                 $prView = $headJson | ConvertFrom-Json
                 $headNow = $prView.headRefOid
                 if ($headNow -ne $candidateSha) { throw "PR head moved after preverification: expected $candidateSha got $headNow" }
-                if ($prView.baseRefName -ne $Plan.base_branch) { throw "PR base branch moved: expected $($Plan.base_branch) got $($prView.baseRefName)" }
+                if ($prView.baseRefName -cne $Plan.base_branch) { throw "PR base branch moved: expected $($Plan.base_branch) got $($prView.baseRefName)" }
 
                 Write-Ledger $front "VERIFIED" "pr=$prNumber candidate=$candidateSha; independent preverification plus required workflow runs and complete green PR checks"
 
