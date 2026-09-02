@@ -14,6 +14,7 @@ $PlanPath = Join-Path $Here "remediation-plan.json"
 $VerdictModule = Join-Path $Here "VerificationVerdict.psm1"
 $Workpack = Join-Path (Split-Path -Parent $Here) "bago-workpack\Run.ps1"
 $ExpectedRepository = "MarcValls/BAGO"
+$ExpectedPlanSchema = "1.1"
 
 function Require-Command([string]$Name) {
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
@@ -24,6 +25,61 @@ function Require-Command([string]$Name) {
 function Invoke-Checked([scriptblock]$Command, [string]$What) {
     & $Command
     if ($LASTEXITCODE -ne 0) { throw "$What failed with exit code $LASTEXITCODE" }
+}
+
+function Assert-ObjectProperty($Object, [string]$Name, [string]$Path) {
+    if ($null -eq $Object) { throw "Missing required plan object: $Path" }
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property -or $null -eq $property.Value) {
+        throw "Missing required plan property: $Path.$Name"
+    }
+    if ($property.Value -is [string] -and [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+        throw "Required plan property is blank: $Path.$Name"
+    }
+}
+
+function Assert-PlanContract($PlanObject) {
+    Assert-ObjectProperty $PlanObject "schema_version" "plan"
+    Assert-ObjectProperty $PlanObject "base_branch" "plan"
+    Assert-ObjectProperty $PlanObject "execution_policy" "plan"
+    Assert-ObjectProperty $PlanObject "fronts" "plan"
+
+    if ([string]$PlanObject.schema_version -ne $ExpectedPlanSchema) {
+        throw "Unsupported remediation plan schema '$($PlanObject.schema_version)'; expected '$ExpectedPlanSchema'"
+    }
+
+    $policy = $PlanObject.execution_policy
+    Assert-ObjectProperty $policy "implementation_task" "plan.execution_policy"
+    Assert-ObjectProperty $policy "verification_task" "plan.execution_policy"
+    Assert-ObjectProperty $policy "required_pr_workflows" "plan.execution_policy"
+
+    $requiredWorkflows = @($policy.required_pr_workflows)
+    if ($requiredWorkflows.Count -eq 0) {
+        throw "plan.execution_policy.required_pr_workflows must contain at least one workflow"
+    }
+    foreach ($workflow in $requiredWorkflows) {
+        if ([string]::IsNullOrWhiteSpace([string]$workflow)) {
+            throw "plan.execution_policy.required_pr_workflows contains a blank workflow name"
+        }
+    }
+
+    $fronts = @($PlanObject.fronts)
+    if ($fronts.Count -eq 0) { throw "Remediation plan contains no fronts" }
+    $seen = @{}
+    foreach ($front in $fronts) {
+        Assert-ObjectProperty $front "id" "plan.fronts[]"
+        Assert-ObjectProperty $front "priority" "plan.fronts[$($front.id)]"
+        Assert-ObjectProperty $front "title" "plan.fronts[$($front.id)]"
+        Assert-ObjectProperty $front "objective" "plan.fronts[$($front.id)]"
+        Assert-ObjectProperty $front "acceptance" "plan.fronts[$($front.id)]"
+        if (@($front.acceptance).Count -eq 0) {
+            throw "Front '$($front.id)' has no acceptance criteria"
+        }
+        if ($seen.ContainsKey([string]$front.id)) {
+            throw "Duplicate remediation front id '$($front.id)'"
+        }
+        $seen[[string]$front.id] = $true
+    }
 }
 
 function Get-AbsoluteGitDir([string]$RepositoryRoot) {
@@ -106,6 +162,10 @@ if (-not (Test-Path $Workpack)) { throw "Missing BAGO workpack runner: $Workpack
 
 Import-Module $VerdictModule -Force
 $Plan = Get-Content $PlanPath -Raw | ConvertFrom-Json
+Assert-PlanContract $Plan
+$implementationTask = [string]$Plan.execution_policy.implementation_task
+$verificationTask = [string]$Plan.execution_policy.verification_task
+$requiredPrWorkflows = @($Plan.execution_policy.required_pr_workflows)
 $safeRunId = ($RunId -replace '[^A-Za-z0-9._-]+','-').Trim('-')
 if (-not $safeRunId) { throw "RunId must contain at least one safe character" }
 
@@ -129,11 +189,6 @@ try {
     if ($startIndex -lt 0) {
         $valid = ($Plan.fronts.id -join ", ")
         throw "Unknown StartAt '$StartAt'. Valid fronts: $valid"
-    }
-
-    $requiredPrWorkflows = @($Plan.execution_policy.required_pr_workflows)
-    if ($requiredPrWorkflows.Count -eq 0) {
-        throw "Remediation plan must declare at least one required_pr_workflows entry"
     }
 
     $gitDir = Get-AbsoluteGitDir $Repo
@@ -208,7 +263,7 @@ Execution rules:
 "@
 
         if ($DryRun) {
-            Write-Host "DRY RUN: would invoke implementation and verifier for $($front.id) on $branch"
+            Write-Host "DRY RUN: would invoke implementation task $implementationTask and verification task $verificationTask for $($front.id) on $branch"
             Write-Ledger $front "DRY_RUN" "base=$baseSha branch=$branch; no agent mutation executed"
             Invoke-Checked { git worktree remove --force $worktree } "remove dry-run worktree"
             git branch -D $branch 2>$null | Out-Null
@@ -216,7 +271,7 @@ Execution rules:
         }
 
         try {
-            & $Workpack -Task "20-implement-approved-pr" -RepoRoot $worktree -RunId "$RunId-$($front.id)-impl" -Extra $extra
+            & $Workpack -Task $implementationTask -RepoRoot $worktree -RunId "$RunId-$($front.id)-impl" -Extra $extra
             if ($LASTEXITCODE -ne 0) { throw "implementation agent failed" }
 
             Push-Location $worktree
@@ -254,10 +309,10 @@ Verification rules:
   BLOCKED -> BAGO_VERDICT: BLOCKED
   BAGO_CANDIDATE_SHA: $candidateSha
 "@
-            & $Workpack -Task "22-verify-change" -RepoRoot $worktree -RunId "$RunId-$($front.id)-verify" -Extra $verifyExtra
+            & $Workpack -Task $verificationTask -RepoRoot $worktree -RunId "$RunId-$($front.id)-verify" -Extra $verifyExtra
             if ($LASTEXITCODE -ne 0) { throw "verification agent failed" }
 
-            $verifyReport = Join-Path (Split-Path -Parent $Workpack) "reports\$RunId-$($front.id)-verify\22-verify-change.md"
+            $verifyReport = Join-Path (Split-Path -Parent $Workpack) ("reports\$RunId-$($front.id)-verify\" + $verificationTask + ".md")
             if (-not (Test-Path $verifyReport)) { throw "verification report missing: $verifyReport" }
             $reportText = Get-Content $verifyReport -Raw
             $verdict = Get-BagoPreverificationVerdict -ReportText $reportText -ExpectedCandidateSha $candidateSha
