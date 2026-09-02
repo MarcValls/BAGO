@@ -15,12 +15,13 @@ For every front:
 7. Require a second strict machine contract with exactly one `BAGO_CANDIDATE_SHA: <sha>` and one mapped verdict: `PASS -> PREVERIFIED`, `FAIL -> FAILED`, `BLOCKED -> BLOCKED`.
 8. Stop unless both verdict layers agree on `PASS/PREVERIFIED` for the exact candidate and verification leaves HEAD/worktree unchanged.
 9. Push the candidate and create a PR.
-10. Wait for GitHub PR checks and re-check that the PR head still equals the preverified SHA.
-11. Require explicit successful evidence for every workflow declared by `execution_policy.required_pr_workflows`; a missing workflow or skipped-only workflow cannot satisfy this gate.
-12. Record `VERIFIED` only after independent preverification plus those required green PR workflows for the exact SHA.
-13. Request squash merge with `--match-head-commit <candidate-sha>` so a head change cannot win a check/merge race.
-14. Poll GitHub until the PR is actually reported `MERGED`; only then record `VALIDATED`.
-15. Record every transition in a JSONL ledger stored below the repository Git directory, outside tracked worktree state.
+10. Poll GitHub Actions by exact candidate SHA until every workflow declared by `execution_policy.required_pr_workflows` exists and its latest run completes successfully.
+11. Run the complete PR-check query as an additional gate so non-required checks can still block integration.
+12. Re-check that the PR head still equals the preverified SHA.
+13. Record `VERIFIED` only after independent preverification plus required successful workflow runs and a green complete PR-check set for the exact SHA.
+14. Request squash merge with `--match-head-commit <candidate-sha>` so a head change cannot win a check/merge race.
+15. Poll GitHub until the PR is actually reported `MERGED`; only then record `VALIDATED`.
+16. Record every transition in a JSONL ledger stored below the repository Git directory, outside tracked worktree state.
 
 The process is deliberately fail-closed. Automatic closure means "close when demonstrated", never "force success".
 
@@ -32,7 +33,7 @@ The process is deliberately fail-closed. Automatic closure means "close when dem
 - `Validate Expected`
 - `njsscan sarif`
 
-The supervisor first waits for PR checks, then enumerates them and proves that each named workflow is present, has at least one passing check, and has no failing, cancelled, or pending check. Skipped jobs may coexist with passing jobs when they are intentionally inapplicable, but skipped-only evidence is insufficient.
+The supervisor polls `gh run list` for the exact candidate SHA and `pull_request` event. This removes the registration race where a newly-created PR temporarily has no visible check entries. For each required workflow, the newest matching run must reach `completed/success`; missing, pending, cancelled, failed or otherwise non-successful required runs cannot promote the candidate. Once these workflow gates pass, the supervisor also requires the complete PR check set to pass.
 
 ## State semantics
 
@@ -40,7 +41,7 @@ The supervisor first waits for PR checks, then enumerates them and proves that e
 - `EXECUTED`: worker produced a committed candidate.
 - `PREVERIFIED`: independent read-only verifier returned the workpack `PASS` verdict and the candidate-bound machine verdict for all non-deferred criteria. GitHub CI/merge gates have not yet been claimed.
 - `PR_OPEN`: candidate was pushed and a PR exists.
-- `VERIFIED`: exact candidate has independent preverification and explicit green evidence from every required PR workflow.
+- `VERIFIED`: exact candidate has independent preverification, explicit successful evidence from every required PR workflow, and a green complete PR-check set.
 - `VALIDATED`: GitHub additionally confirms that the SHA-pinned verified PR is merged.
 - `BLOCKED`: a required invariant, test, evidence item, tool, review, CI or merge-confirmation gate failed or is missing. The orchestration stops immediately.
 
@@ -93,7 +94,8 @@ The blocked run's ledger, branch and worktree are preserved for inspection rathe
 - Verification evidence from another SHA is stale by default.
 - Candidate HEAD/worktree mutation during verification invalidates the pass.
 - A moved PR head invalidates preverification.
-- Generic green checks are insufficient if a required workflow is absent.
+- A newly-created PR cannot fail open merely because checks have not registered yet.
+- Generic green checks are insufficient if a required workflow is absent or not successful.
 - The merge request is atomically pinned to the verified candidate SHA.
 - Green CI alone does not replace independent preverification.
 - A successful merge command alone does not imply `VALIDATED`; GitHub must report `MERGED`.
@@ -103,7 +105,7 @@ The blocked run's ledger, branch and worktree are preserved for inspection rathe
 
 ## Validation coverage
 
-`backend/tests/test_remediation_orchestrator_contract.py` falsifies missing/ambiguous verdicts, verdict disagreement, duplicate verdicts, candidate-SHA mismatch, required-workflow omission, missing SHA-pinned merge behavior and critical supervisor gate regressions on Canonical CI's Windows/PowerShell environment.
+`backend/tests/test_remediation_orchestrator_contract.py` falsifies missing/ambiguous verdicts, verdict disagreement, duplicate verdicts, candidate-SHA mismatch, required-workflow omission, the initial PR-check registration race, missing SHA-pinned merge behavior and critical supervisor gate regressions on Canonical CI's Windows/PowerShell environment.
 
 ## Files
 
