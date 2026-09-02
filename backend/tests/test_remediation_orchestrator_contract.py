@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import shutil
@@ -11,6 +12,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE = REPO_ROOT / ".codex" / "bago-remediation" / "VerificationVerdict.psm1"
 SUPERVISOR = REPO_ROOT / ".codex" / "bago-remediation" / "Run-Remediation.ps1"
+PLAN = REPO_ROOT / ".codex" / "bago-remediation" / "remediation-plan.json"
 POWERSHELL = shutil.which("powershell") or shutil.which("pwsh")
 CANDIDATE = "a" * 40
 
@@ -97,12 +99,26 @@ def test_nonpass_workpack_verdicts_are_machine_readable(
     assert result.stdout.strip().endswith(expected)
 
 
+def test_plan_requires_named_pr_workflows() -> None:
+    plan = json.loads(PLAN.read_text(encoding="utf-8"))
+    assert plan["schema_version"] == "1.1"
+    assert plan["execution_policy"]["required_pr_workflows"] == [
+        "Canonical CI",
+        "Validate Expected",
+        "njsscan sarif",
+    ]
+
+
 def test_supervisor_contains_required_authority_and_remote_gates() -> None:
     text = SUPERVISOR.read_text(encoding="utf-8")
 
     required_fragments = [
         'ExpectedRepository = "MarcValls/BAGO"',
         'Unknown StartAt',
+        'required_pr_workflows',
+        'Assert-RequiredPrWorkflows',
+        "Required PR workflow '$required' is missing for the exact candidate",
+        "skipped-only evidence is insufficient",
         'first non-empty line must be exactly PASS, FAIL, or BLOCKED',
         'BAGO_VERDICT: PREVERIFIED',
         'Get-BagoPreverificationVerdict',
