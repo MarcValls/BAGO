@@ -128,6 +128,15 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _resolve_repo_path(value: Any, label: str) -> Path:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"missing {label}")
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = _repo_root() / path
+    return path.resolve()
+
+
 def _sha_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -259,14 +268,15 @@ def _has_current_protected_receipt(state: dict[str, Any], fp: dict[str, Any]) ->
     if receipt.get("candidate_sha") != fp.get("commit") or receipt.get("package_sha256") is None:
         return False
     try:
-        package = Path(str(receipt["package"]))
-        verification = _load_json_object(Path(str(receipt["receipt"])), "verification receipt")
+        package = _resolve_repo_path(receipt.get("package"), "package path")
+        receipt_path = _resolve_repo_path(receipt.get("receipt"), "verification receipt path")
+        verification = _load_json_object(receipt_path, "verification receipt")
         if _sha_file(package) != receipt["package_sha256"]:
             return False
         if _remediation_candidate(package) != fp.get("commit"):
             return False
         recalculated = _verify_remediation_package(package)
-        if receipt.get("receipt_sha256") != _sha_file(Path(str(receipt["receipt"]))):
+        if receipt.get("receipt_sha256") != _sha_file(receipt_path):
             return False
         verified = (
             verification.get("contract") == _REMEDIATION_RECEIPT_CONTRACT
@@ -275,7 +285,7 @@ def _has_current_protected_receipt(state: dict[str, Any], fp: dict[str, Any]) ->
             and verification.get("package_sha256") == receipt["package_sha256"]
             and all(verification.get(key) == recalculated.get(key) for key in ("contract", "result", "package", "package_sha256"))
         )
-        review_path = Path(str(receipt["review"]))
+        review_path = _resolve_repo_path(receipt.get("review"), "independent review path")
         review = _load_json_object(review_path, "independent review receipt")
         return verified and receipt.get("review_sha256") == _sha_file(review_path) and _verify_independent_review(
             review, fp, str(fp.get("commit")), str(receipt["package_sha256"])
