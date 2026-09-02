@@ -1,32 +1,46 @@
 # BAGO 15-point governed remediation
 
-This package turns the 15 remediation fronts into a single governed Codex orchestration built on the existing `.codex/bago-workpack` roles.
+This package turns the 15 remediation fronts into one governed Codex orchestration built on the existing `.codex/bago-workpack` roles.
 
 ## Contract
 
 For every front:
 
-1. Fetch current `origin/main`.
-2. Create an isolated Git worktree and remediation branch.
+1. Fetch current `origin/main` and verify that `origin` is `MarcValls/BAGO`.
+2. Create a unique isolated Git worktree and remediation branch without deleting prior evidence.
 3. Run `20-implement-approved-pr` with the front objective and acceptance criteria.
-4. Commit the resulting candidate.
-5. Run `22-verify-change` independently and read-only against that exact candidate SHA.
-6. Stop unless the verifier explicitly returns `VERIFIED` and no blocking/failure state.
-7. Push the candidate and create a PR.
-8. Wait for GitHub PR checks.
-9. Re-check that the PR head SHA is still the independently verified candidate.
-10. Squash-merge only when all gates remain green.
-11. Record lifecycle state in a JSONL run ledger.
+4. Commit the resulting candidate and bind it to an exact SHA.
+5. Run `22-verify-change` independently and read-only against that exact candidate.
+6. Require the strict machine contract `BAGO_CANDIDATE_SHA: <sha>` plus exactly one `BAGO_VERDICT: PREVERIFIED|BLOCKED|FAILED` line.
+7. Stop unless the verifier returns `PREVERIFIED` for the exact candidate and leaves both HEAD and the worktree unchanged.
+8. Push the candidate and create a PR.
+9. Wait for GitHub PR checks and re-check that the PR head still equals the preverified SHA.
+10. Record `VERIFIED` only after independent preverification plus green PR checks for that exact SHA.
+11. Request squash merge only when all gates remain green, then poll GitHub until the PR is actually reported `MERGED`.
+12. Record `VALIDATED` only after the remote merge is confirmed.
+13. Record every transition in a JSONL ledger stored below the repository Git directory, outside tracked worktree state.
 
 The process is deliberately fail-closed. Automatic closure means "close when demonstrated", never "force success".
+
+## State semantics
+
+- `PREPARED`: front selected and base resolved.
+- `EXECUTED`: worker produced a committed candidate.
+- `PREVERIFIED`: independent read-only verifier accepted all non-deferred criteria for the exact candidate SHA. GitHub CI/merge gates have not yet been claimed.
+- `PR_OPEN`: candidate was pushed and a PR exists.
+- `VERIFIED`: exact candidate has independent preverification and green GitHub PR checks.
+- `VALIDATED`: GitHub additionally confirms that the verified PR is merged.
+- `BLOCKED`: a required invariant, test, evidence item, tool, review, CI or merge-confirmation gate failed or is missing. The orchestration stops immediately.
+
+Acceptance criteria that explicitly require GitHub CI or confirmed merge are deferred external gates during `PREVERIFIED`; they are owned by the supervisor afterward and cannot be claimed by the verifier in advance.
 
 ## Prerequisites
 
 - clean BAGO worktree;
-- `git` authenticated for `MarcValls/BAGO`;
+- `origin` pointing to `MarcValls/BAGO`;
+- `git` authenticated for the repository;
 - GitHub CLI `gh` authenticated for `MarcValls/BAGO`;
-- Codex CLI available in PATH;
-- Codex CLI version compatible with `.codex/bago-workpack/Run.ps1`;
+- Codex CLI available in PATH and compatible with `.codex/bago-workpack/Run.ps1`;
 - repository CI configured and runnable.
 
 ## Dry run
@@ -47,34 +61,39 @@ powershell -ExecutionPolicy Bypass -File .codex\bago-remediation\Run-Remediation
 powershell -ExecutionPolicy Bypass -File .codex\bago-remediation\Run-Remediation.ps1 -RepoRoot . -NoMerge
 ```
 
-## Resume from a blocked front
+With `-NoMerge`, a front may reach `VERIFIED` but never `VALIDATED`.
+
+## Resume after a blocked front
+
+Use a new `RunId` and select the blocked front:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .codex\bago-remediation\Run-Remediation.ps1 -RepoRoot . -StartAt F06
+powershell -ExecutionPolicy Bypass -File .codex\bago-remediation\Run-Remediation.ps1 -RepoRoot . -RunId retry-001 -StartAt F06
 ```
 
-Replace `F06` with the front to resume.
-
-## States
-
-- `PREPARED`: front selected and base resolved.
-- `EXECUTED`: worker produced a committed candidate.
-- `VERIFIED`: independent verifier accepted the exact candidate and CI is green, but merge was intentionally disabled.
-- `VALIDATED`: independently verified candidate passed PR checks and was merged.
-- `BLOCKED`: a required invariant, test, evidence item, tool, review or CI gate failed/missing. Orchestration stops immediately.
+The blocked run's ledger, branch and worktree are preserved for inspection rather than silently destroyed.
 
 ## Safety / authority invariants
 
 - Workers cannot certify their own changes.
 - Verifiers run through the existing read-only verification task.
-- Evidence from another SHA is stale by default.
-- A moved PR head invalidates pre-PR verification.
-- No front may be marked successful merely because the implementation agent claims completion.
-- P0/P1/P2/P3 are processed in dependency-safe plan order; this version intentionally prefers correctness over parallel mutation.
+- Free-text mentions of words such as `VERIFIED` are not authority; only the strict machine verdict contract is parsed.
+- Verification evidence from another SHA is stale by default.
+- Candidate HEAD/worktree mutation during verification invalidates the pass.
+- A moved PR head invalidates preverification.
+- Green CI alone does not replace independent preverification.
+- A successful merge command alone does not imply `VALIDATED`; GitHub must report `MERGED`.
+- Prior branches/worktrees are not force-deleted on failure.
+- P0/P1/P2/P3 are processed sequentially in dependency-safe plan order.
 - Broad fronts may return `BLOCKED` with a smaller decomposition rather than forcing an unsafe mega-PR.
+
+## Validation coverage
+
+`backend/tests/test_remediation_orchestrator_contract.py` falsifies ambiguous verdicts, duplicate verdicts, candidate-SHA mismatch and critical supervisor gate regressions on Canonical CI's Windows/PowerShell environment.
 
 ## Files
 
 - `remediation-plan.json`: authoritative orchestration scope and acceptance criteria for F01-F15.
 - `Run-Remediation.ps1`: supervisor.
-- `runs/<RunId>/ledger.jsonl`: generated lifecycle/evidence index (local runtime output; do not treat as remote authority by itself).
+- `VerificationVerdict.psm1`: strict candidate-bound verdict parser.
+- `.git/bago-remediation-runs/<RunId>/ledger.jsonl`: local lifecycle/evidence index; it is not remote authority by itself.
