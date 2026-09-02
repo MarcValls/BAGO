@@ -39,11 +39,11 @@ def _invoke_verdict(report: str, expected_sha: str = CANDIDATE) -> subprocess.Co
     )
 
 
-def test_candidate_bound_pass_maps_to_preverified() -> None:
+def test_candidate_bound_pass_maps_to_preverified_case_insensitively() -> None:
     result = _invoke_verdict(
         "PASS\n"
         "Evidence summary\n"
-        f"BAGO_CANDIDATE_SHA: {CANDIDATE}\n"
+        f"BAGO_CANDIDATE_SHA: {CANDIDATE.upper()}\n"
         "BAGO_VERDICT: PREVERIFIED\n"
     )
     assert result.returncode == 0, result.stderr
