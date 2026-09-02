@@ -12,7 +12,7 @@ function Get-BagoPreverificationVerdict {
     )
 
     $nonEmptyLines = @(
-        ($ReportText -split "`r?`n") |
+        ($ReportText -split '\r?\n') |
             ForEach-Object { $_.Trim() } |
             Where-Object { $_ }
     )
@@ -46,7 +46,7 @@ function Get-BagoPreverificationVerdict {
 
     $shaMatches = [regex]::Matches(
         $ReportText,
-        '(?im)^\s*BAGO_CANDIDATE_SHA:\s*([0-9a-f]{40})\s*$'
+        '(?im)^\s*BAGO_CANDIDATE_SHA:\s*([0-9a-fA-F]{40})\s*$'
     )
     if ($shaMatches.Count -ne 1) {
         throw "Verification report must contain exactly one BAGO_CANDIDATE_SHA line"
