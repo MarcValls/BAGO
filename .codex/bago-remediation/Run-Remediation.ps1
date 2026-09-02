@@ -209,6 +209,7 @@ try {
         $entry = [ordered]@{
             timestamp = (Get-Date).ToUniversalTime().ToString("o")
             run_id = $RunId
+            run_id_safe = $safeRunId
             front = $front.id
             priority = $front.priority
             state = $state
@@ -225,6 +226,8 @@ try {
         if ($slug.Length -gt 34) { $slug = $slug.Substring(0,34).Trim('-') }
         $branch = "remediation/$($front.id.ToLowerInvariant())-$slug-$safeRunId"
         $worktree = Join-Path $WorktreeRoot $front.id
+        $implementationRunId = "$safeRunId-$($front.id)-impl"
+        $verificationRunId = "$safeRunId-$($front.id)-verify"
 
         Write-Host ""
         Write-Host "============================================================"
@@ -271,7 +274,7 @@ Execution rules:
         }
 
         try {
-            & $Workpack -Task $implementationTask -RepoRoot $worktree -RunId "$RunId-$($front.id)-impl" -Extra $extra
+            & $Workpack -Task $implementationTask -RepoRoot $worktree -RunId $implementationRunId -Extra $extra
             if ($LASTEXITCODE -ne 0) { throw "implementation agent failed" }
 
             Push-Location $worktree
@@ -309,10 +312,10 @@ Verification rules:
   BLOCKED -> BAGO_VERDICT: BLOCKED
   BAGO_CANDIDATE_SHA: $candidateSha
 "@
-            & $Workpack -Task $verificationTask -RepoRoot $worktree -RunId "$RunId-$($front.id)-verify" -Extra $verifyExtra
+            & $Workpack -Task $verificationTask -RepoRoot $worktree -RunId $verificationRunId -Extra $verifyExtra
             if ($LASTEXITCODE -ne 0) { throw "verification agent failed" }
 
-            $verifyReport = Join-Path (Split-Path -Parent $Workpack) ("reports\$RunId-$($front.id)-verify\" + $verificationTask + ".md")
+            $verifyReport = Join-Path (Split-Path -Parent $Workpack) ("reports\$verificationRunId\" + $verificationTask + ".md")
             if (-not (Test-Path $verifyReport)) { throw "verification report missing: $verifyReport" }
             $reportText = Get-Content $verifyReport -Raw
             $verdict = Get-BagoPreverificationVerdict -ReportText $reportText -ExpectedCandidateSha $candidateSha
