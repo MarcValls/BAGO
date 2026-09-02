@@ -217,6 +217,21 @@ function Wait-ForRequiredWorkflowRuns([string]$CandidateSha, [object[]]$Required
     throw "Required PR workflows did not all reach success for candidate $CandidateSha: $requiredText"
 }
 
+function Wait-ForCompletePrChecks([int]$PrNumber) {
+    # `gh pr checks` exits 8 while any check is still pending/queued and 1 when a
+    # check has genuinely failed. Poll on exit code 8 only; any other nonzero
+    # exit is a real failure and must not be waited out.
+    for ($attempt = 0; $attempt -lt 1080; $attempt++) {
+        gh pr checks $PrNumber --repo $ExpectedRepository | Out-Null
+        $checksExit = $LASTEXITCODE
+        if ($checksExit -eq 0) { return }
+        if ($checksExit -ne 8) { throw "PR checks failed for pr=$PrNumber (gh pr checks exit code $checksExit)" }
+        Start-Sleep -Seconds 5
+    }
+
+    throw "PR checks did not reach a complete state for pr=$PrNumber within the bounded polling window"
+}
+
 function Wait-ForConfirmedMerge([int]$PrNumber, [string]$CandidateSha) {
     for ($attempt = 0; $attempt -lt 120; $attempt++) {
         $jsonText = (gh pr view $PrNumber --repo $ExpectedRepository --json state,mergedAt,mergeCommit,headRefOid | Out-String).Trim()
@@ -274,7 +289,10 @@ try {
 
     $originUrl = (git remote get-url origin | Out-String).Trim()
     if ($LASTEXITCODE -ne 0) { throw "Could not resolve origin URL" }
-    if ($originUrl -notmatch '(?i)github\.com[:/]MarcValls/BAGO(?:\.git)?$') {
+    # Anchor to the exact host and path so a lookalike domain such as
+    # "evilgithub.com" (which merely contains "github.com" as a substring)
+    # cannot be accepted as origin.
+    if ($originUrl -notmatch '(?i)^(?:https://|ssh://git@|git@)?github\.com[:/]MarcValls/BAGO(?:\.git)?/?$') {
         throw "Refusing orchestration: origin is not $ExpectedRepository ($originUrl)"
     }
 
@@ -468,7 +486,7 @@ Final VERIFIED state still requires every workflow named in the remediation exec
 
                 Write-Ledger $front "PR_OPEN" "pr=$prNumber candidate=$candidateSha"
                 Wait-ForRequiredWorkflowRuns -CandidateSha $candidateSha -RequiredWorkflowNames $requiredPrWorkflows
-                Invoke-Checked { gh pr checks $prNumber --repo $ExpectedRepository } "complete PR checks"
+                Wait-ForCompletePrChecks -PrNumber $prNumber
 
                 $headJson = (gh pr view $prNumber --repo $ExpectedRepository --json headRefOid | Out-String).Trim()
                 if ($LASTEXITCODE -ne 0) { throw "could not resolve PR head after checks" }

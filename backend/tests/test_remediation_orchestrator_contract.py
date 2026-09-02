@@ -165,7 +165,11 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
         'Wait-ForRequiredWorkflowRuns',
         'gh run list --repo $ExpectedRepository --commit $CandidateSha --event pull_request',
         "Required PR workflow '$required' concluded",
-        'complete PR checks',
+        'function Wait-ForCompletePrChecks',
+        'if ($checksExit -eq 0) { return }',
+        'if ($checksExit -ne 8) { throw "PR checks failed for pr=$PrNumber (gh pr checks exit code $checksExit)" }',
+        'Wait-ForCompletePrChecks -PrNumber $prNumber',
+        r'^(?:https://|ssh://git@|git@)?github\.com[:/]MarcValls/BAGO(?:\.git)?/?$',
         'first non-empty line must be exactly PASS, FAIL, or BLOCKED',
         'BAGO_VERDICT: PREVERIFIED',
         'Get-BagoPreverificationVerdict',
@@ -195,6 +199,12 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
     # enter gh-pr-checks watch mode before GitHub has registered the required
     # workflow runs for the exact candidate SHA.
     assert "gh pr checks $prNumber --repo $ExpectedRepository --watch" not in text
+
+    # The origin check must be anchored (no leading `^`) so a lookalike host
+    # such as "evilgithub.com" cannot satisfy it merely by containing
+    # "github.com" as a substring further into the URL.
+    assert "if ($originUrl -notmatch '(?i)github\\.com[:/]MarcValls/BAGO(?:\\.git)?$')" not in text
+
 
     # Avoid a partial-success hazard: branch deletion must not be fused into
     # the merge command, because a cleanup failure could obscure a successful
