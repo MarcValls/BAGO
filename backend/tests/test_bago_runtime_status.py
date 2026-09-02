@@ -218,6 +218,54 @@ def test_status_accepts_verified_state_with_current_external_receipt(monkeypatch
     assert "Recorded:" not in output
 
 
+def test_status_accepts_repo_relative_protected_receipt_paths(monkeypatch, capsys, tmp_path: Path) -> None:
+    module = _module()
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    package = repo_root / "output" / "audit.zip"
+    package.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(package, "w") as archive:
+        archive.writestr("audit/bago-provenance.json", json.dumps({"candidate_sha": "a" * 40, "dirty": False}))
+    receipt = repo_root / "output" / "receipt.json"
+    receipt.write_text(json.dumps({
+        "contract": "bago.third-party-remediation-verification.v1",
+        "result": "PASS",
+        "package": package.name,
+        "package_sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
+    }), encoding="utf-8")
+    review = repo_root / "output" / "review.json"
+    review.write_text(json.dumps({
+        "contract": "bago.independent-review.github.v2", "result": "PASS",
+        "reviewer": "independent-test-reviewer",
+        "candidate_sha": "a" * 40, "package_sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
+        "github": {"repository": "example/BAGO", "pull_request": 200, "review_id": 123},
+    }), encoding="utf-8")
+    current = {"commit": "a" * 40, "branch": "main", "remote": "https://github.com/example/BAGO.git", "dirty": False, "worktree_sha256": "clean"}
+    state = {
+        "status": "VERIFIED", "fingerprint": current,
+        "protected_receipt": {
+            "package": "output/audit.zip",
+            "package_sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
+            "receipt": "output/receipt.json",
+            "receipt_sha256": hashlib.sha256(receipt.read_bytes()).hexdigest(),
+            "candidate_sha": "a" * 40,
+            "review": "output/review.json",
+            "review_sha256": hashlib.sha256(review.read_bytes()).hexdigest(),
+        },
+    }
+    monkeypatch.setattr(module, "_load_state", lambda: state)
+    monkeypatch.setattr(module, "_git_fingerprint", lambda: current)
+    monkeypatch.setattr(module, "_print_file", lambda *_args: None)
+    monkeypatch.setattr(module, "_repo_root", lambda: repo_root)
+    monkeypatch.setattr(module, "_verify_remediation_package", lambda _package: {
+        "contract": "bago.third-party-remediation-verification.v1", "result": "PASS",
+        "package": package.name, "package_sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
+    })
+    monkeypatch.setattr(module, "_verify_independent_review", lambda *_args: True)
+    assert module.cmd_status(None) == 0
+    assert "Status:     VERIFIED" in capsys.readouterr().out
+
+
 def test_consume_remediation_receipt_rejects_candidate_drift(monkeypatch, tmp_path: Path, capsys) -> None:
     module = _module()
     package, receipt = _remediation_receipt_files(tmp_path)

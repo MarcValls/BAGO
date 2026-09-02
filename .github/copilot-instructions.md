@@ -15,6 +15,28 @@ This repository is BAGO. For non-trivial engineering work, use the BAGO context/
 - BAGO backend-confirmed state is authoritative over UI presentation. Security gates fail closed; credentials and live state must not enter release artifacts.
 - Relevant repository authorities include `README.md`, `backend/docs/ARCHITECTURE.md`, `backend/docs/SECURITY.md`, `backend/docs/CLAIMS.md`, and `backend/docs/TESTING.md`; read the relevant ones before consequential changes.
 - For important closure, use the read-only `bago-final-verifier` agent after implementation evidence exists.
+
+### Codex agentic alignment
+
+Project-local Codex configuration under `.codex/` is legacy but authoritative as
+the behavioral source for the Pi/Copilot BAGO skills. When a task needs role
+selection, project the Codex roles as follows instead of inventing a new agent
+taxonomy:
+
+- Use `bago-auditors` for read-only review modes: `architecture`, `backend`,
+  `frontend`, `contracts`, `security`, `performance`, `tests`, `hygiene`,
+  `truth`, and `code-map`.
+- Use `bago-workers implement` only for approved scoped implementation, and
+  `bago-workers mechanical` only for fully specified repetitive edits.
+- Use `bago-final-verifier` as the independent read-only verifier after
+  implementation evidence exists or before closure-sensitive claims.
+- Preserve the Codex role boundary: auditors and final verifiers do not edit;
+  workers do not certify their own changes; tests/builds are evidence, not
+  validation authority.
+- Treat `.codex/config.toml` as an execution-profile hint only
+  (`workspace-write`, live web, medium verbosity). It does not override current
+  user instructions, BAGO runtime state, repository authorities, tool
+  availability, or Copilot CLI operating constraints.
 <!-- BAGO-COPILOT-ENGINEERING:END -->
 
 <!-- BAGO-FRONTEND-ENGINEERING:START -->
