@@ -123,7 +123,10 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
         'Assert-PlanContract',
         '$implementationTask = [string]$Plan.execution_policy.implementation_task',
         '$verificationTask = [string]$Plan.execution_policy.verification_task',
-        '("reports\\$RunId-$($front.id)-verify\\" + $verificationTask + ".md")',
+        '$implementationRunId = "$safeRunId-$($front.id)-impl"',
+        '$verificationRunId = "$safeRunId-$($front.id)-verify"',
+        '("reports\\$verificationRunId\\" + $verificationTask + ".md")',
+        'run_id_safe = $safeRunId',
         'Unknown StartAt',
         'required_pr_workflows',
         'Wait-ForRequiredWorkflowRuns',
@@ -150,6 +153,10 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
     assert '-Task "20-implement-approved-pr"' not in text
     assert '-Task "22-verify-change"' not in text
     assert "22-verify-change.md" not in text
+
+    # Raw RunId must not reach the workpack or report filesystem paths.
+    assert '-RunId "$RunId-' not in text
+    assert 'reports\\$RunId-' not in text
 
     # Avoid a known registration race: the supervisor must not immediately
     # enter gh-pr-checks watch mode before GitHub has registered the required
