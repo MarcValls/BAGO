@@ -11,7 +11,9 @@ Set-StrictMode -Version Latest
 
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PlanPath = Join-Path $Here "remediation-plan.json"
+$VerdictModule = Join-Path $Here "VerificationVerdict.psm1"
 $Workpack = Join-Path (Split-Path -Parent $Here) "bago-workpack\Run.ps1"
+$ExpectedRepository = "MarcValls/BAGO"
 
 function Require-Command([string]$Name) {
     if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
@@ -24,6 +26,39 @@ function Invoke-Checked([scriptblock]$Command, [string]$What) {
     if ($LASTEXITCODE -ne 0) { throw "$What failed with exit code $LASTEXITCODE" }
 }
 
+function Get-AbsoluteGitDir([string]$RepositoryRoot) {
+    $raw = (git rev-parse --git-dir | Out-String).Trim()
+    if (-not $raw) { throw "Could not resolve Git directory" }
+    if ([System.IO.Path]::IsPathRooted($raw)) { return $raw }
+    return [System.IO.Path]::GetFullPath((Join-Path $RepositoryRoot $raw))
+}
+
+function Wait-ForConfirmedMerge([int]$PrNumber, [string]$CandidateSha) {
+    for ($attempt = 0; $attempt -lt 120; $attempt++) {
+        $jsonText = (gh pr view $PrNumber --repo $ExpectedRepository --json state,mergedAt,mergeCommit,headRefOid | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0) { throw "Unable to read PR state after merge request" }
+        $view = $jsonText | ConvertFrom-Json
+
+        if ($view.headRefOid -ne $CandidateSha) {
+            throw "PR head moved while awaiting merge confirmation: expected $CandidateSha got $($view.headRefOid)"
+        }
+
+        if ($view.state -eq "MERGED" -and $view.mergedAt) {
+            $mergeSha = $null
+            if ($view.mergeCommit -and $view.mergeCommit.oid) { $mergeSha = $view.mergeCommit.oid }
+            return $mergeSha
+        }
+
+        if ($view.state -eq "CLOSED") {
+            throw "PR closed without confirmed merge"
+        }
+
+        Start-Sleep -Seconds 5
+    }
+
+    throw "Merge was requested but GitHub did not confirm MERGED state within the bounded polling window"
+}
+
 Require-Command git
 Require-Command codex
 Require-Command gh
@@ -31,24 +66,49 @@ Require-Command gh
 $Repo = (Resolve-Path $RepoRoot).Path
 if (-not (Test-Path (Join-Path $Repo ".git"))) { throw "RepoRoot is not a Git repository: $Repo" }
 if (-not (Test-Path $PlanPath)) { throw "Missing remediation plan: $PlanPath" }
+if (-not (Test-Path $VerdictModule)) { throw "Missing verification verdict module: $VerdictModule" }
 if (-not (Test-Path $Workpack)) { throw "Missing BAGO workpack runner: $Workpack" }
 
+Import-Module $VerdictModule -Force
 $Plan = Get-Content $PlanPath -Raw | ConvertFrom-Json
+$safeRunId = ($RunId -replace '[^A-Za-z0-9._-]+','-').Trim('-')
+if (-not $safeRunId) { throw "RunId must contain at least one safe character" }
 
 Push-Location $Repo
 try {
     Invoke-Checked { git fetch origin --prune } "git fetch"
+
+    $originUrl = (git remote get-url origin | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) { throw "Could not resolve origin URL" }
+    if ($originUrl -notmatch '(?i)github\.com[:/]MarcValls/BAGO(?:\.git)?$') {
+        throw "Refusing orchestration: origin is not $ExpectedRepository ($originUrl)"
+    }
+
     $status = (git status --porcelain=v1 | Out-String).Trim()
     if ($status) { throw "Base worktree must be clean before orchestration. Commit/stash changes first." }
 
-    $startIndex = 0
+    $startIndex = -1
     for ($i = 0; $i -lt $Plan.fronts.Count; $i++) {
         if ($Plan.fronts[$i].id -eq $StartAt) { $startIndex = $i; break }
     }
+    if ($startIndex -lt 0) {
+        $valid = ($Plan.fronts.id -join ", ")
+        throw "Unknown StartAt '$StartAt'. Valid fronts: $valid"
+    }
 
-    $RunRoot = Join-Path $Here ("runs\" + $RunId)
-    New-Item -ItemType Directory -Force -Path $RunRoot | Out-Null
-    $LedgerPath = Join-Path $RunRoot "ledger.jsonl"
+    $gitDir = Get-AbsoluteGitDir $Repo
+    $LedgerRoot = Join-Path $gitDir ("bago-remediation-runs\" + $safeRunId)
+    if (Test-Path $LedgerRoot) {
+        throw "RunId '$RunId' already has preserved evidence at $LedgerRoot. Use a new RunId."
+    }
+    New-Item -ItemType Directory -Force -Path $LedgerRoot | Out-Null
+    $LedgerPath = Join-Path $LedgerRoot "ledger.jsonl"
+
+    $WorktreeRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("bago-remediation-" + $safeRunId)
+    if (Test-Path $WorktreeRoot) {
+        throw "Temporary worktree root already exists: $WorktreeRoot. Preserve/inspect it or use a new RunId."
+    }
+    New-Item -ItemType Directory -Force -Path $WorktreeRoot | Out-Null
 
     function Write-Ledger($front, [string]$state, [string]$detail) {
         $entry = [ordered]@{
@@ -65,9 +125,9 @@ try {
     for ($i = $startIndex; $i -lt $Plan.fronts.Count; $i++) {
         $front = $Plan.fronts[$i]
         $slug = ($front.title.ToLowerInvariant() -replace '[^a-z0-9]+','-').Trim('-')
-        if ($slug.Length -gt 42) { $slug = $slug.Substring(0,42).Trim('-') }
-        $branch = "remediation/$($front.id.ToLowerInvariant())-$slug"
-        $worktree = Join-Path $RunRoot $front.id
+        if ($slug.Length -gt 34) { $slug = $slug.Substring(0,34).Trim('-') }
+        $branch = "remediation/$($front.id.ToLowerInvariant())-$slug-$safeRunId"
+        $worktree = Join-Path $WorktreeRoot $front.id
 
         Write-Host ""
         Write-Host "============================================================"
@@ -76,12 +136,12 @@ try {
         Write-Ledger $front "PREPARED" "starting front"
 
         Invoke-Checked { git fetch origin $($Plan.base_branch) } "fetch base"
-        $baseSha = (git rev-parse "origin/$($Plan.base_branch)").Trim()
+        $baseSha = (git rev-parse "origin/$($Plan.base_branch)" | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0 -or -not $baseSha) { throw "Could not resolve base SHA" }
 
         if (Test-Path $worktree) {
-            Invoke-Checked { git worktree remove --force $worktree } "remove stale worktree"
+            throw "Worktree path already exists and will not be destroyed automatically: $worktree"
         }
-        git branch -D $branch 2>$null | Out-Null
         Invoke-Checked { git worktree add -b $branch $worktree $baseSha } "create worktree"
 
         $acceptance = ($front.acceptance | ForEach-Object { "- $_" }) -join "`n"
@@ -107,8 +167,9 @@ Execution rules:
 
         if ($DryRun) {
             Write-Host "DRY RUN: would invoke implementation and verifier for $($front.id) on $branch"
-            Write-Ledger $front "DRY_RUN" "no mutation executed"
+            Write-Ledger $front "DRY_RUN" "base=$baseSha branch=$branch; no agent mutation executed"
             Invoke-Checked { git worktree remove --force $worktree } "remove dry-run worktree"
+            git branch -D $branch 2>$null | Out-Null
             continue
         }
 
@@ -122,14 +183,15 @@ Execution rules:
                 if (-not $changed) { throw "implementation produced no repository changes" }
                 Invoke-Checked { git add -A } "git add"
                 Invoke-Checked { git commit -m "fix($($front.id.ToLowerInvariant())): $($front.title)" } "git commit"
-                $candidateSha = (git rev-parse HEAD).Trim()
+                $candidateSha = (git rev-parse HEAD | Out-String).Trim()
+                if ($LASTEXITCODE -ne 0 -or $candidateSha -notmatch '^[0-9a-f]{40}$') { throw "invalid candidate SHA" }
             }
             finally { Pop-Location }
 
-            Write-Ledger $front "EXECUTED" "candidate=$candidateSha"
+            Write-Ledger $front "EXECUTED" "base=$baseSha candidate=$candidateSha branch=$branch"
 
             $verifyExtra = @"
-INDEPENDENT_VERIFICATION_TARGET
+INDEPENDENT_PREVERIFICATION_TARGET
 Front: $($front.id) - $($front.title)
 Candidate SHA: $candidateSha
 Objective: $($front.objective)
@@ -137,11 +199,15 @@ Acceptance criteria:
 $acceptance
 
 Verification rules:
-- Read-only certification: do not modify files.
-- Verify the exact candidate SHA and inspect the diff against its base.
-- Re-run relevant repository-defined tests/checks and targeted falsification tests.
-- Return VERIFIED only if every acceptance criterion is demonstrated by evidence.
-- Return BLOCKED or FAILED on missing evidence, skipped relevant tests, regression, stale authority, or unverifiable claims.
+- Read-only certification: do not modify files or commits.
+- Verify the exact candidate SHA and inspect the diff against base $baseSha.
+- Re-run relevant repository-defined local tests/checks and targeted falsification tests.
+- Acceptance items that explicitly require GitHub PR CI or a confirmed merge are DEFERRED_EXTERNAL gates owned by the supervisor after this pass; do not claim they have already happened.
+- Return PREVERIFIED only when every non-deferred acceptance criterion is demonstrated by evidence and no blocking condition exists.
+- Return BLOCKED or FAILED on missing local evidence, skipped relevant local tests, regression, stale authority, unverifiable claims, or candidate mismatch.
+- End the report with exactly one candidate line and exactly one verdict line in this machine-readable form:
+  BAGO_CANDIDATE_SHA: $candidateSha
+  BAGO_VERDICT: PREVERIFIED|BLOCKED|FAILED
 "@
             & $Workpack -Task "22-verify-change" -RepoRoot $worktree -RunId "$RunId-$($front.id)-verify" -Extra $verifyExtra
             if ($LASTEXITCODE -ne 0) { throw "verification agent failed" }
@@ -149,19 +215,35 @@ Verification rules:
             $verifyReport = Join-Path (Split-Path -Parent $Workpack) "reports\$RunId-$($front.id)-verify\22-verify-change.md"
             if (-not (Test-Path $verifyReport)) { throw "verification report missing: $verifyReport" }
             $reportText = Get-Content $verifyReport -Raw
-            if ($reportText -notmatch '(?im)^.*\bVERIFIED\b') {
-                throw "independent verifier did not return VERIFIED"
-            }
-            if ($reportText -match '(?im)\b(BLOCKED|FAILED|CRIT_FAIL|NOT_VERIFIED)\b') {
-                throw "independent verifier reported a blocking/failure state"
+            $verdict = Get-BagoPreverificationVerdict -ReportText $reportText -ExpectedCandidateSha $candidateSha
+            if ($verdict -ne "PREVERIFIED") {
+                throw "independent verifier returned $verdict instead of PREVERIFIED"
             }
 
             Push-Location $worktree
             try {
+                $headAfterVerify = (git rev-parse HEAD | Out-String).Trim()
+                if ($headAfterVerify -ne $candidateSha) {
+                    throw "candidate HEAD changed during read-only verification: expected $candidateSha got $headAfterVerify"
+                }
+                $dirtyAfterVerify = (git status --porcelain=v1 | Out-String).Trim()
+                if ($dirtyAfterVerify) {
+                    throw "read-only verification left tracked/untracked repository changes"
+                }
+            }
+            finally { Pop-Location }
+
+            Write-Ledger $front "PREVERIFIED" "candidate=$candidateSha report=$verifyReport"
+
+            Push-Location $worktree
+            try {
                 Invoke-Checked { git push -u origin $branch } "git push"
-                $existing = (gh pr list --repo MarcValls/BAGO --head $branch --state open --json number --jq '.[0].number' | Out-String).Trim()
-                if ($existing) {
-                    $prNumber = [int]$existing
+
+                $listText = (gh pr list --repo $ExpectedRepository --head $branch --state open --json number | Out-String).Trim()
+                if ($LASTEXITCODE -ne 0) { throw "could not query existing PR" }
+                $existingList = @($listText | ConvertFrom-Json)
+                if ($existingList.Count -gt 0) {
+                    $prNumber = [int]$existingList[0].number
                 } else {
                     $body = @"
 Automated governed remediation for **$($front.id) — $($front.title)**.
@@ -170,35 +252,40 @@ Priority: **$($front.priority)**
 
 Objective: $($front.objective)
 
-Independent verification: **VERIFIED** for candidate `$candidateSha` before PR creation.
+Independent local preverification: **PREVERIFIED** for candidate `$candidateSha`.
 
-This PR must still pass repository CI for this exact head SHA. It must not be merged if the head moves without re-verification.
+Final VERIFIED state still requires repository PR checks for this exact SHA. VALIDATED additionally requires GitHub to confirm the PR as merged. Any head movement invalidates this preverification.
 "@
-                    $prNumberText = (gh pr create --repo MarcValls/BAGO --base $($Plan.base_branch) --head $branch --title "[$($front.id)] $($front.title)" --body $body | Out-String).Trim()
-                    if ($prNumberText -match '/pull/(\d+)') { $prNumber = [int]$Matches[1] } else { throw "could not resolve created PR number" }
+                    $prUrl = (gh pr create --repo $ExpectedRepository --base $($Plan.base_branch) --head $branch --title "[$($front.id)] $($front.title)" --body $body | Out-String).Trim()
+                    if ($LASTEXITCODE -ne 0) { throw "PR creation failed" }
+                    if ($prUrl -match '/pull/(\d+)') { $prNumber = [int]$Matches[1] } else { throw "could not resolve created PR number" }
                 }
 
                 Write-Ledger $front "PR_OPEN" "pr=$prNumber candidate=$candidateSha"
-                Invoke-Checked { gh pr checks $prNumber --repo MarcValls/BAGO --watch --fail-fast } "PR checks"
+                Invoke-Checked { gh pr checks $prNumber --repo $ExpectedRepository --watch --fail-fast } "PR checks"
 
-                $headNow = (gh pr view $prNumber --repo MarcValls/BAGO --json headRefOid --jq '.headRefOid' | Out-String).Trim()
-                if ($headNow -ne $candidateSha) { throw "PR head moved after verification: expected $candidateSha got $headNow" }
+                $headJson = (gh pr view $prNumber --repo $ExpectedRepository --json headRefOid | Out-String).Trim()
+                if ($LASTEXITCODE -ne 0) { throw "could not resolve PR head after checks" }
+                $headNow = ($headJson | ConvertFrom-Json).headRefOid
+                if ($headNow -ne $candidateSha) { throw "PR head moved after preverification: expected $candidateSha got $headNow" }
+
+                Write-Ledger $front "VERIFIED" "pr=$prNumber candidate=$candidateSha; independent preverification plus green PR checks"
 
                 if (-not $NoMerge) {
-                    Invoke-Checked { gh pr merge $prNumber --repo MarcValls/BAGO --squash --delete-branch } "PR merge"
-                    Write-Ledger $front "VALIDATED" "merged PR=$prNumber after candidate-bound verification and CI"
-                } else {
-                    Write-Ledger $front "VERIFIED" "PR=$prNumber green; merge disabled by -NoMerge"
+                    Invoke-Checked { gh pr merge $prNumber --repo $ExpectedRepository --squash } "PR merge request"
+                    $mergeSha = Wait-ForConfirmedMerge -PrNumber $prNumber -CandidateSha $candidateSha
+                    Write-Ledger $front "VALIDATED" "pr=$prNumber candidate=$candidateSha merge=$mergeSha; GitHub confirmed MERGED"
                 }
             }
             finally { Pop-Location }
 
             Invoke-Checked { git worktree remove --force $worktree } "remove completed worktree"
+            git branch -D $branch 2>$null | Out-Null
         }
         catch {
-            Write-Ledger $front "BLOCKED" $_.Exception.Message
+            Write-Ledger $front "BLOCKED" ("worktree=$worktree branch=$branch; " + $_.Exception.Message)
             Write-Error "$($front.id) BLOCKED: $($_.Exception.Message)"
-            throw "Orchestration stopped fail-closed at $($front.id). Resolve evidence/code and resume with -StartAt $($front.id)."
+            throw "Orchestration stopped fail-closed at $($front.id). Evidence/worktree is preserved. Resolve the cause and resume with a new RunId and -StartAt $($front.id)."
         }
     }
 
