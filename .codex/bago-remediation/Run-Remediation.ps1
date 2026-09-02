@@ -187,7 +187,10 @@ function Resolve-TrustedRequiredWorkflowIds([object[]]$RequiredWorkflowNames) {
     # to its registered `.github/workflows/*.yml` definition, instead of
     # trusting the human-readable `name:` alone. A candidate that adds or
     # renames a different workflow file to reuse a required display name gets
-    # a distinct ID and therefore cannot satisfy this gate.
+    # a distinct ID and therefore cannot satisfy this gate. The registered
+    # `path` is also captured so the candidate's own tree can be checked for
+    # in-place edits to the trusted workflow file's content (see
+    # Assert-NoRequiredWorkflowFileDrift).
     $jsonText = (gh api "repos/$ExpectedRepository/actions/workflows" --paginate --jq '.workflows[] | {id,name,path,state}' | Out-String).Trim()
     if ($LASTEXITCODE -ne 0) { throw "Unable to enumerate trusted workflow definitions for $ExpectedRepository" }
 
@@ -204,9 +207,30 @@ function Resolve-TrustedRequiredWorkflowIds([object[]]$RequiredWorkflowNames) {
         if ($active.Count -gt 1) {
             throw "Required PR workflow '$required' matches more than one active workflow definition in $ExpectedRepository; each critical property must have one authority"
         }
-        $ids[$required] = [int64]$active[0].id
+        $ids[$required] = [ordered]@{ id = [int64]$active[0].id; path = [string]$active[0].path }
     }
     return $ids
+}
+
+function Assert-NoRequiredWorkflowFileDrift([string]$WorktreePath, [string]$BaseSha, [System.Collections.Specialized.OrderedDictionary]$RequiredWorkflowIds) {
+    # A required workflow's numeric ID stays the same even if a candidate
+    # edits the `.yml` file in place (e.g. replacing real jobs with a trivial
+    # success), so ID pinning alone does not defend against a weakened
+    # in-place edit. Reject any candidate that touches a required workflow's
+    # trusted file relative to the fetched base.
+    Push-Location $WorktreePath
+    try {
+        $changedFiles = @((git diff --name-only $BaseSha HEAD | Out-String) -split '\r?\n' | Where-Object { $_ })
+        if ($LASTEXITCODE -ne 0) { throw "Unable to diff candidate against base $BaseSha for required workflow drift" }
+    }
+    finally { Pop-Location }
+
+    foreach ($required in $RequiredWorkflowIds.Keys) {
+        $path = [string]$RequiredWorkflowIds[$required].path
+        if ($changedFiles -contains $path) {
+            throw "Candidate modified the trusted required workflow file '$path' for gate '$required'; implementation tasks must not edit required gate workflows"
+        }
+    }
 }
 
 function Wait-ForRequiredWorkflowRuns([string]$CandidateSha, [System.Collections.Specialized.OrderedDictionary]$RequiredWorkflowIds) {
@@ -219,7 +243,7 @@ function Wait-ForRequiredWorkflowRuns([string]$CandidateSha, [System.Collections
         $allPassed = $true
 
         foreach ($required in $RequiredWorkflowIds.Keys) {
-            $requiredId = [int64]$RequiredWorkflowIds[$required]
+            $requiredId = [int64]$RequiredWorkflowIds[$required].id
             $matches = @($runs | Where-Object { [int64]$_.workflowDatabaseId -eq $requiredId })
             if ($matches.Count -eq 0) {
                 $allPassed = $false
@@ -243,6 +267,7 @@ function Wait-ForRequiredWorkflowRuns([string]$CandidateSha, [System.Collections
     $requiredText = (@($RequiredWorkflowIds.Keys) -join ", ")
     throw "Required PR workflows did not all reach success for candidate $CandidateSha: $requiredText"
 }
+
 
 function Wait-ForCompletePrChecks([int]$PrNumber) {
     # `gh pr checks` exits 8 while any check is still pending/queued and 1 when a
@@ -315,7 +340,17 @@ Assert-WorkpackTaskContract -Manifest $WorkpackManifest -ImplementationTaskId $i
 # ledger for evidence. Reconciled against the worktree's copy after each
 # front's implementation commit (see the "candidate plan drift" check below).
 $PlanHash = (Get-FileHash -Path $PlanPath -Algorithm SHA256).Hash
-$PlanRepoRelativePath = [System.IO.Path]::GetRelativePath($Repo, (Resolve-Path $PlanPath).Path) -replace '\\', '/'
+
+# [System.IO.Path]::GetRelativePath is a .NET Core / PowerShell 7+ API and is
+# not present in Windows PowerShell 5.1 (powershell.exe), which is how this
+# script is documented to run. Compute the relative path with plain string
+# manipulation instead, which works identically on both hosts.
+$planAbsolute = (Resolve-Path $PlanPath).Path
+$repoAbsolute = (Resolve-Path $Repo).Path
+if (-not $planAbsolute.StartsWith($repoAbsolute, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Remediation plan path $planAbsolute is not inside the repository root $repoAbsolute"
+}
+$PlanRepoRelativePath = $planAbsolute.Substring($repoAbsolute.Length).TrimStart('\', '/') -replace '\\', '/'
 
 $safeRunId = ($RunId -replace '[^A-Za-z0-9._-]+','-').Trim('-')
 if (-not $safeRunId) { throw "RunId must contain at least one safe character" }
@@ -458,6 +493,15 @@ Execution rules:
                 if ($candidatePlanHash -ne $PlanHash) {
                     throw "Candidate modified the trusted remediation plan (expected sha256:$PlanHash got sha256:$candidatePlanHash); the implementation task must not alter remediation-plan.json"
                 }
+
+                # Pinning required gates by workflowDatabaseId (see
+                # Resolve-TrustedRequiredWorkflowIds) does not defend against a
+                # candidate editing an *existing* required workflow file's
+                # content in place: the ID is unchanged, but the gate could be
+                # silently weakened (e.g. gutted to a trivial no-op job).
+                # Reject any candidate that touches a required workflow's
+                # trusted file relative to the fetched base.
+                Assert-NoRequiredWorkflowFileDrift -WorktreePath $worktree -BaseSha $baseSha -RequiredWorkflowIds $requiredPrWorkflowIds
             }
             finally { Pop-Location }
 

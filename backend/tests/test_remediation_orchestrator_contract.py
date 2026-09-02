@@ -198,9 +198,30 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
         'Candidate deleted the trusted remediation plan',
         'plan_sha256=$PlanHash',
         '$safeRunId',
+        'function Assert-NoRequiredWorkflowFileDrift',
+        'Assert-NoRequiredWorkflowFileDrift -WorktreePath $worktree -BaseSha $baseSha -RequiredWorkflowIds $requiredPrWorkflowIds',
+        'Candidate modified the trusted required workflow file',
+        '$ids[$required] = [ordered]@{ id = [int64]$active[0].id; path = [string]$active[0].path }',
+        '$requiredId = [int64]$RequiredWorkflowIds[$required].id',
+        '$path = [string]$RequiredWorkflowIds[$required].path',
+        'git diff --name-only $BaseSha HEAD',
+        '$planAbsolute = (Resolve-Path $PlanPath).Path',
+        '$repoAbsolute = (Resolve-Path $Repo).Path',
+        'is not inside the repository root',
     ]
     for fragment in required_fragments:
         assert fragment in text
+
+    # A required workflow's numeric ID stays stable even if a candidate edits
+    # the trusted `.yml` file's content in place (e.g. gutting its jobs to a
+    # no-op); ID pinning alone must not be the only defense.
+    assert 'Assert-NoRequiredWorkflowFileDrift' in text
+
+    # [System.IO.Path]::GetRelativePath is a .NET Core / PowerShell 7+ only
+    # API and is not available under Windows PowerShell 5.1 (powershell.exe),
+    # which is how this script is meant to run; the call must not be used
+    # (a code comment may still reference the API name to explain why).
+    assert '[System.IO.Path]::GetRelativePath(' not in text
 
     # Required-workflow identity must be pinned to the trusted registered
     # workflow ID, not matched by display name alone: a candidate that adds a
