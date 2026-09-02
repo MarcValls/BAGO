@@ -4,13 +4,15 @@ This package turns the 15 remediation fronts into one governed Codex orchestrati
 
 ## Contract
 
+For every run, the supervisor first validates `remediation-plan.json` against schema `1.1`: base branch, execution policy, implementation task, verification task, required workflow list, unique front IDs, and non-empty front objectives/acceptance criteria are mandatory. Task IDs are plan authority; the supervisor does not hard-code them, and the verification report filename is derived from the plan-selected verification task.
+
 For every front:
 
 1. Fetch current `origin/main` and verify that `origin` is `MarcValls/BAGO`.
 2. Create a unique isolated Git worktree and remediation branch without deleting prior evidence.
-3. Run `20-implement-approved-pr` with the front objective and acceptance criteria.
+3. Run the plan-selected implementation task with the front objective and acceptance criteria.
 4. Commit the resulting candidate and bind it to an exact SHA.
-5. Run `22-verify-change` independently and read-only against that exact candidate.
+5. Run the plan-selected verification task independently and read-only against that exact candidate.
 6. Preserve the existing workpack verdict contract: the report begins with exactly `PASS`, `FAIL`, or `BLOCKED`.
 7. Require a second strict machine contract with exactly one `BAGO_CANDIDATE_SHA: <sha>` and one mapped verdict: `PASS -> PREVERIFIED`, `FAIL -> FAILED`, `BLOCKED -> BLOCKED`.
 8. Stop unless both verdict layers agree on `PASS/PREVERIFIED` for the exact candidate and verification leaves HEAD/worktree unchanged.
@@ -25,9 +27,21 @@ For every front:
 
 The process is deliberately fail-closed. Automatic closure means "close when demonstrated", never "force success".
 
+## Plan governance
+
+`remediation-plan.json` is the execution authority for the orchestration scope. Schema `1.1` declares:
+
+- `base_branch`
+- `execution_policy.implementation_task`
+- `execution_policy.verification_task`
+- `execution_policy.required_pr_workflows`
+- the ordered F01-F15 fronts and their acceptance criteria.
+
+An unsupported schema, missing/blank required property, empty workflow list, duplicate front ID, or front without acceptance criteria stops before repository mutation. The supervisor resolves task IDs and the expected verifier report filename from this validated plan, preventing silent plan/runner drift.
+
 ## Required PR workflows
 
-`remediation-plan.json` schema 1.1 currently requires all of these workflow identities before a candidate can become `VERIFIED`:
+The current plan requires all of these workflow identities before a candidate can become `VERIFIED`:
 
 - `Canonical CI`
 - `Validate Expected`
@@ -88,6 +102,7 @@ The blocked run's ledger, branch and worktree are preserved for inspection rathe
 
 ## Safety / authority invariants
 
+- Plan and supervisor cannot silently disagree about task IDs or verifier report naming.
 - Workers cannot certify their own changes.
 - Verifiers run through the existing read-only verification task.
 - Free-text mentions of words such as `VERIFIED` are not authority; the required workpack verdict and strict machine verdict must agree.
@@ -105,11 +120,11 @@ The blocked run's ledger, branch and worktree are preserved for inspection rathe
 
 ## Validation coverage
 
-`backend/tests/test_remediation_orchestrator_contract.py` falsifies missing/ambiguous verdicts, verdict disagreement, duplicate verdicts, candidate-SHA mismatch, required-workflow omission, the initial PR-check registration race, missing SHA-pinned merge behavior and critical supervisor gate regressions on Canonical CI's Windows/PowerShell environment.
+`backend/tests/test_remediation_orchestrator_contract.py` falsifies missing/ambiguous verdicts, verdict disagreement, duplicate verdicts, candidate-SHA mismatch, plan/task drift, required-workflow omission, the initial PR-check registration race, missing SHA-pinned merge behavior and critical supervisor gate regressions on Canonical CI's Windows/PowerShell environment.
 
 ## Files
 
 - `remediation-plan.json`: authoritative orchestration scope, execution gates and acceptance criteria for F01-F15.
-- `Run-Remediation.ps1`: supervisor.
+- `Run-Remediation.ps1`: plan-governed supervisor.
 - `VerificationVerdict.psm1`: strict workpack + candidate-bound verdict parser.
 - `.git/bago-remediation-runs/<RunId>/ledger.jsonl`: local lifecycle/evidence index; it is not remote authority by itself.
