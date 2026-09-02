@@ -39,8 +39,9 @@ def _invoke_verdict(report: str, expected_sha: str = CANDIDATE) -> subprocess.Co
     )
 
 
-def test_candidate_bound_preverified_machine_contract_accepts_exact_report() -> None:
+def test_candidate_bound_pass_maps_to_preverified() -> None:
     result = _invoke_verdict(
+        "PASS\n"
         "Evidence summary\n"
         f"BAGO_CANDIDATE_SHA: {CANDIDATE}\n"
         "BAGO_VERDICT: PREVERIFIED\n"
@@ -52,33 +53,48 @@ def test_candidate_bound_preverified_machine_contract_accepts_exact_report() -> 
 @pytest.mark.parametrize(
     "report",
     [
-        f"BAGO_CANDIDATE_SHA: {CANDIDATE}\nThis candidate is NOT PREVERIFIED\n",
-        f"BAGO_CANDIDATE_SHA: {CANDIDATE}\nBAGO_VERDICT: VERIFIED\n",
+        f"Evidence summary\nBAGO_CANDIDATE_SHA: {CANDIDATE}\nBAGO_VERDICT: PREVERIFIED\n",
+        f"PASS\nBAGO_CANDIDATE_SHA: {CANDIDATE}\nThis candidate is NOT PREVERIFIED\n",
+        f"PASS\nBAGO_CANDIDATE_SHA: {CANDIDATE}\nBAGO_VERDICT: VERIFIED\n",
         (
+            "PASS\n"
             f"BAGO_CANDIDATE_SHA: {CANDIDATE}\n"
             "BAGO_VERDICT: PREVERIFIED\n"
             "BAGO_VERDICT: BLOCKED\n"
         ),
+        f"PASS\nBAGO_CANDIDATE_SHA: {CANDIDATE}\nBAGO_VERDICT: BLOCKED\n",
+        f"FAIL\nBAGO_CANDIDATE_SHA: {CANDIDATE}\nBAGO_VERDICT: PREVERIFIED\n",
     ],
 )
-def test_ambiguous_or_noncontract_verdicts_fail_closed(report: str) -> None:
+def test_ambiguous_or_inconsistent_verdicts_fail_closed(report: str) -> None:
     result = _invoke_verdict(report)
     assert result.returncode != 0
 
 
 def test_candidate_sha_mismatch_fails_closed() -> None:
     result = _invoke_verdict(
-        f"BAGO_CANDIDATE_SHA: {'b' * 40}\nBAGO_VERDICT: PREVERIFIED\n"
+        f"PASS\nBAGO_CANDIDATE_SHA: {'b' * 40}\nBAGO_VERDICT: PREVERIFIED\n"
     )
     assert result.returncode != 0
 
 
-def test_blocked_verdict_is_machine_readable_but_not_preverified() -> None:
+@pytest.mark.parametrize(
+    ("task_verdict", "machine_verdict", "expected"),
+    [
+        ("BLOCKED", "BLOCKED", "BLOCKED"),
+        ("FAIL", "FAILED", "FAILED"),
+    ],
+)
+def test_nonpass_workpack_verdicts_are_machine_readable(
+    task_verdict: str, machine_verdict: str, expected: str
+) -> None:
     result = _invoke_verdict(
-        f"BAGO_CANDIDATE_SHA: {CANDIDATE}\nBAGO_VERDICT: BLOCKED\n"
+        f"{task_verdict}\n"
+        f"BAGO_CANDIDATE_SHA: {CANDIDATE}\n"
+        f"BAGO_VERDICT: {machine_verdict}\n"
     )
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip().endswith("BLOCKED")
+    assert result.stdout.strip().endswith(expected)
 
 
 def test_supervisor_contains_required_authority_and_remote_gates() -> None:
@@ -87,21 +103,24 @@ def test_supervisor_contains_required_authority_and_remote_gates() -> None:
     required_fragments = [
         'ExpectedRepository = "MarcValls/BAGO"',
         'Unknown StartAt',
-        'BAGO_VERDICT: PREVERIFIED|BLOCKED|FAILED',
+        'first non-empty line must be exactly PASS, FAIL, or BLOCKED',
+        'BAGO_VERDICT: PREVERIFIED',
         'Get-BagoPreverificationVerdict',
         'candidate HEAD changed during read-only verification',
         'PR head moved after preverification',
         'gh pr checks',
+        '--match-head-commit $candidateSha',
         'Wait-ForConfirmedMerge',
         '$view.state -eq "MERGED"',
         'GitHub confirmed MERGED',
         'Evidence/worktree is preserved',
+        'NoMerge stops after VERIFIED front',
         '$safeRunId',
     ]
     for fragment in required_fragments:
         assert fragment in text
 
-    # Avoid a known partial-success hazard: merge and local branch deletion must
-    # not be fused into one gh command whose cleanup failure could obscure a
-    # successful remote merge.
-    assert "gh pr merge $prNumber --repo $ExpectedRepository --squash --delete-branch" not in text
+    # Avoid a partial-success hazard: branch deletion must not be fused into
+    # the merge command, because a cleanup failure could obscure a successful
+    # remote merge.
+    assert "--squash --delete-branch" not in text
