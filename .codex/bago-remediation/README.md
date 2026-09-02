@@ -4,13 +4,18 @@ This package turns the 15 remediation fronts into one governed Codex orchestrati
 
 ## Contract
 
-For every run, the supervisor first validates `remediation-plan.json` against schema `1.1`: base branch, execution policy, implementation task, verification task, required workflow list, unique front IDs, and non-empty front objectives/acceptance criteria are mandatory. Task IDs are plan authority; the supervisor does not hard-code them, and the verification report filename is derived from the plan-selected verification task.
+Before mutation, the supervisor validates both governing inputs:
 
-The user-provided `RunId` is retained as audit metadata, but every filesystem/branch/workpack identifier uses a sanitized `safeRunId`. This prevents path separators or platform-invalid characters from escaping or corrupting workpack report paths, especially on Windows.
+1. `remediation-plan.json` must match schema `1.1`, keep the non-relaxable safety policy, contain exactly the ordered F01-F15 fronts, safe task/front identifiers, valid priorities and non-empty acceptance criteria.
+2. The plan-selected tasks must resolve exactly once in `.codex/bago-workpack/manifest.json`. The implementation task must be a scoped `workspace-write` BAGO worker; the verification task must be `read-only`, require explicit target context, and use `bago_final_verifier`. They cannot be the same task.
+
+Task IDs remain plan authority; the supervisor does not hard-code them, and the verification report filename is derived from the plan-selected verification task.
+
+The user-provided `RunId` is retained as audit metadata, but every filesystem/branch/workpack identifier uses a sanitized `safeRunId`. The safe value cannot be `.`/`..`, is length-bounded, and ledger directories are additionally prefixed with `run-`. This prevents path separators, traversal-like segments, reserved-name collisions and excessive physical paths from escaping or corrupting workpack report locations, especially on Windows.
 
 For every front:
 
-1. Fetch current `origin/main` and verify that `origin` is `MarcValls/BAGO`.
+1. Fetch current `origin/main`, validate the base ref format, and verify that `origin` is `MarcValls/BAGO`.
 2. Create a unique isolated Git worktree and remediation branch without deleting prior evidence.
 3. Run the plan-selected implementation task with the front objective and acceptance criteria, using a sanitized physical run ID.
 4. Commit the resulting candidate and bind it to an exact SHA.
@@ -29,17 +34,24 @@ For every front:
 
 The process is deliberately fail-closed. Automatic closure means "close when demonstrated", never "force success".
 
+## Non-relaxable execution policy
+
+Schema `1.1` requires:
+
+- `mode = sequential_dependency_safe`
+- `close_only_on_verified = true`
+- `auto_merge_only_after_ci = true`
+- `self_certification_forbidden = true`
+- `failure_policy = stop_and_block`
+- `evidence_required = true`
+
+Changing any of these values without introducing a new supported schema blocks the run before repository mutation.
+
 ## Plan governance
 
-`remediation-plan.json` is the execution authority for the orchestration scope. Schema `1.1` declares:
+`remediation-plan.json` is the execution authority for the orchestration scope. It declares the base branch, implementation/verification task IDs, required PR workflows and ordered F01-F15 acceptance contracts. An unsupported schema, missing/blank required property, empty workflow list, unsafe task/front ID, duplicate/out-of-order front, invalid priority or empty acceptance criterion stops before repository mutation.
 
-- `base_branch`
-- `execution_policy.implementation_task`
-- `execution_policy.verification_task`
-- `execution_policy.required_pr_workflows`
-- the ordered F01-F15 fronts and their acceptance criteria.
-
-An unsupported schema, missing/blank required property, empty workflow list, duplicate front ID, or front without acceptance criteria stops before repository mutation. The supervisor resolves task IDs and the expected verifier report filename from this validated plan, preventing silent plan/runner drift.
+The supervisor resolves task IDs and the expected verifier report filename from this validated plan, then cross-checks those selected roles against the workpack manifest. This prevents silent plan/runner drift while preserving separation of duties.
 
 ## Required PR workflows
 
@@ -104,10 +116,11 @@ The blocked run's ledger, branch and worktree are preserved for inspection rathe
 
 ## Safety / authority invariants
 
+- Plan safety flags cannot be relaxed inside schema 1.1.
+- Plan-selected task roles are cross-checked against the workpack manifest; the verifier must remain `read-only` and `bago_final_verifier`.
 - Plan and supervisor cannot silently disagree about task IDs or verifier report naming.
 - Raw user `RunId` never reaches a branch, worktree, workpack report directory or report lookup path.
 - Workers cannot certify their own changes.
-- Verifiers run through the existing read-only verification task.
 - Free-text mentions of words such as `VERIFIED` are not authority; the required workpack verdict and strict machine verdict must agree.
 - Verification evidence from another SHA is stale by default.
 - Candidate HEAD/worktree mutation during verification invalidates the pass.
@@ -123,11 +136,11 @@ The blocked run's ledger, branch and worktree are preserved for inspection rathe
 
 ## Validation coverage
 
-`backend/tests/test_remediation_orchestrator_contract.py` falsifies missing/ambiguous verdicts, verdict disagreement, duplicate verdicts, candidate-SHA mismatch, plan/task drift, raw-RunId filesystem leakage, required-workflow omission, the initial PR-check registration race, missing SHA-pinned merge behavior and critical supervisor gate regressions on Canonical CI's Windows/PowerShell environment.
+`backend/tests/test_remediation_orchestrator_contract.py` falsifies missing/ambiguous verdicts, verdict disagreement, duplicate verdicts, candidate-SHA mismatch, plan/policy/task-role drift, raw-RunId filesystem leakage, required-workflow omission, the initial PR-check registration race, missing SHA-pinned merge behavior and critical supervisor gate regressions on Canonical CI's Windows/PowerShell environment.
 
 ## Files
 
 - `remediation-plan.json`: authoritative orchestration scope, execution gates and acceptance criteria for F01-F15.
 - `Run-Remediation.ps1`: plan-governed supervisor.
 - `VerificationVerdict.psm1`: strict workpack + candidate-bound verdict parser.
-- `.git/bago-remediation-runs/<safeRunId>/ledger.jsonl`: local lifecycle/evidence index; it is not remote authority by itself.
+- `.git/bago-remediation-runs/run-<safeRunId>/ledger.jsonl`: local lifecycle/evidence index; it is not remote authority by itself.
