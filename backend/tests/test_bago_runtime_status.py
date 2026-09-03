@@ -323,7 +323,7 @@ def test_consume_remediation_receipt_rejects_self_issued_v1_review(monkeypatch, 
     assert module.cmd_consume_remediation_receipt(SimpleNamespace(
         package=str(package), receipt=str(receipt), status="VERIFIED", review=str(review),
     )) == 2
-    assert "GitHub-authenticated APPROVED review" in capsys.readouterr().err
+    assert "authority receipt" in capsys.readouterr().err
 
 
 def test_github_review_provenance_requires_matching_approved_review(monkeypatch) -> None:
@@ -487,6 +487,90 @@ def test_verify_independent_review_requires_merged_pull_request_for_validated(mo
         "user": {"login": "pr-author"},
     })
     assert module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha", "VALIDATED")
+
+
+def _single_maintainer_receipt() -> tuple[dict, dict]:
+    receipt = {
+        "contract": "bago.single-maintainer.github.v1", "result": "PASS",
+        "maintainer": "repository-owner", "candidate_sha": "a" * 40,
+        "package_sha256": "package-sha",
+        "github": {"repository": "example/BAGO", "pull_request": 200},
+    }
+    return receipt, {"remote": "git@github.com:example/BAGO.git"}
+
+
+def _mock_single_maintainer_authority(monkeypatch, module) -> None:
+    monkeypatch.setattr(module, "_single_maintainer_policy", lambda: {
+        "contract": "bago.single-maintainer-governance.v1",
+        "mode": "single-maintainer",
+        "owner": "repository-owner",
+        "required_status_check": "validate",
+        "requires_pull_request": True,
+        "review_requirement": "not-applicable",
+    })
+    monkeypatch.setattr(module, "_github_current_login", lambda: "repository-owner")
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "admin")
+    monkeypatch.setattr(module, "_github_requires_single_maintainer_policy", lambda *_args: True)
+
+
+def test_single_maintainer_receipt_requires_owner_admin_current_pr_and_live_policy(monkeypatch) -> None:
+    module = _module()
+    receipt, fingerprint = _single_maintainer_receipt()
+    _mock_single_maintainer_authority(monkeypatch, module)
+    pull = {
+        "number": 200, "state": "open", "merged": False,
+        "head": {"sha": "a" * 40}, "base": {"ref": "main"},
+        "user": {"login": "repository-owner"},
+    }
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: pull)
+    assert module._verify_single_maintainer_receipt(receipt, fingerprint, "a" * 40, "package-sha")
+
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "push")
+    assert not module._verify_single_maintainer_receipt(receipt, fingerprint, "a" * 40, "package-sha")
+
+
+def test_single_maintainer_receipt_binds_validated_to_actual_merge_commit(monkeypatch) -> None:
+    module = _module()
+    receipt, fingerprint = _single_maintainer_receipt()
+    _mock_single_maintainer_authority(monkeypatch, module)
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: {
+        "number": 200, "state": "closed", "merged": True,
+        "head": {"sha": "b" * 40}, "base": {"ref": "main"},
+        "user": {"login": "repository-owner"},
+        "merge_commit_sha": "a" * 40,
+    })
+    assert module._verify_single_maintainer_receipt(
+        receipt, fingerprint, "a" * 40, "package-sha", "VALIDATED"
+    )
+    assert not module._verify_single_maintainer_receipt(
+        receipt, fingerprint, "a" * 40, "package-sha", "VERIFIED"
+    )
+
+
+def test_single_maintainer_receipt_fails_closed_when_remote_policy_is_not_active(monkeypatch) -> None:
+    module = _module()
+    receipt, fingerprint = _single_maintainer_receipt()
+    _mock_single_maintainer_authority(monkeypatch, module)
+    monkeypatch.setattr(module, "_github_requires_single_maintainer_policy", lambda *_args: False)
+    assert not module._verify_single_maintainer_receipt(receipt, fingerprint, "a" * 40, "package-sha")
+
+
+def test_single_maintainer_remote_policy_requires_validate_and_enforced_admins(monkeypatch) -> None:
+    module = _module()
+    protection = {
+        "required_pull_request_reviews": {
+            "required_approving_review_count": 0,
+            "dismiss_stale_reviews": False,
+            "require_last_push_approval": False,
+        },
+        "required_status_checks": {"checks": [{"context": "validate", "app_id": 15368}]},
+        "enforce_admins": {"enabled": True},
+    }
+    monkeypatch.setattr(module, "_github_branch_protection", lambda *_args: protection)
+    assert module._github_requires_single_maintainer_policy("example/BAGO")
+
+    protection["enforce_admins"] = {"enabled": False}
+    assert not module._github_requires_single_maintainer_policy("example/BAGO")
 
 
 def test_verify_independent_review_fails_closed_when_pull_request_or_permission_unavailable(monkeypatch) -> None:

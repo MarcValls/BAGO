@@ -43,6 +43,9 @@ remain experimental.
 ## Audit remediation 2026-08-24
 
 The BAGO-AUD-001..010 remediation is `EXECUTED`. The baseline, closure contract
-and immutable handoff live under `.bago/audits/`. Promotion to `VERIFIED` or
-`VALIDATED` requires candidate-bound final gates and an independent review; no
-document may infer those states from this context file alone.
+and immutable handoff live under `.bago/audits/`. Promotion to `VERIFIED` or `VALIDATED` requires candidate-bound final gates and
+a GitHub-revalidated authority receipt. Independent review is required by
+default; the tracked single-maintainer exception is limited to its configured
+authenticated owner with `admin` permission and must never be represented as
+independent review. No document may infer protected states from this context
+file alone.

@@ -2,7 +2,8 @@
 param(
     [string]$Owner = "MarcValls",
     [string]$Repo = "BAGO",
-    [string[]]$Branches = @("main")
+    [string[]]$Branches = @("main"),
+    [switch]$SingleMaintainer
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,6 +12,22 @@ function Set-BranchProtection {
     param(
         [string]$Branch
     )
+
+    $reviewPolicy = if ($SingleMaintainer) {
+        @{
+            dismiss_stale_reviews           = $false
+            require_code_owner_reviews      = $false
+            required_approving_review_count = 0
+            require_last_push_approval      = $false
+        }
+    } else {
+        @{
+            dismiss_stale_reviews           = $true
+            require_code_owner_reviews      = $false
+            required_approving_review_count = 1
+            require_last_push_approval      = $true
+        }
+    }
 
     $payload = @{
         required_status_checks           = @{
@@ -23,12 +40,7 @@ function Set-BranchProtection {
             )
         }
         enforce_admins                   = $true
-        required_pull_request_reviews    = @{
-            dismiss_stale_reviews           = $true
-            require_code_owner_reviews      = $false
-            required_approving_review_count = 1
-            require_last_push_approval      = $true
-        }
+        required_pull_request_reviews    = $reviewPolicy
         restrictions                     = $null
         required_linear_history          = $true
         allow_force_pushes               = $false
@@ -48,4 +60,5 @@ foreach ($branch in $Branches) {
     Set-BranchProtection -Branch $branch
 }
 
-Write-Output "Protección aplicada en $($Branches -join ', ')."
+$mode = if ($SingleMaintainer) { "single-maintainer" } else { "independent-review" }
+Write-Output "Protección '$mode' aplicada en $($Branches -join ', ')."
