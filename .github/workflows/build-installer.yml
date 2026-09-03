@@ -14,6 +14,7 @@ on:
       - 'releases/bago-installer.nsi'
       - 'releases/install-embedded-payload.ps1'
       - 'releases/build-installer.ps1'
+      - 'releases/resolve-nsis.ps1'
       - 'backend/scripts/package_v4.py'
       - 'release_version.txt'
       - '.github/workflows/build-installer.yml'
@@ -23,6 +24,7 @@ on:
       - 'releases/bago-installer.nsi'
       - 'releases/install-embedded-payload.ps1'
       - 'releases/build-installer.ps1'
+      - 'releases/resolve-nsis.ps1'
       - 'backend/scripts/package_v4.py'
       - 'release_version.txt'
       - '.github/workflows/build-installer.yml'
@@ -66,16 +68,7 @@ jobs:
 
       - name: Install NSIS
         run: |
-          $tools = Join-Path $env:RUNNER_TEMP 'nsis-tools'
-          New-Item -ItemType Directory -Path $tools -Force | Out-Null
-          $zip = Join-Path $tools 'nsis-3.10.zip'
-          curl.exe --fail --location --retry 3 --output $zip 'https://sourceforge.net/projects/nsis/files/NSIS%203/3.10/nsis-3.10.zip/download'
-          $expectedSha = 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110'
-          $actualSha = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToUpperInvariant()
-          if ($actualSha -ne $expectedSha) { throw "Checksum NSIS inválido" }
-          Expand-Archive -Path $zip -DestinationPath $tools -Force
-          $makensis = Join-Path $tools 'nsis-3.10\makensis.exe'
-          if (-not (Test-Path $makensis)) { throw "makensis.exe no disponible" }
+          $makensis = & "$PWD\releases\resolve-nsis.ps1" -ToolsDirectory (Join-Path $env:RUNNER_TEMP 'nsis-tools')
           "NSIS_MAKENSIS=$makensis" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Compile electron-viewer
@@ -90,7 +83,7 @@ jobs:
         run: |
           Write-Host "Building canonical embedded-payload installer..."
           $version = $env:BAGO_VERSION
-          & .\build-installer.ps1 -SkipBuild -Version $version
+          & .\build-installer.ps1 -SkipBuild -Version $version -GitRef $env:GITHUB_REF_NAME -GitSha $env:GITHUB_SHA -NsisMakensis $env:NSIS_MAKENSIS
 
           if ($LASTEXITCODE -ne 0) {
             Write-Host "ERROR: canonical installer build failed"

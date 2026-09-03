@@ -3,23 +3,23 @@
 
 !define APP_NAME "BAGO"
 !ifndef APP_VERSION
-!define APP_VERSION "4.9.2"
+!error "APP_VERSION must be supplied by the release build"
 !endif
 !ifndef APP_GIT_REF
-!define APP_GIT_REF "v4.9.2"
+!error "APP_GIT_REF must be supplied by the release build"
 !endif
 !ifndef APP_GIT_SHA
-!define APP_GIT_SHA "local"
+!error "APP_GIT_SHA must be supplied by the release build"
 !endif
 !define APP_PUBLISHER "MarcValls"
 !define APP_URL "https://github.com/MarcValls/BAGO"
 !define UNINSTALL_REG "Software\Microsoft\Windows\CurrentVersion\Uninstall\BAGO"
 !define INSTALL_DIR "$LOCALAPPDATA\BAGO"
 !ifndef DISTRIBUTION_ZIP_FILE
-!define DISTRIBUTION_ZIP_FILE "bago-${APP_VERSION}-distribution.zip"
+!error "DISTRIBUTION_ZIP_FILE must be supplied by the release build"
 !endif
 !ifndef DEV_PS1_FILE
-!define DEV_PS1_FILE "..\scripts\dev.ps1"
+!error "DEV_PS1_FILE must be supplied by the release build"
 !endif
 
 Name "${APP_NAME} ${APP_VERSION}"

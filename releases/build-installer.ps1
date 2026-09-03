@@ -1,7 +1,14 @@
 [CmdletBinding()]
 param(
     [switch]$SkipBuild,
-    [string]$Version = ""
+    [Parameter(Mandatory = $true)]
+    [string]$Version,
+    [Parameter(Mandatory = $true)]
+    [string]$GitRef,
+    [Parameter(Mandatory = $true)]
+    [string]$GitSha,
+    [Parameter(Mandatory = $true)]
+    [string]$NsisMakensis
 )
 
 Set-StrictMode -Version Latest
@@ -9,11 +16,18 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $PSCommandPath
 $repoRoot = Split-Path -Parent $scriptDir
 $versionFile = Join-Path $repoRoot "release_version.txt"
-if ([string]::IsNullOrWhiteSpace($Version)) {
-    $Version = (Get-Content -LiteralPath $versionFile -Raw).Trim()
-}
+$canonicalVersion = (Get-Content -LiteralPath $versionFile -Raw).Trim()
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
     throw "Version canónica inválida: '$Version'"
+}
+if ($Version -ne $canonicalVersion) {
+    throw "Version solicitada '$Version' no coincide con release_version.txt '$canonicalVersion'."
+}
+if ($GitSha -notmatch '^[0-9a-f]{40}$') {
+    throw "GitSha inválido: '$GitSha'."
+}
+if (-not (Test-Path -LiteralPath $NsisMakensis)) {
+    throw "NSIS makensis.exe no encontrado en la ruta fijada: '$NsisMakensis'."
 }
 $version = $Version
 $runtimeDir = Join-Path $scriptDir "compiled\runtime"
@@ -100,20 +114,15 @@ Set-Content -LiteralPath "$zipFile.sha256" -Value $zipHashLine -Encoding ASCII
 Write-Host "[4/5] Validando payload..."
 & (Join-Path $repoRoot "scripts\validate_global_payload.ps1") -Root $runtimeDir -ExpectedVersion $version
 
-$makensis = @(
-    $env:NSIS_MAKENSIS,
-    "C:\Program Files (x86)\NSIS\makensis.exe",
-    "C:\Program Files\NSIS\makensis.exe"
-) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
-if (-not $makensis) { throw "NSIS makensis.exe no encontrado." }
-
 Write-Host "[5/5] Compilando NSIS..."
 Push-Location $scriptDir
 try {
-    & $makensis /V3 `
+    & $NsisMakensis /V3 `
         "/DAPP_VERSION=$version" `
-        "/DAPP_GIT_REF=v$version" `
+        "/DAPP_GIT_REF=$GitRef" `
+        "/DAPP_GIT_SHA=$GitSha" `
         "/DDISTRIBUTION_ZIP_FILE=bago-$version-distribution.zip" `
+        "/DDEV_PS1_FILE=..\scripts\dev.ps1" `
         $nsiFile
     if ($LASTEXITCODE -ne 0) { throw "NSIS fallo con codigo $LASTEXITCODE." }
 } finally {
