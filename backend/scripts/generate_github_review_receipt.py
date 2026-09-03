@@ -99,6 +99,10 @@ def build_receipt(
     permission = module._github_collaborator_permission(repository, reviewer)
     if permission not in module._AUTHORIZED_REVIEW_PERMISSIONS:
         raise ValueError(f"reviewer {reviewer!r} does not hold an authorized repository permission ({permission!r})")
+    if reviewer in module._github_head_commit_actors(repository, pull_request, candidate_sha):
+        raise ValueError("reviewer is recorded as an author or committer of the latest candidate commit")
+    if module._github_has_authorized_blocking_review(repository, pull_request):
+        raise ValueError("an authorized reviewer has an active CHANGES_REQUESTED decision")
 
     return {
         "contract": "bago.independent-review.github.v2",

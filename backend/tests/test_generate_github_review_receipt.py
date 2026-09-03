@@ -84,6 +84,14 @@ def _mock_runtime(monkeypatch, module, *, reviewer="eligible-reviewer", pr_autho
         def _github_collaborator_permission(_repository, _login):
             return permission
 
+        @staticmethod
+        def _github_head_commit_actors(_repository, _pull_request, _candidate):
+            return {"candidate-author"}
+
+        @staticmethod
+        def _github_has_authorized_blocking_review(_repository, _pull_request):
+            return False
+
     return _Runtime
 
 
@@ -166,4 +174,28 @@ def test_build_receipt_rejects_stale_review_commit(monkeypatch, tmp_path: Path) 
     ))
 
     with pytest.raises(ValueError, match="stale relative to the last push"):
+        module.build_receipt(runtime, "example/BAGO", 204, 123, package, None)
+
+
+def test_build_receipt_rejects_reviewer_who_committed_candidate(monkeypatch, tmp_path: Path) -> None:
+    module = _module()
+    package = _package(tmp_path)
+    runtime = _mock_runtime(monkeypatch, module)
+    runtime._package_sha = hashlib.sha256(package.read_bytes()).hexdigest()
+    monkeypatch.setattr(module, "_current_login", lambda: "eligible-reviewer")
+    monkeypatch.setattr(runtime, "_github_head_commit_actors", staticmethod(lambda *_args: {"eligible-reviewer"}))
+
+    with pytest.raises(ValueError, match="author or committer"):
+        module.build_receipt(runtime, "example/BAGO", 204, 123, package, None)
+
+
+def test_build_receipt_rejects_active_authorized_changes_request(monkeypatch, tmp_path: Path) -> None:
+    module = _module()
+    package = _package(tmp_path)
+    runtime = _mock_runtime(monkeypatch, module)
+    runtime._package_sha = hashlib.sha256(package.read_bytes()).hexdigest()
+    monkeypatch.setattr(module, "_current_login", lambda: "eligible-reviewer")
+    monkeypatch.setattr(runtime, "_github_has_authorized_blocking_review", staticmethod(lambda *_args: True))
+
+    with pytest.raises(ValueError, match="CHANGES_REQUESTED"):
         module.build_receipt(runtime, "example/BAGO", 204, 123, package, None)

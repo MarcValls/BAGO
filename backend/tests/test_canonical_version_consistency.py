@@ -41,3 +41,14 @@ def test_canonical_versions_reject_deliberate_root_authority_drift(tmp_path: Pat
     (fixture / "release_version.txt").write_text("4.9.4\n", encoding="utf-8")
     with pytest.raises(ValueError, match="release_version.txt='4.9.4'"):
         _module().validate(fixture)
+
+
+def test_required_validate_workflow_runs_version_consistency_check() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "validate-expected.yml").read_text(encoding="utf-8")
+    assert "Validate canonical version consistency" in workflow
+    assert "python scripts/verify_version_consistency.py" in workflow
+
+
+def test_branch_protection_defaults_cover_all_base_branches() -> None:
+    script = (ROOT / "backend" / "scripts" / "apply_branch_protection.ps1").read_text(encoding="utf-8")
+    assert '@("main", "windows", "android")' in script

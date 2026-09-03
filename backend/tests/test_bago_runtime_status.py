@@ -353,6 +353,8 @@ def test_github_review_provenance_requires_matching_approved_review(monkeypatch)
     })
     monkeypatch.setattr(module, "_github_requires_fresh_approval", lambda *_args: True)
     monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "push")
+    monkeypatch.setattr(module, "_github_head_commit_actors", lambda *_args: {"candidate-author"})
+    monkeypatch.setattr(module, "_github_has_authorized_blocking_review", lambda *_args: False)
     fingerprint = {"remote": "git@github.com:example/BAGO.git"}
     assert module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
 
@@ -394,6 +396,8 @@ def _mock_approved_review(monkeypatch, module) -> None:
         "body": approved_body,
     })
     monkeypatch.setattr(module, "_github_requires_fresh_approval", lambda *_args: True)
+    monkeypatch.setattr(module, "_github_head_commit_actors", lambda *_args: {"candidate-author"})
+    monkeypatch.setattr(module, "_github_has_authorized_blocking_review", lambda *_args: False)
 
 
 def test_verify_independent_review_rejects_author_reviewing_own_pull_request(monkeypatch) -> None:
@@ -420,6 +424,50 @@ def test_verify_independent_review_rejects_reviewer_without_authority(monkeypatc
     })
     monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "read")
     assert not module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
+
+
+def test_verify_independent_review_rejects_reviewer_who_committed_candidate(monkeypatch) -> None:
+    module = _module()
+    review, fingerprint = _authority_review_and_fingerprint()
+    _mock_approved_review(monkeypatch, module)
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: {
+        "number": 200, "state": "open", "merged": False,
+        "head": {"sha": "a" * 40}, "base": {"ref": "main"},
+        "user": {"login": "pr-author"},
+    })
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "push")
+    monkeypatch.setattr(module, "_github_head_commit_actors", lambda *_args: {"independent-test-reviewer"})
+    assert not module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
+
+
+def test_verify_independent_review_rejects_authorized_changes_requested_after_approval(monkeypatch) -> None:
+    module = _module()
+    review, fingerprint = _authority_review_and_fingerprint()
+    _mock_approved_review(monkeypatch, module)
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: {
+        "number": 200, "state": "open", "merged": False,
+        "head": {"sha": "a" * 40}, "base": {"ref": "main"},
+        "user": {"login": "pr-author"},
+    })
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "push")
+    monkeypatch.setattr(module, "_github_has_authorized_blocking_review", lambda *_args: True)
+    assert not module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
+
+
+def test_github_review_history_ignores_superseded_changes_requested_but_rejects_latest(monkeypatch) -> None:
+    module = _module()
+    reviews = [
+        {"id": 1, "state": "CHANGES_REQUESTED", "submitted_at": "2026-09-01T00:00:00Z", "user": {"login": "reviewer"}},
+        {"id": 2, "state": "APPROVED", "submitted_at": "2026-09-02T00:00:00Z", "user": {"login": "reviewer"}},
+    ]
+    monkeypatch.setattr(module, "_github_pull_reviews", lambda *_args: reviews)
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "push")
+    assert not module._github_has_authorized_blocking_review("example/BAGO", 200)
+
+    reviews.append(
+        {"id": 3, "state": "CHANGES_REQUESTED", "submitted_at": "2026-09-03T00:00:00Z", "user": {"login": "reviewer"}}
+    )
+    assert module._github_has_authorized_blocking_review("example/BAGO", 200)
 
 
 def test_verify_independent_review_rejects_missing_live_review_protection(monkeypatch) -> None:
