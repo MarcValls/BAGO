@@ -48,6 +48,16 @@ Blindajes de repositorio fuente:
 - Los hooks locales viven bajo `.githooks/` en el repo fuente.
 - La activación de hooks y protección de ramas no forma parte del snapshot runtime.
 
+Modo de mantenedor único (solo propietario):
+
+1. Conservar PR obligatoria, administradores forzados y el check `validate`.
+2. Aplicar la excepción explícita con `pwsh scripts/apply_branch_protection.ps1 -SingleMaintainer`.
+3. Usar exclusivamente recibos `bago.single-maintainer.github.v1` generados por
+   `scripts/generate_github_single_maintainer_receipt.py`; requieren la política
+   versionada, propietario autenticado y permiso `admin`.
+   Usar `--status VALIDATED` sólo después del merge y para un paquete ligado al SHA
+   real de su commit de merge.
+
 Break-glass (emergencia):
 
 1. Desactivar temporalmente protección de rama en GitHub.

@@ -166,16 +166,16 @@ if ($Finalize) {
     return
 }
 
-if (-not $ZipPath) {
-    $ZipPath = Join-Path $PSScriptRoot "bago-4.9.0-distribution.zip"
+if ([string]::IsNullOrWhiteSpace($ZipPath)) {
+    throw "ZipPath es obligatorio para instalar un payload embebido."
 }
 
 if (-not (Test-Path -LiteralPath $ZipPath)) {
     throw "No existe el ZIP embebido: $ZipPath"
 }
 
-if (-not $Sha256Path) {
-    $Sha256Path = $ZipPath + ".sha256"
+if ([string]::IsNullOrWhiteSpace($Sha256Path)) {
+    throw "Sha256Path es obligatorio para instalar un payload embebido."
 }
 
 if (-not (Test-Path -LiteralPath $Sha256Path)) {

@@ -1,7 +1,9 @@
 #!/usr/bin/env pwsh
 param(
     [string]$Owner = "MarcValls",
-    [string]$Repo = "BAGO"
+    [string]$Repo = "BAGO",
+    [string[]]$Branches = @("main"),
+    [switch]$SingleMaintainer
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,18 +13,34 @@ function Set-BranchProtection {
         [string]$Branch
     )
 
-    $payload = @{
-        required_status_checks           = @{
-            strict   = $true
-            contexts = @("Branch Flow Guard / branch-flow-guard")
-        }
-        enforce_admins                   = $true
-        required_pull_request_reviews    = @{
-            dismiss_stale_reviews           = $true
+    $reviewPolicy = if ($SingleMaintainer) {
+        @{
+            dismiss_stale_reviews           = $false
             require_code_owner_reviews      = $false
             required_approving_review_count = 0
             require_last_push_approval      = $false
         }
+    } else {
+        @{
+            dismiss_stale_reviews           = $true
+            require_code_owner_reviews      = $false
+            required_approving_review_count = 1
+            require_last_push_approval      = $true
+        }
+    }
+
+    $payload = @{
+        required_status_checks           = @{
+            strict   = $true
+            checks   = @(
+                @{
+                    context = "validate"
+                    app_id  = 15368
+                }
+            )
+        }
+        enforce_admins                   = $true
+        required_pull_request_reviews    = $reviewPolicy
         restrictions                     = $null
         required_linear_history          = $true
         allow_force_pushes               = $false
@@ -38,8 +56,9 @@ function Set-BranchProtection {
     $null = $payload | gh api -X PUT $endpoint --input -
 }
 
-foreach ($branch in @("main", "windows", "android")) {
+foreach ($branch in $Branches) {
     Set-BranchProtection -Branch $branch
 }
 
-Write-Output "Protección aplicada en main/windows/android."
+$mode = if ($SingleMaintainer) { "single-maintainer" } else { "independent-review" }
+Write-Output "Protección '$mode' aplicada en $($Branches -join ', ')."

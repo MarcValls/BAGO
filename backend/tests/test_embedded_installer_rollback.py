@@ -111,21 +111,31 @@ def test_builder_resolves_installer_version_from_canonical_authority() -> None:
 
     assert r'Join-Path $repoRoot "release_version.txt"' in builder
     assert r'backend\release_version.txt' not in builder
-    assert '$version = "' not in builder, "builder must not hard-code a mutable product version"
-    assert "-SkipBuild -Version $version" in workflow
+    assert "[Parameter(Mandatory = $true)]" in builder
+    assert '-GitRef $env:GITHUB_REF_NAME' in workflow
+    assert '-GitSha $env:GITHUB_SHA' in workflow
+    assert 'Join-Path $repoRoot "frontend\\dist"' in builder
+    assert "Copy-Item -LiteralPath $frontendDist -Destination $runtimeUiDist -Recurse -Force" in builder
     assert "release_version.txt" in workflow, (
         "version authority changes must trigger the installer workflow"
     )
     assert "backend/release_version.txt" not in workflow
     assert "node-version: '22.16.0'" in workflow
     assert "python-version: '3.14.5'" in workflow
-    assert "nsis-3.10.zip" in workflow
+    assert "resolve-nsis.ps1" in workflow
 
 
 def test_workflows_pin_the_official_nsis_310_zip_digest() -> None:
     """CI must reject a mirror error page as well as a tampered NSIS archive."""
     expected_url = "https://sourceforge.net/projects/nsis/files/NSIS%203/3.10/nsis-3.10.zip/download"
     expected_sha = "FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110"
+    resolver = ROOT / "releases" / "resolve-nsis.ps1"
+    resolver_text = resolver.read_text(encoding="utf-8")
+    assert expected_url in resolver_text
+    assert expected_sha in resolver_text
+    assert "curl.exe --fail --location --retry 3 --output $zip" in resolver_text
+    assert "prdownloads.sourceforge.net/nsis/nsis-3.10.zip" not in resolver_text
+
     workflows = (
         ROOT / ".github" / "workflows" / "build-installer.yml",
         ROOT / ".github" / "workflows" / "build-release-installer.yml",
@@ -133,10 +143,35 @@ def test_workflows_pin_the_official_nsis_310_zip_digest() -> None:
     )
     for workflow in workflows:
         text = workflow.read_text(encoding="utf-8")
-        assert expected_url in text
-        assert expected_sha in text
-        assert "curl.exe --fail --location --retry 3 --output $zip" in text
-        assert "prdownloads.sourceforge.net/nsis/nsis-3.10.zip" not in text
+        assert "resolve-nsis.ps1" in text
+
+
+def test_release_build_requires_explicit_identity_and_embedded_inputs() -> None:
+    """No local default may mint an installer whose version or source is ambiguous."""
+    nsi = NSIS.read_text(encoding="utf-8")
+    payload_installer = INSTALLER.read_text(encoding="utf-8")
+    builder = BUILDER.read_text(encoding="utf-8")
+
+    for required in ("APP_VERSION", "APP_GIT_REF", "APP_GIT_SHA", "DISTRIBUTION_ZIP_FILE", "DEV_PS1_FILE"):
+        assert f'!error "{required} must be supplied by the release build"' in nsi
+    assert "bago-4.9.0-distribution.zip" not in payload_installer
+    assert "ZipPath es obligatorio" in payload_installer
+    assert "Sha256Path es obligatorio" in payload_installer
+    assert '"/DAPP_GIT_SHA=$GitSha"' in builder
+
+
+def test_release_workflows_bind_checkout_tag_sha_and_installed_identity() -> None:
+    manual = (ROOT / ".github" / "workflows" / "build-release-installer.yml").read_text(encoding="utf-8")
+    canonical = (ROOT / ".github" / "workflows" / "canonical-ci.yml").read_text(encoding="utf-8")
+
+    assert "ref: ${{ inputs.release_tag }}" in manual
+    assert 'git rev-parse HEAD' in manual
+    assert 'git rev-parse "$tag`^{commit}"' in manual
+    assert "python scripts/verify_version_consistency.py --tag $tag --is-tag true" in manual
+    assert "-GitSha $env:CANDIDATE_SHA" in manual
+    for value in ("$reg.Version", "$reg.InstallRef", "$reg.InstallSha"):
+        assert value in manual
+        assert value in canonical
 
 
 def test_embedded_nsi_payload_includes_and_passes_distribution_hash_sidecar() -> None:

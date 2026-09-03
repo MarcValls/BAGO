@@ -25,106 +25,43 @@ jobs:
     name: Validate source
     runs-on: windows-latest
     timeout-minutes: 30
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - name: Validate version consistency
+      - name: Validate version and tag identity
         shell: pwsh
         run: |
-          $rootVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $frontendVersion = (Get-Content frontend/package.json -Raw | ConvertFrom-Json).version
-          $electronVersion = (Get-Content electron-viewer/package.json -Raw | ConvertFrom-Json).version
-          $backendVersion = (Get-Content backend/release_version.txt -Raw).Trim()
-          $uiVersion = (Get-Content frontend/public/ui_config.json -Raw | ConvertFrom-Json).version
+          $isTag = "${{ startsWith(github.ref, 'refs/tags/') }}".ToLowerInvariant()
+          python scripts/verify_version_consistency.py --tag "${{ github.ref_name }}" --is-tag $isTag
 
-          $versions = @($rootVersion, $frontendVersion, $electronVersion, $backendVersion, $uiVersion) | Select-Object -Unique
-          if ($versions.Count -ne 1) {
-            throw "Version drift detectado entre componentes BAGO"
-          }
-
-          if ("${{ github.ref }}".StartsWith("refs/tags/")) {
-            if ("v$rootVersion" -ne "${{ github.ref_name }}") {
-              throw "La tag ${{ github.ref_name }} no coincide con la versión $rootVersion"
-            }
-          }
-
-      - name: Install Python test dependencies
-        run: python -m pip install pytest==9.0.3 numpy==2.4.4 tzdata
-
-      - name: Install frontend workspaces
-        run: npm ci
-
-      - name: Audit Node dependencies
-        shell: pwsh
+      - name: Install dependencies
         run: |
-          $auditFile = Join-Path $env:RUNNER_TEMP 'npm-audit.json'
-          $auditJson = npm audit --audit-level=critical --json 2>&1
-          $auditExit = $LASTEXITCODE
-          $auditJson | Out-File -Encoding utf8 $auditFile
+          python -m pip install pytest==9.0.3 numpy==2.4.4 tzdata
+          npm ci
 
-          if ($auditExit -eq 0) { exit 0 }
-          if ("${{ github.ref }}".StartsWith("refs/tags/v")) {
-            throw "Dependencias con severidad critica detectadas en release tag"
-          }
-
-          Write-Host "ADVERTENCIA: npm audit detecto vulnerabilidades criticas (no bloqueante fuera de tags)."
-          exit 0
-
-      - name: Build canonical frontend
-        run: npm run build
-
-      - name: Typecheck canonical frontend
-        run: npm run typecheck
-
-      - name: Test canonical frontend
-        run: npm run test:frontend
-
-      - name: Ensure backend UI dist is present
-        shell: pwsh
+      - name: Build, typecheck, and test frontend
         run: |
-          $frontendDist = Join-Path $PWD 'frontend\dist'
-          $backendDist = Join-Path $PWD 'backend\ui-react\dist'
-          if (-not (Test-Path $frontendDist)) {
-            throw "frontend/dist no existe tras build"
-          }
-          New-Item -ItemType Directory -Path $backendDist -Force | Out-Null
-          Copy-Item -Path (Join-Path $frontendDist '*') -Destination $backendDist -Recurse -Force
+          npm run build
+          npm run typecheck
+          npm run test:frontend
 
-      - name: Validate backend
-        working-directory: backend
-        run: python bago_core/cli.py validate
-
-      - name: Test backend
-        working-directory: backend
-        run: python -m pytest -q
-
-      - name: Test clean Windows install
-        working-directory: backend
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test_clean_install.ps1
-
-      - name: Install and test manager
+      - name: Validate and test backend
         working-directory: backend
         run: |
+          python bago_core/cli.py validate
+          python -m pytest -q
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test_clean_install.ps1
           npm ci
           npm run manager:test-jobs
-
-      - name: Manager smoke (dev-mode Electron)
-        working-directory: backend
-        if: github.event_name == 'workflow_dispatch'
-        run: npm run manager:test-smoke
 
       - name: Verify build did not modify tracked source
         shell: pwsh
@@ -135,213 +72,69 @@ jobs:
             throw "El build ha modificado archivos versionados"
           }
 
-      - name: Upload validate diagnostics
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: bago-validate-${{ github.sha }}
-          if-no-files-found: ignore
-          retention-days: 7
-          path: |
-            ${{ runner.temp }}/npm-audit.json
-
   packaged-smoke:
     name: Packaged Electron smoke
+    needs: validate
     runs-on: windows-latest
     timeout-minutes: 30
-    needs: validate
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - name: Install monorepo dependencies
-        run: npm ci
+      - name: Install and build candidate
+        run: |
+          npm ci
+          npm run build --workspace frontend
+          npm run dist --workspace electron-viewer
 
-      - name: Build canonical frontend
-        run: npm run build --workspace frontend
-
-      - name: Install electron-viewer dependencies
-        working-directory: electron-viewer
-        run: npm ci
-
-      - name: Build packaged Electron app
-        working-directory: electron-viewer
-        run: npm run dist
-
-      - name: Ensure NSIS is available
+      - name: Resolve pinned NSIS 3.10
         shell: pwsh
         run: |
-          $mk = 'C:\Program Files (x86)\NSIS\makensis.exe'
-          if (-not (Test-Path $mk)) {
-            try {
-              choco install nsis.install -y --no-progress
-            } catch {
-              Write-Host "Chocolatey NSIS failed, using portable fallback..."
-            }
-          }
-          if (-not (Test-Path $mk)) {
-            $tools = Join-Path $env:RUNNER_TEMP 'nsis-tools'
-            New-Item -ItemType Directory -Path $tools -Force | Out-Null
-            $zip = Join-Path $tools 'nsis.zip'
-            $expectedSha = 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110'
-            curl.exe --fail --location --retry 3 --output $zip 'https://sourceforge.net/projects/nsis/files/NSIS%203/3.10/nsis-3.10.zip/download'
-            $actualSha = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToUpperInvariant()
-            if ($actualSha -ne $expectedSha) {
-              throw "Checksum NSIS inválido. Esperado: $expectedSha, actual: $actualSha"
-            }
-            Expand-Archive -Path $zip -DestinationPath $tools -Force
-            $mk = Join-Path $tools 'nsis-3.10\makensis.exe'
-          }
-          if (-not (Test-Path $mk)) { throw "makensis.exe no disponible" }
-          "NSIS_MAKENSIS=$mk" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $makensis = & "$PWD\releases\resolve-nsis.ps1" -ToolsDirectory (Join-Path $env:RUNNER_TEMP 'nsis-tools')
+          "NSIS_MAKENSIS=$makensis" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Build embedded distribution payload locally
+      - name: Build canonical installer path
         shell: pwsh
         run: |
-          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $dst = Join-Path $PWD "releases/bago-$version-distribution.zip"
-          $stage = Join-Path $PWD "releases/compiled/runtime"
-          Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path $stage -Force | Out-Null
-
-          # Clean backend runtime package under backend/ (layout expected by NSIS payload script)
-          python backend/scripts/package_v4.py --output-dir backend/release/v4 --release-version $version | Out-Null
-          $thinZip = Join-Path $PWD "backend/release/v4/bago-v$version.zip"
-          if (-not (Test-Path $thinZip)) { throw "No se genero bago-v$version.zip" }
-          $backendStage = Join-Path $stage "backend"
-          New-Item -ItemType Directory -Path $backendStage -Force | Out-Null
-          Expand-Archive -LiteralPath $thinZip -DestinationPath $backendStage -Force
-
-          # Electron viewer payload
-          $viewerSource = Join-Path $PWD "electron-viewer/dist/win-unpacked"
-          if (-not (Test-Path $viewerSource)) { throw "No existe electron-viewer/dist/win-unpacked" }
-          Copy-Item -LiteralPath $viewerSource -Destination (Join-Path $stage "electron-viewer") -Recurse -Force
-
-          # Validate expected layout before compressing
-          if (-not (Test-Path (Join-Path $backendStage "bago_core/cli.py"))) {
-            throw "Backend payload no contiene bago_core/cli.py"
-          }
-          if (-not (Test-Path (Join-Path $stage "electron-viewer/BAGO.exe"))) {
-            throw "Electron viewer payload no contiene BAGO.exe"
-          }
-
-          Remove-Item -LiteralPath $dst -Force -ErrorAction SilentlyContinue
-          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $dst -Force
-          $hash = (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash
-          Set-Content -LiteralPath "$dst.sha256" -Value "$hash  $([System.IO.Path]::GetFileName($dst))" -Encoding ascii
-
-          $dist = Get-Item -LiteralPath $dst
-          # Compressed payload must contain both slices; ~80 MB is a safe floor for backend + Electron viewer.
-          if ($dist.Length -lt 80MB) {
-            throw "Payload demasiado pequeño para ser una distribución completa: $($dist.Length) bytes"
-          }
-
-      - name: Build NSIS installer
-        shell: pwsh
-        run: |
-          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $setup = Join-Path $PWD "releases\bago-$version-setup.exe"
-          Remove-Item -LiteralPath $setup -Force -ErrorAction SilentlyContinue
-          Push-Location releases
-          try {
-            & $env:NSIS_MAKENSIS `
-              "/DAPP_VERSION=$version" `
-              "/DAPP_GIT_REF=v$version" `
-              "/DDISTRIBUTION_ZIP_FILE=bago-$version-distribution.zip" `
-              "/DDEV_PS1_FILE=..\scripts\dev.ps1" `
-              'bago-installer.nsi'
-            if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS" }
-          } finally {
-            Pop-Location
-          }
-          $dist = Get-Item -LiteralPath (Join-Path $PWD "releases\bago-$version-distribution.zip")
-          $setup = Get-Item -LiteralPath $setup
-          if ($setup.Length -lt ($dist.Length * 0.9)) {
-            throw "Instalador incompleto: $($setup.Length) bytes para payload de $($dist.Length) bytes"
-          }
+          $version = (Get-Content release_version.txt -Raw).Trim()
+          & "$PWD\releases\build-installer.ps1" -SkipBuild -Version $version -GitRef "${{ github.ref_name }}" -GitSha "${{ github.sha }}" -NsisMakensis $env:NSIS_MAKENSIS
+          if ($LASTEXITCODE -ne 0) { throw "Fallo al construir el instalador canónico." }
 
       - name: Smoke packaged BAGO.exe lifecycle
         shell: pwsh
         run: |
-          $repoRoot = (Resolve-Path $PWD).Path
-          $exe = Join-Path $repoRoot 'electron-viewer\dist\win-unpacked\BAGO.exe'
-          if (-not (Test-Path $exe)) { throw "No existe BAGO.exe empaquetado" }
-
+          $exe = Join-Path $PWD 'electron-viewer\dist\win-unpacked\BAGO.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw "No existe BAGO.exe empaquetado." }
+          $env:BAGO_E2E_AUTOCLOSE_SECONDS = '8'
+          $proc = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
           try {
-            Invoke-WebRequest -Uri '${{ env.HEALTH_URL }}' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop | Out-Null
-            throw "El puerto 8080 ya está ocupado antes del smoke"
-          } catch {
-            if ($_.Exception.Message -eq "El puerto 8080 ya está ocupado antes del smoke") { throw }
-          }
-
-          reg add "HKCU\Software\BAGO" /v InstallPath /t REG_SZ /d "$repoRoot" /f | Out-Null
-          reg add "HKCU\Software\BAGO" /v InstallRef /t REG_SZ /d "${{ github.ref_name }}" /f | Out-Null
-
-          $proc = $null
-          try {
-            $env:BAGO_E2E_AUTOCLOSE_SECONDS = '8'
-            $proc = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
-
             $healthy = $false
             for ($i = 0; $i -lt 60; $i++) {
-              if ($proc.HasExited) { throw "BAGO.exe terminó antes de que el backend estuviera saludable" }
+              if ($proc.HasExited) { throw "BAGO.exe terminó antes de estar saludable." }
               try {
-                $r = Invoke-WebRequest -Uri '${{ env.HEALTH_URL }}' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
-                if ($r.StatusCode -eq 200) { $healthy = $true; break }
+                if ((Invoke-WebRequest -Uri '${{ env.HEALTH_URL }}' -UseBasicParsing -TimeoutSec 2).StatusCode -eq 200) {
+                  $healthy = $true
+                  break
+                }
               } catch {}
               Start-Sleep -Seconds 1
             }
-            if (-not $healthy) { throw "BAGO.exe no levantó backend saludable" }
-
+            if (-not $healthy) { throw "BAGO.exe no levantó backend saludable." }
             Wait-Process -Id $proc.Id -Timeout 60 -ErrorAction SilentlyContinue
             $proc.Refresh()
-            if (-not $proc.HasExited) { throw "BAGO.exe no cerró automáticamente" }
-            if ($proc.ExitCode -ne 0) { throw "BAGO.exe terminó con código $($proc.ExitCode)" }
-
-            $backendStopped = $false
-            for ($i = 0; $i -lt 30; $i++) {
-              try {
-                Invoke-WebRequest -Uri '${{ env.HEALTH_URL }}' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop | Out-Null
-              } catch {
-                $backendStopped = $true
-                break
-              }
-              Start-Sleep -Seconds 1
-            }
-            if (-not $backendStopped) { throw "El backend siguió activo tras cerrar BAGO.exe" }
+            if (-not $proc.HasExited -or $proc.ExitCode -ne 0) { throw "BAGO.exe no cerró correctamente." }
           } finally {
-            if ($proc -and -not $proc.HasExited) {
-              Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-            }
-            try {
-              powershell -NoProfile -ExecutionPolicy Bypass -File "$repoRoot\scripts\dev.ps1" stop
-            } catch {}
-            reg delete "HKCU\Software\BAGO" /f 2>$null
+            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
             Remove-Item Env:BAGO_E2E_AUTOCLOSE_SECONDS -ErrorAction SilentlyContinue
           }
-
-      - name: Upload smoke diagnostics
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: bago-packaged-smoke-${{ github.sha }}
-          if-no-files-found: ignore
-          retention-days: 7
-          path: |
-            .run/**
-            electron-viewer/dist/win-unpacked/resources/**
 
   installer-e2e:
     name: Real installer E2E
@@ -349,201 +142,84 @@ jobs:
     needs: packaged-smoke
     runs-on: windows-latest
     timeout-minutes: 45
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - name: Install monorepo dependencies
-        run: npm ci
-
-      - name: Build canonical frontend
-        run: npm run build --workspace frontend
-
-      - name: Install electron-viewer dependencies
-        working-directory: electron-viewer
-        run: npm ci
-
-      - name: Build packaged Electron app
-        working-directory: electron-viewer
-        run: npm run dist
-
-      - name: Ensure NSIS is available
+      - name: Verify immutable release identity
         shell: pwsh
         run: |
-          $mk = 'C:\Program Files (x86)\NSIS\makensis.exe'
-          if (-not (Test-Path $mk)) {
-            try {
-              choco install nsis.install -y --no-progress
-            } catch {
-              Write-Host "Chocolatey NSIS failed, using portable fallback..."
-            }
-          }
-          if (-not (Test-Path $mk)) {
-            $tools = Join-Path $env:RUNNER_TEMP 'nsis-tools'
-            New-Item -ItemType Directory -Path $tools -Force | Out-Null
-            $zip = Join-Path $tools 'nsis.zip'
-            $expectedSha = 'FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110'
-            curl.exe --fail --location --retry 3 --output $zip 'https://sourceforge.net/projects/nsis/files/NSIS%203/3.10/nsis-3.10.zip/download'
-            $actualSha = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToUpperInvariant()
-            if ($actualSha -ne $expectedSha) {
-              throw "Checksum NSIS inválido. Esperado: $expectedSha, actual: $actualSha"
-            }
-            Expand-Archive -Path $zip -DestinationPath $tools -Force
-            $mk = Join-Path $tools 'nsis-3.10\makensis.exe'
-          }
-          if (-not (Test-Path $mk)) { throw "makensis.exe no disponible" }
-          "NSIS_MAKENSIS=$mk" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Build embedded distribution payload locally
-        shell: pwsh
-        run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
-          $dst = Join-Path $PWD "releases/bago-$version-distribution.zip"
-          $stage = Join-Path $PWD "releases/compiled/runtime"
-          Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path $stage -Force | Out-Null
-
-          # Clean backend runtime package under backend/ (layout expected by NSIS payload script)
-          python backend/scripts/package_v4.py --output-dir backend/release/v4 --release-version $version | Out-Null
-          $thinZip = Join-Path $PWD "backend/release/v4/bago-v$version.zip"
-          if (-not (Test-Path $thinZip)) { throw "No se genero bago-v$version.zip" }
-          $backendStage = Join-Path $stage "backend"
-          New-Item -ItemType Directory -Path $backendStage -Force | Out-Null
-          Expand-Archive -LiteralPath $thinZip -DestinationPath $backendStage -Force
-
-          # Electron viewer payload
-          $viewerSource = Join-Path $PWD "electron-viewer/dist/win-unpacked"
-          if (-not (Test-Path $viewerSource)) { throw "No existe electron-viewer/dist/win-unpacked" }
-          Copy-Item -LiteralPath $viewerSource -Destination (Join-Path $stage "electron-viewer") -Recurse -Force
-
-          # Validate expected layout before compressing
-          if (-not (Test-Path (Join-Path $backendStage "bago_core/cli.py"))) {
-            throw "Backend payload no contiene bago_core/cli.py"
-          }
-          if (-not (Test-Path (Join-Path $stage "electron-viewer/BAGO.exe"))) {
-            throw "Electron viewer payload no contiene BAGO.exe"
-          }
-
-          Remove-Item -LiteralPath $dst -Force -ErrorAction SilentlyContinue
-          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $dst -Force
-          $hash = (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash
-          Set-Content -LiteralPath "$dst.sha256" -Value "$hash  $([System.IO.Path]::GetFileName($dst))" -Encoding ascii
-
-          $dist = Get-Item -LiteralPath $dst
-          # Compressed payload must contain both slices; ~80 MB is a safe floor for backend + Electron viewer.
-          if ($dist.Length -lt 80MB) {
-            throw "Payload demasiado pequeño para ser una distribución completa: $($dist.Length) bytes"
-          }
-
-      - name: Build tag-locked NSIS installer
-        shell: pwsh
-        run: |
+          git fetch --force --tags origin
           $tag = "${{ github.ref_name }}"
-          $version = $tag.TrimStart('v')
-          & $env:NSIS_MAKENSIS `
-            "/DAPP_GIT_REF=$tag" `
-            "/DAPP_GIT_SHA=${{ github.sha }}" `
-            "/DAPP_VERSION=$version" `
-            'releases\bago-installer.nsi'
-          if ($LASTEXITCODE -ne 0) { throw "Fallo al compilar NSIS tag-locked" }
-          $setupInRoot = Join-Path $PWD "bago-$version-setup.exe"
-          $setupInReleases = Join-Path $PWD "releases/bago-$version-setup.exe"
-          if (Test-Path $setupInRoot) {
-            Move-Item -Path $setupInRoot -Destination "releases\" -Force
-          } elseif (-not (Test-Path $setupInReleases)) {
-            throw "No existe bago-$version-setup.exe ni en raíz ni en releases/"
-          }
+          $sha = (git rev-parse HEAD).Trim()
+          if ($sha -ne (git rev-parse "$tag`^{commit}").Trim()) { throw "El checkout no coincide con el tag." }
+          python scripts/verify_version_consistency.py --tag $tag --is-tag true
+          "BAGO_VERSION=$($tag.TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "CANDIDATE_SHA=$sha" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Hash installer artifact
+      - name: Build release candidate
+        run: |
+          npm ci
+          npm run build --workspace frontend
+          npm run dist --workspace electron-viewer
+
+      - name: Resolve pinned NSIS 3.10
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag.TrimStart('v')
-          $setup = Join-Path $PWD "releases/bago-$version-setup.exe"
-          if (-not (Test-Path $setup)) { throw "No existe $setup" }
-          $hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash
-          Set-Content -Path (Join-Path $PWD "releases/bago-$version-setup.exe.sha256") -Value $hash
+          $makensis = & "$PWD\releases\resolve-nsis.ps1" -ToolsDirectory (Join-Path $env:RUNNER_TEMP 'nsis-tools')
+          "NSIS_MAKENSIS=$makensis" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Upload installer artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: bago-setup-${{ github.ref_name }}
-          path: |
-            releases/bago-*-setup.exe
-            releases/bago-*-setup.exe.sha256
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Run installer and verify lifecycle
+      - name: Build canonical tag-locked installer
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag.TrimStart('v')
-          $setup = Join-Path $PWD "releases/bago-$version-setup.exe"
-          if (-not (Test-Path $setup)) { throw "No existe $setup" }
+          & "$PWD\releases\build-installer.ps1" -SkipBuild -Version $env:BAGO_VERSION -GitRef "${{ github.ref_name }}" -GitSha $env:CANDIDATE_SHA -NsisMakensis $env:NSIS_MAKENSIS
+          if ($LASTEXITCODE -ne 0) { throw "Fallo al construir el instalador canónico." }
 
+      - name: Run installer and verify identity
+        shell: pwsh
+        run: |
+          $setup = Join-Path $PWD "releases\bago-$env:BAGO_VERSION-setup.exe"
           $installProc = Start-Process -FilePath $setup -ArgumentList '/S' -PassThru -Wait
-          if ($installProc.ExitCode -ne 0) { throw "El instalador terminó con código $($installProc.ExitCode)" }
-
+          if ($installProc.ExitCode -ne 0) { throw "El instalador terminó con código $($installProc.ExitCode)." }
           $reg = Get-ItemProperty -LiteralPath 'HKCU:\Software\BAGO' -ErrorAction Stop
-          if ($reg.InstallRef -ne $tag) { throw "InstallRef inesperado: $($reg.InstallRef)" }
-          $installPath = $reg.InstallPath
-          if (-not (Test-Path $installPath)) { throw "InstallPath no existe: $installPath" }
-
-          $exeCandidates = @(
-            (Join-Path $installPath 'electron-viewer\BAGO.exe'),
-            (Join-Path $installPath 'electron-viewer\dist\win-unpacked\BAGO.exe')
-          )
-          $exe = $exeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if (-not $exe) { throw "No existe BAGO.exe instalado" }
-          $startMenuLnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\BAGO\BAGO.lnk'
-          if (-not (Test-Path $startMenuLnk)) { throw "No existe acceso directo en menú inicio" }
-
+          if ($reg.Version -ne $env:BAGO_VERSION) { throw "Version inesperada: $($reg.Version)" }
+          if ($reg.InstallRef -ne "${{ github.ref_name }}") { throw "InstallRef inesperado: $($reg.InstallRef)" }
+          if ($reg.InstallSha -ne $env:CANDIDATE_SHA) { throw "InstallSha inesperado: $($reg.InstallSha)" }
+          $exe = Join-Path $reg.InstallPath 'electron-viewer\BAGO.exe'
+          if (-not (Test-Path -LiteralPath $exe)) { throw "No existe BAGO.exe instalado." }
           $env:BAGO_E2E_AUTOCLOSE_SECONDS = '8'
-          $proc = Start-Process -FilePath $exe -PassThru
-          $healthy = $false
-          for ($i = 0; $i -lt 60; $i++) {
-            if ($proc.HasExited) { throw "BAGO.exe terminó antes de estar saludable" }
-            try {
-              $r = Invoke-WebRequest -Uri '${{ env.HEALTH_URL }}' -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
-              if ($r.StatusCode -eq 200) { $healthy = $true; break }
-            } catch {}
-            Start-Sleep -Seconds 1
+          $proc = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
+          try {
+            $healthy = $false
+            for ($i = 0; $i -lt 90; $i++) {
+              $proc.Refresh()
+              if ($proc.HasExited) { throw "BAGO.exe terminó antes de estar saludable." }
+              try {
+                if ((Invoke-WebRequest -Uri '${{ env.HEALTH_URL }}' -UseBasicParsing -TimeoutSec 2).StatusCode -eq 200) {
+                  $healthy = $true
+                  break
+                }
+              } catch {}
+              Start-Sleep -Seconds 1
+            }
+            if (-not $healthy) { throw "BAGO.exe no levantó backend saludable." }
+            Wait-Process -Id $proc.Id -Timeout 90 -ErrorAction SilentlyContinue
+            $proc.Refresh()
+            if (-not $proc.HasExited -or $proc.ExitCode -ne 0) { throw "BAGO.exe no cerró correctamente." }
+          } finally {
+            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+            Remove-Item Env:BAGO_E2E_AUTOCLOSE_SECONDS -ErrorAction SilentlyContinue
           }
-          if (-not $healthy) { throw "BAGO.exe no levantó backend saludable" }
-
-          Wait-Process -Id $proc.Id -Timeout 60 -ErrorAction SilentlyContinue
-          $proc.Refresh()
-          if (-not $proc.HasExited) { throw "BAGO.exe no cerró automáticamente" }
-          if ($proc.ExitCode -ne 0) { throw "BAGO.exe terminó con código $($proc.ExitCode)" }
-
-          $uninstallExe = Join-Path $installPath 'uninstall.exe'
-          if (-not (Test-Path $uninstallExe)) { throw "No existe uninstall.exe" }
-          $unProc = Start-Process -FilePath $uninstallExe -ArgumentList '/S' -PassThru -Wait
-          if ($unProc.ExitCode -ne 0) { throw "El desinstalador terminó con código $($unProc.ExitCode)" }
-
-          if (Test-Path $installPath) { throw "El directorio de instalación no se eliminó" }
-          if (Test-Path 'HKCU:\Software\BAGO') { throw "La clave HKCU\\Software\\BAGO sigue presente tras desinstalar" }
-
-      - name: Upload installer diagnostics
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: bago-installer-e2e-${{ github.sha }}
-          if-no-files-found: ignore
-          retention-days: 7
-          path: |
-            .run/**
-            electron-viewer/dist/win-unpacked/resources/**
+          $uninstall = Join-Path $reg.InstallPath 'uninstall.exe'
+          $uninstallProc = Start-Process -FilePath $uninstall -ArgumentList '/S' -PassThru -Wait
+          if ($uninstallProc.ExitCode -ne 0 -or (Test-Path -LiteralPath $reg.InstallPath)) { throw "La desinstalación falló." }

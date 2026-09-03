@@ -185,6 +185,21 @@ export function ControlPlane() {
     });
     if (willDock) setInspectorSelection(null);
   }, []);
+  const toggleChatDocked = useCallback(() => {
+    setUiState((current) => {
+      const willDock = !current.chatDocked;
+      const next = patchUiState(current, {
+        chatDocked: willDock,
+        activePanel: willDock ? null : current.activePanel,
+        activeSection: willDock && current.activeSection === 'chat' ? 'home' : current.activeSection
+      });
+      persistUiState(next);
+      persistApiConfig(next.apiBase || readStoredApiBase());
+      clientRef.current.setConfig(next.apiBase || readStoredApiBase(), next.apiToken || '');
+      return next;
+    });
+    setInspectorSelection(null);
+  }, []);
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
@@ -515,8 +530,7 @@ export function ControlPlane() {
       // Ctrl+Shift+C: acoplar / desacoplar el chat a la pantalla actual.
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'c') {
         event.preventDefault();
-        const willDock = !uiState.chatDocked;
-        setChatDocked(willDock);
+        toggleChatDocked();
         return;
       }
       // Ctrl+1..9: navegar según el registro canónico compartido con el sidebar.
@@ -557,7 +571,7 @@ export function ControlPlane() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [entered, uiState.chatDocked]);
+  }, [entered, toggleChatDocked]);
 
   useEffect(() => {
     const bridge = getElectronBridge();
@@ -1229,10 +1243,9 @@ export function ControlPlane() {
       toggleFocus: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'focus' ? 'normal' : 'focus' }),
       toggleReview: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'review' ? 'normal' : 'review' }),
       toggleChatDock: () => {
-        const willDock = !uiState.chatDocked;
         // CANON[INSPECTOR-MUTEX]: el dock de chat es mutuamente
         // excluyente con cualquier panel lateral o inspector.
-        setChatDocked(willDock);
+        toggleChatDocked();
       },
       chatDocked: uiState.chatDocked,
       runCommand: (command) => { void runCommand(command); },
@@ -1453,11 +1466,10 @@ export function ControlPlane() {
           }}
           onOpenHelp={() => setAndPersistUiState({ helpOpen: true })}
           onToggleChatDock={() => {
-            const willDock = !uiState.chatDocked;
             // CANON[INSPECTOR-MUTEX]: el botón de la cabecera sigue
             // la misma regla que el atajo y el palette: acoplar
             // siempre cierra el panel/inspector a la derecha.
-            setChatDocked(willDock);
+            toggleChatDocked();
           }}
           chatDocked={uiState.chatDocked}
           globalMode={uiState.globalMode}
