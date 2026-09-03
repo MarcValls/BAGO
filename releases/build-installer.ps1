@@ -31,6 +31,7 @@ if (-not (Test-Path -LiteralPath $NsisMakensis)) {
 }
 $version = $Version
 $runtimeDir = Join-Path $scriptDir "compiled\runtime"
+$frontendDist = Join-Path $repoRoot "frontend\dist"
 $viewerSource = Join-Path $repoRoot "electron-viewer\dist\win-unpacked"
 $setupFile = Join-Path $scriptDir "bago-$version-setup.exe"
 $nsiFile = Join-Path $scriptDir "bago-installer.nsi"
@@ -101,6 +102,14 @@ if (Test-Path -LiteralPath $runtimeDir) {
 }
 New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
 Copy-CleanTree -Source (Join-Path $repoRoot "backend") -Destination $runtimeDir
+if (-not (Test-Path -LiteralPath (Join-Path $frontendDist "index.html"))) {
+    throw "No existe frontend\\dist\\index.html; construya el frontend antes de empaquetar."
+}
+$runtimeUiDist = Join-Path $runtimeDir "ui-react\dist"
+if (Test-Path -LiteralPath $runtimeUiDist) {
+    Remove-Item -LiteralPath $runtimeUiDist -Recurse -Force
+}
+Copy-Item -LiteralPath $frontendDist -Destination $runtimeUiDist -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "scripts\validate_global_payload.ps1") -Destination (Join-Path $runtimeDir "scripts\validate_global_payload.ps1") -Force
 Copy-Item -LiteralPath $viewerSource -Destination (Join-Path $runtimeDir "electron-viewer") -Recurse -Force
 

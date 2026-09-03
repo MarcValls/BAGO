@@ -114,6 +114,8 @@ def test_builder_resolves_installer_version_from_canonical_authority() -> None:
     assert "[Parameter(Mandatory = $true)]" in builder
     assert '-GitRef $env:GITHUB_REF_NAME' in workflow
     assert '-GitSha $env:GITHUB_SHA' in workflow
+    assert 'Join-Path $repoRoot "frontend\\dist"' in builder
+    assert "Copy-Item -LiteralPath $frontendDist -Destination $runtimeUiDist -Recurse -Force" in builder
     assert "release_version.txt" in workflow, (
         "version authority changes must trigger the installer workflow"
     )
