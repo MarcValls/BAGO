@@ -258,6 +258,58 @@ def _github_pull_request(repository: str, pull_request: int) -> dict[str, Any]:
     return value
 
 
+def _github_paginated_list(repository: str, resource: str, label: str) -> list[dict[str, Any]]:
+    """Load every page of a GitHub REST list endpoint or reject the authority check."""
+    try:
+        result = subprocess.run(
+            [
+                "gh", "api", "--method", "GET", "--paginate", "--slurp",
+                f"repos/{repository}/{resource}?per_page=100",
+            ],
+            cwd=_repo_root(),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except OSError as exc:
+        raise ValueError(f"GitHub {label} is unavailable: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"rc={result.returncode}"
+        raise ValueError(f"GitHub {label} is unavailable: {detail[-300:]}")
+    try:
+        pages = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"GitHub {label} is invalid JSON: {exc}") from exc
+    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
+        raise ValueError(f"GitHub {label} is not a paginated JSON array")
+    entries = [entry for page in pages for entry in page]
+    if any(not isinstance(entry, dict) for entry in entries):
+        raise ValueError(f"GitHub {label} contains an invalid entry")
+    return entries
+
+
+def _github_pull_reviews(repository: str, pull_request: int) -> list[dict[str, Any]]:
+    """Load every GitHub review so a superseding request for changes is visible."""
+    return _github_paginated_list(repository, f"pulls/{pull_request}/reviews", "pull request reviews")
+
+
+def _github_head_commit_actors(repository: str, pull_request: int, candidate: str) -> set[str]:
+    """Return GitHub identities recorded as author/committer of the PR head commit."""
+    commits = _github_paginated_list(repository, f"pulls/{pull_request}/commits", "pull request commits")
+    matches = [commit for commit in commits if commit.get("sha") == candidate]
+    if len(matches) != 1:
+        raise ValueError("GitHub pull request head commit provenance is missing or ambiguous")
+    actors: set[str] = set()
+    for field in ("author", "committer"):
+        identity = matches[0].get(field)
+        login = identity.get("login") if isinstance(identity, dict) else None
+        if isinstance(login, str) and login:
+            actors.add(login)
+    return actors
+
+
 def _github_collaborator_permission(repository: str, login: str) -> str:
     """Load the authenticated GitHub collaborator permission, failing closed on error."""
     try:
@@ -420,6 +472,28 @@ def _github_review_attestation_matches(remote_review: dict[str, Any], candidate:
     return all(fields[key] == [value] for key, value in required.items())
 
 
+def _github_has_authorized_blocking_review(repository: str, pull_request: int) -> bool:
+    """Reject a receipt if an authorized reviewer's latest decision requests changes."""
+    latest: dict[str, dict[str, Any]] = {}
+    for review in _github_pull_reviews(repository, pull_request):
+        user = review.get("user")
+        login = user.get("login") if isinstance(user, dict) else None
+        submitted = review.get("submitted_at")
+        review_id = review.get("id")
+        if not isinstance(login, str) or not login or not isinstance(submitted, str) or not submitted:
+            raise ValueError("GitHub review history has incomplete reviewer provenance")
+        if not isinstance(review_id, int) or isinstance(review_id, bool) or review_id <= 0:
+            raise ValueError("GitHub review history has an invalid review identifier")
+        previous = latest.get(login)
+        if previous is None or (submitted, review_id) > (previous["submitted_at"], previous["id"]):
+            latest[login] = {"state": review.get("state"), "submitted_at": submitted, "id": review_id}
+    for login, review in latest.items():
+        if review["state"] == "CHANGES_REQUESTED":
+            if _github_collaborator_permission(repository, login) in _AUTHORIZED_REVIEW_PERMISSIONS:
+                return True
+    return False
+
+
 def _verify_independent_review(
     review: dict[str, Any], fp: dict[str, Any], candidate: str, package_sha: str, target_status: str = "VERIFIED",
 ) -> bool:
@@ -481,6 +555,10 @@ def _verify_independent_review(
     if not _github_requires_fresh_approval(repository):
         return False
     if _github_collaborator_permission(repository, reviewer) not in _AUTHORIZED_REVIEW_PERMISSIONS:
+        return False
+    if reviewer in _github_head_commit_actors(repository, pull_request, candidate):
+        return False
+    if _github_has_authorized_blocking_review(repository, pull_request):
         return False
     if target_status.upper() == "VALIDATED" and not (pull.get("state") == "closed" and pull.get("merged") is True):
         return False

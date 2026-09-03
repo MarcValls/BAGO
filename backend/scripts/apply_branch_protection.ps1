@@ -2,7 +2,7 @@
 param(
     [string]$Owner = "MarcValls",
     [string]$Repo = "BAGO",
-    [string[]]$Branches = @("main"),
+    [string[]]$Branches = @("main", "windows", "android"),
     [switch]$SingleMaintainer
 )
 
