@@ -26,6 +26,8 @@ _MANUAL_STATES = frozenset(_LIFECYCLE[:3])
 _REMEDIATION_RECEIPT_CONTRACT = "bago.third-party-remediation-verification.v1"
 _INDEPENDENT_REVIEW_CONTRACT = "bago.independent-review.github.v2"
 _GITHUB_REVIEW_ATTESTATION = "bago.protected-remediation-attestation.v1"
+_REQUIRED_PR_BASE_REF = "main"
+_AUTHORIZED_REVIEW_PERMISSIONS = frozenset({"push", "maintain", "admin"})
 
 
 def _repo_root() -> Path:
@@ -228,6 +230,103 @@ def _github_pull_review(repository: str, pull_request: int, review_id: int) -> d
     return value
 
 
+def _github_pull_request(repository: str, pull_request: int) -> dict[str, Any]:
+    """Load the authenticated GitHub pull request, failing closed on error."""
+    try:
+        result = subprocess.run(
+            ["gh", "api", "--method", "GET", f"repos/{repository}/pulls/{pull_request}"],
+            cwd=_repo_root(),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except OSError as exc:
+        raise ValueError(f"GitHub pull request provenance is unavailable: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"rc={result.returncode}"
+        raise ValueError(f"GitHub pull request provenance is unavailable: {detail[-300:]}")
+    try:
+        value = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"GitHub pull request provenance is invalid JSON: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError("GitHub pull request provenance is not a JSON object")
+    return value
+
+
+def _github_collaborator_permission(repository: str, login: str) -> str:
+    """Load the authenticated GitHub collaborator permission, failing closed on error."""
+    try:
+        result = subprocess.run(
+            ["gh", "api", "--method", "GET", f"repos/{repository}/collaborators/{login}/permission"],
+            cwd=_repo_root(),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except OSError as exc:
+        raise ValueError(f"GitHub reviewer permission is unavailable: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"rc={result.returncode}"
+        raise ValueError(f"GitHub reviewer permission is unavailable: {detail[-300:]}")
+    try:
+        value = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"GitHub reviewer permission is invalid JSON: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError("GitHub reviewer permission is not a JSON object")
+    permission = value.get("permission")
+    if not isinstance(permission, str) or not permission:
+        raise ValueError("GitHub reviewer permission is missing")
+    return permission
+
+
+def _github_branch_protection(repository: str, branch: str) -> dict[str, Any]:
+    """Load authenticated GitHub branch protection, failing closed on error."""
+    try:
+        result = subprocess.run(
+            ["gh", "api", "--method", "GET", f"repos/{repository}/branches/{branch}/protection"],
+            cwd=_repo_root(),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except OSError as exc:
+        raise ValueError(f"GitHub branch protection is unavailable: {exc}") from exc
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"rc={result.returncode}"
+        raise ValueError(f"GitHub branch protection is unavailable: {detail[-300:]}")
+    try:
+        value = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"GitHub branch protection is invalid JSON: {exc}") from exc
+    if not isinstance(value, dict):
+        raise ValueError("GitHub branch protection is not a JSON object")
+    return value
+
+
+def _github_requires_fresh_approval(repository: str) -> bool:
+    """Return whether main's live policy requires a fresh independent approval."""
+    protection = _github_branch_protection(repository, _REQUIRED_PR_BASE_REF)
+    reviews = protection.get("required_pull_request_reviews")
+    if not isinstance(reviews, dict):
+        return False
+    approving_count = reviews.get("required_approving_review_count")
+    return (
+        isinstance(approving_count, int)
+        and not isinstance(approving_count, bool)
+        and approving_count >= 1
+        and reviews.get("dismiss_stale_reviews") is True
+        and reviews.get("require_last_push_approval") is True
+    )
+
+
 def _github_review_attestation_matches(remote_review: dict[str, Any], candidate: str, package_sha: str) -> bool:
     """Require the GitHub-hosted approval body to bind the remediation package."""
     body = remote_review.get("body")
@@ -250,8 +349,17 @@ def _github_review_attestation_matches(remote_review: dict[str, Any], candidate:
     return all(fields[key] == [value] for key, value in required.items())
 
 
-def _verify_independent_review(review: dict[str, Any], fp: dict[str, Any], candidate: str, package_sha: str) -> bool:
-    """Verify review content and GitHub-authenticated provenance for a candidate."""
+def _verify_independent_review(
+    review: dict[str, Any], fp: dict[str, Any], candidate: str, package_sha: str, target_status: str = "VERIFIED",
+) -> bool:
+    """Verify review content and GitHub-authenticated provenance for a candidate.
+
+    Beyond the review itself, this binds authority: the reviewer must hold
+    real GitHub repository permission, must not be the pull request's own
+    author, and the reviewed pull request must match this repository, base
+    branch and head SHA exactly. VALIDATED additionally requires the pull
+    request to be merged; a still-open PR can only support VERIFIED.
+    """
     if review.get("contract") != _INDEPENDENT_REVIEW_CONTRACT or review.get("result") != "PASS":
         return False
     reviewer = review.get("reviewer")
@@ -276,16 +384,39 @@ def _verify_independent_review(review: dict[str, Any], fp: dict[str, Any], candi
         return False
     remote_review = _github_pull_review(repository, pull_request, review_id)
     remote_user = remote_review.get("user")
-    return (
+    if not (
         remote_review.get("state") == "APPROVED"
         and remote_review.get("commit_id") == candidate
         and isinstance(remote_user, dict)
         and remote_user.get("login") == reviewer
         and _github_review_attestation_matches(remote_review, candidate, package_sha)
-    )
+    ):
+        return False
+    pull = _github_pull_request(repository, pull_request)
+    pull_author = pull.get("user")
+    pull_head = pull.get("head")
+    pull_base = pull.get("base")
+    if (
+        pull.get("number") != pull_request
+        or not isinstance(pull_head, dict)
+        or pull_head.get("sha") != candidate
+        or not isinstance(pull_base, dict)
+        or pull_base.get("ref") != _REQUIRED_PR_BASE_REF
+        or not isinstance(pull_author, dict)
+        or not isinstance(pull_author.get("login"), str)
+        or pull_author.get("login") == reviewer
+    ):
+        return False
+    if not _github_requires_fresh_approval(repository):
+        return False
+    if _github_collaborator_permission(repository, reviewer) not in _AUTHORIZED_REVIEW_PERMISSIONS:
+        return False
+    if target_status.upper() == "VALIDATED" and not (pull.get("state") == "closed" and pull.get("merged") is True):
+        return False
+    return True
 
 
-def _has_current_protected_receipt(state: dict[str, Any], fp: dict[str, Any]) -> bool:
+def _has_current_protected_receipt(state: dict[str, Any], fp: dict[str, Any], claimed_status: str = "VERIFIED") -> bool:
     receipt = state.get("protected_receipt")
     if not isinstance(receipt, dict) or fp.get("dirty"):
         return False
@@ -312,7 +443,7 @@ def _has_current_protected_receipt(state: dict[str, Any], fp: dict[str, Any]) ->
         review_path = _resolve_repo_path(receipt.get("review"), "independent review path")
         review = _load_json_object(review_path, "independent review receipt")
         return verified and receipt.get("review_sha256") == _sha_file(review_path) and _verify_independent_review(
-            review, fp, str(fp.get("commit")), str(receipt["package_sha256"])
+            review, fp, str(fp.get("commit")), str(receipt["package_sha256"]), claimed_status
         )
     except (KeyError, OSError, ValueError):
         return False
@@ -338,7 +469,7 @@ def cmd_status(_args: argparse.Namespace) -> int:
     # PROJECT_STATE.json is project-authored context, not an independent
     # attestation. Even an exact fingerprint cannot self-certify a protected
     # lifecycle state; the immutable external receipt remains authoritative.
-    has_receipt = _has_current_protected_receipt(state, fp)
+    has_receipt = _has_current_protected_receipt(state, fp, claimed_status.upper())
     effective_status = "STALE" if protected_claim and (dirty or stale) else "UNVERIFIED" if protected_claim and not has_receipt else claimed_status
 
     print(f"Repository: {_repo_root()}")
@@ -510,7 +641,7 @@ def cmd_consume_remediation_receipt(args: argparse.Namespace) -> int:
         if not args.review:
             raise ValueError(f"{target} requires --review with an independent review receipt")
         review = _load_json_object(Path(args.review).resolve(), "independent review receipt")
-        if not _verify_independent_review(review, fp, candidate, package_sha):
+        if not _verify_independent_review(review, fp, candidate, package_sha, target):
             raise ValueError(
                 "independent review receipt is not a GitHub-authenticated APPROVED review bound to this candidate"
             )

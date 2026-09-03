@@ -346,6 +346,13 @@ def test_github_review_provenance_requires_matching_approved_review(monkeypatch)
         "user": {"login": "independent-test-reviewer"},
         "body": approved_body,
     })
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: {
+        "number": 200, "state": "open", "merged": False,
+        "head": {"sha": "a" * 40}, "base": {"ref": "main"},
+        "user": {"login": "pr-author"},
+    })
+    monkeypatch.setattr(module, "_github_requires_fresh_approval", lambda *_args: True)
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "push")
     fingerprint = {"remote": "git@github.com:example/BAGO.git"}
     assert module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
 
@@ -361,6 +368,144 @@ def test_github_review_provenance_requires_matching_approved_review(monkeypatch)
         "user": {"login": "different-github-user"}, "body": approved_body,
     })
     assert not module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
+
+
+def _authority_review_and_fingerprint() -> tuple[dict, dict]:
+    review = {
+        "contract": "bago.independent-review.github.v2", "result": "PASS",
+        "reviewer": "independent-test-reviewer", "candidate_sha": "a" * 40,
+        "package_sha256": "package-sha",
+        "github": {"repository": "example/BAGO", "pull_request": 200, "review_id": 123},
+    }
+    return review, {"remote": "git@github.com:example/BAGO.git"}
+
+
+def _mock_approved_review(monkeypatch, module) -> None:
+    approved_body = "\n".join((
+        "attestation: bago.protected-remediation-attestation.v1",
+        "contract: bago.independent-review.github.v2",
+        "result: PASS",
+        f"candidate_sha: {'a' * 40}",
+        "package_sha256: package-sha",
+    ))
+    monkeypatch.setattr(module, "_github_pull_review", lambda *_args: {
+        "state": "APPROVED", "commit_id": "a" * 40,
+        "user": {"login": "independent-test-reviewer"},
+        "body": approved_body,
+    })
+    monkeypatch.setattr(module, "_github_requires_fresh_approval", lambda *_args: True)
+
+
+def test_verify_independent_review_rejects_author_reviewing_own_pull_request(monkeypatch) -> None:
+    module = _module()
+    review, fingerprint = _authority_review_and_fingerprint()
+    _mock_approved_review(monkeypatch, module)
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: {
+        "number": 200, "state": "open", "merged": False,
+        "head": {"sha": "a" * 40}, "base": {"ref": "main"},
+        "user": {"login": "independent-test-reviewer"},
+    })
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "push")
+    assert not module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
+
+
+def test_verify_independent_review_rejects_reviewer_without_authority(monkeypatch) -> None:
+    module = _module()
+    review, fingerprint = _authority_review_and_fingerprint()
+    _mock_approved_review(monkeypatch, module)
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: {
+        "number": 200, "state": "open", "merged": False,
+        "head": {"sha": "a" * 40}, "base": {"ref": "main"},
+        "user": {"login": "pr-author"},
+    })
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "read")
+    assert not module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
+
+
+def test_verify_independent_review_rejects_missing_live_review_protection(monkeypatch) -> None:
+    module = _module()
+    review, fingerprint = _authority_review_and_fingerprint()
+    _mock_approved_review(monkeypatch, module)
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: {
+        "number": 200, "state": "open", "merged": False,
+        "head": {"sha": "a" * 40}, "base": {"ref": "main"},
+        "user": {"login": "pr-author"},
+    })
+    monkeypatch.setattr(module, "_github_requires_fresh_approval", lambda *_args: False)
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "push")
+    assert not module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
+
+
+def test_github_review_protection_fails_closed_when_api_is_unavailable(monkeypatch) -> None:
+    module = _module()
+    monkeypatch.setattr(
+        module.subprocess, "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 1, stdout="", stderr="network unavailable"),
+    )
+    with pytest.raises(ValueError, match="branch protection is unavailable"):
+        module._github_branch_protection("example/BAGO", "main")
+
+
+@pytest.mark.parametrize("pull_overrides", [
+    {"number": 999},
+    {"head": {"sha": "b" * 40}},
+    {"base": {"ref": "not-main"}},
+])
+def test_verify_independent_review_rejects_pull_request_mismatch(monkeypatch, pull_overrides: dict) -> None:
+    module = _module()
+    review, fingerprint = _authority_review_and_fingerprint()
+    _mock_approved_review(monkeypatch, module)
+    pull = {
+        "number": 200, "state": "open", "merged": False,
+        "head": {"sha": "a" * 40}, "base": {"ref": "main"},
+        "user": {"login": "pr-author"},
+    }
+    pull.update(pull_overrides)
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: pull)
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "push")
+    assert not module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
+
+
+def test_verify_independent_review_requires_merged_pull_request_for_validated(monkeypatch) -> None:
+    module = _module()
+    review, fingerprint = _authority_review_and_fingerprint()
+    _mock_approved_review(monkeypatch, module)
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "push")
+
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: {
+        "number": 200, "state": "open", "merged": False,
+        "head": {"sha": "a" * 40}, "base": {"ref": "main"},
+        "user": {"login": "pr-author"},
+    })
+    assert not module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha", "VALIDATED")
+    # VERIFIED remains available for the still-open, reviewed branch SHA.
+    assert module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha", "VERIFIED")
+
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: {
+        "number": 200, "state": "closed", "merged": True,
+        "head": {"sha": "a" * 40}, "base": {"ref": "main"},
+        "user": {"login": "pr-author"},
+    })
+    assert module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha", "VALIDATED")
+
+
+def test_verify_independent_review_fails_closed_when_pull_request_or_permission_unavailable(monkeypatch) -> None:
+    module = _module()
+    review, fingerprint = _authority_review_and_fingerprint()
+    _mock_approved_review(monkeypatch, module)
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: (_ for _ in ()).throw(ValueError("provenance is unavailable")))
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: "push")
+    with pytest.raises(ValueError, match="provenance is unavailable"):
+        module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
+
+    monkeypatch.setattr(module, "_github_pull_request", lambda *_args: {
+        "number": 200, "state": "open", "merged": False,
+        "head": {"sha": "a" * 40}, "base": {"ref": "main"},
+        "user": {"login": "pr-author"},
+    })
+    monkeypatch.setattr(module, "_github_collaborator_permission", lambda *_args: (_ for _ in ()).throw(ValueError("permission is unavailable")))
+    with pytest.raises(ValueError, match="permission is unavailable"):
+        module._verify_independent_review(review, fingerprint, "a" * 40, "package-sha")
 
 
 @pytest.mark.parametrize("body", [

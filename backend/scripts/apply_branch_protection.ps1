@@ -1,7 +1,8 @@
 #!/usr/bin/env pwsh
 param(
     [string]$Owner = "MarcValls",
-    [string]$Repo = "BAGO"
+    [string]$Repo = "BAGO",
+    [string[]]$Branches = @("main")
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,14 +15,19 @@ function Set-BranchProtection {
     $payload = @{
         required_status_checks           = @{
             strict   = $true
-            contexts = @("Branch Flow Guard / branch-flow-guard")
+            checks   = @(
+                @{
+                    context = "validate"
+                    app_id  = 15368
+                }
+            )
         }
         enforce_admins                   = $true
         required_pull_request_reviews    = @{
             dismiss_stale_reviews           = $true
             require_code_owner_reviews      = $false
-            required_approving_review_count = 0
-            require_last_push_approval      = $false
+            required_approving_review_count = 1
+            require_last_push_approval      = $true
         }
         restrictions                     = $null
         required_linear_history          = $true
@@ -38,8 +44,8 @@ function Set-BranchProtection {
     $null = $payload | gh api -X PUT $endpoint --input -
 }
 
-foreach ($branch in @("main", "windows", "android")) {
+foreach ($branch in $Branches) {
     Set-BranchProtection -Branch $branch
 }
 
-Write-Output "Protección aplicada en main/windows/android."
+Write-Output "Protección aplicada en $($Branches -join ', ')."
