@@ -4,18 +4,24 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Immutable release tag to build (for example, v4.9.3)
+        description: Immutable release tag to build (for example, vX.Y.Z)
         required: true
         type: string
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   build-installer:
     name: Build tag-locked NSIS installer artifact
     runs-on: windows-latest
     timeout-minutes: 45
+    environment: release-signing
+    env:
+      REQUESTED_TAG: ${{ inputs.release_tag }}
+      BAGO_EXPECTED_PUBLISHER: ${{ vars.BAGO_SIGNING_PUBLISHER }}
+      BAGO_EXPECTED_THUMBPRINT: ${{ vars.BAGO_SIGNING_THUMBPRINT }}
 
     steps:
       - name: Checkout requested release tag
@@ -38,14 +44,20 @@ jobs:
       - name: Verify tag, canonical version, and candidate identity
         shell: pwsh
         run: |
-          $tag = "${{ inputs.release_tag }}"
+          $tag = $env:REQUESTED_TAG
+          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
+            throw "Formato de tag de release inválido."
+          }
           git fetch --force --tags origin
+          git fetch --force origin main
           $candidateSha = (git rev-parse HEAD).Trim()
           $resolvedTagSha = (git rev-parse "$tag`^{commit}").Trim()
           $exactTag = (git describe --exact-match --tags HEAD).Trim()
           if ($candidateSha -ne $resolvedTagSha -or $exactTag -ne $tag) {
             throw "Checkout no coincide exactamente con el tag solicitado $tag."
           }
+          git merge-base --is-ancestor $candidateSha origin/main
+          if ($LASTEXITCODE -ne 0) { throw "El tag solicitado no es alcanzable desde origin/main." }
           python scripts/verify_version_consistency.py --tag $tag --is-tag true
           if ($LASTEXITCODE -ne 0) { throw "La versión canónica no coincide con el tag solicitado." }
           "BAGO_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
@@ -66,6 +78,50 @@ jobs:
           npm ci
           npm run dist
 
+      - name: Require protected signing configuration
+        shell: pwsh
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          BAGO_SIGNING_ENDPOINT: ${{ vars.BAGO_SIGNING_ENDPOINT }}
+          BAGO_SIGNING_ACCOUNT: ${{ vars.BAGO_SIGNING_ACCOUNT }}
+          BAGO_SIGNING_PROFILE: ${{ vars.BAGO_SIGNING_PROFILE }}
+        run: |
+          $required = @(
+            'AZURE_CLIENT_ID', 'AZURE_TENANT_ID', 'AZURE_SUBSCRIPTION_ID',
+            'BAGO_SIGNING_ENDPOINT', 'BAGO_SIGNING_ACCOUNT',
+            'BAGO_SIGNING_PROFILE', 'BAGO_EXPECTED_PUBLISHER'
+          )
+          $missing = @($required | Where-Object { -not [Environment]::GetEnvironmentVariable($_) })
+          if ($missing.Count) { throw "Configuración protegida de firma ausente: $($missing -join ', ')." }
+
+      - name: Azure login with protected OIDC identity
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign packaged BAGO executable
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.BAGO_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.BAGO_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.BAGO_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\electron-viewer\dist\win-unpacked\BAGO.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Verify packaged BAGO signature
+        shell: pwsh
+        run: |
+          & "$PWD\scripts\verify-authenticode.ps1" `
+            -Path "$PWD\electron-viewer\dist\win-unpacked\BAGO.exe" `
+            -ExpectedPublisher $env:BAGO_EXPECTED_PUBLISHER `
+            -ExpectedThumbprint $env:BAGO_EXPECTED_THUMBPRINT
+
       - name: Resolve pinned NSIS 3.10
         shell: pwsh
         run: |
@@ -77,11 +133,37 @@ jobs:
         run: |
           & "$PWD\releases\build-installer.ps1" `
             -SkipBuild `
+            -DeferSidecar `
             -Version $env:BAGO_VERSION `
             -GitRef $env:BAGO_TAG `
             -GitSha $env:CANDIDATE_SHA `
             -NsisMakensis $env:NSIS_MAKENSIS
           if ($LASTEXITCODE -ne 0) { throw "Fallo al construir el instalador canónico." }
+
+      - name: Sign canonical NSIS installer
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.BAGO_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.BAGO_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.BAGO_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\releases\bago-${{ env.BAGO_VERSION }}-setup.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Verify signatures and generate signed sidecar evidence
+        shell: pwsh
+        run: |
+          $viewer = Join-Path $PWD 'electron-viewer\dist\win-unpacked\BAGO.exe'
+          $setup = Join-Path $PWD "releases\bago-$env:BAGO_VERSION-setup.exe"
+          $evidence = Join-Path $PWD "releases\bago-$env:BAGO_VERSION-authenticode.json"
+          & "$PWD\scripts\verify-authenticode.ps1" `
+            -Path @($viewer, $setup) `
+            -ExpectedPublisher $env:BAGO_EXPECTED_PUBLISHER `
+            -ExpectedThumbprint $env:BAGO_EXPECTED_THUMBPRINT `
+            -EvidencePath $evidence
+          $hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash
+          Set-Content -LiteralPath "$setup.sha256" -Value "$hash  $([IO.Path]::GetFileName($setup))" -Encoding ASCII
 
       - name: Verify installer identity and lifecycle
         shell: pwsh
@@ -103,6 +185,10 @@ jobs:
           if ($reg.InstallSha -ne $env:CANDIDATE_SHA) { throw "InstallSha inesperado: $($reg.InstallSha)" }
           $exe = Join-Path $reg.InstallPath 'electron-viewer\BAGO.exe'
           if (-not (Test-Path -LiteralPath $exe)) { throw "No existe BAGO.exe instalado." }
+          & "$PWD\scripts\verify-authenticode.ps1" `
+            -Path $exe `
+            -ExpectedPublisher $env:BAGO_EXPECTED_PUBLISHER `
+            -ExpectedThumbprint $env:BAGO_EXPECTED_THUMBPRINT
           $env:BAGO_E2E_AUTOCLOSE_SECONDS = '8'
           $proc = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
           try {
@@ -140,5 +226,6 @@ jobs:
           path: |
             releases/bago-${{ env.BAGO_VERSION }}-setup.exe
             releases/bago-${{ env.BAGO_VERSION }}-setup.exe.sha256
+            releases/bago-${{ env.BAGO_VERSION }}-authenticode.json
           if-no-files-found: error
           retention-days: 7

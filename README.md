@@ -1,6 +1,6 @@
-# BAGO v4.9.3
+# BAGO v4.10.0 — candidato de release
 
-[![Version](https://img.shields.io/badge/version-4.9.3-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3)
+[![Version](https://img.shields.io/badge/version-4.10.0-blue)]()
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
@@ -11,18 +11,18 @@
 
 ---
 
-## Novedades en 4.9.3
+## Novedades preparadas para 4.10.0
 
-### Hotfix del instalador
-- El instalador NSIS incorpora y valida el sidecar SHA-256 del ZIP de distribución antes de sustituir la instalación existente.
-- El constructor local y los workflows de release generan el sidecar de forma consistente; el smoke aislado verificó instalación, `/health` y el cierre limpio de `BAGO.exe`.
+### Contratos y arquitectura
+- Se declara y prueba la frontera kernel/extensión, con compatibilidad de entradas existentes y una migración de imports enumerada y verificable.
+- Capability API v1 alinea permisos, confirmaciones, red, simulación e información de recibos entre backend y frontend.
+- La identidad del modelo, sus capacidades observadas y la política de routing quedan separadas; el camino RL sigue sin autoridad de ejecución automática.
 
-### Remediación
-- Cierre declarado `EXECUTED` (ver `.bago/context/PROJECT_CONTEXT.md` + `.bago/audits/remediation-closure-contract-20260824.md` + `remediation-handoff-20260824.md`)
-- La atribución inicial del baseline dirty fue recuperada: `.bago/audits/recovered-dirty-boundary-20260824.patch` conserva el patch CRLF con SHA-256 `943f59fd339f0f57c63f21beb785c0d3c35f6977ecf7bf569b74c324a523bb79`, y su forma LF normalizada aplica contra el baseline archivado
-- La promoción a `VERIFIED`/`VALIDATED` sigue dependiendo de gates crudos, bundle reproducible e identidad de candidato coherente
+### Seguridad de distribución
+- El preflight de firma Authenticode falla de forma segura y emite un recibo JSON aunque GitHub responda que falta el entorno de firma.
+- Las proyecciones de rutas, migración y versión se verifican contra drift en CI.
 
-> Estado `EXECUTED` no equivale a `VERIFIED` ni `VALIDATED`. No afirmar promoción sin bundle reproducible.
+> Este candidato no está publicado: requiere un entorno `release-signing`, una identidad de firma pública autorizada y los gates de artefacto firmados.
 
 ## Novedades en 4.9.0
 
@@ -95,7 +95,7 @@ BAGO/
 |---|---|
 | Windows | 10 / 11 (plataforma principal) |
 | Python | 3.14+ |
-| Node.js | 20.19.0 o ≥ 22.12.0 |
+| Node.js | ≥ 22.12.0 |
 | npm | ≥ 10.0.0 |
 | Ollama | Opcional — necesario para el path local con modelo en vivo |
 
@@ -107,7 +107,7 @@ BAGO/
 
 ### Opción A — Instalador Windows (recomendado)
 
-Descarga `bago-4.9.3-setup.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3) y ejecútalo. El instalador:
+La última release pública es [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3). Descarga `bago-4.9.3-setup.exe` y ejecútalo. La candidata 4.10.0 aún no debe distribuirse: está pendiente de firma Authenticode autorizada.
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
 - El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
@@ -296,6 +296,7 @@ npm run sh:status
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
+| v4.10.0 | Pendiente de publicación | Candidato preparado; requiere instalador firmado y E2E del artefacto final |
 | [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3) | 2026-09-01 | `bago-4.9.3-setup.exe` |
 | [v4.9.2](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2) | 2026-08-29 | `bago-4.9.2-setup.exe` |
 | [v4.9.1](https://github.com/MarcValls/BAGO/releases/tag/v4.9.1) | 2026-08-25 | `BAGO-Installation-Manager-4.9.1-win-x64.exe` · `bago-v4.9.1.zip` |
@@ -314,13 +315,13 @@ python -m pytest backend/tests
 # 2. Build del frontend y del visor Electron
 npm run build
 
-# 3. Empaquetar backend runtime
-python backend/scripts/package_v4.py --version 4.9.3
+# 3. Empaquetar backend runtime con la versión canónica
+python backend/scripts/package_v4.py --version <version>
 
-# 4. Crear o mover el tag a HEAD
-# git tag -a v4.9.3 -m "BAGO v4.9.3"
-# git push origin v4.9.3
-# La subida del release corre vía .github/workflows/release.yml usando gh release upload
+# 4. Solo después de que el preflight de firma esté listo, crear el tag inmutable
+# git tag -a v<version> -m "release: publish BAGO v<version>"
+# git push origin v<version>
+# Ejecutar Build Release Installer Artifact y publicar exclusivamente sus artefactos firmados.
 ```
 
 ---

@@ -19,7 +19,7 @@ from context_envelope import ContextReceipt
 from context_budget import compute_budget, truncate_context
 from intent_engine import classify_intent, should_enable_tools, get_few_shot_examples, intent_guidance
 from prompt_loader import load_prompt
-from provider_adapter import ProviderResponse
+from bago_core.providers import ProviderResponse
 from task_response_contract import (
     TASK_INTENTS,
     canonicalize_task_response,

@@ -5,12 +5,15 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any
 
 
 _WRITE_LOCK = threading.RLock()
+_WINDOWS_REPLACE_ATTEMPTS = 8
+_WINDOWS_REPLACE_DELAY_SECONDS = 0.02
 
 
 def read_json(path: Path, default: Any = None) -> Any:
@@ -24,6 +27,18 @@ def write_json_atomic(path: Path, payload: Any) -> None:
     write_text_atomic(path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 
 
+def _replace_atomically(temporary: Path, path: Path) -> None:
+    """Replace a state file, tolerating brief Windows sharing locks only."""
+    for attempt in range(_WINDOWS_REPLACE_ATTEMPTS):
+        try:
+            os.replace(temporary, path)
+            return
+        except PermissionError:
+            if os.name != "nt" or attempt + 1 >= _WINDOWS_REPLACE_ATTEMPTS:
+                raise
+            time.sleep(_WINDOWS_REPLACE_DELAY_SECONDS * (2**attempt))
+
+
 def write_text_atomic(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
@@ -33,7 +48,7 @@ def write_text_atomic(path: Path, content: str) -> None:
                 handle.write(content)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(temporary, path)
+            _replace_atomically(temporary, path)
         finally:
             temporary.unlink(missing_ok=True)
 

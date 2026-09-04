@@ -1,0 +1,33 @@
+{
+  "contract": "bago.goal-status.v1",
+  "goal_id": "7-point-kernel-closure",
+  "status": "EXECUTED",
+  "baseline_commit": "c2a60a1d22ec09d0f0cb6bdc1700d8b9531ec33f",
+  "branch": "orchestration/7-point-kernel-closure",
+  "completed_acceptance_criteria": [
+    "AC1",
+    "AC3",
+    "AC4",
+    "AC5",
+    "AC6",
+    "AC7"
+  ],
+  "blocked_acceptance_criteria": [
+    {
+      "id": "AC2-production-signing",
+      "reason": "No authorized public-trust signing identity: GitHub environment 'release-signing' does not exist (404) and no BAGO_SIGNING_*/AZURE_* configuration is present. Workflow fails closed as designed.",
+      "external": true
+    }
+  ],
+  "notes": [
+    "AC1 verified locally: PROJECT_STATE and ACTIVE_HANDOFF bind to the current candidate; scripts/verify_bagox_overlay.py detects candidate drift.",
+    "AC3 verified locally: the versioned kernel boundary contract is enforced by backend/tests/test_kernel_boundary_contract.py.",
+    "AC6 verified locally: identity/observed-capabilities/routing-policy are separated with provenance (bago_core.providers.contracts + routing), unknown models get no fabricated capabilities, wrong contracts fail closed, and RL stays can_execute=false (backend/tests/test_model_routing_policy.py + test_rl_contract.py).",
+    "AC4 verified locally: provider contracts/routing live in bago_core.providers with package imports and no sys.path mutation; .bago/core facades preserve entrypoints; remaining migration is enumerated and drift-checked in backend/contracts/import_migration_inventory.v1.json via backend/tests/test_import_consolidation.py.",
+    "AC5 verified locally: Capability API v1 contract agreement (permissions incl. network, confirmation/trust gates, dry-run /inspect, persisted receipts) proven across backend schema/runtime/handlers and frontend types/client by backend/tests/test_capability_api_v1_contract.py (15 tests incl. packages and capability contract).",
+    "AC7 verified locally: routes projection regenerated from canonical dispatch, import-migration inventory and version projections drift-checked, and canonical-ci.yml now runs all three drift gates (backend/tests/test_truth_projections_contract.py).",
+    "AC2 locally maximized: packaged BAGO.exe builds (electron-builder, Electron 42.11.1), unsigned binaries correctly FAIL the verify-authenticode gate (NotSigned -> exit 1), packaged smoke PASS (healthy /health + clean exit), NSIS 3.10 installer builds (162.88 MB, sha256 F48E8A7E...) and full installer E2E PASS (install -> registry identity matches HEAD c2a60a1d -> healthy installed run -> clean uninstall). Only the production Authenticode signing itself remains, blocked on an authorized external signing identity.",
+    "Goal contract created; audit mapping is in progress.",
+    "Production Authenticode trust requires an externally authorized signing identity."
+  ]
+}

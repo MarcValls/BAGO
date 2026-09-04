@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-import os
 import threading
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from api_serializers import send_json
 from api_state import resolve_state_root
+from bago_core.atomic_json import write_json_atomic
 
 
 _LOCK = threading.RLock()
@@ -39,10 +39,7 @@ def _load(handler) -> dict[str, dict]:
 
 def _save(handler, data: dict[str, dict]) -> None:
     path = _store_path(handler)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
-    os.replace(tmp, path)
+    write_json_atomic(path, data)
 
 
 def _entry(body: dict) -> dict:

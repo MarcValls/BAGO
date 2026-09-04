@@ -1,0 +1,3558 @@
+{
+  "contract": "bago.import-migration-inventory.v1",
+  "version": "1.0.0",
+  "generated_from": "AST scan: executable sys.path.insert/append calls and add_piece_paths usage under backend/ (excluding tests and __pycache__)",
+  "total_files": 309,
+  "total_mutations": 501,
+  "files": [
+    {
+      "path": "backend/.bago/agents/agent_gateway.py",
+      "mutations": [
+        {
+          "line": 49,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/api/bridge.py",
+      "mutations": [
+        {
+          "line": 56,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 57,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 58,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 59,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/api/handlers_interpret.py",
+      "mutations": [
+        {
+          "line": 14,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/api/handlers_memory.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/api/handlers_router.py",
+      "mutations": [
+        {
+          "line": 19,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/bin/bago.py",
+      "mutations": [
+        {
+          "line": 45,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 47,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/chat/commands.py",
+      "mutations": [
+        {
+          "line": 54,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 52,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/chat/context_commands.py",
+      "mutations": [
+        {
+          "line": 10,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/chat/project_commands.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/chat/repl.py",
+      "mutations": [
+        {
+          "line": 37,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 38,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 39,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/chat/repl_inventory.py",
+      "mutations": [
+        {
+          "line": 43,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 62,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 77,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/chat/repl_menu.py",
+      "mutations": [
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/chat/repl_model_router.py",
+      "mutations": [
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/chat/repl_startup.py",
+      "mutations": [
+        {
+          "line": 31,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/agent_dispatcher.py",
+      "mutations": [
+        {
+          "line": 149,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 166,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/autonomous_loop.py",
+      "mutations": [
+        {
+          "line": 69,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/session_adapters_mixin.py",
+      "mutations": [
+        {
+          "line": 15,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/session_context_envelope_mixin.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/session_context_policy_mixin.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 19,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 38,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/session_context_workspace_mixin.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/session_manager.py",
+      "mutations": [
+        {
+          "line": 42,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/session_persistence_mixin.py",
+      "mutations": [
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/session_tools_mixin.py",
+      "mutations": [
+        {
+          "line": 13,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/session_turn_mixin.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/session_utils.py",
+      "mutations": [
+        {
+          "line": 14,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/switch_engine.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/tool_registry.py",
+      "mutations": [
+        {
+          "line": 24,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/core/version.py",
+      "mutations": [
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/providers/anthropic.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/providers/codex.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/providers/copilot.py",
+      "mutations": [
+        {
+          "line": 30,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/providers/cpp_local.py",
+      "mutations": [
+        {
+          "line": 33,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/providers/ollama_cloud.py",
+      "mutations": [
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/providers/ollama_local.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/providers/opencode.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/providers/openrouter.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/tools/_path_helper.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/cli.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/commands/cmd_android.py",
+      "mutations": [
+        {
+          "line": 26,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/commands/cmd_chat.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 20,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 144,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/commands/cmd_content.py",
+      "mutations": [
+        {
+          "line": 12,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 16,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 74,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 103,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 167,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 311,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/commands/cmd_lifecycle.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 77,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/commands/cmd_system.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 12,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 274,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 256,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/commands/cmd_tools.py",
+      "mutations": [
+        {
+          "line": 8,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 11,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 164,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 357,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 371,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 387,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/evidence_cli.py",
+      "mutations": [
+        {
+          "line": 25,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 29,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/evidence_generator.py",
+      "mutations": [
+        {
+          "line": 59,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 72,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/launcher.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 38,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 32,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 358,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/node_control.py",
+      "mutations": [
+        {
+          "line": 32,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/resolver/__init__.py",
+      "mutations": [
+        {
+          "line": 5,
+          "call": "import add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/resolver/paths.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/session_control.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 13,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/translators/bootstrap.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/api/bridge.py",
+      "mutations": [
+        {
+          "line": 56,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 57,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 58,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 59,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/api/handlers_interpret.py",
+      "mutations": [
+        {
+          "line": 14,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/api/handlers_memory.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/api/handlers_router.py",
+      "mutations": [
+        {
+          "line": 19,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/chat/commands.py",
+      "mutations": [
+        {
+          "line": 54,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 52,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/chat/context_commands.py",
+      "mutations": [
+        {
+          "line": 10,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/chat/project_commands.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/chat/repl.py",
+      "mutations": [
+        {
+          "line": 37,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 38,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 39,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/chat/repl_inventory.py",
+      "mutations": [
+        {
+          "line": 43,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 62,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 77,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/chat/repl_menu.py",
+      "mutations": [
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/chat/repl_model_router.py",
+      "mutations": [
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/chat/repl_startup.py",
+      "mutations": [
+        {
+          "line": 31,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/agent_dispatcher.py",
+      "mutations": [
+        {
+          "line": 149,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 166,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/autonomous_loop.py",
+      "mutations": [
+        {
+          "line": 69,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/session_adapters_mixin.py",
+      "mutations": [
+        {
+          "line": 15,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/session_context_envelope_mixin.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/session_context_policy_mixin.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 19,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 38,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/session_context_workspace_mixin.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/session_manager.py",
+      "mutations": [
+        {
+          "line": 42,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/session_persistence_mixin.py",
+      "mutations": [
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/session_tools_mixin.py",
+      "mutations": [
+        {
+          "line": 13,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/session_turn_mixin.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/session_utils.py",
+      "mutations": [
+        {
+          "line": 14,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/switch_engine.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/tool_registry.py",
+      "mutations": [
+        {
+          "line": 24,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/core/version.py",
+      "mutations": [
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/providers/anthropic.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/providers/codex.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/providers/copilot.py",
+      "mutations": [
+        {
+          "line": 30,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/providers/cpp_local.py",
+      "mutations": [
+        {
+          "line": 33,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/providers/ollama_cloud.py",
+      "mutations": [
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/providers/ollama_local.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/providers/opencode.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/providers/openrouter.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/.bago/tools/_path_helper.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/cli.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/commands/cmd_android.py",
+      "mutations": [
+        {
+          "line": 26,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/commands/cmd_chat.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 20,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 144,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/commands/cmd_content.py",
+      "mutations": [
+        {
+          "line": 12,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 16,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 74,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 103,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 167,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 311,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/commands/cmd_lifecycle.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 77,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/commands/cmd_system.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 12,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 274,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 256,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/commands/cmd_tools.py",
+      "mutations": [
+        {
+          "line": 8,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 11,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 164,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 357,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 371,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 387,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/evidence_cli.py",
+      "mutations": [
+        {
+          "line": 25,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 29,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/evidence_generator.py",
+      "mutations": [
+        {
+          "line": 59,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 72,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/launcher.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 38,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 32,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 358,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/node_control.py",
+      "mutations": [
+        {
+          "line": 32,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/resolver/__init__.py",
+      "mutations": [
+        {
+          "line": 5,
+          "call": "import add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/resolver/paths.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/session_control.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 13,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/bago_core/translators/bootstrap.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/scripts/bago_supervisor.py",
+      "mutations": [
+        {
+          "line": 53,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/scripts/embed_mixed.py",
+      "mutations": [
+        {
+          "line": 22,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/scripts/generate_api_routes_contract.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/scripts/package_audit_bundle.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/scripts/package_user_bundle.py",
+      "mutations": [
+        {
+          "line": 15,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/scripts/package_v4.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/scripts/verify_installer_artifacts.py",
+      "mutations": [
+        {
+          "line": 20,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/scripts/verify_release.py",
+      "mutations": [
+        {
+          "line": 18,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/test_command_intents.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/test_e2e.py",
+      "mutations": [
+        {
+          "line": 20,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 22,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/test_security_release.py",
+      "mutations": [
+        {
+          "line": 13,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 22,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 88,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/current/test_translators.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/api/bridge.py",
+      "mutations": [
+        {
+          "line": 56,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 57,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 58,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 59,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/api/handlers_interpret.py",
+      "mutations": [
+        {
+          "line": 14,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/api/handlers_memory.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/api/handlers_router.py",
+      "mutations": [
+        {
+          "line": 19,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/chat/commands.py",
+      "mutations": [
+        {
+          "line": 54,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 52,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/chat/context_commands.py",
+      "mutations": [
+        {
+          "line": 10,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/chat/project_commands.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/chat/repl.py",
+      "mutations": [
+        {
+          "line": 37,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 38,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 39,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/chat/repl_inventory.py",
+      "mutations": [
+        {
+          "line": 43,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 62,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 77,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/chat/repl_menu.py",
+      "mutations": [
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/chat/repl_model_router.py",
+      "mutations": [
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/chat/repl_startup.py",
+      "mutations": [
+        {
+          "line": 31,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/agent_dispatcher.py",
+      "mutations": [
+        {
+          "line": 149,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 166,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/autonomous_loop.py",
+      "mutations": [
+        {
+          "line": 69,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/session_adapters_mixin.py",
+      "mutations": [
+        {
+          "line": 15,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/session_context_envelope_mixin.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/session_context_policy_mixin.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 19,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 38,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/session_context_workspace_mixin.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/session_manager.py",
+      "mutations": [
+        {
+          "line": 42,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/session_persistence_mixin.py",
+      "mutations": [
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/session_tools_mixin.py",
+      "mutations": [
+        {
+          "line": 13,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/session_turn_mixin.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/session_utils.py",
+      "mutations": [
+        {
+          "line": 14,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/switch_engine.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/tool_registry.py",
+      "mutations": [
+        {
+          "line": 24,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/core/version.py",
+      "mutations": [
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/providers/anthropic.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/providers/codex.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/providers/copilot.py",
+      "mutations": [
+        {
+          "line": 30,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/providers/cpp_local.py",
+      "mutations": [
+        {
+          "line": 33,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/providers/ollama_cloud.py",
+      "mutations": [
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/providers/ollama_local.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/providers/opencode.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/providers/openrouter.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/.bago/tools/_path_helper.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/cli.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_android.py",
+      "mutations": [
+        {
+          "line": 26,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_chat.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 20,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 144,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_content.py",
+      "mutations": [
+        {
+          "line": 12,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 16,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 74,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 103,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 167,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 311,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_lifecycle.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 77,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_system.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 12,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 274,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 256,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_tools.py",
+      "mutations": [
+        {
+          "line": 8,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 11,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 164,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 357,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 371,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 387,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/evidence_cli.py",
+      "mutations": [
+        {
+          "line": 25,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 29,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/evidence_generator.py",
+      "mutations": [
+        {
+          "line": 59,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 72,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/launcher.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 38,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 32,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 358,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/node_control.py",
+      "mutations": [
+        {
+          "line": 32,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/resolver/__init__.py",
+      "mutations": [
+        {
+          "line": 5,
+          "call": "import add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/resolver/paths.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/session_control.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 13,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/bago_core/translators/bootstrap.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/scripts/bago_supervisor.py",
+      "mutations": [
+        {
+          "line": 53,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/scripts/embed_mixed.py",
+      "mutations": [
+        {
+          "line": 22,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/scripts/generate_api_routes_contract.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/scripts/package_audit_bundle.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/scripts/package_user_bundle.py",
+      "mutations": [
+        {
+          "line": 15,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/scripts/package_v4.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/scripts/verify_installer_artifacts.py",
+      "mutations": [
+        {
+          "line": 20,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/installer/win-unpacked/resources/app.asar.unpacked/scripts/verify_release.py",
+      "mutations": [
+        {
+          "line": 18,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/api/bridge.py",
+      "mutations": [
+        {
+          "line": 56,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 57,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 58,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 59,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/api/handlers_interpret.py",
+      "mutations": [
+        {
+          "line": 14,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/api/handlers_memory.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/api/handlers_router.py",
+      "mutations": [
+        {
+          "line": 19,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/chat/commands.py",
+      "mutations": [
+        {
+          "line": 54,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 52,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/chat/context_commands.py",
+      "mutations": [
+        {
+          "line": 10,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/chat/project_commands.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/chat/repl.py",
+      "mutations": [
+        {
+          "line": 37,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 38,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 39,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/chat/repl_inventory.py",
+      "mutations": [
+        {
+          "line": 43,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 62,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 77,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/chat/repl_menu.py",
+      "mutations": [
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/chat/repl_model_router.py",
+      "mutations": [
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/chat/repl_startup.py",
+      "mutations": [
+        {
+          "line": 31,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/agent_dispatcher.py",
+      "mutations": [
+        {
+          "line": 149,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 166,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/autonomous_loop.py",
+      "mutations": [
+        {
+          "line": 69,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/session_adapters_mixin.py",
+      "mutations": [
+        {
+          "line": 15,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/session_context_envelope_mixin.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/session_context_policy_mixin.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 19,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 38,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/session_context_workspace_mixin.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/session_manager.py",
+      "mutations": [
+        {
+          "line": 42,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/session_persistence_mixin.py",
+      "mutations": [
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/session_tools_mixin.py",
+      "mutations": [
+        {
+          "line": 13,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/session_turn_mixin.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/session_utils.py",
+      "mutations": [
+        {
+          "line": 14,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/switch_engine.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/tool_registry.py",
+      "mutations": [
+        {
+          "line": 24,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/core/version.py",
+      "mutations": [
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/providers/anthropic.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/providers/codex.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/providers/copilot.py",
+      "mutations": [
+        {
+          "line": 30,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/providers/cpp_local.py",
+      "mutations": [
+        {
+          "line": 33,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/providers/ollama_cloud.py",
+      "mutations": [
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/providers/ollama_local.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/providers/opencode.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/providers/openrouter.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/.bago/tools/_path_helper.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/cli.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_android.py",
+      "mutations": [
+        {
+          "line": 26,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_chat.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 20,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 144,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_content.py",
+      "mutations": [
+        {
+          "line": 12,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 16,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 74,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 103,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 167,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 311,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_lifecycle.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 77,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_system.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 12,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 274,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 256,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/commands/cmd_tools.py",
+      "mutations": [
+        {
+          "line": 8,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 11,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 164,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 357,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 371,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 387,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/evidence_cli.py",
+      "mutations": [
+        {
+          "line": 25,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 29,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/evidence_generator.py",
+      "mutations": [
+        {
+          "line": 59,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 72,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/launcher.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 38,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 32,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 358,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/node_control.py",
+      "mutations": [
+        {
+          "line": 32,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/resolver/__init__.py",
+      "mutations": [
+        {
+          "line": 5,
+          "call": "import add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/resolver/paths.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/session_control.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 13,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/bago_core/translators/bootstrap.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/scripts/bago_supervisor.py",
+      "mutations": [
+        {
+          "line": 53,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/scripts/embed_mixed.py",
+      "mutations": [
+        {
+          "line": 22,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/scripts/generate_api_routes_contract.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/scripts/package_audit_bundle.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/scripts/package_user_bundle.py",
+      "mutations": [
+        {
+          "line": 15,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/scripts/package_v4.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/scripts/verify_installer_artifacts.py",
+      "mutations": [
+        {
+          "line": 20,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/dist/win-unpacked/resources/app.asar.unpacked/scripts/verify_release.py",
+      "mutations": [
+        {
+          "line": 18,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/node_modules/node-gyp/gyp/gyp_main.py",
+      "mutations": [
+        {
+          "line": 41,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/node_modules/node-gyp/gyp/pylib/gyp/__init__.py",
+      "mutations": [
+        {
+          "line": 113,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/node_modules/node-gyp/gyp/pylib/gyp/input.py",
+      "mutations": [
+        {
+          "line": 935,
+          "call": "sys.path.append"
+        }
+      ]
+    },
+    {
+      "path": "backend/node_modules/node-gyp/gyp/test_gyp.py",
+      "mutations": [
+        {
+          "line": 149,
+          "call": "sys.path.append"
+        },
+        {
+          "line": 155,
+          "call": "sys.path.append"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/api/bridge.py",
+      "mutations": [
+        {
+          "line": 56,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 57,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 58,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 59,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/api/handlers_interpret.py",
+      "mutations": [
+        {
+          "line": 14,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/api/handlers_memory.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/api/handlers_router.py",
+      "mutations": [
+        {
+          "line": 19,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/chat/commands.py",
+      "mutations": [
+        {
+          "line": 54,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 52,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/chat/context_commands.py",
+      "mutations": [
+        {
+          "line": 10,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/chat/project_commands.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/chat/repl.py",
+      "mutations": [
+        {
+          "line": 37,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 38,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 39,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/chat/repl_inventory.py",
+      "mutations": [
+        {
+          "line": 43,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 62,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 77,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/chat/repl_menu.py",
+      "mutations": [
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/chat/repl_model_router.py",
+      "mutations": [
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/chat/repl_startup.py",
+      "mutations": [
+        {
+          "line": 31,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/agent_dispatcher.py",
+      "mutations": [
+        {
+          "line": 149,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 166,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/autonomous_loop.py",
+      "mutations": [
+        {
+          "line": 69,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/session_adapters_mixin.py",
+      "mutations": [
+        {
+          "line": 15,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/session_context_envelope_mixin.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/session_context_policy_mixin.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 19,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 38,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/session_context_workspace_mixin.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/session_manager.py",
+      "mutations": [
+        {
+          "line": 42,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/session_persistence_mixin.py",
+      "mutations": [
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/session_tools_mixin.py",
+      "mutations": [
+        {
+          "line": 13,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/session_turn_mixin.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/session_utils.py",
+      "mutations": [
+        {
+          "line": 14,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/switch_engine.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/tool_registry.py",
+      "mutations": [
+        {
+          "line": 24,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/core/version.py",
+      "mutations": [
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/providers/anthropic.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/providers/codex.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/providers/copilot.py",
+      "mutations": [
+        {
+          "line": 30,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/providers/cpp_local.py",
+      "mutations": [
+        {
+          "line": 33,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/providers/ollama_cloud.py",
+      "mutations": [
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/providers/ollama_local.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/providers/opencode.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/providers/openrouter.py",
+      "mutations": [
+        {
+          "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/.bago/tools/_path_helper.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/cli.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/commands/cmd_android.py",
+      "mutations": [
+        {
+          "line": 26,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/commands/cmd_chat.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 20,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 144,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/commands/cmd_content.py",
+      "mutations": [
+        {
+          "line": 12,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 16,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 74,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 103,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 167,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 311,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/commands/cmd_lifecycle.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 77,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/commands/cmd_system.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 12,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 274,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 256,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/commands/cmd_tools.py",
+      "mutations": [
+        {
+          "line": 8,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 11,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 164,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 357,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 371,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 387,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/evidence_cli.py",
+      "mutations": [
+        {
+          "line": 25,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 29,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/evidence_generator.py",
+      "mutations": [
+        {
+          "line": 59,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 72,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/launcher.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 38,
+          "call": "add_piece_paths"
+        },
+        {
+          "line": 32,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 358,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/node_control.py",
+      "mutations": [
+        {
+          "line": 32,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/resolver/__init__.py",
+      "mutations": [
+        {
+          "line": 5,
+          "call": "import add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/resolver/paths.py",
+      "mutations": [
+        {
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/session_control.py",
+      "mutations": [
+        {
+          "line": 11,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 13,
+          "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/bago_core/translators/bootstrap.py",
+      "mutations": [
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/scripts/bago_supervisor.py",
+      "mutations": [
+        {
+          "line": 53,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/scripts/embed_mixed.py",
+      "mutations": [
+        {
+          "line": 22,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/scripts/generate_api_routes_contract.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/scripts/package_audit_bundle.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/scripts/package_user_bundle.py",
+      "mutations": [
+        {
+          "line": 15,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/scripts/package_v4.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/scripts/verify_installer_artifacts.py",
+      "mutations": [
+        {
+          "line": 20,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/scripts/verify_release.py",
+      "mutations": [
+        {
+          "line": 18,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/test_command_intents.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/test_e2e.py",
+      "mutations": [
+        {
+          "line": 20,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 22,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/test_security_release.py",
+      "mutations": [
+        {
+          "line": 13,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 22,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 88,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/release/v4/current/test_translators.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/scripts/bago_supervisor.py",
+      "mutations": [
+        {
+          "line": 53,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/scripts/embed_mixed.py",
+      "mutations": [
+        {
+          "line": 22,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/scripts/generate_api_routes_contract.py",
+      "mutations": [
+        {
+          "line": 29,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/scripts/package_audit_bundle.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/scripts/package_user_bundle.py",
+      "mutations": [
+        {
+          "line": 15,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/scripts/package_v4.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/scripts/verify_installer_artifacts.py",
+      "mutations": [
+        {
+          "line": 20,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/scripts/verify_release.py",
+      "mutations": [
+        {
+          "line": 18,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/test_command_intents.py",
+      "mutations": [
+        {
+          "line": 17,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/test_e2e.py",
+      "mutations": [
+        {
+          "line": 20,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 21,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 22,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/test_novel_phrases.py",
+      "mutations": [
+        {
+          "line": 18,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/test_security_release.py",
+      "mutations": [
+        {
+          "line": 13,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 22,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 23,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 88,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/test_translators.py",
+      "mutations": [
+        {
+          "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    }
+  ]
+}

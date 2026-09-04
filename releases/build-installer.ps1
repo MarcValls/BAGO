@@ -8,7 +8,8 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$GitSha,
     [Parameter(Mandatory = $true)]
-    [string]$NsisMakensis
+    [string]$NsisMakensis,
+    [switch]$DeferSidecar
 )
 
 Set-StrictMode -Version Latest
@@ -140,8 +141,12 @@ try {
 
 if (-not (Test-Path -LiteralPath $setupFile)) { throw "No se genero $setupFile" }
 $hash = (Get-FileHash -LiteralPath $setupFile -Algorithm SHA256).Hash
-$hashLine = "$hash  $([System.IO.Path]::GetFileName($setupFile))"
-Set-Content -LiteralPath "$setupFile.sha256" -Value $hashLine -Encoding ASCII
+if (-not $DeferSidecar) {
+    $hashLine = "$hash  $([System.IO.Path]::GetFileName($setupFile))"
+    Set-Content -LiteralPath "$setupFile.sha256" -Value $hashLine -Encoding ASCII
+} elseif (Test-Path -LiteralPath "$setupFile.sha256") {
+    Remove-Item -LiteralPath "$setupFile.sha256" -Force
+}
 $sizeMb = [Math]::Round((Get-Item -LiteralPath $setupFile).Length / 1MB, 2)
 
 [ordered]@{
@@ -150,4 +155,5 @@ $sizeMb = [Math]::Round((Get-Item -LiteralPath $setupFile).Length / 1MB, 2)
     version = $version
     size_mb = $sizeMb
     sha256 = $hash
+    sidecar_deferred = [bool]$DeferSidecar
 } | ConvertTo-Json -Compress

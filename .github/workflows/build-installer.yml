@@ -103,14 +103,15 @@ jobs:
           Write-Host "✓ Installer created: $setupFile ($size MB, SHA256 verified)"
         shell: pwsh
 
-      - name: Upload installer as artifact
+      - name: Upload unsigned CI installer as artifact
         uses: actions/upload-artifact@v5
         with:
-          name: bago-${{ env.BAGO_VERSION }}-setup
+          name: unsigned-ci-bago-${{ env.BAGO_VERSION }}-setup
           path: |
             releases/bago-${{ env.BAGO_VERSION }}-setup.exe
             releases/bago-${{ env.BAGO_VERSION }}-setup.exe.sha256
           retention-days: 30
 
-      # Publication remains tag-gated in canonical-ci.yml. A manual build can
-      # create an artifact, but cannot publish a release on its own authority.
+      # This artifact is deliberately named unsigned-ci. It is diagnostic and
+      # cannot be published as a release asset. Publicable installers are built,
+      # signed, verified and evidenced by build-release-installer.yml.

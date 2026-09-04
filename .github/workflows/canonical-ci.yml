@@ -47,6 +47,19 @@ jobs:
         run: |
           python -m pip install pytest==9.0.3 numpy==2.4.4 tzdata
           npm ci
+          npm audit --audit-level=moderate
+
+      - name: Check generated truth projections for drift
+        shell: pwsh
+        run: |
+          python backend/scripts/generate_api_routes_contract.py --check
+          if ($LASTEXITCODE -ne 0) { throw "API routes projection drifted." }
+          python backend/scripts/generate_import_migration_inventory.py --check
+          if ($LASTEXITCODE -ne 0) { throw "Import migration inventory drifted." }
+          python -m pytest backend/tests/test_import_consolidation.py::test_migration_inventory_is_current_and_machine_checkable -q
+          if ($LASTEXITCODE -ne 0) { throw "Import migration inventory drifted." }
+          python -m pytest backend/tests/test_version_drift.py -q
+          if ($LASTEXITCODE -ne 0) { throw "Version projection drifted." }
 
       - name: Build, typecheck, and test frontend
         run: |

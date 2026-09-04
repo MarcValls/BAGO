@@ -19,7 +19,7 @@ from anthropic import AnthropicAdapter
 from codex import CodexAdapter
 from openrouter import OpenRouterAdapter
 from opencode import OpenCodeAdapter
-from provider_adapter import ProviderAdapter
+from bago_core.providers import ProviderAdapter
 
 ADAPTER_REGISTRY: dict[str, type[ProviderAdapter]] = {
     "ollama-local": OllamaLocalAdapter,
