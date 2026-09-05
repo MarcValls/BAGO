@@ -1,7 +1,11 @@
 """Regenerate the import-migration inventory for AC4.
 
 AST scan of executable sys.path.insert/append calls and add_piece_paths
-usage under backend/ (tests, tests_local and __pycache__ excluded).
+usage over versioned backend sources only: tests, tests_local and
+__pycache__ are excluded, plus git-ignored build/output trees (dist,
+build, release, site-dist, installations, .venv, node_modules, archive)
+so the inventory is stable between a developer machine and a clean CI
+checkout.
 """
 
 from __future__ import annotations
@@ -16,12 +20,31 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "contracts" / "import_migration_inventory.v1.json"
 EXCLUDED_PARTS = {"tests", "tests_local", "__pycache__"}
+EXCLUDED_TREE_DIRS = {
+    "dist",
+    "site-dist",
+    "build",
+    "release",
+    "installations",
+    "node_modules",
+    "archive",
+    ".venv",
+    "venv",
+    "env",
+    ".staging",
+    ".vs",
+    ".vscode",
+    ".idea",
+}
 
 
 def _scan() -> list[dict]:
     entries: list[dict] = []
     for path in sorted(ROOT.rglob("*.py")):
         if any(part in EXCLUDED_PARTS for part in path.parts):
+            continue
+        relative_parts = path.relative_to(ROOT).parts
+        if any(part in EXCLUDED_TREE_DIRS for part in relative_parts):
             continue
         source = path.read_text(encoding="utf-8", errors="replace")
         try:
@@ -51,7 +74,7 @@ def build() -> dict:
     return {
         "contract": "bago.import-migration-inventory.v1",
         "version": "1.0.0",
-        "generated_from": "AST scan: executable sys.path.insert/append calls and add_piece_paths usage under backend/ (excluding tests and __pycache__)",
+        "generated_from": "AST scan: executable sys.path.insert/append calls and add_piece_paths usage over versioned backend sources (tests, __pycache__ and git-ignored build/output trees excluded)",
         "total_files": len(entries),
         "total_mutations": sum(len(e["mutations"]) for e in entries),
         "files": entries,

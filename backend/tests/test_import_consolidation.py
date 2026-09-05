@@ -73,8 +73,30 @@ def test_session_core_consumes_providers_via_package_imports() -> None:
         assert package_imports, f"{path} lacks bago_core.providers package imports"
 
 
+EXCLUDED_TREE_DIRS = {
+    "dist",
+    "site-dist",
+    "build",
+    "release",
+    "installations",
+    "node_modules",
+    "archive",
+    ".venv",
+    "venv",
+    "env",
+    ".staging",
+    ".vs",
+    ".vscode",
+    ".idea",
+}
+
+
 def test_migration_inventory_is_current_and_machine_checkable() -> None:
-    """The remaining sys.path/add_piece_paths migration surface matches the inventory."""
+    """The remaining sys.path/add_piece_paths migration surface matches the inventory.
+
+    Scans versioned sources only: same exclusions as the generator, so a
+    clean CI checkout and a developer machine produce identical results.
+    """
     inventory = json.loads(INVENTORY_PATH.read_text(encoding="utf-8"))
     assert inventory["contract"] == "bago.import-migration-inventory.v1"
     assert inventory["version"] == "1.0.0"
@@ -82,6 +104,8 @@ def test_migration_inventory_is_current_and_machine_checkable() -> None:
     actual: dict[str, list[dict[str, str]]] = {}
     for path in sorted(ROOT.rglob("*.py")):
         if any(part in ("tests", "tests_local", "__pycache__") for part in path.parts):
+            continue
+        if any(part in EXCLUDED_TREE_DIRS for part in path.relative_to(ROOT).parts):
             continue
         source = path.read_text(encoding="utf-8", errors="replace")
         try:
