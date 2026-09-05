@@ -28,6 +28,28 @@
     "AC7 verified locally: routes projection regenerated from canonical dispatch, import-migration inventory and version projections drift-checked, and canonical-ci.yml now runs all three drift gates (backend/tests/test_truth_projections_contract.py).",
     "AC2 locally maximized: packaged BAGO.exe builds (electron-builder, Electron 42.11.1), unsigned binaries correctly FAIL the verify-authenticode gate (NotSigned -> exit 1), packaged smoke PASS (healthy /health + clean exit), NSIS 3.10 installer builds (162.88 MB, sha256 F48E8A7E...) and full installer E2E PASS (install -> registry identity matches HEAD c2a60a1d -> healthy installed run -> clean uninstall). Only the production Authenticode signing itself remains, blocked on an authorized external signing identity.",
     "Goal contract created; audit mapping is in progress.",
-    "Production Authenticode trust requires an externally authorized signing identity."
-  ]
+    "Production Authenticode trust requires an externally authorized signing identity.",
+    "Release v4.10.0 publicada como prerelease sin firma; artefactos verificados contra digests server-side de GitHub. Firma Authenticode permanece BLOCKED."
+  ],
+  "release": {
+    "tag": "v4.10.0",
+    "tag_commit": "ad149f81ba88c7e5c208757ccf48c26296216ad0",
+    "built_from": "f8020b32b57f990f7d9c27ed53dff7bdf67636b3",
+    "tree_identical_to_tag": true,
+    "url": "https://github.com/MarcValls/BAGO/releases/tag/v4.10.0",
+    "prerelease": true,
+    "signed": false,
+    "signature_status": "NotSigned (Authenticode BLOCKED: no authorized signing identity / release-signing environment)",
+    "assets": {
+      "bago-4.10.0-setup.exe": "827771872EFFB5FD4908A55C461F7D96E38283E464C6D03630C17DC9BA50983A",
+      "bago-4.10.0-distribution.zip": "C3D485DD6D9709ECE7777E53F3A684D57FA6DE4D54CCAB33BEAEAD669961877E"
+    },
+    "verification": [
+      "Local sidecar hashes match rebuilt artifacts",
+      "Published setup.exe re-downloaded and hashed: byte-identical to local build",
+      "GitHub server-side asset digests match declared SHA-256 for both artifacts",
+      "Published installer AuthenticodeSignature status = NotSigned (claim accurate, gate fail-closed)",
+      "Canonical CI green on tag: Validate source, Packaged Electron smoke, Real installer E2E"
+    ]
+  }
 }
