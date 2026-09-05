@@ -43,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from version import CURRENT as BAGO_VERSION
 from context_store import ContextStore, TimelineEvent
 from state_paths import resolve_state_root
-from model_equivalence import EquivalenceMap
+from bago_core.providers.routing import EquivalenceMap
 from message_adapter import MessageAdapter
 from rl_engine import FeedbackCollector, PreferenceModel
 from config_manager import ConfigManager
@@ -69,7 +69,7 @@ from gabo_connector import GaboConnector
 from guardrails import PathGuard, ToolLogger, ClaimValidator
 from workspace_binding import resolve_framework_root, resolve_workspace_binding
 from directory_context import DirectoryContextEngine
-from provider_adapter import ProviderAdapter, ProviderResponse
+from bago_core.providers import ProviderAdapter, ProviderResponse
 
 from session_utils import (
     ADAPTER_REGISTRY,
@@ -737,7 +737,7 @@ class SessionManager(
 
 def _run_tests() -> int:
     import tempfile
-    from provider_adapter import HealthStatus, ModelInfo
+    from bago_core.providers import HealthStatus, ModelInfo
 
     class FailingAdapter(ProviderAdapter):
         def __init__(self, config: dict | None = None):
@@ -810,4 +810,3 @@ def _run_tests() -> int:
 if __name__ == "__main__":
     if "--test" in sys.argv:
         raise SystemExit(_run_tests())
-

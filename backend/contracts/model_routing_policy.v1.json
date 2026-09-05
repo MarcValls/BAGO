@@ -1,0 +1,50 @@
+{
+  "contract": "bago.model-routing-policy.v1",
+  "version": "1.0.0",
+  "source": "repository-policy",
+  "tier_order": [
+    "tier_4_ultra_light",
+    "tier_3_fast",
+    "tier_2_everyday",
+    "tier_1_frontier"
+  ],
+  "tiers": {
+    "tier_1_frontier": {
+      "models": [
+        {"provider": "codex", "model_id": "gpt-5.6-sol", "wire_name": "gpt-5.6-sol", "context_tokens": 128000, "reasoning": "xhigh", "coding": "xhigh", "best_for": "frontier_agentic_coding"},
+        {"provider": "codex", "model_id": "gpt-5.5", "wire_name": "gpt-5.5", "context_tokens": 128000, "reasoning": "xhigh", "coding": "xhigh", "best_for": "frontier"},
+        {"provider": "copilot", "model_id": "claude-opus-4.7", "wire_name": "claude-opus-4.7", "context_tokens": 200000, "reasoning": "xhigh", "coding": "xhigh", "best_for": "complex_reasoning"},
+        {"provider": "copilot", "model_id": "gpt-5.4", "wire_name": "gpt-5.4", "context_tokens": 128000, "reasoning": "high", "coding": "high", "best_for": "everyday"},
+        {"provider": "copilot", "model_id": "claude-sonnet-4.6", "wire_name": "claude-sonnet-4.6", "context_tokens": 200000, "reasoning": "high", "coding": "high", "best_for": "code_review"},
+        {"provider": "ollama-cloud", "model_id": "kimi-k2-1t", "wire_name": "kimi-k2:1t", "context_tokens": 1000000, "reasoning": "high", "coding": "high", "best_for": "long_context"},
+        {"provider": "ollama-cloud", "model_id": "deepseek-v3-671b", "wire_name": "deepseek-v3.1:671b", "context_tokens": 64000, "reasoning": "xhigh", "coding": "xhigh", "best_for": "reasoning"}
+      ]
+    },
+    "tier_2_everyday": {
+      "models": [
+        {"provider": "codex", "model_id": "gpt-5.6-terra", "wire_name": "gpt-5.6-terra", "context_tokens": 128000, "reasoning": "high", "coding": "high", "best_for": "balanced_agentic_coding"},
+        {"provider": "copilot", "model_id": "gpt-5.4-mini", "wire_name": "gpt-5.4-mini", "context_tokens": 128000, "reasoning": "medium", "coding": "high", "best_for": "fast_coding"},
+        {"provider": "copilot", "model_id": "gpt-5.3-codex", "wire_name": "gpt-5.3-codex", "context_tokens": 128000, "reasoning": "medium", "coding": "xhigh", "best_for": "coding"},
+        {"provider": "copilot", "model_id": "gpt-5.2", "wire_name": "gpt-5.2", "context_tokens": 128000, "reasoning": "medium", "coding": "medium", "best_for": "long_agents"},
+        {"provider": "ollama-local", "model_id": "qwen25-coder", "wire_name": "qwen2.5-coder:7b", "context_tokens": 32768, "reasoning": "medium", "coding": "high", "best_for": "code_python"},
+        {"provider": "ollama-local", "model_id": "llama32", "wire_name": "llama3.2:3b", "context_tokens": 128000, "reasoning": "medium", "coding": "medium", "best_for": "general"},
+        {"provider": "ollama-cloud", "model_id": "devstral-2", "wire_name": "devstral-2:123b", "context_tokens": 128000, "reasoning": "high", "coding": "xhigh", "best_for": "code"},
+        {"provider": "ollama-cloud", "model_id": "qwen3-coder-480b", "wire_name": "qwen3-coder:480b", "context_tokens": 256000, "reasoning": "high", "coding": "xhigh", "best_for": "code"}
+      ]
+    },
+    "tier_3_fast": {
+      "models": [
+        {"provider": "codex", "model_id": "gpt-5.6-luna", "wire_name": "gpt-5.6-luna", "context_tokens": 128000, "reasoning": "medium", "coding": "high", "best_for": "fast_agentic_coding"},
+        {"provider": "ollama-local", "model_id": "llama32-1b", "wire_name": "llama3.2:1b", "context_tokens": 128000, "reasoning": "low", "coding": "low", "best_for": "classification"},
+        {"provider": "ollama-local", "model_id": "qwen25-1_5b", "wire_name": "qwen2.5:1.5b", "context_tokens": 32000, "reasoning": "low", "coding": "low", "best_for": "fast_confirmations"},
+        {"provider": "ollama-local", "model_id": "granite32-8b", "wire_name": "granite3.2:8b", "context_tokens": 128000, "reasoning": "medium", "coding": "medium", "best_for": "general"}
+      ]
+    },
+    "tier_4_ultra_light": {
+      "models": [
+        {"provider": "ollama-local", "model_id": "qwen25-mini", "wire_name": "qwen2.5:0.5b", "context_tokens": 32000, "reasoning": "low", "coding": "low", "best_for": "fast_confirmations"},
+        {"provider": "ollama-local", "model_id": "smollm2", "wire_name": "smollm2:1.7b", "context_tokens": 32000, "reasoning": "low", "coding": "low", "best_for": "edge"}
+      ]
+    }
+  }
+}

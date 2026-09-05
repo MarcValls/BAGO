@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -31,3 +32,23 @@ def test_state_change_preserves_and_invalidates_previous_verification(monkeypatc
     assert state["history"]["continuity"]["last_verification"]["commit"] == old_commit
     assert state["history"]["continuity"]["superseded_by"] == new_commit
     assert saved and saved[0]["commit"] == new_commit
+    assert saved[0]["candidate_sha"] == new_commit
+
+
+def test_verify_records_current_candidate_identity(monkeypatch):
+    commit = "c" * 40
+    state: dict = {}
+    saved: list[dict] = []
+    monkeypatch.setattr(MODULE, "_load_state", lambda: state)
+    monkeypatch.setattr(MODULE, "_save_state", lambda value: saved.append(value.copy()))
+    monkeypatch.setattr(MODULE, "_git_fingerprint", lambda: {"commit": commit, "branch": "release"})
+    monkeypatch.setattr(
+        MODULE.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=0, stdout="ok\n", stderr=""),
+    )
+
+    assert MODULE.cmd_verify(argparse.Namespace(command=["echo", "ok"])) == 0
+    assert saved and saved[0]["candidate_sha"] == commit
+    assert saved[0]["commit"] == commit
+    assert saved[0]["branch"] == "release"

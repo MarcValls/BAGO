@@ -21,6 +21,8 @@ from scripts.packaging_common import normalize_release_version, rel_posix, sha25
 
 
 CURRENT_RELEASE = read_release_version(ROOT).strip().lstrip("v")
+PACKAGE_PROVENANCE_CONTRACT = "bago.package-provenance.v1"
+PROVENANCE_PATH = "audit/bago-provenance.json"
 INCLUDE_FILES = [
     ".gitignore",
     ".bago/core/context_store.py",
@@ -145,6 +147,52 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+def candidate_provenance(root: Path) -> dict:
+    """Return the Git identity that produced this package without guessing.
+
+    Package generation also supports exported source trees that do not contain
+    `.git`; those packages state that their candidate is unavailable instead of
+    claiming an arbitrary clean commit.
+    """
+    def git_text(*args: str) -> str:
+        result = subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        return result.stdout.strip() if result.returncode == 0 else ""
+
+    candidate = git_text("rev-parse", "HEAD")
+    if not candidate:
+        return {
+            "contract": PACKAGE_PROVENANCE_CONTRACT,
+            "candidate_sha": None,
+            "dirty": None,
+            "source": "git-unavailable",
+        }
+    return {
+        "contract": PACKAGE_PROVENANCE_CONTRACT,
+        "candidate_sha": candidate,
+        "dirty": bool(git_text("status", "--porcelain=v1", "--untracked-files=all")),
+        "source": "git",
+    }
+
+
+def provenance_bytes(provenance: dict) -> bytes:
+    return (json.dumps(provenance, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
+
+
+def provenance_manifest_entry(payload: bytes) -> dict:
+    return {
+        "path": PROVENANCE_PATH,
+        "size": len(payload),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+    }
+
+
 def is_excluded(relative: Path) -> bool:
     rel = rel_posix(relative)
     if rel in ALLOWED_LEGACY_PATHS:
@@ -221,12 +269,18 @@ def build_install_tree(root: Path, output_dir: Path, release_version: str = "") 
         shutil.rmtree(tree_root)
     files = collect_files(root)
     manifest_files = _manifest_entries(root, files)
+    provenance = candidate_provenance(root)
+    provenance_payload = provenance_bytes(provenance)
+    manifest_files.append(provenance_manifest_entry(provenance_payload))
 
     for file_path in files:
         relative = file_path.relative_to(root)
         destination = tree_root / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(file_path, destination)
+    provenance_path = tree_root / PROVENANCE_PATH
+    provenance_path.parent.mkdir(parents=True, exist_ok=True)
+    provenance_path.write_bytes(provenance_payload)
 
     manifest = {
         "package": "current",
@@ -236,6 +290,7 @@ def build_install_tree(root: Path, output_dir: Path, release_version: str = "") 
         "release_version": version,
         "file_count": len(manifest_files),
         "tree_sha256": _tree_digest(manifest_files),
+        "provenance": provenance,
         "included_files": manifest_files,
         "excluded_prefixes": EXCLUDED_PREFIXES,
         "forbidden_names": sorted(FORBIDDEN_NAMES),
@@ -255,6 +310,8 @@ def build_install_tree(root: Path, output_dir: Path, release_version: str = "") 
             f"- Version: `v{version}`",
             f"- Files: `{len(manifest_files)}`",
             f"- SHA256: `{manifest['tree_sha256']}`",
+            f"- Candidate: `{provenance['candidate_sha'] or 'unavailable'}`",
+            f"- Dirty: `{provenance['dirty']}`",
             "",
             "## Layout",
             "",
@@ -298,11 +355,15 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
     zip_path = output_dir / package_name
     files = collect_files(root)
     manifest_files = _manifest_entries(root, files)
+    provenance = candidate_provenance(root)
+    provenance_payload = provenance_bytes(provenance)
+    manifest_files.append(provenance_manifest_entry(provenance_payload))
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for file_path, entry in zip(files, manifest_files):
             relative = file_path.relative_to(root)
             arcname = entry["path"]
             zf.write(file_path, arcname=arcname)
+        zf.writestr(PROVENANCE_PATH, provenance_payload)
 
     manifest = {
         "package": package_name,
@@ -311,6 +372,7 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
         "root": "<repo>",
         "file_count": len(manifest_files),
         "zip_sha256": sha256(zip_path),
+        "provenance": provenance,
         "included_files": manifest_files,
         "excluded_prefixes": EXCLUDED_PREFIXES,
         "forbidden_names": sorted(FORBIDDEN_NAMES),
@@ -329,6 +391,8 @@ def build_package(root: Path, output_dir: Path, release_version: str = "") -> di
             f"- Package: `{package_name}`",
             f"- Files: `{len(manifest_files)}`",
             f"- SHA256: `{manifest['zip_sha256']}`",
+            f"- Candidate: `{provenance['candidate_sha'] or 'unavailable'}`",
+            f"- Dirty: `{provenance['dirty']}`",
             "",
             "## Exclusions",
             "",

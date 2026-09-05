@@ -7,6 +7,7 @@ Requires the pack to be built before running:
 from __future__ import annotations
 
 import json
+import hashlib
 import zipfile
 from pathlib import Path
 
@@ -46,6 +47,19 @@ def test_zip_manifest_version_matches_release(pack_zip):
     assert manifest_version == rv, (
         f"Manifest version {manifest_version!r} != release_version.txt {rv!r}"
     )
+
+
+def test_zip_manifest_and_payload_bind_the_same_candidate(pack_zip):
+    manifest = json.loads(Path(str(pack_zip) + ".manifest.json").read_text(encoding="utf-8"))
+    provenance = manifest["provenance"]
+    assert provenance["contract"] == "bago.package-provenance.v1"
+    assert provenance["candidate_sha"]
+    assert isinstance(provenance["dirty"], bool)
+    with zipfile.ZipFile(pack_zip) as zf:
+        payload = zf.read("audit/bago-provenance.json")
+    assert json.loads(payload) == provenance
+    entry = next(item for item in manifest["included_files"] if item["path"] == "audit/bago-provenance.json")
+    assert entry["sha256"] == hashlib.sha256(payload).hexdigest()
 
 
 def test_zip_sha256_file_exists(pack_zip):

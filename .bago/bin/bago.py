@@ -755,6 +755,7 @@ def cmd_state(args: argparse.Namespace) -> int:
     state["status"] = requested
     state["note"] = args.note
     state["updated_at"] = _iso_now()
+    state["candidate_sha"] = fp.get("commit")
     state["commit"] = fp.get("commit")
     state["branch"] = fp.get("branch")
     state["fingerprint"] = fp
@@ -811,6 +812,9 @@ def cmd_verify(args: argparse.Namespace) -> int:
         "timestamp": _iso_now(),
     }
     state["fingerprint"] = fp
+    state["candidate_sha"] = fp.get("commit")
+    state["commit"] = fp.get("commit")
+    state["branch"] = fp.get("branch")
     # `verify` records evidence; it is not a certification authority. Even a
     # clean successful command cannot preserve/promote a protected historical
     # claim. VERIFIED/VALIDATED require the closure policy and review gates.

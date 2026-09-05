@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bago.local/contracts/bago.kernel-boundary.v1.json",
+  "contract": "bago.kernel-boundary.v1",
+  "version": "1.0.0",
+  "status": "active",
+  "authority": {
+    "session_state": "backend/.bago/core",
+    "canonical_decisions": "backend/.bago/core",
+    "execution_policy": "backend/.bago/api",
+    "evidence_receipts": "backend/.bago/core"
+  },
+  "extension_boundary": {
+    "capability_paths": [
+      "backend/.bago/api/capability_contract.py",
+      "backend/.bago/api/handlers_capabilities.py",
+      "backend/.bago/api/handlers_capability_packages.py",
+      "backend/.bago/core/capability_packages.py"
+    ],
+    "rules": [
+      "Capabilities may declare requested operations and receive backend-issued receipts.",
+      "Capabilities must not construct or import the session or context authority.",
+      "Capability execution is mediated by the backend API and its policy checks."
+    ]
+  },
+  "ui_boundary": {
+    "root": "frontend/src",
+    "rules": [
+      "The UI presents backend-confirmed state and requests backend operations.",
+      "The UI must not import backend runtime modules or access backend state paths.",
+      "The UI must not become authority for sessions, canonical decisions, execution policy, or receipts."
+    ]
+  },
+  "enforcement": {
+    "forbidden_capability_patterns": [
+      "\\bfrom\\s+session_manager\\s+import\\b",
+      "\\bimport\\s+session_manager\\b",
+      "\\bSessionManager\\s*\\(",
+      "\\bfrom\\s+context_store\\s+import\\b",
+      "\\bimport\\s+context_store\\b",
+      "\\bBAGO_STATE_ROOT\\b",
+      "\\.bago[/\\\\]state"
+    ],
+    "forbidden_ui_patterns": [
+      "\\bSessionManager\\b",
+      "\\bcontext_store\\b",
+      "\\bBAGO_STATE_ROOT\\b",
+      "\\bimport\\s+.*?\\s+from\\s+['\"][^'\"]*backend[/\\\\]\\.bago",
+      "\\bimport\\s*\\(\\s*['\"][^'\"]*backend[/\\\\]\\.bago",
+      "\\brequire\\s*\\(\\s*['\"][^'\"]*backend[/\\\\]\\.bago"
+    ],
+    "verification": "backend/tests/test_kernel_boundary_contract.py"
+  },
+  "supersedes": [],
+  "migration": {
+    "status": "incremental",
+    "compatibility": "Existing API handlers may receive a backend-owned manager through api_state; dependency injection does not transfer session authority."
+  }
+}

@@ -16,8 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from session_utils import ADAPTER_REGISTRY, normalize_bridges, model_quality_key
 from context_compressor import ContextCompressor, LayerStore
 from context_store import ContextMessage
-from model_equivalence import TransferVerdict, TransferStrategy
-from provider_adapter import ProviderAdapter
+from bago_core.providers.routing import TransferVerdict, TransferStrategy
+from bago_core.providers import ProviderAdapter
 from translation_adapter import TranslationAdapter
 import translation_middleware as _tm
 
@@ -44,9 +44,9 @@ class SessionAdaptersMixin:
                 if upper == "OLLAMA_CLOUD_URL":
                     creds.setdefault("base_url", val)
 
-        # Las credenciales registradas desde la API viven cifradas en el
-        # SecretStore. El import es opcional para mantener el core utilizable
-        # sin cargar la pieza HTTP.
+        # Esta ruta .bago/core es una fachada de compatibilidad. Conserva la
+        # superficie legacy inyectable y delega en el almacenamiento canónico
+        # de bago_core, sin que el kernel use esta fachada.
         try:
             from secret_store import get_secret_store
             stored_secret = get_secret_store().get_secret(
