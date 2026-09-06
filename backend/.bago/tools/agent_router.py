@@ -42,7 +42,7 @@ _CABINET_POLICIES = (
     (
         'system_change',
         ('governance', 'canon', 'contract', 'architecture', 'system change'),
-        'workflow_cambio_sistemico',
+        'workflow_system_change',
         (
             'role_government_orquestador_central',
             'role_production_arquitecto',
@@ -53,7 +53,7 @@ _CABINET_POLICIES = (
     (
         'security',
         ('security', 'secret', 'credential', 'permission', 'seguridad', 'secreto', 'credencial', 'permiso'),
-        'workflow_validacion',
+        'workflow_validation',
         (
             'role_government_orquestador_central',
             'role_specialist_security_reviewer',
@@ -64,7 +64,7 @@ _CABINET_POLICIES = (
     (
         'history_migration',
         ('migration', 'migrate', 'legacy', 'archive', 'historical', 'migracion', 'migrar', 'legado', 'archivo', 'histori'),
-        'workflow_migracion_historial',
+        'workflow_history_migration',
         (
             'role_government_orquestador_central',
             'role_production_analista',
@@ -75,7 +75,7 @@ _CABINET_POLICIES = (
     (
         'validation',
         ('verify', 'validate', 'test', 'audit', 'check', 'verifica', 'valid', 'prueba', 'audita', 'comprueba'),
-        'workflow_validacion',
+        'workflow_validation',
         (
             'role_government_orquestador_central',
             'role_production_validador',
@@ -84,7 +84,7 @@ _CABINET_POLICIES = (
     (
         'design',
         ('design', 'architecture', 'contract', 'dise', 'arquitectura', 'contrato'),
-        'workflow_diseno',
+        'workflow_design',
         (
             'role_government_orquestador_central',
             'role_production_analista',
@@ -95,7 +95,7 @@ _CABINET_POLICIES = (
     (
         'execution',
         ('implement', 'fix', 'refactor', 'build', 'code', 'write', 'edit', 'implemen', 'corrige', 'refactor', 'codigo', 'escribe', 'edita'),
-        'workflow_ejecucion',
+        'workflow_execution',
         (
             'role_government_orquestador_central',
             'role_production_generador',
@@ -280,13 +280,23 @@ def plan_cabinet(task: str) -> dict:
         raise ValueError('Cabinet planning requires a non-empty task')
 
     lowered = normalized_task.lower()
-    task_type, workflow, role_ids = 'analysis', 'workflow_analisis', (
+    primary_request = lowered.removeprefix('please ').removeprefix('por favor ')
+    primary_verb = primary_request.split(maxsplit=1)[0]
+    explicit_change_request = primary_verb in {
+        'implement', 'fix', 'refactor', 'build', 'write', 'edit',
+        'implementa', 'corrige', 'refactoriza', 'construye', 'escribe', 'edita',
+    }
+    task_type, workflow, role_ids = 'analysis', 'workflow_analysis', (
         'role_government_orquestador_central',
         'role_production_analista',
         'role_production_validador',
     )
     for candidate_type, terms, candidate_workflow, candidate_role_ids in _CABINET_POLICIES:
-        if any(term in lowered for term in terms):
+        # A requested change still needs a generator when tests are mentioned.
+        # System, security and migration policies retain their higher priority.
+        if explicit_change_request and candidate_type in {'validation', 'design'}:
+            continue
+        if (candidate_type == 'execution' and explicit_change_request) or any(term in lowered for term in terms):
             task_type, workflow, role_ids = candidate_type, candidate_workflow, candidate_role_ids
             break
 
@@ -438,7 +448,7 @@ def _run_tests() -> int:
             ('available_agents_list', isinstance(detected, list) and all('id' in item for item in detected), 'detect_agents returns agent list'),
             ('deterministic_fallback', fallback.get('agent') == 'ollama', 'fallback is deterministic when classifier is unavailable'),
             ('json_output_mode', json_rc == 0 and isinstance(json_payload, dict) and 'agent' in json_payload, 'json output mode prints route json'),
-            ('cabinet_plan_is_bounded', cabinet['workflow'] == 'workflow_analisis' and len(cabinet['waves']) == 1 and len(cabinet['waves'][0]) <= MAX_CONCURRENT, 'cabinet plan uses active roles and respects concurrency'),
+            ('cabinet_plan_is_bounded', cabinet['workflow'] == 'workflow_analysis' and len(cabinet['waves']) == 1 and len(cabinet['waves'][0]) <= MAX_CONCURRENT, 'cabinet plan uses active roles and respects concurrency'),
         ]
         return print_test_results(results)
     finally:
