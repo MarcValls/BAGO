@@ -31,7 +31,6 @@ import { ChatPanel } from '@/layout/ChatPanel';
 import { PipelineControlPanel } from '@/features/pipeline/PipelineControlPanel';
 import { PipelineGuidedBuilder } from '@/features/pipeline/PipelineGuidedBuilder';
 import { SimulationLaboratory, RlTrainingLaboratory } from '@/features/pipeline/LaboratoryPanels';
-import { ToolsPanel } from '@/features/tools/ToolsPanel';
 import { createModuleRegistry } from '@/modules/module-registry';
 import { ContextTreeModule } from '@/features/context-tree/ContextTreeModule';
 import { WorkGraph } from '@/features/graph/WorkGraph';
@@ -1340,9 +1339,6 @@ export function ControlSections(props: Props) {
   ]);
 
   if (props.section === 'home' || props.section === 'chat') {
-    const chatModeOpen = (() => {
-      try { return window.sessionStorage.getItem('bago.start.chat-mode') === 'open'; } catch { return false; }
-    })();
     const recentProjects = props.contextTree.tree
       ? Object.values(props.contextTree.tree.nodes)
         .filter((node) => node.parentId === props.contextTree.tree?.rootId && (node.type === 'pending' || node.metadata?.branch === true))
@@ -1386,10 +1382,9 @@ export function ControlSections(props: Props) {
         onOpenContextInTree={(id) => props.onOpenContextInTree?.(id)}
         pastedImage={props.pastedImage}
         onRemovePastedImage={props.onRemovePastedImage}
-        startScreen={!chatModeOpen}
+        startScreen
         recentProjects={recentProjects}
         onStartNew={() => {
-          try { window.sessionStorage.removeItem('bago.start.chat-mode'); } catch { /* storage unavailable */ }
           window.setTimeout(() => document.getElementById('bago-chat-composer')?.focus(), 0);
         }}
         onContinue={() => {

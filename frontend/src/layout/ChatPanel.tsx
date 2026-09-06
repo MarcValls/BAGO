@@ -19,6 +19,7 @@ import { ContextPatchValidationCard } from '@/features/context-tree/ContextPatch
 import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTypes';
 import { buildChatModelOptions } from '@/layout/chatModelOptions';
 import { groupTechnicalTurns, presentChatTurn } from '@/shared/chatPresentation';
+import { shouldOpenStartScreen } from '@/layout/chatStartScreen';
 
 export interface ContextPatchDisplay {
   patch: ContextPatchRequest;
@@ -217,7 +218,11 @@ export function ChatPanel(props: Props) {
   const [modelPickerPos, setModelPickerPos] = useState<{ top: number; right: number; maxHeight: number } | null>(null);
   const modelPickerRootRef = useRef<HTMLDivElement>(null);
   const [reasoningChanging, setReasoningChanging] = useState(false);
-  const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen && !props.isDocked));
+  const [welcomeOpen, setWelcomeOpen] = useState(() => shouldOpenStartScreen({
+    startScreenRequested: Boolean(props.startScreen),
+    isDocked: Boolean(props.isDocked),
+    turnCount: props.turns.length
+  }));
   const [conversationBusy, setConversationBusy] = useState('');
   const [conversationError, setConversationError] = useState('');
   const [renamingId, setRenamingId] = useState('');
@@ -233,8 +238,8 @@ export function ChatPanel(props: Props) {
   );
 
   useEffect(() => {
-    if (props.isDocked) setWelcomeOpen(false);
-  }, [props.isDocked]);
+    if (props.isDocked || props.turns.length > 0) setWelcomeOpen(false);
+  }, [props.isDocked, props.turns.length]);
   const timelineGroups = useMemo(() => groupTechnicalTurns(props.turns), [props.turns]);
   const filteredModelOptions = useMemo(() => {
     const query = modelQuery.trim().toLocaleLowerCase();

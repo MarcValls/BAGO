@@ -24,7 +24,7 @@ import { friendlyErrorMessage } from '@/shared/friendly-error';
 import { EMPTY_CLIPBOARD, readClipboardPayload, type ClipboardPayload } from '@/shared/clipboard';
 import { FirstRunWizard } from '@/features/first-run/FirstRunWizard';
 import { markFirstRunComplete, shouldShowFirstRun, shouldSkipAutomaticFirstRun } from '@/features/first-run/firstRun';
-import { createShellActions, NAVIGATION_ORDER, type BagoAction } from '@/navigation/actionRegistry';
+import { createShellActions, resolveNavigationShortcut, isPanelDestination, type BagoAction } from '@/navigation/actionRegistry';
 import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
 import { canPersistWorkspaceAuthority } from '@/shared/workspaceAuthority';
 import { useActiveProviderModels } from '@/shared/useActiveProviderModels';
@@ -163,7 +163,15 @@ export function ControlPlane() {
     // deben coexistir dos columnas derechas. Si el chat está acoplado,
     // se desacopla primero para que la pantalla actual siga siendo
     // lo único visible.
-    setAndPersistUiState({ activePanel: panelId, chatDocked: false });
+    //
+    // Además, abrir un panel debe SIEMPRE mostrarlo: el workspace se
+    // oculta por CSS en cuanto hay panel lateral, mientras que los modos
+    // focus/lectura ocultan el propio panel. Si ambas cosas coincidieran,
+    // el área de trabajo quedaría vacía, así que se vuelve a modo normal.
+    // Por el mismo motivo se descarta la selección del inspector, que
+    // suprime el render del panel.
+    setInspectorSelection(null);
+    setAndPersistUiState({ activePanel: panelId, chatDocked: false, globalMode: 'normal' });
   };
   const panelCloseDrawer = () => setAndPersistUiState({ activePanel: null });
   // CANON[INSPECTOR-MUTEX]: acoplar el chat es mutuamente excluyente
@@ -533,19 +541,21 @@ export function ControlPlane() {
         toggleChatDocked();
         return;
       }
-      // Ctrl+1..9: navegar según el registro canónico compartido con el sidebar.
-      if ((event.ctrlKey || event.metaKey) && /^[1-9]$/.test(event.key)) {
-        event.preventDefault();
-        const idx = parseInt(event.key, 10) - 1;
-        const target = NAVIGATION_ORDER[idx];
+      // Atajos de navegación: se resuelven contra el mismo registro canónico
+      // que pinta el sidebar, de modo que todo atajo anunciado en la interfaz
+      // abre realmente su destino (incluidos Ctrl+- y Ctrl+=) y los paneles se
+      // distinguen por `isPanel` en lugar de por una lista duplicada.
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey) {
+        const target = resolveNavigationShortcut(event.key);
         if (target) {
-          if ('agents' === target || 'interpreter' === target || 'github-auth' === target) {
+          event.preventDefault();
+          if (isPanelDestination(target)) {
             openPanel(target);
           } else {
-            navigate(target as ActiveSection);
+            navigate(target);
           }
+          return;
         }
-        return;
       }
       // F11: focus
       if (event.key === 'F11') {
@@ -1461,7 +1471,6 @@ export function ControlPlane() {
           onRunCommand={(command) => void runCommand(command)}
           onChooseWorkspace={chooseWorkspaceFromHeader}
           onGoHome={() => {
-            try { window.sessionStorage.removeItem('bago.start.chat-mode'); } catch { /* storage unavailable */ }
             navigate('home');
           }}
           onOpenHelp={() => setAndPersistUiState({ helpOpen: true })}

@@ -92,7 +92,7 @@ export function GlobalHeader(props: Props) {
         <button className="icon-button" type="button" onClick={props.onToggleSidebar} title={props.sidebarCollapsed ? 'Mostrar navegación (Ctrl B)' : 'Ocultar navegación (Ctrl B)'}>
           <Icon name="menu" />
         </button>
-        <button className="header-brand is-clickable" type="button" onClick={props.onGoHome} title="Volver al recorrido inicial">
+        <button className="header-brand is-clickable" type="button" onClick={props.onGoHome} title="Volver al inicio de BAGO">
           <div className="brand-mark">B</div>
           <div>
             <strong>BAGO</strong>
