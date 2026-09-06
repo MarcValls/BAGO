@@ -37,6 +37,29 @@ taxonomy:
   (`workspace-write`, live web, medium verbosity). It does not override current
   user instructions, BAGO runtime state, repository authorities, tool
   availability, or Copilot CLI operating constraints.
+
+### Dynamic Copilot orchestration
+
+Select the smallest non-overlapping operating shape from the current task,
+affected surface, risk, and evidence requirement:
+
+| Task shape | Default operating shape |
+|---|---|
+| Focused lookup, explanation, or change covering at most a few direct tool calls | Work directly; do not delegate. |
+| Bounded read-only concern | Use the matching BAGO auditor or tracer. |
+| Approved, scoped implementation | Use the matching worker; use the frontend engineer for material `frontend/**` work. |
+| Cross-surface, authority-sensitive, or closure-sensitive change | Coordinate through `bago-repository-engineer`; request only the specialist roles needed. |
+| Final-state or release-sensitive conclusion | Run repository-defined evidence first, then use `bago-final-verifier`. |
+
+- Re-evaluate the operating shape after material findings, failed checks, scope
+  expansion, or a changed candidate. Do not retain a delegation merely because
+  it was selected earlier.
+- A cabinet plan is advisory and limited to three concurrent delegated roles.
+  It must separate investigation, implementation, and independent verification;
+  agents must not review or certify their own edits.
+- Planning never authorizes an edit, a destructive action, a commit, a remote
+  mutation, or a claim of completion. Preserve user approval and repository
+  authority gates at every adjustment.
 <!-- BAGO-COPILOT-ENGINEERING:END -->
 
 <!-- BAGO-FRONTEND-ENGINEERING:START -->

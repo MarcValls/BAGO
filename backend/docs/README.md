@@ -4,20 +4,20 @@ This is the canonical entrypoint for BAGO documentation.
 
 ## Read first
 
-- [Architecture](architecture.md)
+- [Architecture](ARCHITECTURE.md)
 - [System overview](system-overview.md)
-- [Modules inventory](modules.md)
+- [Modules inventory](MODULES.md)
 - [Live surfaces](live-surfaces.md)
 - [UI canonical contract](ui-canonical-contract.md)
-- [Testing](testing.md)
-- [Security](security.md)
+- [Testing](TESTING.md)
+- [Security](SECURITY.md)
 
 ## Architecture and boundaries
 
 - [Backend architecture](backend-architecture.md)
-- [Layers](layers.md)
+- [Layers](LAYERS.md)
 - [Resolver architecture](resolver-architecture.md)
-- [MVP boundary](mvp.md)
+- [MVP boundary](MVP.md)
 - [Centralization contract](centralization-contract.md)
 - [Distribution contract](distribution-contract.md)
 - [Support matrix](support-matrix.md)
@@ -25,7 +25,7 @@ This is the canonical entrypoint for BAGO documentation.
 
 ## Runtime and modules
 
-- [Commands reference](commands.md)
+- [Commands reference](COMMANDS.md)
 - [Live surfaces](live-surfaces.md)
 - [RL engine](rl-engine.md)
 - [Reflexive interpreter](reflexive-interpreter.md)
@@ -67,17 +67,22 @@ This is the canonical entrypoint for BAGO documentation.
 
 ## Traceability and claims
 
-- [Claims](claims.md)
-- [Traceability](traceability.md)
+- [Claims](CLAIMS.md)
+- [Traceability](TRACEABILITY.md)
 
-## Migration and release
+## Historical records
 
-- [Migration sprints](migration-sprints-current.md)
-- [Release setup](distribution-contract.md)
+- [Migration sprints (completed record)](migration-sprints-current.md)
+- [Audit reports](audit/README.md)
+- [Technical-debt snapshots](TECH_DEBT_LARGE_FILES.md) and [marker inventory](TECH_DEBT_MARKERS.md)
+
+These records preserve dated evidence. They do not define the current release
+candidate, runtime state, or operating procedure.
 
 ## Notes
 
 - [Naming convention](naming.md)
-- Canonical docs use lowercase kebab-case filenames in English.
-- Legacy mixed-language names are deprecated and kept only until references are retired.
+- New canonical docs use lowercase kebab-case filenames in English.
+- Existing uppercase core documents remain canonical until a governed,
+  repository-wide rename updates every reference and external consumer.
 - Experimental or ad hoc material should live under `tests_local/`, `docs/archive/` if present, or a clearly named audit subfolder.
