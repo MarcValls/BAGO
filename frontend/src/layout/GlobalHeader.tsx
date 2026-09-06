@@ -20,7 +20,7 @@ interface Props {
   onChooseWorkspace: () => void;
   onGoHome?: () => void;
   onOpenHelp?: () => void;
-  onToggleChatDock?: () => void;
+  onOpenChat?: () => void;
   chatDocked?: boolean;
   globalMode: 'normal' | 'focus' | 'review';
   appearanceTheme: 'dark' | 'light';
@@ -132,12 +132,11 @@ export function GlobalHeader(props: Props) {
           <Icon name="prompt" />
         </button>
         <button
-          className={`icon-button chat-dock-toggle ${props.chatDocked ? 'is-active' : ''}`}
+          className={`icon-button chat-open-button ${props.chatDocked ? 'is-active' : ''}`}
           type="button"
-          onClick={props.onToggleChatDock}
-          title={props.chatDocked ? 'Quitar chat acoplado (Ctrl+Shift+C)' : 'Acoplar chat a esta pantalla (Ctrl+Shift+C)'}
-          aria-label={props.chatDocked ? 'Quitar chat acoplado' : 'Acoplar chat a esta pantalla'}
-          aria-pressed={Boolean(props.chatDocked)}
+          onClick={props.onOpenChat}
+          title="Abrir chat a pantalla completa"
+          aria-label="Abrir chat"
         >
           <Icon name="chat" />
         </button>

@@ -279,6 +279,16 @@ export interface GitHubAuthState {
   checkedAt: string;
 }
 
+export interface GitHubAuthStartResult {
+  authenticated?: boolean;
+  installed?: boolean;
+  pending?: boolean;
+  hostname?: string;
+  message?: string;
+  error?: string | null;
+  auth_url?: string;
+}
+
 export type GitHubStatusState =
   | 'checking'
   | 'cli_unavailable'
