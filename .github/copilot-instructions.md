@@ -16,6 +16,24 @@ This repository is BAGO. For non-trivial engineering work, use the BAGO context/
 - Relevant repository authorities include `README.md`, `backend/docs/ARCHITECTURE.md`, `backend/docs/SECURITY.md`, `backend/docs/CLAIMS.md`, and `backend/docs/TESTING.md`; read the relevant ones before consequential changes.
 - For important closure, use the read-only `bago-final-verifier` agent after implementation evidence exists.
 
+### Repository Engineering change units
+
+For non-trivial repository work, treat
+[`backend/docs/repository-engineering/CHANGE_UNIT.schema.json`](../backend/docs/repository-engineering/CHANGE_UNIT.schema.json)
+as the proposed scope contract:
+
+- classify the operation as `feature`, `refactor`, `modularize`, `verify` or `govern`;
+- name the target module, allowed files, allowed/forbidden dependencies,
+  required tests and required evidence;
+- do not mix a feature with structural modularization unless the change unit
+  authorizes both and includes characterization tests;
+- do not import another module's internal surface or transfer state ownership
+  silently; return `ARCHITECTURE_BOUNDARY_REQUIRED`;
+- use `backend/docs/repository-engineering/REFACTOR_PROTOCOL.md` for
+  behavior-preserving structural work;
+- treat the protocol as `PROPOSED` repository guidance until governance
+  explicitly accepts it.
+
 ### Codex agentic alignment
 
 Project-local Codex configuration under `.codex/` is legacy but authoritative as

@@ -66,6 +66,7 @@ interface Props {
   routes: BackendRoutes | null;
   providers: BackendProviders | null;
   router: { list: BackendRouterList | null; policy: BackendRouterPolicy | null } | null;
+  chatModelEntries: BackendRouterEntry[];
   history: BackendHistory | null;
   conversations: import('@/contracts/backend').BackendConversations | null;
   files: Record<string, unknown> | null;
@@ -83,6 +84,7 @@ interface Props {
   onRunContextCommand: (command: string) => Promise<void>;
   onRunAction: (action: UiAction) => void;
   onRunPlanTask: (task: string) => Promise<void>;
+  onPreparePlan?: (task: string) => Promise<void>;
   onSetSection: (section: Props['section']) => void;
   onSetChatMode: (mode: ChatMode) => void;
   onSetGlobalMode: (mode: GlobalMode) => void;
@@ -162,7 +164,7 @@ export function selectRouterEntries(router: { list: BackendRouterList | null; po
 
 type RecordValue = Record<string, unknown>;
 type ExplorerKind = 'file' | 'directory';
-type WorkspaceFilter = 'all' | 'code' | 'python' | 'text' | 'json' | 'web' | 'shell' | 'other' | 'directory' | 'modified' | 'in-context' | 'with-evidence';
+type WorkspaceFilter = 'all' | 'code' | 'python' | 'text' | 'json' | 'web' | 'shell' | 'other' | 'directory';
 
 const PROGRAMMING_EXTENSIONS = new Set([
   'js', 'jsx', 'ts', 'tsx', 'mjs', 'cjs',
@@ -268,9 +270,6 @@ const TYPE_LABELS: Record<Exclude<WorkspaceFilter, 'all' | 'code'>, string> = {
   shell: 'Shell',
   other: 'Otros',
   directory: 'Carpetas',
-  modified: 'Solo modificados',
-  'in-context': 'Solo en contexto',
-  'with-evidence': 'Solo con evidencia'
 };
 
 interface ExplorerNode {
@@ -428,9 +427,6 @@ function filterLabelForType(filter: WorkspaceFilter): string {
   if (filter === 'all') return 'Todo';
   if (filter === 'code') return 'Código';
   if (filter === 'directory') return 'Carpetas';
-  if (filter === 'modified') return 'Solo modificados';
-  if (filter === 'in-context') return 'Solo en contexto';
-  if (filter === 'with-evidence') return 'Solo con evidencia';
   return TYPE_LABELS[filter] || filter;
 }
 
@@ -633,7 +629,6 @@ export function ControlSections(props: Props) {
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const activeProvider = props.activeProvider;
   const activeModels = props.activeModels;
-  const [routerFallbackEntries, setRouterFallbackEntries] = useState<Array<Record<string, unknown>>>([]);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
 
   const snapshot = props.snapshot;
@@ -649,10 +644,6 @@ export function ControlSections(props: Props) {
     return allFiles.filter((entry) => {
       const kind = workspaceFileKind(entry);
       const type = workspaceTypeForPath(entry);
-      // Filtros semánticos: 'modified' / 'in-context' / 'with-evidence'
-      // se tratan como "Todo" hasta que el backend exponga los datos
-      // necesarios. Los chips siguen apareciendo en el desplegable para
-      // que el contrato sea visible.
       const matchesType = workspaceFilter === 'all'
         || (workspaceFilter === 'code' ? kind === 'code'
           : workspaceFilter === 'directory' ? kind === 'directory'
@@ -697,44 +688,11 @@ export function ControlSections(props: Props) {
     targetKindForSection(props.section)
   );
   const providers = useMemo(() => mergeProviderStates(props.providers), [props.providers]);
-  const routerStateEntries = resolveRouterEntries(props.router);
-  const routerEntries = routerStateEntries.length ? routerStateEntries : routerFallbackEntries;
-  const chatModelEntries = useMemo(() => {
-    const merged = [...routerEntries];
-    for (const provider of providers) {
-      const providerId = String(provider.id || provider.name || '').trim();
-      if (!providerId || !Array.isArray(provider.models)) continue;
-      for (const rawModel of provider.models) {
-        const model = typeof rawModel === 'string'
-          ? rawModel
-          : String((rawModel as Record<string, unknown>)?.id || (rawModel as Record<string, unknown>)?.model_id || (rawModel as Record<string, unknown>)?.name || '');
-        if (!model) continue;
-        const key = `${providerId}/${model}`;
-        if (!merged.some((entry) => String(entry.key || `${entry.provider || ''}/${entry.model_id || entry.wire_name || ''}`) === key)) {
-          merged.push({ provider: providerId, model_id: model, wire_name: model, key, available: true });
-        }
-      }
-    }
-    return merged;
-  }, [providers, routerEntries]);
+  const routerEntries = props.chatModelEntries;
+  const chatModelEntries = props.chatModelEntries;
   const routerAuto = Boolean(props.router?.policy?.auto_switch ?? props.router?.list?.auto_switch);
   const routerSelectedCount = props.router?.policy?.selected_count ?? props.router?.list?.selected_count ?? routerEntries.filter((entry) => Boolean(entry.selected)).length;
   const routerLastPick = String(props.router?.policy?.last_pick || props.router?.list?.last_pick || '—');
-
-  useEffect(() => {
-    if (routerStateEntries.length > 0 || props.section !== 'chat') return;
-    let cancelled = false;
-    props.client.getRouterPolicy()
-      .then((policy) => {
-        if (!cancelled && Array.isArray(policy?.entries)) {
-          setRouterFallbackEntries(policy.entries);
-        }
-      })
-      .catch(() => null);
-    return () => {
-      cancelled = true;
-    };
-  }, [props.client, props.section, routerStateEntries.length]);
 
   useEffect(() => {
     const topLevel = explorerTree.filter((node) => node.kind === 'directory').map((node) => node.path);
@@ -1382,6 +1340,7 @@ export function ControlSections(props: Props) {
         onOpenContextInTree={(id) => props.onOpenContextInTree?.(id)}
         pastedImage={props.pastedImage}
         onRemovePastedImage={props.onRemovePastedImage}
+        onPreparePlan={props.onPreparePlan}
         startScreen
         recentProjects={recentProjects}
         onStartNew={() => {
@@ -2438,10 +2397,7 @@ const WORKSPACE_FILTER_OPTIONS: { id: WorkspaceFilter; label: string; icon: Icon
   { id: 'web', label: 'Web', icon: 'file' },
   { id: 'shell', label: 'Shell', icon: 'file' },
   { id: 'other', label: 'Otros', icon: 'file' },
-  { id: 'directory', label: 'Carpetas', icon: 'folder' },
-  { id: 'modified', label: 'Solo modificados', icon: 'warning' },
-  { id: 'in-context', label: 'Solo en contexto', icon: 'attach' },
-  { id: 'with-evidence', label: 'Solo con evidencia', icon: 'evidence' }
+  { id: 'directory', label: 'Carpetas', icon: 'folder' }
 ];
 
 function FilterDropdown(props: { value: WorkspaceFilter; onChange: (next: WorkspaceFilter) => void }) {

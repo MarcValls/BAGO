@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BagoClient } from '@/api/client';
 import { Icon } from '@/shared/Icon';
+import { useProjectInspection } from './useProjectInspection';
 
 interface BrowseSnapshot {
   path: string;
@@ -13,12 +14,6 @@ interface BrowseSnapshot {
 }
 
 type BrowseState = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; data: BrowseSnapshot };
-type InspectState =
-  | { kind: 'idle' }
-  | { kind: 'loading' }
-  | { kind: 'error'; message: string }
-  | { kind: 'ready'; configured: boolean; linked: boolean; bindingConfirmed: boolean; bindingReason: string };
-
 interface Props {
   value: string;
   onChange: (value: string) => void;
@@ -32,46 +27,25 @@ interface Props {
 
 export function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplorer, onConfirm, client, mode = 'activate', title = 'Elegir directorio de trabajo' }: Props) {
   const initialPath = useRef(value);
+  const browseRequestRef = useRef(0);
   const [browse, setBrowse] = useState<BrowseState>({ kind: 'loading' });
-  const [inspect, setInspect] = useState<InspectState>({ kind: 'idle' });
+  const inspect = useProjectInspection(value, client);
 
   const openDirectory = useCallback(async (path?: string) => {
+    const requestId = ++browseRequestRef.current;
     setBrowse({ kind: 'loading' });
     try {
       const data = await client.browseWorkspace(path);
+      if (requestId !== browseRequestRef.current) return;
       setBrowse({ kind: 'ready', data });
       onChange(data.path);
     } catch (error) {
+      if (requestId !== browseRequestRef.current) return;
       setBrowse({ kind: 'error', message: error instanceof Error ? error.message : 'No se pudo leer la carpeta' });
     }
   }, [client, onChange]);
 
   useEffect(() => { void openDirectory(initialPath.current); }, [openDirectory]);
-
-  useEffect(() => {
-    const clean = value.trim();
-    if (!clean) {
-      setInspect({ kind: 'idle' });
-      return;
-    }
-    let cancelled = false;
-    setInspect({ kind: 'loading' });
-    const timer = window.setTimeout(async () => {
-      try {
-        const data = await client.inspectProject(clean);
-        if (!cancelled) setInspect({
-          kind: 'ready',
-          configured: Boolean(data.configured),
-          linked: Boolean(data.linked),
-          bindingConfirmed: Boolean(data.binding_confirmed),
-          bindingReason: String(data.binding_reason || '')
-        });
-      } catch (error) {
-        if (!cancelled) setInspect({ kind: 'error', message: error instanceof Error ? error.message : 'Error al inspeccionar' });
-      }
-    }, 300);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [value, client]);
 
   const isReady = inspect.kind === 'ready' && inspect.configured && inspect.linked && inspect.bindingConfirmed;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeProviderStates } from '@/shared/providerStates';
+import { buildChatModelEntries, mergeProviderStates } from '@/shared/providerStates';
 
 describe('provider catalogue and live state merge', () => {
   it('keeps every catalog provider while live state remains authoritative', () => {
@@ -23,5 +23,14 @@ describe('provider catalogue and live state merge', () => {
     expect(mergeProviderStates({ providers: [{ name: 'ollama-local' }] })).toMatchObject([
       { id: 'ollama-local', name: 'ollama-local' }
     ]);
+  });
+
+  it('builds the same chat catalogue from router and provider models', () => {
+    const result = buildChatModelEntries(
+      [{ provider: 'router', model_id: 'router-model', wire_name: 'router-model', key: 'router/router-model' }],
+      { providers: [{ name: 'ollama-cloud', models: ['cloud-model'] }] }
+    );
+
+    expect(result.map((entry) => entry.key)).toEqual(['router/router-model', 'ollama-cloud/cloud-model']);
   });
 });

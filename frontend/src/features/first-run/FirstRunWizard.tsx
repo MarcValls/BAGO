@@ -3,6 +3,7 @@ import type { BackendProviders, UiBootstrapSnapshot } from '@/contracts/backend'
 import { Icon } from '@/shared/Icon';
 import { friendlyErrorMessage } from '@/shared/friendly-error';
 import { firstRunInitialStep, firstRunProviderOptions, firstRunReadiness } from './firstRun';
+import { useProjectInspection } from '@/features/workspace/useProjectInspection';
 import type { BagoClient } from '@/api/client';
 import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
 
@@ -36,6 +37,7 @@ export function FirstRunWizard(props: Props) {
   const [tested, setTested] = useState<Record<string, { ok: boolean; detail: string }>>({});
   const options = useMemo(() => firstRunProviderOptions(props.providers), [props.providers]);
   const readiness = firstRunReadiness(props.snapshot);
+  const inspection = useProjectInspection(projectRoot, props.client);
 
   const chooseProvider = (id: string) => {
     setProviderId(id);
@@ -77,6 +79,37 @@ export function FirstRunWizard(props: Props) {
     } catch (error) {
       setTested((current) => ({ ...current, [id]: { ok: false, detail: friendlyErrorMessage(error, 'No se pudo probar el proveedor') } }));
     } finally { setWorking(false); }
+  };
+
+  const inspectionLabel = (() => {
+    if (inspection.kind === 'loading') return 'Inspeccionando…';
+    if (inspection.kind === 'error') return inspection.message || 'No se pudo inspeccionar';
+    if (inspection.kind !== 'ready') return '';
+    if (inspection.configured && inspection.linked && inspection.bindingConfirmed) return '✓ Configurado y vinculado';
+    if (inspection.configured) return '⚠ Necesita vinculación';
+    return '⚠ Carpeta nueva — se sembrará al activar';
+  })();
+
+  const isInspectionReady = inspection.kind === 'ready' && Boolean(inspection.configured && inspection.linked && inspection.bindingConfirmed);
+
+  const activateWorkspace = async (selectedRoot = projectRoot) => {
+    if (!selectedRoot.trim()) {
+      setMessage('Indica una ruta absoluta para el proyecto.');
+      return;
+    }
+    setWorking(true);
+    setMessage('');
+    try {
+      const ok = await props.onActivateWorkspace(selectedRoot.trim());
+      if (ok) {
+        setMessage('Proyecto activado');
+        setStep(3);
+      } else setMessage('BAGO no pudo activar el proyecto. Revisa la ruta.');
+    } catch (error) {
+      setMessage(friendlyErrorMessage(error, 'BAGO no pudo activar el proyecto'));
+    } finally {
+      setWorking(false);
+    }
   };
 
   const prepareProject = async (demo: boolean, selectedRoot = projectRoot) => {
@@ -134,8 +167,14 @@ export function FirstRunWizard(props: Props) {
           {step === 2 && <div className="first-run-panel">
             <h3>Activa tu primer proyecto</h3><p>Usa una carpeta existente o crea una demo ejecutable desde cero.</p>
             <label className="first-run-field"><span>Ruta absoluta</span><input value={projectRoot} onChange={(event) => setProjectRoot(event.target.value)} placeholder="C:\\Users\\tu_usuario\\Documents\\BAGO-Demo" /></label>
+            {projectRoot.trim() && inspectionLabel && <p className={`first-run-inspection ${inspection.kind === 'error' ? 'is-error' : isInspectionReady ? 'is-ok' : ''}`} role="status">{inspectionLabel}</p>}
             <button type="button" className="secondary-button" onClick={() => setWorkspacePickerOpen(true)}><Icon name="folder" size={14} /> Examinar carpetas</button>
-            <div className="first-run-actions"><button type="button" className="secondary-button" onClick={() => void prepareProject(false)} disabled={working}>Usar proyecto existente</button><button type="button" className="primary-button" onClick={() => void prepareProject(true)} disabled={working}>Crear proyecto demo</button></div><small>La demo solo se crea si la carpeta no existe o está vacía.</small>
+            <div className="first-run-actions">
+              {isInspectionReady
+                ? <button type="button" className="primary-button" onClick={() => void activateWorkspace()} disabled={working}>Activar workspace</button>
+                : <><button type="button" className="secondary-button" onClick={() => void activateWorkspace()} disabled={working || inspection.kind === 'loading'}>Usar proyecto existente</button><button type="button" className="primary-button" onClick={() => void prepareProject(true)} disabled={working}>Crear proyecto demo</button></>}
+            </div>
+            {!isInspectionReady && <small>La demo solo se crea si la carpeta no existe o está vacía.</small>}
           </div>}
           {step === 3 && <div className="first-run-panel first-run-ready"><span className="first-run-ready-icon"><Icon name="check" size={28} /></span><h3>BAGO está listo</h3><p>Ya puedes conversar, reunir contexto y convertir decisiones en tareas del Pipeline.</p><button type="button" className="primary-button" onClick={props.onFinish}>Entrar en BAGO</button></div>}
           {message && <p className="first-run-message" role="status">{message}</p>}
@@ -143,7 +182,7 @@ export function FirstRunWizard(props: Props) {
         {step < 3 && <footer className="first-run-foot"><button type="button" className="text-button" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>Atrás</button><button type="button" className="primary-button" onClick={() => setStep(Math.min(3, step + 1))}>Continuar</button></footer>}
       </section>
     </div>
-    {workspacePickerOpen && <WorkspacePickerDialog value={projectRoot} onChange={setProjectRoot} onClose={() => setWorkspacePickerOpen(false)} onChooseExplorer={props.onChooseWorkspace} onConfirm={() => { setWorkspacePickerOpen(false); void prepareProject(false, projectRoot); }} client={props.client} mode="select" title="Selecciona y activa tu primer proyecto" />}
+    {workspacePickerOpen && <WorkspacePickerDialog value={projectRoot} onChange={setProjectRoot} onClose={() => setWorkspacePickerOpen(false)} onChooseExplorer={props.onChooseWorkspace} onConfirm={() => { setWorkspacePickerOpen(false); void activateWorkspace(projectRoot); }} client={props.client} mode="select" title="Selecciona y activa tu primer proyecto" />}
   </>);
 }
 

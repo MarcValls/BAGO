@@ -28,6 +28,7 @@ import { createShellActions, resolveNavigationShortcut, isPanelDestination, type
 import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
 import { canPersistWorkspaceAuthority } from '@/shared/workspaceAuthority';
 import { useActiveProviderModels } from '@/shared/useActiveProviderModels';
+import { buildChatModelEntries } from '@/shared/providerStates';
 
 function nowStamp(): string {
   return new Date().toISOString();
@@ -221,6 +222,10 @@ export function ControlPlane() {
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
   const conversationRevisionRef = useRef(0);
   const { activeProvider, activeModels } = useActiveProviderModels(clientRef.current, snapshot);
+  const chatModelEntries = useMemo(
+    () => buildChatModelEntries(selectRouterEntries(routerState), providers),
+    [providers, routerState]
+  );
 
   // CANON[CTX-013]: el árbol de contexto vive aquí, no dentro del
   // módulo, para que tanto el chat (que muestra tarjetas inline de
@@ -1539,6 +1544,7 @@ export function ControlPlane() {
                   routes={routes}
                   providers={providers}
                   router={routerState}
+                  chatModelEntries={chatModelEntries}
                   history={history}
                   conversations={conversations}
                   files={files}
@@ -1554,6 +1560,7 @@ export function ControlPlane() {
                   onRunContextCommand={runContextCommand}
                   onRunAction={runAction}
                   onRunPlanTask={runPlanTask}
+                  onPreparePlan={runPlanTask}
                   onSetSection={navigate}
                   onSetChatMode={(mode) => setAndPersistUiState({ chatMode: mode })}
                   onSetGlobalMode={(mode) => setAndPersistUiState({ globalMode: mode })}
@@ -1643,7 +1650,7 @@ export function ControlPlane() {
                       chatMode={uiState.chatMode}
                       history={history}
                       conversations={conversations}
-                      routerEntries={selectRouterEntries(routerState)}
+                      routerEntries={chatModelEntries}
                       sessionModel={sessionModel}
                       activeProvider={activeProvider}
                       activeModels={activeModels}
@@ -1671,6 +1678,7 @@ export function ControlPlane() {
                       onOpenContextInTree={openContextInTree}
                       pastedImage={pastedImage}
                       onRemovePastedImage={() => setPastedImage(null)}
+                      onPreparePlan={runPlanTask}
                     />
                   </div>
                 </div>

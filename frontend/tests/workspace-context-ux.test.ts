@@ -20,6 +20,16 @@ describe('workspace and context UX contract', () => {
     expect(controlPlane).toMatch(/event\.key === 'Escape'[\s\S]*setWorkspacePickerOpen\(false\)/);
     expect(picker).toContain("document.addEventListener('keydown', onKeyDown, true)");
     expect(components).toMatch(/\.command-palette-backdrop\.workspace-picker-backdrop\s*\{[^}]*place-items:\s*center;[^}]*padding:\s*24px;/);
+    expect(picker).toContain('browseRequestRef');
+    expect(picker).toContain('requestId !== browseRequestRef.current');
+    expect(controlPlane).toContain('routerEntries={chatModelEntries}');
+    expect(controlPlane).toContain('chatModelEntries={chatModelEntries}');
+  });
+
+  it('does not advertise semantic workspace filters without backend attributes', () => {
+    expect(readFileSync(new URL('../src/features/sections.tsx', import.meta.url), 'utf8')).not.toContain("id: 'modified'");
+    expect(readFileSync(new URL('../src/features/sections.tsx', import.meta.url), 'utf8')).not.toContain("id: 'in-context'");
+    expect(readFileSync(new URL('../src/features/sections.tsx', import.meta.url), 'utf8')).not.toContain("id: 'with-evidence'");
   });
 
   it('keeps advanced context capabilities behind progressive disclosure', () => {

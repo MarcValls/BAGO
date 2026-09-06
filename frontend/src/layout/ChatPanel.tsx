@@ -79,6 +79,7 @@ interface Props {
   isDocked?: boolean;
   pastedImage?: { dataUrl: string; mimeType: string } | null;
   onRemovePastedImage?: () => void;
+  onPreparePlan?: (task: string) => Promise<void>;
 }
 
 function summarize(message: Record<string, unknown>): string {
@@ -628,6 +629,17 @@ export function ChatPanel(props: Props) {
                 </span>
                 {!canChat && <span className="chat-composer-blocked-hint">{chatBlockedHint(props.snapshot)}</span>}
               </div>
+              {draft.trim().length > 20 && props.onPreparePlan && (
+                <button
+                  className="secondary-button chat-prepare-plan-button"
+                  type="button"
+                  onClick={() => void props.onPreparePlan?.(draft.trim())}
+                  title="Convertir este borrador en un plan del Pipeline sin re-escribirlo"
+                >
+                  <Icon name="pipeline" size={14} />
+                  <span>Preparar plan</span>
+                </button>
+              )}
               <button
                 className="primary-button chat-send-button"
                 type="button"

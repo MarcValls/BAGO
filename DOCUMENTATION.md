@@ -17,6 +17,7 @@ records do not override it.
 | Module and MVP boundaries | [backend/docs/MODULES.md](backend/docs/MODULES.md) and [backend/docs/MVP.md](backend/docs/MVP.md) |
 | Release candidate notes | [releases/RELEASE_NOTES_4.10.0.md](releases/RELEASE_NOTES_4.10.0.md) |
 | Frontend product contract | [frontend/PRODUCT.md](frontend/PRODUCT.md) and [frontend/CONTEXT_PRODUCT_CONTRACT.md](frontend/CONTEXT_PRODUCT_CONTRACT.md) |
+| Repository engineering protocol (proposed) | [backend/docs/repository-engineering/README.md](backend/docs/repository-engineering/README.md) |
 
 ## Historical and evidence records
 
