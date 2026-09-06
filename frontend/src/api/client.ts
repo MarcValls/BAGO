@@ -68,6 +68,21 @@ function shouldFallbackToLegacy(error: unknown): boolean {
   return error instanceof TypeError;
 }
 
+type AgentEnvelope =
+  | { ok?: boolean; agent: import('@/contracts/backend').AgentConfig }
+  | import('@/contracts/backend').AgentConfig;
+
+/**
+ * El backend responde `{ ok, agent }` en get/create/update/duplicate.
+ * Se acepta también el agente plano por compatibilidad.
+ */
+function unwrapAgent(res: AgentEnvelope): import('@/contracts/backend').AgentConfig {
+  if (res && typeof res === 'object' && 'agent' in res && res.agent) {
+    return res.agent;
+  }
+  return res as import('@/contracts/backend').AgentConfig;
+}
+
 export class BagoClient {
   constructor(
     private apiBase: string,
@@ -480,24 +495,28 @@ export class BagoClient {
     return this.request('/agents', { method: 'GET' });
   }
 
-  getAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
-    return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'GET' });
+  async getAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
+    const res = await this.request<AgentEnvelope>(`/agents/${encodeURIComponent(id)}`, { method: 'GET' });
+    return unwrapAgent(res);
   }
 
-  createAgent(payload: Omit<import('@/contracts/backend').AgentConfig, 'id' | 'revision' | 'createdAt' | 'updatedAt'>): Promise<import('@/contracts/backend').AgentConfig> {
-    return this.request('/agents', { method: 'POST', body: JSON.stringify(payload) });
+  async createAgent(payload: Omit<import('@/contracts/backend').AgentConfig, 'id' | 'revision' | 'createdAt' | 'updatedAt'>): Promise<import('@/contracts/backend').AgentConfig> {
+    const res = await this.request<AgentEnvelope>('/agents', { method: 'POST', body: JSON.stringify(payload) });
+    return unwrapAgent(res);
   }
 
-  updateAgent(id: string, payload: import('@/contracts/backend').AgentUpdateRequest): Promise<import('@/contracts/backend').AgentConfig> {
-    return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) });
+  async updateAgent(id: string, payload: import('@/contracts/backend').AgentUpdateRequest): Promise<import('@/contracts/backend').AgentConfig> {
+    const res = await this.request<AgentEnvelope>(`/agents/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) });
+    return unwrapAgent(res);
   }
 
   deleteAgent(id: string): Promise<void> {
     return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
 
-  duplicateAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
-    return this.request(`/agents/${encodeURIComponent(id)}/duplicate`, { method: 'POST', body: JSON.stringify({}) });
+  async duplicateAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
+    const res = await this.request<AgentEnvelope>(`/agents/${encodeURIComponent(id)}/duplicate`, { method: 'POST', body: JSON.stringify({}) });
+    return unwrapAgent(res);
   }
 
   testAgent(id: string): Promise<import('@/contracts/backend').AgentTestResult> {
@@ -577,10 +596,15 @@ export class BagoClient {
     }, 60_000);
   }
 
+  // El backend resuelve el modelo por body ({"model": name}); sin modelo descarga todos.
   unloadProviderBuffer(modelName?: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(modelName ? `/provider/buffer/unload/${encodeURIComponent(modelName)}` : '/provider/buffer/unload', {
+    return this.request<Record<string, unknown>>('/provider/buffer/unload', {
       method: 'POST',
-      body: JSON.stringify({ channel: 'ui-react', surface: 'ui-react' })
+      body: JSON.stringify({
+        ...(modelName ? { model: modelName } : {}),
+        channel: 'ui-react',
+        surface: 'ui-react'
+      })
     });
   }
 

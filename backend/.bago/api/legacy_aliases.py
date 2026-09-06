@@ -61,34 +61,40 @@ LEGACY_ALIASES = [
     # Provider buffer: /providers/buffer era un duplicado de /providers/buffer/status.
     ("GET", "/providers/buffer", "GET", "/providers/buffer/status"),
 
-    # Interpretations: el frontend tiene 4 metodos que llaman a /interpretations/*
+    # Interpretations: el frontend tiene metodos que llaman a /interpretations/*
     # pero el backend solo tiene /interpret (POST) y /interpret/history (GET).
     # Mapeamos para mantener compat.
+    # NOTA: no existe alias para "cancel". El backend no soporta cancelacion y
+    # mapearla a POST /interpret ejecutaria una interpretacion nueva en vez de
+    # cancelarla; la cancelacion se resuelve en el cliente.
     ("GET", "/interpretations", "GET", "/interpret/history"),
     ("POST", "/interpretations", "POST", "/interpret"),
     ("GET", "/interpretations/{id}", "GET", "/interpret/history"),
-    ("POST", "/interpretations/{id}/cancel", "POST", "/interpret"),
 
     # Provider buffer: el frontend usa /provider/ (singular), el backend
     # expone /providers/ (plural). Mapeamos para mantener compat.
     ("GET", "/provider/buffer/status", "GET", "/providers/buffer/status"),
     ("POST", "/provider/buffer/prepare", "POST", "/providers/buffer/prepare"),
     ("POST", "/provider/buffer/unload", "POST", "/providers/buffer/unload"),
-    ("POST", "/provider/buffer/unload/{id}", "POST", "/providers/buffer/unload/{id}"),
 ]
 
 
 def resolve_legacy_alias(method: str, path: str) -> Optional[Tuple[str, str]]:
     """Si (method, path) tiene un alias, devuelve (method_canonical, path_canonical).
     Si no, devuelve None.
-    Las paths con {id} se matchean con un valor cualquiera entre /.
+    Las paths con {id} se matchean con un valor cualquiera entre / y el valor
+    capturado se sustituye en la ruta canonica si esta tambien declara {id}.
     """
     for m_leg, p_leg, m_can, p_can in LEGACY_ALIASES:
         if m_leg != method:
             continue
-        # Convertir {id} a regex
-        regex = re.escape(p_leg).replace(r"\{id\}", "[^/]+")
-        if re.fullmatch(regex, path):
+        # Convertir {id} a un grupo de captura para poder reinyectarlo.
+        regex = re.escape(p_leg).replace(r"\{id\}", "([^/]+)")
+        match = re.fullmatch(regex, path)
+        if match:
+            if "{id}" in p_can:
+                captured = match.group(1) if match.groups() else ""
+                p_can = p_can.replace("{id}", captured)
             return (m_can, p_can)
     return None
 

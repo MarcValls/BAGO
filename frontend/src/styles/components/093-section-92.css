@@ -22,29 +22,13 @@
   overflow: hidden;
 }
 .agent-list-pane {
-  width: 200px;
+  width: 224px;
   border-right: 1px solid var(--border);
   overflow-y: auto;
   flex-shrink: 0;
 }
 .agent-list-pane ul { list-style: none; margin: 0; padding: 8px; }
 .agent-list-pane li { margin-bottom: 2px; }
-.agent-list-pane button {
-  width: 100%;
-  text-align: left;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  border: none;
-  background: transparent;
-  color: var(--text-2);
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.agent-list-pane button:hover { background: var(--surface-2); color: var(--text); }
-.agent-list-pane button.active { background: var(--accent-soft); color: var(--accent); }
 .agent-form-pane {
   flex: 1;
   overflow-y: auto;
@@ -53,21 +37,6 @@
   flex-direction: column;
   gap: 14px;
 }
-.agent-form-group { display: flex; flex-direction: column; gap: 4px; }
-.agent-form-group label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .05em; }
-.agent-form-group input,
-.agent-form-group textarea,
-.agent-form-group select {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 13px;
-  padding: 8px 10px;
-  width: 100%;
-  box-sizing: border-box;
-}
-.agent-form-group textarea { resize: vertical; min-height: 80px; font-family: inherit; line-height: 1.5; }
 .agent-form-actions {
   display: flex;
   gap: 8px;
@@ -98,4 +67,149 @@
   color: var(--text-2);
   font-size: 12px;
   white-space: nowrap;
+}
+
+/* ---------- Lista de agentes (marcado real del componente) ---------- */
+.agent-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.agent-list-count {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.agent-list-new { padding: 5px 9px; font-size: 11px; }
+
+.panel-empty,
+.agent-form-empty {
+  padding: 16px 12px;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+.agent-form-empty {
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+.agent-form-empty p { margin: 0; }
+
+.agent-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.agent-list-item:hover { background: var(--surface-2); color: var(--text); }
+.agent-list-item.is-selected { background: var(--accent-soft); color: var(--accent); }
+.agent-list-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-list-status {
+  flex-shrink: 0;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--text-3);
+}
+.agent-status-enabled { background: var(--green-soft, var(--accent-soft)); color: var(--green, var(--accent)); }
+
+/* ---------- Formulario ---------- */
+.agent-form { display: flex; flex-direction: column; gap: 14px; }
+.agent-form-header {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.form-group--name { flex: 1; }
+.form-group--enabled { flex-shrink: 0; }
+.agent-form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.agent-form-row > .form-group { flex: 1; min-width: 140px; }
+
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group > label {
+  font-size: 11px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.form-group input:not([type='checkbox']):not([type='range']),
+.form-group textarea,
+.form-group select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+  padding-bottom: 8px;
+}
+.agent-prompt-textarea {
+  resize: vertical;
+  min-height: 120px;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.form-success {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--green, var(--accent));
+}
+
+.agent-test-output {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.agent-test-output-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-2);
+}
+.agent-test-output-body {
+  margin: 0;
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow: auto;
+  color: var(--text);
 }

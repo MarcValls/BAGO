@@ -156,6 +156,40 @@ export function AgentEditorPanel({ client, onClose }: Props) {
     }
   }, [client, state.selectedAgent]);
 
+  const handleCreate = useCallback(async () => {
+    setState((s) => ({ ...s, saving: true, error: null }));
+    try {
+      const base = 'Nuevo agente';
+      const taken = new Set(state.agents.map((a) => a.name));
+      let name = base;
+      for (let i = 2; taken.has(name); i += 1) name = `${base} ${i}`;
+      const created = await client.createAgent({
+        name,
+        systemPrompt: '',
+        enabled: true,
+      });
+      setState((s) => ({
+        ...s,
+        saving: false,
+        agents: [...s.agents, created],
+        selectedAgent: created,
+        name: created.name,
+        systemPrompt: created.systemPrompt || '',
+        model: created.model || '',
+        provider: created.provider || '',
+        temperature: created.temperature ?? 0.7,
+        maxTokens: created.maxTokens ?? 4096,
+        enabled: created.enabled,
+        isDirty: false,
+        savedMessage: null,
+        testOutput: null,
+        error: null,
+      }));
+    } catch (e: unknown) {
+      setState((s) => ({ ...s, saving: false, error: friendlyErrorMessage(e) }));
+    }
+  }, [client, state.agents]);
+
   const handleFieldChange = <K extends keyof AgentEditorState>(field: K, value: AgentEditorState[K]) => {
     setState((s) => ({ ...s, [field]: value, isDirty: true }));
   };
@@ -174,10 +208,21 @@ export function AgentEditorPanel({ client, onClose }: Props) {
         {/* Left: agent list */}
         <div className="agent-list-pane">
           <div className="agent-list-header">
-            <span>Agentes</span>
+            <span className="agent-list-count">{state.agents.length} definidos</span>
+            <button
+              type="button"
+              className="btn btn--primary agent-list-new"
+              onClick={handleCreate}
+              disabled={state.saving}
+            >
+              <Icon name="plus" size={12} /> Nuevo agente
+            </button>
           </div>
           {state.loading && <div className="panel-loading">Cargando...</div>}
-          {!state.loading && state.agents.length === 0 && (
+          {!state.loading && !state.selectedAgent && state.error && (
+            <div className="form-error" role="alert">{state.error}</div>
+          )}
+          {!state.loading && !state.error && state.agents.length === 0 && (
             <div className="panel-empty">No hay agentes definidos</div>
           )}
           <ul className="agent-list" role="listbox" aria-label="Lista de agentes">
