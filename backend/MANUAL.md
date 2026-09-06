@@ -1,4 +1,9 @@
-# BAGO 4.9.0 — Manual de Usuario
+# HISTORICAL — BAGO 4.9.0 User Manual
+
+> **Historical record.** This manual documents the 4.9.0 release surface and
+> its artifact names. It is not the operating guide for the 4.10.0 candidate.
+> Use the repository [README](../README.md) and
+> [documentation index](../DOCUMENTATION.md) for current instructions.
 
 > **Session-First AI Chat**
 > El contexto de sesión sobrevive al cambio de provider.

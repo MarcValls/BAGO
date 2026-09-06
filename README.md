@@ -352,11 +352,12 @@ Ver [`backend/docs/SECURITY.md`](backend/docs/SECURITY.md) para la postura de se
 
 | Documento | Descripción |
 |---|---|
-| [`backend/MANUAL.md`](backend/MANUAL.md) | Manual de usuario (español) |
+| [`DOCUMENTATION.md`](DOCUMENTATION.md) | Índice de documentación vigente e histórica |
+| [`backend/MANUAL.md`](backend/MANUAL.md) | Manual histórico de usuario para 4.9.0 |
 | [`backend/docs/MVP.md`](backend/docs/MVP.md) | Límite del MVP |
 | [`backend/docs/MODULES.md`](backend/docs/MODULES.md) | Matriz de estado de módulos |
 | [`backend/docs/CLAIMS.md`](backend/docs/CLAIMS.md) | Matriz de evidencias |
-| [`backend/docs/SUPPORT_MATRIX.md`](backend/docs/SUPPORT_MATRIX.md) | Soporte por sistema operativo |
+| [`backend/docs/support-matrix.md`](backend/docs/support-matrix.md) | Soporte por sistema operativo |
 | [`backend/docs/SECURITY.md`](backend/docs/SECURITY.md) | Defaults de seguridad y gates |
 | [`backend/docs/TESTING.md`](backend/docs/TESTING.md) | Comandos de validación |
 | [`backend/docs/ARCHITECTURE.md`](backend/docs/ARCHITECTURE.md) | Arquitectura del sistema |

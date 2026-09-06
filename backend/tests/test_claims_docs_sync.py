@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
-CLAIMS = ROOT / "docs" / "claims.md"
+CLAIMS = ROOT / "docs" / "CLAIMS.md"
 
 
 class ClaimsDocsSyncTests(unittest.TestCase):

@@ -1,8 +1,8 @@
-# BAGO v4.9.0
+# BAGO v4.10.0 — release candidate
 
-**Version 4.9.0**
+**Version 4.10.0**
 
-[![Version](https://img.shields.io/badge/version-4.9.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.10.0-blue)]()
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
@@ -18,20 +18,20 @@ The stable MVP is intentionally small:
 
 | Surface | Status | Canonical docs |
 |---|---|---|
-| Core runtime | Working | `docs/claims.md`, `docs/testing.md` |
-| Install and platform support | Working | `docs/mvp.md`, `docs/support-matrix.md`, `docs/claims.md` |
-| Security and API posture | Working | `docs/security.md`, `docs/testing.md`, `docs/claims.md` |
-| UI | Optional surface | `docs/ui-canonical-contract.md`, `docs/claims.md` |
+| Core runtime | Working | `docs/CLAIMS.md`, `docs/TESTING.md` |
+| Install and platform support | Working | `docs/MVP.md`, `docs/support-matrix.md`, `docs/CLAIMS.md` |
+| Security and API posture | Working | `docs/SECURITY.md`, `docs/TESTING.md`, `docs/CLAIMS.md` |
+| UI | Optional surface | `docs/ui-canonical-contract.md`, `docs/CLAIMS.md` |
 
 Post-MVP or experimental:
 
 | Surface | Status | Canonical docs |
 |---|---|---|
-| RL policy layer | Experimental | `docs/mvp.md`, `docs/security.md` |
-| Agents and autopilot | Experimental | `docs/mvp.md`, `docs/security.md` |
-| C++ runtime | Experimental | `docs/mvp.md` |
-| Cloud multiprovider completeness | Partial | `docs/mvp.md`, `docs/support-matrix.md` |
-| Advanced knowledge/embedding store | Partial | `docs/mvp.md`, `docs/modules.md` |
+| RL policy layer | Experimental | `docs/MVP.md`, `docs/SECURITY.md` |
+| Agents and autopilot | Experimental | `docs/MVP.md`, `docs/SECURITY.md` |
+| C++ runtime | Experimental | `docs/MVP.md` |
+| Cloud multiprovider completeness | Partial | `docs/MVP.md`, `docs/support-matrix.md` |
+| Advanced knowledge/embedding store | Partial | `docs/MVP.md`, `docs/MODULES.md` |
 
 ## Install
 
@@ -155,11 +155,11 @@ Break-glass (owner only, emergency):
 
 ## Security
 
-See `docs/security.md` for the security posture and hard stops.
+See `docs/SECURITY.md` for the security posture and hard stops.
 
 ## Evidence
 
-See [`docs/claims.md`](docs/claims.md) for the claim-to-evidence matrix and [`docs/testing.md`](docs/testing.md) for executable gates.
+See [`docs/CLAIMS.md`](docs/CLAIMS.md) for the claim-to-evidence matrix and [`docs/TESTING.md`](docs/TESTING.md) for executable gates.
 
 ## Roadmap
 
@@ -170,7 +170,7 @@ The near-term order is:
 3. run the clean-machine gate before releases,
 4. keep partial/experimental modules out of stable product claims.
 
-See [`docs/mvp.md`](docs/mvp.md), [`docs/modules.md`](docs/modules.md), and [`docs/README.md`](docs/README.md).
+See [`docs/MVP.md`](docs/MVP.md), [`docs/MODULES.md`](docs/MODULES.md), and [`docs/README.md`](docs/README.md).
 
 ## Known Limits
 
@@ -201,11 +201,12 @@ Future licensing may change, but the current release line remains proprietary.
 
 ## Documentation
 
-- [`manual.md`](manual.md) - user manual in Spanish.
-- [`docs/mvp.md`](docs/mvp.md) - MVP boundary.
-- [`docs/modules.md`](docs/modules.md) - module status matrix.
-- [`docs/claims.md`](docs/claims.md) - claim evidence matrix.
+- [`../DOCUMENTATION.md`](../DOCUMENTATION.md) - active and historical documentation index.
+- [`MANUAL.md`](MANUAL.md) - historical Spanish user manual for 4.9.0.
+- [`docs/MVP.md`](docs/MVP.md) - MVP boundary.
+- [`docs/MODULES.md`](docs/MODULES.md) - module status matrix.
+- [`docs/CLAIMS.md`](docs/CLAIMS.md) - claim evidence matrix.
 - [`docs/support-matrix.md`](docs/support-matrix.md) - operating system support.
-- [`docs/security.md`](docs/security.md) - security defaults and gates.
-- [`docs/testing.md`](docs/testing.md) - validation commands.
+- [`docs/SECURITY.md`](docs/SECURITY.md) - security defaults and gates.
+- [`docs/TESTING.md`](docs/TESTING.md) - validation commands.
 - [`docs/distribution-contract.md`](docs/distribution-contract.md) - distribution contract and release scope.

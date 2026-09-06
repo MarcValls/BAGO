@@ -36,6 +36,73 @@ BAGO_ROOT = SCAN_ROOT / '.bago'
 STATE_DIR = BAGO_ROOT / 'state'
 ROUTER_HISTORY = STATE_DIR / 'route_history.json'
 ROUTER_POLICY = STATE_DIR / 'llm_config.json'
+MAX_CONCURRENT = 3
+
+_CABINET_POLICIES = (
+    (
+        'system_change',
+        ('governance', 'canon', 'contract', 'architecture', 'system change'),
+        'workflow_cambio_sistemico',
+        (
+            'role_government_orquestador_central',
+            'role_production_arquitecto',
+            'role_supervision_auditor_canonico',
+            'role_production_validador',
+        ),
+    ),
+    (
+        'security',
+        ('security', 'secret', 'credential', 'permission', 'seguridad', 'secreto', 'credencial', 'permiso'),
+        'workflow_validacion',
+        (
+            'role_government_orquestador_central',
+            'role_specialist_security_reviewer',
+            'role_supervision_centinela_sinceridad',
+            'role_production_validador',
+        ),
+    ),
+    (
+        'history_migration',
+        ('migration', 'migrate', 'legacy', 'archive', 'historical', 'migracion', 'migrar', 'legado', 'archivo', 'histori'),
+        'workflow_migracion_historial',
+        (
+            'role_government_orquestador_central',
+            'role_production_analista',
+            'role_supervision_auditor_canonico',
+            'role_production_validador',
+        ),
+    ),
+    (
+        'validation',
+        ('verify', 'validate', 'test', 'audit', 'check', 'verifica', 'valid', 'prueba', 'audita', 'comprueba'),
+        'workflow_validacion',
+        (
+            'role_government_orquestador_central',
+            'role_production_validador',
+        ),
+    ),
+    (
+        'design',
+        ('design', 'architecture', 'contract', 'dise', 'arquitectura', 'contrato'),
+        'workflow_diseno',
+        (
+            'role_government_orquestador_central',
+            'role_production_analista',
+            'role_production_arquitecto',
+            'role_production_validador',
+        ),
+    ),
+    (
+        'execution',
+        ('implement', 'fix', 'refactor', 'build', 'code', 'write', 'edit', 'implemen', 'corrige', 'refactor', 'codigo', 'escribe', 'edita'),
+        'workflow_ejecucion',
+        (
+            'role_government_orquestador_central',
+            'role_production_generador',
+            'role_production_validador',
+        ),
+    ),
+)
 
 
 def _resolve_bago_root(scan_root: Path) -> Path:
@@ -188,24 +255,82 @@ def _record_route(route: dict) -> None:
     save_json(ROUTER_HISTORY, history[-200:])
 
 
+def _load_active_roles() -> dict[str, dict]:
+    manifest_path = BAGO_ROOT / 'roles' / 'manifest.json'
+    manifest = load_json(manifest_path, {})
+    roles = manifest.get('roles') if isinstance(manifest, dict) else None
+    if not isinstance(roles, dict):
+        raise RuntimeError(f'Invalid or missing role manifest: {manifest_path}')
+
+    active_roles: dict[str, dict] = {}
+    for role_id, role in roles.items():
+        if not isinstance(role, dict) or role.get('status') != 'active':
+            continue
+        relative_file = role.get('file')
+        if not isinstance(relative_file, str) or not (BAGO_ROOT / 'roles' / relative_file).is_file():
+            raise RuntimeError(f'Active role {role_id!r} has no readable role file')
+        active_roles[role_id] = role
+    return active_roles
+
+
+def plan_cabinet(task: str) -> dict:
+    """Return a role plan; role execution remains an explicit caller action."""
+    normalized_task = task.strip()
+    if not normalized_task:
+        raise ValueError('Cabinet planning requires a non-empty task')
+
+    lowered = normalized_task.lower()
+    task_type, workflow, role_ids = 'analysis', 'workflow_analisis', (
+        'role_government_orquestador_central',
+        'role_production_analista',
+        'role_production_validador',
+    )
+    for candidate_type, terms, candidate_workflow, candidate_role_ids in _CABINET_POLICIES:
+        if any(term in lowered for term in terms):
+            task_type, workflow, role_ids = candidate_type, candidate_workflow, candidate_role_ids
+            break
+
+    active_roles = _load_active_roles()
+    missing_roles = [role_id for role_id in role_ids if role_id not in active_roles]
+    if missing_roles:
+        raise RuntimeError(f'Cabinet plan requires unavailable active roles: {", ".join(missing_roles)}')
+
+    waves = [list(role_ids[index:index + MAX_CONCURRENT]) for index in range(0, len(role_ids), MAX_CONCURRENT)]
+    return {
+        'task': normalized_task,
+        'task_type': task_type,
+        'workflow': workflow,
+        'max_concurrent': MAX_CONCURRENT,
+        'waves': waves,
+        'roles': [
+            {
+                'id': role_id,
+                'name': active_roles[role_id].get('name', role_id),
+                'file': f"roles/{active_roles[role_id]['file']}",
+            }
+            for role_id in role_ids
+        ],
+        'execution': 'plan-only; explicit approval and executor are required before roles run',
+    }
+
+
 def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool = True, record: bool = False) -> dict:
     policy = load_policy()
     available = _available_agents(agents)
 
-    # ── Orchestrator gate (opt-in: BAGO_ORCHESTRATE=1) ────────────────────────
+    # ── Optional brief integration (does not activate roles) ───────────────────
     brief_id: str = ''
     if os.environ.get('BAGO_ORCHESTRATE') == '1':
-        try:
-            import importlib.util as _ilu
-            _orc_path = Path(__file__).parent / 'orchestrator_v4.py'
-            _spec = _ilu.spec_from_file_location('orchestrator_v4', _orc_path)
-            _orc = _ilu.module_from_spec(_spec)  # type: ignore[arg-type]
-            _spec.loader.exec_module(_orc)  # type: ignore[union-attr]
-            _orc.configure_paths(str(SCAN_ROOT))
-            _brief = _orc.create_brief(task_description=task)
-            brief_id = _brief.get('id', '')
-        except Exception:
-            pass  # Orchestrator no disponible — continúa sin él
+        import importlib.util as _ilu
+        _orc_path = Path(__file__).parent / 'orchestrator_v4.py'
+        _spec = _ilu.spec_from_file_location('orchestrator_v4', _orc_path)
+        if _spec is None or _spec.loader is None:
+            raise RuntimeError(f'Cannot load orchestrator integration: {_orc_path}')
+        _orc = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_orc)
+        _orc.configure_paths(str(SCAN_ROOT))
+        _brief = _orc.create_brief(task_description=task)
+        brief_id = _brief.get('id', '')
     # ─────────────────────────────────────────────────────────────────────────
 
     if not available:
@@ -281,6 +406,27 @@ def _run_tests() -> int:
         with redirect_stdout(out):
             json_rc = main(['--root', str(scratch), '--task', 'brainstorm offline notes', '--json', '--no-classifier'])
         json_payload = json.loads(out.getvalue())
+        role_dir = BAGO_ROOT / 'roles' / 'gobierno'
+        role_dir.mkdir(parents=True, exist_ok=True)
+        (role_dir / 'ORQUESTADOR_CENTRAL.md').write_text('# role\n', encoding='utf-8')
+        production_dir = BAGO_ROOT / 'roles' / 'produccion'
+        production_dir.mkdir(parents=True, exist_ok=True)
+        (production_dir / 'ANALISTA.md').write_text('# role\n', encoding='utf-8')
+        (production_dir / 'VALIDADOR.md').write_text('# role\n', encoding='utf-8')
+        save_json(BAGO_ROOT / 'roles' / 'manifest.json', {
+            'roles': {
+                'role_government_orquestador_central': {
+                    'status': 'active', 'name': 'orquestador_central', 'file': 'gobierno/ORQUESTADOR_CENTRAL.md',
+                },
+                'role_production_analista': {
+                    'status': 'active', 'name': 'ANALISTA', 'file': 'produccion/ANALISTA.md',
+                },
+                'role_production_validador': {
+                    'status': 'active', 'name': 'VALIDADOR', 'file': 'produccion/VALIDADOR.md',
+                },
+            },
+        })
+        cabinet = plan_cabinet('analyze the current repository')
         results = [
             ('default_ollama_url', isinstance(_default_ollama_url(), str) and _default_ollama_url().startswith('http'), 'default ollama url is a string'),
             ('resolve_models_dir', isinstance(_resolve_ollama_models_dir(), Path), 'ollama models dir resolves to Path'),
@@ -288,6 +434,7 @@ def _run_tests() -> int:
             ('available_agents_list', isinstance(detected, list) and all('id' in item for item in detected), 'detect_agents returns agent list'),
             ('deterministic_fallback', fallback.get('agent') == 'ollama', 'fallback is deterministic when classifier is unavailable'),
             ('json_output_mode', json_rc == 0 and isinstance(json_payload, dict) and 'agent' in json_payload, 'json output mode prints route json'),
+            ('cabinet_plan_is_bounded', cabinet['workflow'] == 'workflow_analisis' and len(cabinet['waves']) == 1 and len(cabinet['waves'][0]) <= MAX_CONCURRENT, 'cabinet plan uses active roles and respects concurrency'),
         ]
         return print_test_results(results)
     finally:
@@ -309,6 +456,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--history', action='store_true', help='Show routing history and exit')
     parser.add_argument('--limit', type=int, default=10, help='History entry limit')
     parser.add_argument('--no-classifier', action='store_true', help='Disable ollama classifier')
+    parser.add_argument('--cabinet', action='store_true', help='Plan cabinet roles without activating them')
     parser.add_argument('task_words', nargs='*')
     args = parser.parse_args(argv)
     configure_paths(args.root or None)
@@ -330,6 +478,16 @@ def main(argv: list[str] | None = None) -> int:
     task_text = args.task.strip() or ' '.join(args.task_words).strip()
     if not task_text:
         parser.print_help()
+        return 0
+    if args.cabinet:
+        plan = plan_cabinet(task_text)
+        if args.json:
+            print(json.dumps(plan, indent=2, ensure_ascii=False))
+        else:
+            print(f"workflow={plan['workflow']} task_type={plan['task_type']} max_concurrent={plan['max_concurrent']}")
+            for number, wave in enumerate(plan['waves'], start=1):
+                print(f"wave={number} roles={','.join(wave)}")
+            print(plan['execution'])
         return 0
     route = route_task(task_text, use_classifier=not args.no_classifier, record=True)
     if args.json:

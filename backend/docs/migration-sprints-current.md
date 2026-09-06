@@ -1,8 +1,11 @@
-# BAGO Migration Sprint Contract
+# HISTORICAL — BAGO Migration Sprint Record
 
-Status: completed
-Depends on: `BAGO_MIGRATE_TARGET.md`
-Applies to: `C:\Users\AMTEC_Terminal_1º\bago_fw`
+Status: completed historical record
+Scope: migration slices retained in this repository
+
+> This completed record is not a current migration plan. Its former external
+> dependency and external workspace path are intentionally not operating
+> instructions for this repository.
 
 This contract records the current-tree migration slices that are already reflected in the active system.
 

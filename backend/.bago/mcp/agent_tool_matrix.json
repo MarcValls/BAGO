@@ -1,9 +1,10 @@
 {
   "_meta": {
     "version": "1.0.0",
-    "description": "Matriz canónica BAGO: tipos de trabajo → agentes → herramientas MCP + CLI",
-    "source": ".bago/mcp/agent_tool_matrix.json",
-    "updated": "2026-05-11"
+    "description": "Legacy compatibility matrix for historical agent and MCP labels; it is not cabinet routing authority.",
+    "source": "roles/manifest.json and core/orchestrator/MATRIZ_DE_ENRUTADO.md",
+    "updated": "2026-09-06",
+    "status": "deprecated"
   },
 
   "agents": {
