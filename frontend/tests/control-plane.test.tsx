@@ -102,6 +102,25 @@ describe('ControlPlane chat-dock behaviour', () => {
     window.localStorage.setItem('bago.first-run.v1.completed', 'true');
   });
 
+  it('opens the complete chat surface directly from the top bar', async () => {
+    const { container } = render(<ControlPlane />);
+
+    await waitFor(() => {
+      expect(container.querySelector('.chat-open-button')).toBeInTheDocument();
+    }, { timeout: 3000 });
+
+    fireShortcut('2', { ctrl: true });
+    await waitFor(() => expect(container.querySelector('[data-section="workspace"]')).toBeInTheDocument());
+    fireEvent.click(container.querySelector('.chat-open-button') as HTMLElement);
+
+    await waitFor(() => {
+      expect(container.querySelector('.chat-panel:not(.is-docked)')).toBeInTheDocument();
+    }, { timeout: 1000 });
+    expect(container.querySelector('.chat-timeline')).toBeInTheDocument();
+    expect(container.querySelector('#bago-chat-composer')).toBeInTheDocument();
+    expect(chatDock(container)).not.toBeInTheDocument();
+  });
+
   afterEach(() => {
     vi.clearAllMocks();
     window.localStorage.clear();

@@ -1474,12 +1474,7 @@ export function ControlPlane() {
             navigate('home');
           }}
           onOpenHelp={() => setAndPersistUiState({ helpOpen: true })}
-          onToggleChatDock={() => {
-            // CANON[INSPECTOR-MUTEX]: el botón de la cabecera sigue
-            // la misma regla que el atajo y el palette: acoplar
-            // siempre cierra el panel/inspector a la derecha.
-            toggleChatDocked();
-          }}
+          onOpenChat={() => openShell('chat')}
           chatDocked={uiState.chatDocked}
           globalMode={uiState.globalMode}
           appearanceTheme={uiState.appearanceTheme}

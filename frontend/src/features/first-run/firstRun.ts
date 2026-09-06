@@ -53,6 +53,14 @@ export function firstRunReadiness(snapshot: UiBootstrapSnapshot | null) {
   };
 }
 
+export function firstRunInitialStep(snapshot: UiBootstrapSnapshot | null): number {
+  const readiness = firstRunReadiness(snapshot);
+  if (!readiness.backend) return 0;
+  if (!readiness.provider) return 1;
+  if (!readiness.workspace) return 2;
+  return 3;
+}
+
 export function shouldSkipAutomaticFirstRun(snapshot: UiBootstrapSnapshot | null): boolean {
   const readiness = firstRunReadiness(snapshot);
   return readiness.backend && readiness.provider && readiness.workspace;

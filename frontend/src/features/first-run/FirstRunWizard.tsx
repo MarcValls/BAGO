@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { BackendProviders, UiBootstrapSnapshot } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 import { friendlyErrorMessage } from '@/shared/friendly-error';
-import { firstRunProviderOptions, firstRunReadiness } from './firstRun';
+import { firstRunInitialStep, firstRunProviderOptions, firstRunReadiness } from './firstRun';
 import type { BagoClient } from '@/api/client';
 import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
 
@@ -24,7 +24,7 @@ interface Props {
 const STEPS = ['Comprobar', 'Proveedor', 'Proyecto', 'Listo'];
 
 export function FirstRunWizard(props: Props) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => firstRunInitialStep(props.snapshot));
   const [providerId, setProviderId] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -55,6 +55,7 @@ export function FirstRunWizard(props: Props) {
         model: model.trim() || undefined
       });
       setMessage(`${options.find((item) => item.id === providerId)?.label || providerId} configurado`);
+      setStep(2);
     } catch (error) {
       setMessage(friendlyErrorMessage(error, 'No se pudo configurar el proveedor'));
     } finally {
@@ -78,15 +79,15 @@ export function FirstRunWizard(props: Props) {
     } finally { setWorking(false); }
   };
 
-  const prepareProject = async (demo: boolean) => {
-    if (!projectRoot.trim()) {
+  const prepareProject = async (demo: boolean, selectedRoot = projectRoot) => {
+    if (!selectedRoot.trim()) {
       setMessage('Indica una ruta absoluta para el proyecto.');
       return;
     }
     setWorking(true);
     setMessage('');
     try {
-      const ok = demo ? await props.onCreateDemo(projectRoot.trim()) : await props.onActivateWorkspace(projectRoot.trim());
+      const ok = demo ? await props.onCreateDemo(selectedRoot.trim()) : await props.onActivateWorkspace(selectedRoot.trim());
       if (ok) {
         setMessage(demo ? 'Proyecto demo creado y activado' : 'Proyecto activado');
         setStep(3);
@@ -142,7 +143,7 @@ export function FirstRunWizard(props: Props) {
         {step < 3 && <footer className="first-run-foot"><button type="button" className="text-button" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>Atrás</button><button type="button" className="primary-button" onClick={() => setStep(Math.min(3, step + 1))}>Continuar</button></footer>}
       </section>
     </div>
-    {workspacePickerOpen && <WorkspacePickerDialog value={projectRoot} onChange={setProjectRoot} onClose={() => setWorkspacePickerOpen(false)} onChooseExplorer={props.onChooseWorkspace} onConfirm={() => setWorkspacePickerOpen(false)} client={props.client} mode="select" title="Selecciona el primer proyecto" />}
+    {workspacePickerOpen && <WorkspacePickerDialog value={projectRoot} onChange={setProjectRoot} onClose={() => setWorkspacePickerOpen(false)} onChooseExplorer={props.onChooseWorkspace} onConfirm={() => { setWorkspacePickerOpen(false); void prepareProject(false, projectRoot); }} client={props.client} mode="select" title="Selecciona y activa tu primer proyecto" />}
   </>);
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FIRST_RUN_KEY, firstRunProviderOptions, markFirstRunComplete, shouldShowFirstRun, shouldSkipAutomaticFirstRun } from '../src/features/first-run/firstRun';
+import { FIRST_RUN_KEY, firstRunInitialStep, firstRunProviderOptions, markFirstRunComplete, shouldShowFirstRun, shouldSkipAutomaticFirstRun } from '../src/features/first-run/firstRun';
 
 describe('first run contract', () => {
   it('remains visible until the user completes it', () => {
@@ -27,5 +27,24 @@ describe('first run contract', () => {
       model: { state: 'confirmed' },
       workspace: { linkedToSession: false, manifestState: 'missing' }
     } as never)).toBe(false);
+  });
+
+  it('opens directly on the first setup step that still needs attention', () => {
+    expect(firstRunInitialStep(null)).toBe(0);
+    expect(firstRunInitialStep({
+      system: { backendAvailable: true },
+      model: { state: 'missing' },
+      workspace: { linkedToSession: false, manifestState: 'missing' }
+    } as never)).toBe(1);
+    expect(firstRunInitialStep({
+      system: { backendAvailable: true },
+      model: { state: 'confirmed' },
+      workspace: { linkedToSession: false, manifestState: 'missing' }
+    } as never)).toBe(2);
+    expect(firstRunInitialStep({
+      system: { backendAvailable: true },
+      model: { state: 'confirmed' },
+      workspace: { linkedToSession: true, manifestState: 'valid' }
+    } as never)).toBe(3);
   });
 });
