@@ -545,7 +545,7 @@ export class BagoClient {
     return this.request('/github/status', { method: 'GET' });
   }
 
-  startGitHubAuth(): Promise<{ auth_url: string }> {
+  startGitHubAuth(): Promise<import('@/contracts/backend').GitHubAuthStartResult> {
     return this.request('/github/auth/start', { method: 'POST', body: JSON.stringify({}) });
   }
 
