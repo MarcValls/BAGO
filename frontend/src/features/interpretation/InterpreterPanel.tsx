@@ -73,15 +73,13 @@ export function InterpreterPanel({ client, onClose }: Props) {
     }
   }, [client, input]);
 
-  const handleCancel = useCallback(async () => {
+  // El backend no expone cancelacion de interpretaciones: se marca en cliente
+  // para no dejar el boton en un error permanente.
+  const handleCancel = useCallback(() => {
     if (!result?.interpretationId) return;
-    try {
-      await client.cancelInterpretation(result.interpretationId);
-      setResult((r) => r ? { ...r, cancelledAt: new Date().toISOString() } : r);
-    } catch (e: unknown) {
-      setError(friendlyErrorMessage(e));
-    }
-  }, [client, result]);
+    setSubmitting(false);
+    setResult((r) => r ? { ...r, cancelledAt: new Date().toISOString() } : r);
+  }, [result]);
 
   const confidenceColor = (confidence: number | undefined | null) => {
     if (confidence == null) return 'var(--color-text-muted)';
