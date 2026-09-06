@@ -327,10 +327,13 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
         if _spec is None or _spec.loader is None:
             raise RuntimeError(f'Cannot load orchestrator integration: {_orc_path}')
         _orc = _ilu.module_from_spec(_spec)
+        sys.modules[_spec.name] = _orc
         _spec.loader.exec_module(_orc)
         _orc.configure_paths(str(SCAN_ROOT))
-        _brief = _orc.create_brief(task_description=task)
-        brief_id = _brief.get('id', '')
+        _brief = _orc.create_brief(task=task)
+        brief_id = getattr(_brief, 'id', '')
+        if not isinstance(brief_id, str) or not brief_id:
+            raise RuntimeError('Orchestrator integration returned a brief without an id')
     # ─────────────────────────────────────────────────────────────────────────
 
     if not available:
@@ -364,11 +367,6 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
     }
     if brief_id:
         result['brief_id'] = brief_id
-        # Registrar asignación en el brief
-        try:
-            _orc.assign_brief(brief_id, agent=agent_id)  # type: ignore[name-defined]
-        except Exception:
-            pass
     if record:
         _record_route(result)
     return result
@@ -385,6 +383,7 @@ def _scratch_dir(label: str) -> Path:
 def _run_tests() -> int:
     scratch = _scratch_dir('agent_router')
     old_host = os.environ.get('OLLAMA_HOST')
+    old_orchestration = os.environ.get('BAGO_ORCHESTRATE')
     try:
         configure_paths(str(scratch))
         save_json(ROUTER_POLICY, {'default_agent': 'copilot', 'prefer_local': True})
@@ -395,6 +394,10 @@ def _run_tests() -> int:
             {'id': 'copilot', 'available': True},
         ]
         route = route_task('implement multi-file auth and run tests', agents=agents, use_classifier=False)
+        os.environ['BAGO_ORCHESTRATE'] = '1'
+        orchestrated_route = route_task('review the backend contract', agents=agents, use_classifier=False)
+        brief_id = orchestrated_route.get('brief_id', '')
+        brief_payload = load_json(BAGO_ROOT / 'state' / 'orchestrator' / f'{brief_id}.json', {})
         detected = detect_agents()
         original_up = _ollama_server_up
         try:
@@ -431,6 +434,7 @@ def _run_tests() -> int:
             ('default_ollama_url', isinstance(_default_ollama_url(), str) and _default_ollama_url().startswith('http'), 'default ollama url is a string'),
             ('resolve_models_dir', isinstance(_resolve_ollama_models_dir(), Path), 'ollama models dir resolves to Path'),
             ('route_has_agent', isinstance(route, dict) and route.get('agent') == 'codex', 'route_task returns dict with agent key'),
+            ('orchestration_brief_is_explicit', isinstance(brief_id, str) and brief_payload.get('status') == 'pending', 'opt-in orchestration creates a pending domain brief without assigning the provider as a specialist'),
             ('available_agents_list', isinstance(detected, list) and all('id' in item for item in detected), 'detect_agents returns agent list'),
             ('deterministic_fallback', fallback.get('agent') == 'ollama', 'fallback is deterministic when classifier is unavailable'),
             ('json_output_mode', json_rc == 0 and isinstance(json_payload, dict) and 'agent' in json_payload, 'json output mode prints route json'),
@@ -442,6 +446,10 @@ def _run_tests() -> int:
             os.environ.pop('OLLAMA_HOST', None)
         else:
             os.environ['OLLAMA_HOST'] = old_host
+        if old_orchestration is None:
+            os.environ.pop('BAGO_ORCHESTRATE', None)
+        else:
+            os.environ['BAGO_ORCHESTRATE'] = old_orchestration
         if scratch.exists():
             shutil.rmtree(scratch)
         configure_paths()
