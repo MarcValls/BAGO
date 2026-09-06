@@ -29,7 +29,7 @@ cross-module API.
 
 ### Allowed
 
-- 
+- None declared.
 
 ### Forbidden
 
@@ -40,7 +40,7 @@ cross-module API.
 
 ## Invariants
 
-- 
+- None declared.
 
 ## State ownership
 
