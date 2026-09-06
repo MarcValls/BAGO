@@ -36,4 +36,15 @@ describe('canonical UI navigation', () => {
     const loaded = loadUiState();
     expect(loaded.chatDocked).toBe(true);
   });
+
+  it('starts with the navigation labels visible so destinations are discoverable', () => {
+    // Colapsado por defecto el sidebar sólo pinta iconos sin etiqueta, lo que
+    // obliga a descubrir los destinos por prueba y error en el primer arranque.
+    expect(loadUiState().sidebarCollapsed).toBe(false);
+  });
+
+  it('respects a stored preference for a collapsed sidebar', () => {
+    persistUiState({ ...createDefaultUiState(), sidebarCollapsed: true });
+    expect(loadUiState().sidebarCollapsed).toBe(true);
+  });
 });

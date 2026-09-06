@@ -628,4 +628,4 @@ export interface UiBootData {
   router_policy?: BackendRouterPolicy;
 }
 
-export type PanelId = 'capabilities' | 'pipeline' | 'tools' | 'agents' | 'interpreter' | 'github-auth';
+export type PanelId = 'capabilities' | 'tools' | 'agents' | 'interpreter' | 'github-auth';

@@ -74,6 +74,19 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
 
 export const NAVIGATION_ORDER: (ActiveSection | PanelId)[] = NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.id));
 
+const PANEL_DESTINATIONS = new Set<ActiveSection | PanelId>(
+  NAVIGATION_GROUPS.flatMap((group) => group.items).filter((item) => item.isPanel).map((item) => item.id)
+);
+
+/**
+ * Autoridad única sobre si un destino de navegación es un panel o una sección.
+ * El sidebar, la paleta y los atajos deben preguntar aquí en lugar de mantener
+ * listas propias que puedan divergir del registro.
+ */
+export function isPanelDestination(id: ActiveSection | PanelId): id is PanelId {
+  return PANEL_DESTINATIONS.has(id);
+}
+
 export function resolveNavigationShortcut(key: string): ActiveSection | PanelId | null {
   const shortcut = `Ctrl+${key}`.toLowerCase();
   return NAVIGATION_GROUPS
