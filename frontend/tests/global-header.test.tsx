@@ -34,8 +34,9 @@ describe('GlobalHeader', () => {
     const { container } = render(<GlobalHeader {...baseProps} onOpenChat={onOpenChat} chatDocked={false} />);
     const button = container.querySelector('.chat-open-button');
     expect(button).toBeInTheDocument();
-    expect(button).toHaveAttribute('aria-label', 'Abrir chat');
-    expect(button).toHaveAttribute('title', 'Abrir chat a pantalla completa');
+    expect(button).toHaveAttribute('aria-label', 'Abrir conversación');
+    expect(button).toHaveAttribute('title', 'Abrir la conversación en Inicio');
+    expect(button).toHaveTextContent('Conversación');
 
     fireEvent.click(button as HTMLElement);
     expect(onOpenChat).toHaveBeenCalledOnce();
@@ -46,6 +47,6 @@ describe('GlobalHeader', () => {
     const button = container.querySelector('.chat-open-button');
     expect(button).toBeInTheDocument();
     expect(button).toHaveClass('is-active');
-    expect(button).toHaveAttribute('title', 'Abrir chat a pantalla completa');
+    expect(button).toHaveAttribute('title', 'Abrir la conversación en Inicio');
   });
 });

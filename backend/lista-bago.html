@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lista BAGO</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: start center; padding: 3rem 1rem; background: linear-gradient(135deg, #eef2ff, #f8fafc); color: #172033; }
+    main { width: min(100%, 42rem); padding: 2rem; border: 1px solid #d9e0ef; border-radius: 1.25rem; background: white; box-shadow: 0 1.5rem 4rem #263b6a1c; }
+    h1 { margin: 0 0 .35rem; font-size: clamp(1.7rem, 4vw, 2.4rem); }
+    .subtitle { margin: 0 0 1.5rem; color: #667085; }
+    form { display: flex; gap: .65rem; margin-bottom: 1.25rem; }
+    input[type="text"] { flex: 1; min-width: 0; padding: .8rem 1rem; border: 1px solid #c7d0e0; border-radius: .7rem; font: inherit; }
+    input[type="text"]:focus { outline: 3px solid #c7d2fe; border-color: #6366f1; }
+    button { border: 0; border-radius: .7rem; padding: .75rem 1rem; font: inherit; cursor: pointer; }
+    form button { background: #4f46e5; color: white; font-weight: 700; }
+    form button:hover { background: #4338ca; }
+    ul { display: grid; gap: .65rem; padding: 0; margin: 0; list-style: none; }
+    li { display: flex; align-items: center; gap: .75rem; padding: .8rem 1rem; border: 1px solid #e5eaf3; border-radius: .75rem; background: #f8fafc; }
+    li.completed .task-label { color: #8792a7; text-decoration: line-through; }
+    .task-label { flex: 1; overflow-wrap: anywhere; }
+    .delete { padding: .45rem .65rem; color: #b42318; background: #fee4e2; }
+    .delete:hover { background: #fecdca; }
+    .empty { justify-content: center; color: #667085; font-style: italic; }
+    .count { margin-top: 1rem; color: #667085; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Lista BAGO</h1>
+    <p class="subtitle">Una lista sencilla para organizar el siguiente paso.</p>
+    <form id="task-form">
+      <label for="task-input" hidden>Nueva tarea</label>
+      <input id="task-input" type="text" placeholder="Escribe una tarea…" autocomplete="off" required>
+      <button type="submit">Añadir</button>
+    </form>
+    <ul id="task-list" aria-live="polite"></ul>
+    <p id="task-count" class="count"></p>
+  </main>
+  <script>
+    const STORAGE_KEY = 'lista-bago.tasks';
+    const form = document.querySelector('#task-form');
+    const input = document.querySelector('#task-input');
+    const list = document.querySelector('#task-list');
+    const count = document.querySelector('#task-count');
+    let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+
+    function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
+    function render() {
+      list.replaceChildren();
+      if (!tasks.length) {
+        const empty = document.createElement('li');
+        empty.className = 'empty';
+        empty.textContent = 'No hay tareas todavía.';
+        list.append(empty);
+      }
+      tasks.forEach((task, index) => {
+        const item = document.createElement('li');
+        if (task.done) item.classList.add('completed');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = task.done;
+        checkbox.setAttribute('aria-label', `Completar ${task.text}`);
+        checkbox.addEventListener('change', () => { tasks[index].done = checkbox.checked; persist(); render(); });
+        const label = document.createElement('span');
+        label.className = 'task-label';
+        label.textContent = task.text;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'delete';
+        remove.textContent = 'Eliminar';
+        remove.addEventListener('click', () => { tasks.splice(index, 1); persist(); render(); });
+        item.append(checkbox, label, remove);
+        list.append(item);
+      });
+      const open = tasks.filter(task => !task.done).length;
+      count.textContent = `${tasks.length} tarea${tasks.length === 1 ? '' : 's'} · ${open} pendiente${open === 1 ? '' : 's'}`;
+    }
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      tasks.push({ text, done: false });
+      input.value = '';
+      persist();
+      render();
+      input.focus();
+    });
+    render();
+  </script>
+</body>
+</html>

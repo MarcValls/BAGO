@@ -132,13 +132,14 @@ export function GlobalHeader(props: Props) {
           <Icon name="prompt" />
         </button>
         <button
-          className={`icon-button chat-open-button ${props.chatDocked ? 'is-active' : ''}`}
+          className={`header-button chat-open-button ${props.chatDocked ? 'is-active' : ''}`}
           type="button"
           onClick={props.onOpenChat}
-          title="Abrir chat a pantalla completa"
-          aria-label="Abrir chat"
+          title="Abrir la conversación en Inicio"
+          aria-label="Abrir conversación"
         >
           <Icon name="chat" />
+          <span>Conversación</span>
         </button>
       </div>
     </header>

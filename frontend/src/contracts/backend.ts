@@ -239,11 +239,23 @@ export interface InterpretationEvidence {
   value?: unknown;
 }
 
+export interface OperationalIntentSpec {
+  source: string;
+  intent: string;
+  operation: string;
+  product?: string;
+  context: string[];
+  constraints: string[];
+  acceptance: string[];
+  lifecycle_state: string;
+}
+
 export interface InterpretationResult {
   interpretationId: string;
   input: string;
   stages: InterpretationStage[];
   interpretedIntent: string;
+  operationalSpec?: OperationalIntentSpec;
   finalOutput?: string;
   confidence?: number;
   agentId?: string;
@@ -258,8 +270,14 @@ export interface InterpretationResult {
 
 export interface InterpretationRequest {
   input: string;
+  /** Compatibility field for the legacy /interpret route still used by live runtimes. */
+  question?: string;
   agentId?: string;
-  context?: Record<string, unknown>;
+  operation?: string;
+  product?: string;
+  context?: string[] | Record<string, unknown>;
+  constraints?: string[];
+  acceptance?: string[];
   options?: Record<string, unknown>;
 }
 

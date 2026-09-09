@@ -147,7 +147,26 @@
 .workspace-github-card > div:first-child { display: flex; align-items: baseline; gap: 8px; color: var(--text-primary); }
 .workspace-github-card > div:first-child span { color: var(--text-secondary); font-size: 12px; }
 .workspace-github-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.workspace-github-actions input { min-width: 220px; flex: 1; }
+.workspace-github-actions input,
+.workspace-github-create-form input {
+  min-width: 220px;
+  flex: 1;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  background: var(--surface-2);
+  font: inherit;
+}
+.workspace-github-actions input::placeholder,
+.workspace-github-create-form input::placeholder { color: var(--text-3); }
+.workspace-github-actions input:focus-visible,
+.workspace-github-create-form input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
 .workspace-github-message { color: var(--text-secondary); }
 .workspace-github-create-form {
   display: flex;
@@ -160,6 +179,5 @@
   border-radius: 10px;
   background: var(--surface-raised);
 }
-.workspace-github-create-form input { min-width: 220px; flex: 1; }
 .chat-reasoning-control { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; }
 .chat-reasoning-control select { min-height: 28px; padding: 3px 22px 3px 8px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-raised); color: var(--text-primary); }

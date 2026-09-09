@@ -152,9 +152,9 @@ async function main() {
     assert.ok(animNone, `context-map-node animation under reduced-motion: name=${reducedMotion.animationName} duration=${reducedMotion.animationDuration}`);
     await page.emulateMedia({ reducedMotion: 'no-preference' });
 
-    const chatNav = page.locator('.sidebar-item[title^="Chat ·"]');
+    const chatNav = page.getByRole('button', { name: /^Chat\b/ });
     assert.equal(await chatNav.count(), 0, 'Chat must remain inside Inicio, not as a duplicate destination');
-    const homeNav = page.locator('.sidebar-item[title^="Inicio ·"]');
+    const homeNav = page.getByRole('button', { name: /^Inicio/ });
     assert.equal(await homeNav.count(), 1);
     await homeNav.click();
     await page.locator('.chat-model-selector').waitFor({ state: 'visible' });

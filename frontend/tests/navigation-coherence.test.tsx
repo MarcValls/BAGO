@@ -69,6 +69,7 @@ vi.mock('@/api/client', async (importOriginal) => {
       getJobs: vi.fn().mockResolvedValue({ jobs: [] }),
       getSchedule: vi.fn().mockResolvedValue({ items: [] }),
       getSources: vi.fn().mockResolvedValue({ sources: [] }),
+      getSubagentsCatalogue: vi.fn().mockResolvedValue({ source: 'test', agents: [] }),
       listAgents: vi.fn().mockResolvedValue({ ok: true, agents: [] }),
       createAgent: vi.fn().mockResolvedValue({ ok: true }),
       updateAgent: vi.fn().mockResolvedValue({ ok: true }),

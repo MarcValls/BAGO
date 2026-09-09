@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import sys
+import unicodedata
 import urllib.error
 import urllib.request
 from contextlib import redirect_stdout
@@ -40,89 +41,121 @@ ROUTER_HISTORY = STATE_DIR / 'route_history.json'
 ROUTER_POLICY = STATE_DIR / 'llm_config.json'
 MAX_CONCURRENT = 3
 
-_CABINET_POLICIES = (
-    (
-        'system_change',
-        ('governance', 'canon', 'contract', 'architecture', 'system change'),
-        'workflow_system_change',
-        (
+_CABINET_RULES = (
+    {
+        'task_type': 'system_change',
+        'terms': ('governance', 'canon', 'contract', 'architecture', 'system change'),
+        'workflow': 'workflow_system_change',
+        'roles': (
             'role_government_orquestador_central',
             'role_supervision_auditor_canonico',
             'role_production_validador',
         ),
-    ),
-    (
-        'organization',
-        ('organize', 'organization', 'organización', 'organizar'),
-        'workflow_execution',
-        (
+        'skip_if_explicit_change': False,
+    },
+    {
+        'task_type': 'organization',
+        'terms': ('organize', 'organization', 'organización', 'organizar'),
+        'workflow': 'workflow_execution',
+        'roles': (
             'role_government_orquestador_central',
             'role_production_organizador',
             'role_production_validador',
         ),
-    ),
-    (
-        'project_bootstrap',
-        ('bootstrap this project', 'bootstrap project', 'project bootstrap', 'bootstrap', 'inicializa el proyecto'),
-        'workflow_bootstrap_repo_first',
-        (
+        'skip_if_explicit_change': False,
+    },
+    {
+        'task_type': 'project_bootstrap',
+        'terms': ('bootstrap this project', 'bootstrap project', 'project bootstrap', 'bootstrap', 'inicializa el proyecto'),
+        'workflow': 'workflow_bootstrap_repo_first',
+        'roles': (
             'role_government_orquestador_central',
             'role_production_analista',
             'role_production_validador',
         ),
-    ),
-    (
-        'security',
-        ('security', 'secret', 'credential', 'permission', 'seguridad', 'secreto', 'credencial', 'permiso'),
-        'workflow_validation',
-        (
+        'skip_if_explicit_change': False,
+    },
+    {
+        'task_type': 'security',
+        'terms': ('security', 'secret', 'credential', 'permission', 'seguridad', 'secreto', 'credencial', 'permiso'),
+        'workflow': 'workflow_validation',
+        'roles': (
             'role_government_orquestador_central',
             'role_specialist_security_reviewer',
             'role_supervision_centinela_sinceridad',
             'role_production_validador',
         ),
-    ),
-    (
-        'history_migration',
-        ('migration', 'migrate', 'legacy', 'archive', 'historical', 'migracion', 'migrar', 'legado', 'archivo', 'histori'),
-        'workflow_history_migration',
-        (
+        'skip_if_explicit_change': False,
+    },
+    {
+        'task_type': 'history_migration',
+        'terms': ('migration', 'migrate', 'legacy', 'archive', 'historical', 'migracion', 'migrar', 'legado', 'archivo', 'histori'),
+        'workflow': 'workflow_history_migration',
+        'roles': (
             'role_government_orquestador_central',
             'role_production_analista',
             'role_supervision_auditor_canonico',
             'role_production_validador',
         ),
-    ),
-    (
-        'validation',
-        ('verify', 'validate', 'test', 'audit', 'check', 'verifica', 'valid', 'prueba', 'audita', 'comprueba'),
-        'workflow_validation',
-        (
+        'skip_if_explicit_change': False,
+    },
+    {
+        'task_type': 'validation',
+        'terms': ('verify', 'validate', 'test', 'audit', 'check', 'verifica', 'valid', 'prueba', 'audita', 'comprueba'),
+        'workflow': 'workflow_validation',
+        'roles': (
             'role_government_orquestador_central',
             'role_production_validador',
         ),
-    ),
-    (
-        'design',
-        ('design', 'architecture', 'contract', 'dise', 'arquitectura', 'contrato'),
-        'workflow_design',
-        (
+        'skip_if_explicit_change': True,
+    },
+    {
+        'task_type': 'design',
+        'terms': ('design', 'architecture', 'contract', 'dise', 'arquitectura', 'contrato'),
+        'workflow': 'workflow_design',
+        'roles': (
             'role_government_orquestador_central',
             'role_production_analista',
             'role_production_arquitecto',
             'role_production_validador',
         ),
-    ),
-    (
-        'execution',
-        ('implement', 'fix', 'refactor', 'build', 'code', 'write', 'edit', 'implemen', 'corrige', 'refactor', 'codigo', 'escribe', 'edita'),
-        'workflow_execution',
-        (
+        'skip_if_explicit_change': True,
+    },
+    {
+        'task_type': 'execution',
+        'terms': ('implement', 'fix', 'refactor', 'build', 'code', 'write', 'edit', 'implemen', 'corrige', 'refactor', 'codigo', 'escribe', 'edita'),
+        'workflow': 'workflow_execution',
+        'roles': (
             'role_government_orquestador_central',
             'role_production_generador',
             'role_production_validador',
         ),
+        'skip_if_explicit_change': False,
+    },
+)
+
+_HIGH_RISK_ROLE_OVERRIDES = {
+    'system_change': (
+        'role_government_orquestador_central',
+        'role_production_arquitecto',
+        'role_supervision_auditor_canonico',
+        'role_production_validador',
     ),
+    'execution': (
+        'role_government_orquestador_central',
+        'role_production_arquitecto',
+        'role_production_generador',
+        'role_production_validador',
+    ),
+}
+
+_POLITE_PREFIX_RE = re.compile(
+    r'^[\s¿¡?!.,:;]*(?:(?:please|por favor|can you|could you|would you|puedes|podrías)[\s¿¡?!.,:;]+)+',
+    re.IGNORECASE,
+)
+_CHANGE_VERB_PREFIXES = (
+    'implement', 'fix', 'refactor', 'build', 'write', 'edit',
+    'corrig', 'correg', 'constru', 'escrib',
 )
 
 
@@ -131,6 +164,43 @@ def _resolve_bago_root(scan_root: Path) -> Path:
     if scan_root.name == '.bago':
         return scan_root
     return scan_root / '.bago'
+
+
+def _strip_polite_prefix(task: str) -> str:
+    return _POLITE_PREFIX_RE.sub('', task.lower()).strip(' ,:;')
+
+
+def _normalize_task_token(token: str) -> str:
+    stripped = token.strip("¿¡?!.,:;()[]{}\"'")
+    normalized = unicodedata.normalize('NFKD', stripped)
+    without_marks = ''.join(
+        char for char in normalized
+        if not unicodedata.combining(char)
+    )
+    return without_marks.lower()
+
+
+def _has_change_verb(task: str) -> bool:
+    primary_verb = task.split(maxsplit=1)[0] if task else ''
+    normalized = _normalize_task_token(primary_verb)
+    return any(normalized.startswith(prefix) for prefix in _CHANGE_VERB_PREFIXES)
+
+
+def _select_cabinet_rule(lowered_task: str, explicit_change_request: bool) -> dict | None:
+    for rule in _CABINET_RULES:
+        if explicit_change_request and rule['skip_if_explicit_change']:
+            continue
+        if any(term in lowered_task for term in rule['terms']):
+            return rule
+        if rule['task_type'] == 'execution' and explicit_change_request:
+            return rule
+    return None
+
+
+def _apply_high_risk_roles(task_type: str, role_ids: tuple[str, ...], high_risk_change: bool) -> tuple[str, ...]:
+    if not high_risk_change:
+        return role_ids
+    return _HIGH_RISK_ROLE_OVERRIDES.get(task_type, role_ids)
 
 
 def configure_paths(root_override: str | None = None) -> Path:
@@ -304,17 +374,8 @@ def plan_cabinet(task: str) -> dict:
         raise ValueError('Cabinet planning requires a non-empty task')
 
     lowered = normalized_task.lower()
-    primary_request = re.sub(
-        r'^[\s,.:;]*(?:(?:please|por favor|can you|could you|would you|puedes|podrías)[\s,.:;]+)+',
-        '',
-        lowered,
-    ).strip(' ,:;')
-    change_terms = {
-        'implement', 'fix', 'refactor', 'build', 'write', 'edit',
-        'implementa', 'corrige', 'refactoriza', 'construye', 'escribe', 'edita',
-    }
-    primary_verb = primary_request.split(maxsplit=1)[0] if primary_request else ''
-    explicit_change_request = primary_verb in change_terms
+    primary_request = _strip_polite_prefix(normalized_task)
+    explicit_change_request = _has_change_verb(primary_request)
     high_risk_change = any(term in lowered for term in (
         'high-risk', 'high risk', 'cross-module', 'cross module',
         'production', 'destructive', 'alto riesgo', 'entre módulos',
@@ -324,22 +385,13 @@ def plan_cabinet(task: str) -> dict:
         'role_production_analista',
         'role_production_validador',
     )
-    for candidate_type, terms, candidate_workflow, candidate_role_ids in _CABINET_POLICIES:
-        # A requested change still needs a generator when tests are mentioned.
-        # System, security and migration policies retain their higher priority.
-        if explicit_change_request and candidate_type in {'validation', 'design'}:
-            continue
-        if (candidate_type == 'execution' and explicit_change_request) or any(term in lowered for term in terms):
-            task_type, workflow, role_ids = candidate_type, candidate_workflow, candidate_role_ids
-            break
+    rule = _select_cabinet_rule(lowered, explicit_change_request)
+    if rule is not None:
+        task_type = rule['task_type']
+        workflow = rule['workflow']
+        role_ids = rule['roles']
 
-    if task_type == 'system_change' and high_risk_change:
-        role_ids = (
-            'role_government_orquestador_central',
-            'role_production_arquitecto',
-            'role_supervision_auditor_canonico',
-            'role_production_validador',
-        )
+    role_ids = _apply_high_risk_roles(task_type, role_ids, high_risk_change)
 
     active_roles = _load_active_roles()
     missing_roles = [role_id for role_id in role_ids if role_id not in active_roles]

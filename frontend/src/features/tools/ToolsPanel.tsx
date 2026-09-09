@@ -78,28 +78,34 @@ export function ToolsPanel({ client, onClose }: Props) {
 
       <div className="tools-panel-layout">
         <aside className="tools-catalog">
-          <div className="tools-search">
-            <Icon name="search" size={14} />
-            <input
-              type="text"
-              placeholder="Buscar herramienta..."
-              value={selectedTool}
-              onChange={(e) => { setSelectedTool(e.target.value); setToolArgs({}); }}
-            />
-          </div>
-          <div className="tools-list">
-            {tools.map((tool) => (
-              <button
-                key={tool.cmd}
-                type="button"
-                className={selectedTool === tool.cmd ? 'is-selected' : ''}
-                onClick={() => { setSelectedTool(tool.cmd); setToolArgs({}); }}
-              >
-                <strong>{tool.cmd}</strong>
-                <small>{tool.description}</small>
-              </button>
-            ))}
-          </div>
+          {tools.length > 0 ? <>
+            <div className="tools-search">
+              <Icon name="search" size={14} />
+              <input
+                type="text"
+                placeholder="Buscar herramienta..."
+                value={selectedTool}
+                onChange={(e) => { setSelectedTool(e.target.value); setToolArgs({}); }}
+              />
+            </div>
+            <div className="tools-list">
+              {tools.map((tool) => (
+                <button
+                  key={tool.cmd}
+                  type="button"
+                  className={selectedTool === tool.cmd ? 'is-selected' : ''}
+                  onClick={() => { setSelectedTool(tool.cmd); setToolArgs({}); }}
+                >
+                  <strong>{tool.cmd}</strong>
+                  <small>{tool.description}</small>
+                </button>
+              ))}
+            </div>
+          </> : <div className="tools-catalog-empty">
+            <Icon name="tools" size={20} />
+            <strong>Catálogo no disponible</strong>
+            <span>El backend activo no ha expuesto herramientas para este workspace.</span>
+          </div>}
         </aside>
 
         <main className="tools-detail">
@@ -112,8 +118,8 @@ export function ToolsPanel({ client, onClose }: Props) {
           {!selected ? (
             <div className="tools-empty">
               <Icon name="tools" size={32} />
-              <strong>Selecciona una herramienta</strong>
-              <p>Ejecuta herramientas de análisis, código, seguridad, etc.</p>
+              <strong>{tools.length ? 'Selecciona una herramienta' : 'No hay herramientas disponibles'}</strong>
+              <p>{tools.length ? 'Ejecuta herramientas de análisis, código, seguridad, etc.' : 'Cuando el backend publique su catálogo, podrás configurarlas y ejecutarlas desde aquí.'}</p>
             </div>
           ) : (
             <>

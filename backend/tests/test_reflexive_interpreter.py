@@ -114,8 +114,10 @@ def test_session_receipt_stores_final_response_and_reflexive_analysis(tmp_path):
     class ReceiptAdapter(ProviderAdapter):
         def __init__(self, config=None):
             super().__init__("reflexive-receipt", config)
+            self.system_prompts = []
 
         def chat(self, messages, model, *, system="", temperature=0.7, max_tokens=None, stream=False, tools=None):
+            self.system_prompts.append(system)
             return ProviderResponse(
                 content="he creado el archivo demo.py",
                 model_used=model,
@@ -123,6 +125,10 @@ def test_session_receipt_stores_final_response_and_reflexive_analysis(tmp_path):
                 finish_reason="stop",
                 usage=TokenUsage(input_tokens=5, output_tokens=7, total_tokens=12),
             )
+
+        def chat_stream(self, messages, model, *, system="", temperature=0.7, max_tokens=None, tools=None):
+            self.system_prompts.append(system)
+            yield "respuesta en streaming"
 
         def list_models(self):
             return [ModelInfo("receipt-model", "receipt-model", self.provider_name, 4096, 1024, "test", "free")]
@@ -137,7 +143,7 @@ def test_session_receipt_stores_final_response_and_reflexive_analysis(tmp_path):
             return False
 
         def supports_streaming(self):
-            return False
+            return True
 
     session_manager.ADAPTER_REGISTRY["reflexive-receipt"] = ReceiptAdapter
     with tempfile.TemporaryDirectory() as state_dir:
@@ -158,6 +164,8 @@ def test_session_receipt_stores_final_response_and_reflexive_analysis(tmp_path):
             assert reflexive["literal_reading"] == "hola"
             assert reflexive["formalization"]["schema"] == "Q = D + X + C + R + O"
             assert reflexive["metrics"]["traceability"] > 0
+            assert "BAGO OPERATIONAL INTENT" in mgr._ensure_adapter().system_prompts[0]
+            assert '"intent":' in mgr._ensure_adapter().system_prompts[0]
             audit = receipt.metadata["reflexive_audit"]
             audit_path = Path(audit["path"])
             assert audit_path.exists()
@@ -173,6 +181,9 @@ def test_session_receipt_stores_final_response_and_reflexive_analysis(tmp_path):
             command_audit = interpreted["data"]["reflexive_audit"]
             history_after_command = commands.execute("/interpret history 5", mgr, SimpleNamespace())
             assert command_audit["audit_id"] in history_after_command["message"]
+            streamed = "".join(mgr.send_stream("hola en streaming"))
+            assert streamed == "respuesta en streaming"
+            assert "BAGO OPERATIONAL INTENT" in mgr._ensure_adapter().system_prompts[-1]
         finally:
             mgr.close()
             session_manager.ADAPTER_REGISTRY.pop("reflexive-receipt", None)

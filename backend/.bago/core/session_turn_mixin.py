@@ -309,6 +309,33 @@ class SessionTurnMixin:
             question_id=question_id,
         ).to_dict()
 
+    @staticmethod
+    def _reflexive_prompt_block(analysis: dict[str, Any]) -> str:
+        """Render the local interpretation as advisory model context."""
+        formalization = analysis.get("formalization")
+        formalization = formalization if isinstance(formalization, dict) else {}
+        restrictions = analysis.get("restrictions")
+        restrictions = restrictions if isinstance(restrictions, list) else []
+        unknowns = analysis.get("unknowns")
+        unknowns = unknowns if isinstance(unknowns, list) else []
+        payload = {
+            "intent": str(analysis.get("intent") or ""),
+            "operational_intent": str(analysis.get("operational_intent") or ""),
+            "objective": str(formalization.get("objective") or analysis.get("intent") or ""),
+            "restrictions": restrictions,
+            "unknowns": unknowns,
+            "confidence": analysis.get("confidence"),
+            "ambiguity": (analysis.get("metrics") or {}).get("ambiguity"),
+        }
+        return (
+            "BAGO OPERATIONAL INTENT (advisory interpretation)\n"
+            "Use this interpretation to understand and route the user's request. "
+            "The original user message remains authoritative; do not invent requirements "
+            "and ask for clarification when the interpretation is ambiguous or conflicts "
+            "with the user's explicit wording.\n"
+            + json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        )
+
     def _record_reflexive_audit(
         self,
         *,
@@ -540,7 +567,9 @@ class SessionTurnMixin:
                 "intent": intent,
                 "confidence": 0.0,
             }
+        reflexive_prompt_block = self._reflexive_prompt_block(reflexive_analysis)
         dynamic_system = self.effective_system_prompt()
+        dynamic_system += "\n\n" + reflexive_prompt_block
         if intent != "chat":
             dynamic_system += "\n\n" + intent_guidance(intent)
             dynamic_system += get_few_shot_examples(intent, max_examples=2)
@@ -590,6 +619,7 @@ class SessionTurnMixin:
                 "You are BAGO's execution model for the authorized workspace.",
                 "When the user requests project changes or validation, use your workspace tools to execute them and then report the result concisely.",
                 "Do not return an internal JSON contract.",
+                reflexive_prompt_block,
             ]
             dynamic_system = "\n\n".join(block for block in compact_blocks if block)
 
@@ -1109,7 +1139,9 @@ class SessionTurnMixin:
         normalized = self._sanitize_provider_history(self.msg_adapter.to_provider(history, self.provider))
         normalized.append({"role": "user", "content": user_message})
 
+        reflexive_prompt_block = self._reflexive_prompt_block(reflexive_analysis)
         system_prompt = self.effective_system_prompt()
+        system_prompt += "\n\n" + reflexive_prompt_block
         if intent != "chat":
             system_prompt += "\n\n" + intent_guidance(intent)
             system_prompt += get_few_shot_examples(intent, max_examples=2)

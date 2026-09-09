@@ -33,7 +33,7 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
     id: 'main',
     label: 'Principal',
     items: [
-      { id: 'home', label: 'Inicio', icon: 'home', helper: 'Conversación y punto de entrada', shortcut: 'Ctrl+1' },
+      { id: 'home', label: 'Inicio · Conversación', icon: 'home', helper: 'Conversación principal y punto de entrada', shortcut: 'Ctrl+1' },
       { id: 'workspace', label: 'Workspace', icon: 'workspace', helper: 'Archivos, fuentes y directorio de trabajo', shortcut: 'Ctrl+2' }
     ]
   },

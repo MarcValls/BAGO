@@ -83,6 +83,57 @@ function unwrapAgent(res: AgentEnvelope): import('@/contracts/backend').AgentCon
   return res as import('@/contracts/backend').AgentConfig;
 }
 
+function normalizeInterpretationResponse(
+  response: Record<string, unknown>
+): import('@/contracts/backend').InterpretationResult {
+  const nested = response.interpretation;
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return nested as import('@/contracts/backend').InterpretationResult;
+  }
+
+  const analysis = response.analysis && typeof response.analysis === 'object' && !Array.isArray(response.analysis)
+    ? response.analysis as Record<string, unknown>
+    : {};
+  const question = String(response.question || analysis.literal_reading || '');
+  const operationalIntent = String(analysis.operational_intent || analysis.intent || 'general');
+  const restrictions = Array.isArray(analysis.restrictions)
+    ? analysis.restrictions.map((item) => typeof item === 'object' && item ? String((item as Record<string, unknown>).value || '') : String(item)).filter(Boolean)
+    : [];
+  const context = Array.isArray(analysis.context_factors)
+    ? analysis.context_factors.map((item) => typeof item === 'object' && item ? String((item as Record<string, unknown>).kind || '') : String(item)).filter(Boolean)
+    : [];
+
+  return {
+    interpretationId: String(analysis.question_id || response.question_id || `legacy-${Date.now()}`),
+    input: question,
+    stages: [
+      { id: 'legacy-input', order: 0, type: 'input', label: 'Entrada', summary: question },
+      { id: 'legacy-intent', order: 1, type: 'intent', label: 'Intención', summary: operationalIntent },
+      { id: 'legacy-context', order: 2, type: 'context', label: 'Contexto', summary: context.join(', ') || 'Sin contexto adicional' },
+      { id: 'legacy-constraints', order: 3, type: 'constraints', label: 'Restricciones', summary: restrictions.join('; ') || 'Sin restricciones explícitas' },
+      { id: 'legacy-output', order: 4, type: 'output', label: 'Salida', summary: String(response.report || analysis.final_answer || '') },
+    ],
+    interpretedIntent: String(analysis.intent || operationalIntent),
+    operationalSpec: {
+      source: question,
+      intent: String(analysis.intent || operationalIntent),
+      operation: operationalIntent,
+      product: String(analysis.objective || ''),
+      context,
+      constraints: restrictions,
+      acceptance: [],
+      lifecycle_state: 'PROPOSED',
+    },
+    finalOutput: String(response.report || analysis.final_answer || ''),
+    confidence: typeof analysis.confidence === 'number' ? analysis.confidence : undefined,
+    provider: typeof response.provider === 'string' ? response.provider : undefined,
+    model: typeof response.model === 'string' ? response.model : undefined,
+    startedAt: new Date().toISOString(),
+    finishedAt: new Date().toISOString(),
+    durationMs: 0,
+  };
+}
+
 export class BagoClient {
   constructor(
     private apiBase: string,
@@ -524,8 +575,12 @@ export class BagoClient {
   }
 
   // --- Interpretations ---
-  createInterpretation(payload: import('@/contracts/backend').InterpretationRequest): Promise<import('@/contracts/backend').InterpretationResult> {
-    return this.request('/interpretations', { method: 'POST', body: JSON.stringify(payload) }, 60_000);
+  async createInterpretation(payload: import('@/contracts/backend').InterpretationRequest): Promise<import('@/contracts/backend').InterpretationResult> {
+    const response = await this.request<Record<string, unknown>>('/interpretations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, 60_000);
+    return normalizeInterpretationResponse(response);
   }
 
   getInterpretation(id: string): Promise<import('@/contracts/backend').InterpretationResult> {
