@@ -49,4 +49,10 @@ describe('GlobalHeader', () => {
     expect(button).toHaveClass('is-active');
     expect(button).toHaveAttribute('title', 'Abrir la conversación en Inicio');
   });
+
+  it('gives icon-only navigation controls explicit accessible names', () => {
+    const { getByRole } = render(<GlobalHeader {...baseProps} sidebarCollapsed={true} />);
+    expect(getByRole('button', { name: 'Mostrar navegación' })).toBeInTheDocument();
+    expect(getByRole('button', { name: 'Atajos y ayuda' })).toBeInTheDocument();
+  });
 });

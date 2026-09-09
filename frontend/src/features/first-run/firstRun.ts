@@ -52,9 +52,16 @@ export function firstRunProviderOptions(providers: BackendProviders | null): Fir
 
 export function firstRunReadiness(snapshot: UiBootstrapSnapshot | null) {
   return {
-    backend: Boolean(snapshot?.system.backendAvailable),
-    provider: snapshot?.model.state === 'confirmed' || snapshot?.model.state === 'degraded',
-    workspace: Boolean(snapshot?.workspace.linkedToSession && snapshot.workspace.manifestState === 'valid')
+    // Only backend-confirmed state may remove the setup path. A successful
+    // bootstrap request is not enough when the payload itself reports an
+    // unavailable backend, degraded provider, or no valid session binding.
+    backend: Boolean(snapshot?.system.backendAvailable && snapshot.system.state === 'confirmed'),
+    provider: snapshot?.model.state === 'confirmed',
+    workspace: Boolean(
+      snapshot?.workspace.linkedToSession
+      && snapshot.workspace.manifestState === 'valid'
+      && snapshot.session.state === 'valid'
+    )
   };
 }
 

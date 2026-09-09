@@ -4,10 +4,12 @@
   display: grid;
   gap: 3px;
   min-height: 0;
+  min-width: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.sidebar-item { position: relative; width: 100%; min-height: 39px; display: flex; align-items: center; gap: 11px; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; color: var(--text-3); cursor: pointer; text-align: left; }
+.sidebar-group { min-width: 0; }
+.sidebar-item { position: relative; width: 100%; min-width: 0; max-width: 100%; min-height: 39px; display: flex; align-items: center; gap: 11px; padding: 0 11px; border: 0; border-radius: 8px; background: transparent; color: var(--text-3); cursor: pointer; text-align: left; }
 .sidebar-item:hover { background: var(--surface-2); color: var(--text-2); }
 .sidebar-item.is-active { color: var(--text); background: var(--accent-soft); }
 .sidebar-item.is-guided-target {
@@ -30,7 +32,7 @@
   line-height: 1;
 }
 .sidebar-active-mark { position: absolute; left: -9px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
-.sidebar-status-dot { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.sidebar-status-dot { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; cursor: help; }
 .sidebar-status-dot.status-ok { background: var(--green); box-shadow: 0 0 4px rgba(98,215,166,.5); }
 .sidebar-status-dot.status-warn { background: var(--amber); box-shadow: 0 0 4px rgba(242,191,104,.5); }
 .sidebar-status-dot.status-error { background: var(--red); box-shadow: 0 0 4px rgba(255,124,130,.5); }

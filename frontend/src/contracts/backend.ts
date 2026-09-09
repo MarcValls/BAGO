@@ -610,6 +610,8 @@ export interface ChatTurn {
   provider?: string;
   model?: string;
   clarification?: Record<string, unknown>;
+  /** Interpretación reflexiva generada por el backend antes de responder. */
+  interpretation?: Record<string, unknown>;
   raw?: unknown;
   timestamp: string;
 }

@@ -970,7 +970,8 @@ export class BagoClient {
 
   async streamChat(
     message: string,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    onInterpretation?: (interpretation: Record<string, unknown>) => void,
   ): Promise<Record<string, unknown>> {
     const response = await fetch(this.url('/chat/stream'), {
       method: 'POST',
@@ -1004,6 +1005,9 @@ export class BagoClient {
           if (typeof payload.chunk === 'string') {
             onChunk(payload.chunk);
             fullText += payload.chunk;
+          }
+          if (payload.interpretation && typeof payload.interpretation === 'object' && !Array.isArray(payload.interpretation)) {
+            onInterpretation?.(payload.interpretation as Record<string, unknown>);
           }
           finalPayload = { ...finalPayload, ...payload };
         } catch {

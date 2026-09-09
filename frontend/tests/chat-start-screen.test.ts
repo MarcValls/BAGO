@@ -10,6 +10,15 @@ describe('shouldOpenStartScreen', () => {
     expect(shouldOpenStartScreen({ startScreenRequested: true, isDocked: false, turnCount: 4 })).toBe(false);
   });
 
+  it('does not interpose the welcome screen over an empty persisted conversation', () => {
+    expect(shouldOpenStartScreen({
+      startScreenRequested: true,
+      isDocked: false,
+      turnCount: 0,
+      activeConversationId: 'conversation-active'
+    })).toBe(false);
+  });
+
   it('never shows the welcome screen in the docked chat', () => {
     expect(shouldOpenStartScreen({ startScreenRequested: true, isDocked: true, turnCount: 0 })).toBe(false);
   });

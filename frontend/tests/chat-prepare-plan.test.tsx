@@ -49,4 +49,51 @@ describe('ChatPanel plan preparation', () => {
     resolvePlan();
     await waitFor(() => expect(button).toBeEnabled());
   });
+
+  it('renders the backend interpretation inline before the assistant answer', () => {
+    const props: Parameters<typeof ChatPanel>[0] = {
+      snapshot: null,
+      turns: [{
+        id: 'assistant-1',
+        role: 'assistant',
+        text: 'Respuesta basada en el objetivo interpretado.',
+        status: 'done',
+        timestamp: new Date().toISOString(),
+        interpretation: {
+          question_id: 'q-1',
+          intent: 'corregir un flujo',
+          confidence: 0.86,
+          selected_interpretation: { summary: 'El usuario quiere corregir el flujo del chat.' },
+          formalization: { objective: 'Mostrar interpretación antes de responder' },
+        },
+      }],
+      drafts: { chat: '' },
+      chatMode: 'live',
+      history: null,
+      conversations: null,
+      canChat: true,
+      routerEntries: [],
+      sessionModel: null,
+      activeProvider: null,
+      activeModels: new Set(),
+      onSetChatMode: vi.fn(),
+      onDraftChange: vi.fn(),
+      onSendChat: vi.fn().mockResolvedValue(undefined),
+      onInspect: vi.fn(),
+      onRunCommand: vi.fn().mockResolvedValue(null),
+      onRunContextCommand: vi.fn().mockResolvedValue(undefined),
+      onNavigate: vi.fn(),
+      onSetSessionModel: vi.fn().mockResolvedValue(undefined),
+      reasoningDepth: 'standard',
+      onSetReasoningDepth: vi.fn().mockResolvedValue(undefined),
+      contextPatches: [],
+      isDocked: true,
+    };
+
+    const { getByText, getByRole } = render(<ChatPanel {...props} />);
+    expect(getByText('Interpretación previa')).toBeInTheDocument();
+    expect(getByText('El usuario quiere corregir el flujo del chat.')).toBeInTheDocument();
+    expect(getByText('Mostrar interpretación antes de responder')).toBeInTheDocument();
+    expect(getByRole('button', { name: 'Enviar', exact: true })).toBeInTheDocument();
+  });
 });

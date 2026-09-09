@@ -89,7 +89,7 @@ export function GlobalHeader(props: Props) {
   return (
     <header className={`global-header mode-${props.globalMode}`}>
       <div className="header-leading">
-        <button className="icon-button" type="button" onClick={props.onToggleSidebar} title={props.sidebarCollapsed ? 'Mostrar navegación (Ctrl B)' : 'Ocultar navegación (Ctrl B)'}>
+        <button className="icon-button" type="button" onClick={props.onToggleSidebar} aria-label={props.sidebarCollapsed ? 'Mostrar navegación' : 'Ocultar navegación'} title={props.sidebarCollapsed ? 'Mostrar navegación (Ctrl B)' : 'Ocultar navegación (Ctrl B)'}>
           <Icon name="menu" />
         </button>
         <button className="header-brand is-clickable" type="button" onClick={props.onGoHome} title="Volver al inicio de BAGO">
@@ -128,7 +128,7 @@ export function GlobalHeader(props: Props) {
           <Icon name="folder" />
           <span>Cambiar workspace</span>
         </button>
-        <button className="icon-button" type="button" onClick={props.onOpenHelp} title="Atajos y ayuda (?)">
+        <button className="icon-button" type="button" onClick={props.onOpenHelp} aria-label="Atajos y ayuda" title="Atajos y ayuda (?)">
           <Icon name="prompt" />
         </button>
         <button

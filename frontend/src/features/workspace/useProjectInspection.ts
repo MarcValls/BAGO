@@ -10,7 +10,42 @@ export interface ProjectInspectionState {
   message?: string;
 }
 
+export interface ProjectInspectionAction {
+  kind: 'open' | 'link' | 'prepare' | 'unavailable';
+  label: string;
+  detail: string;
+  seed: boolean;
+}
+
 const DEFAULT_STATE: ProjectInspectionState = { kind: 'idle' };
+
+/**
+ * Maps the filesystem inspection to the one operation that is safe to offer
+ * next. `prepare` is explicit because it may create the missing BAGO files.
+ */
+export function projectInspectionAction(inspection: ProjectInspectionState): ProjectInspectionAction {
+  if (inspection.kind === 'loading') {
+    return { kind: 'unavailable', label: 'Inspeccionando…', detail: 'BAGO está comprobando esta carpeta antes de proponer una acción.', seed: false };
+  }
+  if (inspection.kind === 'error') {
+    return { kind: 'unavailable', label: 'No se pudo inspeccionar', detail: inspection.message || 'Corrige la ruta o vuelve a intentarlo.', seed: false };
+  }
+  if (inspection.kind !== 'ready') {
+    return { kind: 'unavailable', label: 'Selecciona una carpeta', detail: 'Elige una carpeta para comprobar su estado.', seed: false };
+  }
+  if (inspection.configured && inspection.linked && inspection.bindingConfirmed) {
+    return { kind: 'open', label: 'Abrir workspace', detail: 'Esta carpeta ya está configurada y vinculada a BAGO.', seed: false };
+  }
+  if (inspection.configured && !inspection.linked) {
+    return { kind: 'link', label: 'Vincular workspace', detail: 'La carpeta ya tiene la configuración de BAGO; falta vincularla.', seed: false };
+  }
+  return {
+    kind: 'prepare',
+    label: 'Preparar workspace',
+    detail: inspection.bindingReason || 'BAGO creará los archivos de workspace que falten antes de activarlo.',
+    seed: true
+  };
+}
 
 /**
  * Reusable project inspection hook.

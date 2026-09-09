@@ -19,6 +19,7 @@ import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTyp
 import { buildSnapshot } from '@/app/bootstrapSnapshot';
 import { ActivityToast, CommandPalette, HelpOverlay } from '@/app/ControlPlaneOverlays';
 import { readRecord, readText, toStringList } from '@/shared/unknownValue';
+import { readTurnInterpretation } from '@/app/controlPlaneUtils';
 import { normalizeChatResponse } from '@/shared/chatResponse';
 import { friendlyErrorMessage } from '@/shared/friendly-error';
 import { EMPTY_CLIPBOARD, readClipboardPayload, type ClipboardPayload } from '@/shared/clipboard';
@@ -973,6 +974,8 @@ export function ControlPlane() {
         : uiState.chatMode === 'trace'
         ? await clientRef.current.streamChat(text, (chunk) => {
           setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? { ...turn, text: turn.text + chunk } : turn));
+        }, (interpretation) => {
+          setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? { ...turn, interpretation } : turn));
         })
         : await clientRef.current.sendChat(text);
       const receipt = (payload.receipt || payload.context_receipt || null) as Record<string, unknown> | null;
@@ -991,6 +994,7 @@ export function ControlPlane() {
           provider: String(payload.provider || snapshot.model.provider || ''),
           model: String(payload.model || snapshot.model.effectiveModel || snapshot.model.configuredModel || ''),
           clarification: Object.keys(clarification).length ? clarification : normalized.clarification,
+          interpretation: readTurnInterpretation({ receipt }),
           raw: payload
         };
       }));
@@ -1289,6 +1293,13 @@ export function ControlPlane() {
     await runCommand(`/plan ${clean}`);
   };
 
+  const preparePipelineTask = async (task: string) => {
+    const clean = task.trim();
+    if (!clean) return;
+    setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, pipeline: clean } }));
+    navigate('pipeline');
+  };
+
   const openShell = (section: ActiveSection, mode: UiState['globalMode'] = 'normal') => {
     const destination = section === 'chat' ? 'home' : section;
     setAndPersistUiState({
@@ -1560,7 +1571,7 @@ export function ControlPlane() {
                   onRunContextCommand={runContextCommand}
                   onRunAction={runAction}
                   onRunPlanTask={runPlanTask}
-                  onPreparePlan={runPlanTask}
+                  onPreparePlan={preparePipelineTask}
                   onSetSection={navigate}
                   onSetChatMode={(mode) => setAndPersistUiState({ chatMode: mode })}
                   onSetGlobalMode={(mode) => setAndPersistUiState({ globalMode: mode })}
@@ -1678,7 +1689,7 @@ export function ControlPlane() {
                       onOpenContextInTree={openContextInTree}
                       pastedImage={pastedImage}
                       onRemovePastedImage={() => setPastedImage(null)}
-                      onPreparePlan={runPlanTask}
+                      onPreparePlan={preparePipelineTask}
                     />
                   </div>
                 </div>
@@ -1723,7 +1734,7 @@ export function ControlPlane() {
           onRefresh={bootstrap}
           onConfigureProvider={configureProvider}
           onTestProvider={testProvider}
-          onActivateWorkspace={(root) => activateWorkspaceRoot(root, 'workspace activado desde el recorrido', { seedAfterLink: true })}
+          onActivateWorkspace={(root, options) => activateWorkspaceRoot(root, 'workspace activado desde el recorrido', { seedAfterLink: Boolean(options?.seedAfterLink) })}
           onCreateDemo={createAndActivateDemo}
           client={clientRef.current}
           onChooseWorkspace={chooseWorkspacePath}

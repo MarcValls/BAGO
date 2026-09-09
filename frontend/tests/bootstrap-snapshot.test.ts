@@ -30,6 +30,17 @@ describe('bootstrap snapshot normalization', () => {
     expect(buildSnapshot(null)).toBeNull();
   });
 
+  it('preserves an explicit backend availability failure', () => {
+    const snapshot = buildSnapshot({
+      status: {
+        backend_available: false,
+        health: { ok: false }
+      }
+    });
+
+    expect(snapshot?.system).toMatchObject({ state: 'error', backendAvailable: false });
+  });
+
   it('uses the modern workspace binding project root for conversation scope', () => {
     const snapshot = buildSnapshot({
       status: { provider: 'ollama-local', model: 'llama3.2:3b' },

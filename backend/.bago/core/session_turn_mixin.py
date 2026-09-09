@@ -1096,6 +1096,7 @@ class SessionTurnMixin:
         """Send a user message with streaming and persist the completed turn."""
         self.last_clarification = None
         self.last_response_state = "running"
+        self.last_stream_interpretation = None
         route_info = kwargs.pop("route_info", None) or self.route_user_message(user_message)
         code_task = self._classify_code_request(user_message)
         self.last_code_task = code_task.to_dict() if code_task is not None else None
@@ -1121,6 +1122,7 @@ class SessionTurnMixin:
                 "intent": intent,
                 "confidence": 0.0,
             }
+        self.last_stream_interpretation = reflexive_analysis
 
         if (
             self._tool_calling_enabled()
