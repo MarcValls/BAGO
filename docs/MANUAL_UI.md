@@ -469,3 +469,10 @@ y registra 32 capturas sin errores de consola en esa ejecución. Las capturas
 son evidencia visual de la UI renderizada con mock contractual; no sustituyen
 la ejecución E2E real Electron/backend ni una auditoría automatizada de
 accesibilidad.
+
+Como complemento, la ejecución real de Electron/backend generó una matriz
+independiente de 11 superficies (`electron-01` a `electron-11`) en el mismo
+directorio. Consulta su [electron-manifest.json](evidence/manual-ui-20260909/electron-manifest.json):
+`mode=real-electron-dev-backend`, `destinations=11`, `httpErrors=[]` y smoke
+`ok=true`. La matriz contractual conserva las ramas de datos que el backend
+real no siempre puede reproducir en una ejecución aislada.

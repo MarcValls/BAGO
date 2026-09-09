@@ -141,12 +141,40 @@ function baseArgs(target, includeTarget = true) {
 
     const sidebar = window.locator('.main-sidebar');
     const sidebarButton = (label) => sidebar.getByRole('button', { name: new RegExp(`^${label}\\b`) });
+    const captureDir = String(process.env.BAGO_E2E_CAPTURE_DIR || '').trim();
+    const captureSurface = async (label, file) => {
+      if (!captureDir) return;
+      fs.mkdirSync(captureDir, { recursive: true });
+      await window.screenshot({ path: path.join(captureDir, file), fullPage: false });
+      console.log(JSON.stringify({ capture: label, file: path.join(captureDir, file) }));
+    };
     const chatNav = sidebarButton('Chat');
     assert.strictEqual(await chatNav.count(), 0, 'Chat must remain inside Inicio, not as a duplicate destination');
     const homeNav = sidebarButton('Inicio');
     assert.strictEqual(await homeNav.count(), 1);
     await homeNav.click();
     await dismissFirstRun();
+    if (captureDir) {
+      await window.waitForFunction(() => {
+        const model = document.querySelector('[aria-label="Modelo de esta sesión"]');
+        const start = document.querySelector('.start-chat-path.is-primary');
+        return Boolean((model instanceof HTMLElement && model.offsetParent) || (start instanceof HTMLElement && start.offsetParent));
+      }, null, { timeout: 120000 }).catch(() => {});
+      const surfaces = [
+        ['Inicio', 'electron-01-inicio.png'], ['Workspace', 'electron-02-workspace.png'],
+        ['Contexto', 'electron-03-contexto.png'], ['Pipeline', 'electron-04-pipeline.png'],
+        ['Evidencia', 'electron-05-evidencia.png'], ['Operaciones', 'electron-06-operaciones.png'],
+        ['Agentes', 'electron-07-agentes.png'], ['Intérprete', 'electron-08-interprete.png'],
+        ['GitHub', 'electron-09-github.png'], ['Capacidades', 'electron-10-capacidades.png'],
+        ['Herramientas', 'electron-11-herramientas.png'],
+      ];
+      for (const [label, file] of surfaces) {
+        const target = sidebarButton(label).first();
+        if (await target.count()) { await target.click(); await window.waitForTimeout(250); await captureSurface(label, file); }
+      }
+      await homeNav.click();
+      await dismissFirstRun();
+    }
     await homeNav.focus();
     await window.keyboard.press('Control+K');
     const commandDialog = window.getByRole('dialog', { name: 'Comandos rápidos' });
@@ -197,6 +225,21 @@ function baseArgs(target, includeTarget = true) {
       }));
       console.error(JSON.stringify({ chatStartDiagnostic }));
       throw error;
+    }
+    if (captureDir) {
+      const surfaces = [
+        ['Inicio', 'electron-01-inicio.png'], ['Workspace', 'electron-02-workspace.png'],
+        ['Contexto', 'electron-03-contexto.png'], ['Pipeline', 'electron-04-pipeline.png'],
+        ['Evidencia', 'electron-05-evidencia.png'], ['Operaciones', 'electron-06-operaciones.png'],
+        ['Agentes', 'electron-07-agentes.png'], ['Intérprete', 'electron-08-interprete.png'],
+        ['GitHub', 'electron-09-github.png'], ['Capacidades', 'electron-10-capacidades.png'],
+        ['Herramientas', 'electron-11-herramientas.png'],
+      ];
+      for (const [label, file] of surfaces) {
+        const target = sidebarButton(label).first();
+        if (await target.count()) { await target.click(); await window.waitForTimeout(250); await captureSurface(label, file); }
+      }
+      await homeNav.click();
     }
     if (initialScopeConversationResponse) {
       const initialScopeHttpResponse = await initialScopeConversationResponse;
