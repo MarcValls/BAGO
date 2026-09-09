@@ -667,6 +667,7 @@ export function ChatPanel(props: Props) {
             </div>}
             <textarea
               id="bago-chat-composer"
+              aria-label="Mensaje para BAGO"
               className="chat-composer-textarea"
               value={draft}
               onChange={(e) => props.onDraftChange('chat', e.target.value)}

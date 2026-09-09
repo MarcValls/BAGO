@@ -52,6 +52,7 @@ export function MainSidebar(props: Props) {
                   key={section.id}
                   type="button"
                   className={`sidebar-item ${isActive ? 'is-active' : ''}`}
+                  aria-label={`${section.label}. Estado: ${statusLabel}`}
                   aria-current={isActive ? 'page' : undefined}
                   title={props.collapsed ? `${section.label} · ${section.helper || ''}` : section.helper}
                   onClick={() => section.isPanel ? props.onOpenDrawer(section.id as PanelId) : props.onNavigate(section.id as ActiveSection)}

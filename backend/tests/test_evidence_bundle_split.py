@@ -170,6 +170,25 @@ class TestEvidenceFacades(unittest.TestCase):
 
 
 class TestEvidenceBundleSmoke(unittest.TestCase):
+    def test_live_bundle_rejects_provider_error_response(self):
+        class FailedManager:
+            adapters = {}
+            last_response_state = "failed"
+
+            def send(self, _prompt):
+                return "Error Codex CLI: usage limit"
+
+        profile = model.PROFILES["community-knowledge"]
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(RuntimeError, "usage limit"):
+                generator._run_session_phase(
+                    mgr=FailedManager(),
+                    profile=profile,
+                    mode="real",
+                    workspace_path=Path(tmp),
+                    output_dir=Path(tmp) / "bundle",
+                )
+
     def test_simulated_bundle_in_tempdir(self):
         """End-to-end smoke: simulated bundle writes manifest + report."""
         from bago_core.evidence_model import registered_mock_adapter

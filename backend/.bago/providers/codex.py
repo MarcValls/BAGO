@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -46,9 +47,17 @@ class CodexAdapter(ProviderAdapter):
         self.cli_authenticated = bool((config or {}).get("cli_authenticated")) or (
             bool(self.cli_path) and (Path.home() / ".codex" / "auth.json").exists()
         )
+        self._cli_fallback = False
 
     def _use_cli(self) -> bool:
-        return not self.api_key and self.cli_authenticated
+        return self.cli_authenticated and (not self.api_key or self._cli_fallback)
+
+    def _enable_cli_fallback(self) -> bool:
+        """Prefer the authenticated CLI after an API authorization failure."""
+        if not self.cli_authenticated:
+            return False
+        self._cli_fallback = True
+        return True
 
     def _chat_cli(self, messages: list[dict], model: str, system: str) -> ProviderResponse:
         prompt = build_prompt(messages, system)
@@ -131,6 +140,27 @@ class CodexAdapter(ProviderAdapter):
 
         try:
             result = self._post(f"{self.base_url}/chat/completions", payload)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401 and self._enable_cli_fallback():
+                try:
+                    return self._chat_cli(messages, model, system)
+                except Exception as cli_exc:
+                    self._set_error(str(cli_exc))
+                    return ProviderResponse(
+                        content=f"Error Codex CLI: {cli_exc}",
+                        provider=self.provider_name,
+                        model_used=model,
+                        finish_reason="error",
+                        metadata={"transport": "cli", "error": True},
+                    )
+            self._set_error(str(exc))
+            return ProviderResponse(
+                content=f"Error OpenAI: {exc}",
+                provider=self.provider_name,
+                model_used=model,
+                finish_reason="error",
+                metadata={"transport": "api", "error": True},
+            )
         except Exception as exc:
             self._set_error(str(exc))
             return ProviderResponse(
@@ -237,6 +267,19 @@ class CodexAdapter(ProviderAdapter):
                         content = delta.get("content", "")
                         if content:
                             yield content
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401 and self._enable_cli_fallback():
+                try:
+                    response = self._chat_cli(messages, model, system)
+                    if response.content:
+                        yield response.content
+                    return
+                except Exception as cli_exc:
+                    self._set_error(str(cli_exc))
+                    yield f"Error Codex CLI: {cli_exc}"
+                    return
+            self._set_error(str(exc))
+            yield f"Error Codex: {exc}"
         except Exception as exc:
             self._set_error(str(exc))
             yield f"Error Codex: {exc}"
@@ -254,6 +297,14 @@ class CodexAdapter(ProviderAdapter):
             data = self._get(f"{self.base_url}/models", timeout=timeout)
             count = len(data.get("data", []))
             return HealthStatus(ok=True, provider=self.provider_name, detail=f"OpenAI OK ({count} models)", models_available=count)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401 and self._enable_cli_fallback():
+                try:
+                    detail = run_cli([self.cli_path, "login", "status"], self.base_path, timeout)
+                    return HealthStatus(ok=True, provider=self.provider_name, detail=f"Codex CLI fallback: {detail}", models_available=3)
+                except Exception as cli_exc:
+                    return HealthStatus(ok=False, provider=self.provider_name, detail=f"Codex API 401; CLI fallback failed: {cli_exc}")
+            return HealthStatus(ok=False, provider=self.provider_name, detail=str(exc))
         except Exception as exc:
             return HealthStatus(ok=False, provider=self.provider_name, detail=str(exc))
 

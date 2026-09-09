@@ -75,7 +75,10 @@ function baseArgs(target, includeTarget = true) {
       }
       return typeof window.bagoElectron.managerHealth === 'function'
         && typeof window.bagoElectron.getChatUrl === 'function'
-        && typeof window.bagoElectron.readInstallSelection === 'function';
+        && typeof window.bagoElectron.readInstallSelection === 'function'
+        && typeof window.bagoElectron.readClipboardText === 'function'
+        && typeof window.bagoElectron.readClipboardPayload === 'function'
+        && typeof window.bagoElectron.writeClipboardText === 'function';
     }, Boolean(executablePath));
     assert.strictEqual(bridgeReady, true, 'preload bridge missing');
     const managerHealth = executablePath
@@ -592,6 +595,8 @@ function baseArgs(target, includeTarget = true) {
     }
     assert.deepStrictEqual(httpErrors, [], `Electron HTTP errors: ${httpErrors.join(' | ')}`);
     assert.deepStrictEqual(consoleErrors, [], `Electron console errors: ${consoleErrors.join(' | ')}`);
+    const clipboardWarnings = consoleWarnings.filter((warning) => /clipboard.*deprecated|deprecated.*clipboard/i.test(warning));
+    assert.deepStrictEqual(clipboardWarnings, [], `Electron clipboard deprecation warnings: ${clipboardWarnings.join(' | ')}`);
 
     console.log(JSON.stringify({
       ok: true,

@@ -363,6 +363,8 @@ def _run_session_phase(
     direct_response = mgr.send(
         profile.user_prompt if mode == "simulated" else profile.real_prompt
     )
+    if mode == "real" and getattr(mgr, "last_response_state", "") == "failed":
+        raise RuntimeError(f"El provider no pudo completar la respuesta: {direct_response.strip()}")
     if not direct_response.strip():
         raise RuntimeError("La respuesta del provider esta vacia.")
 

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, clipboard } = require('electron');
 const { spawn, execFile } = require('child_process');
 const fs = require('fs');
 const net = require('net');
@@ -164,6 +164,7 @@ app.on('second-instance', () => {
 process.env.BAGO_INSTALLS_ROOT = INSTALLS_ROOT;
 registerIpcHandlers({
   ipcMain,
+  clipboard,
   dialog,
   INSTALLS_ROOT,
   getDependencyService,

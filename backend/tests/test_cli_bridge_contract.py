@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import subprocess
+import urllib.error
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -92,3 +93,20 @@ def test_cli_failure_hides_bridge_payload_and_keeps_usage_limit() -> None:
             assert "BAGO_PROVIDER_BRIDGE_JSON" not in str(exc)
         else:
             raise AssertionError("run_cli must raise for a failing command")
+
+
+def test_codex_api_401_falls_back_to_authenticated_cli(tmp_path: Path) -> None:
+    adapter = CodexAdapter({
+        "cli_path": "codex",
+        "cli_authenticated": True,
+        "api_key": "stale-api-key",
+        "base_path": str(tmp_path),
+    })
+    request = urllib.request.Request("https://api.openai.com/v1/models")
+    error = urllib.error.HTTPError(request.full_url, 401, "Unauthorized", None, None)
+    with patch.object(adapter, "_get", side_effect=error), patch.object(codex_module, "run_cli", return_value="Logged in using ChatGPT") as run:
+        health = adapter.health_check()
+    assert health.ok is True
+    assert "CLI fallback" in health.detail
+    assert adapter._use_cli() is True
+    assert run.call_args.args[0][1:] == ["login", "status"]

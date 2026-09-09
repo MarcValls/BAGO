@@ -193,6 +193,10 @@ def test_manager_surfaces_startup_dependencies_and_provider_onboarding() -> None
     assert "runVisiblePowerShell" in environment
     assert "findPackagedRuntimeRoot" in environment
     assert "registerIpcHandlers" in ipc_service
+    assert "bago:clipboard-read-payload" in ipc_service
+    assert "bago:clipboard-write-text" in ipc_service
+    assert "clipboard.readText()" not in preload
+    assert "clipboard.readImage()" not in preload
     assert "bago:dependency-action" in ipc_service
     assert "bago:node-cmd" in ipc_service
     assert "bago:release-job-start" in ipc_service

@@ -69,6 +69,7 @@ desktop.ini
 .qwen/
 
 # Local audit executions and screenshots
+/.playwright-cli/
 /.codex/config.toml
 /.codex/agents/*.bak.*
 /.codex/bago-workpack/reports/

@@ -34,4 +34,20 @@ describe('sidebar status legend', () => {
     expect(markup).toContain('aria-label="Estado: Listo"');
     expect(markup).toContain('title="Estado: Listo"');
   });
+
+  it('keeps destination names accessible when the sidebar is collapsed', () => {
+    const markup = renderToStaticMarkup(
+      <MainSidebar
+        activeSection="home"
+        collapsed
+        openDrawer={null}
+        onNavigate={() => undefined}
+        onOpenDrawer={() => undefined}
+        snapshot={null}
+      />
+    );
+
+    expect(markup).toContain('aria-label="Inicio · Conversación. Estado: Estado no confirmado"');
+    expect(markup).toContain('aria-label="Workspace. Estado: Estado no confirmado"');
+  });
 });
