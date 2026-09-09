@@ -56,6 +56,7 @@ from bago_core.evidence_report import (
     _simulated_mode_check,
     _validation_commands,
 )
+from bago_core.candidate_identity import fingerprint as candidate_fingerprint
 from bago_core.resolver import add_piece_paths, resolve_piece_path
 
 # The legacy evidence bundle imported `from commands import execute` at the
@@ -226,7 +227,7 @@ def _build_manifest(
     plan_text: str,
 ) -> dict[str, Any]:
     """Compose the manifest.json payload (R4, R8)."""
-    return _build_manifest_dict(
+    manifest = _build_manifest_dict(
         mode=mode,
         profile=profile,
         provider=mgr.provider,
@@ -240,6 +241,18 @@ def _build_manifest(
             mode, profile.objective_id, output_dir, mgr.provider, mgr.model
         ),
     )
+    # Bind every live/simulated bundle to the exact repository candidate that
+    # produced it.  The bundle may use an isolated ``base_path`` for runtime
+    # state, but repository identity is always derived from this checkout.
+    candidate = candidate_fingerprint(_BAGO_ROOT)
+    manifest.setdefault("details", {})["candidate_identity"] = {
+        "repo_root": str(candidate["path"]),
+        "git_head": str(candidate["sha"]),
+        "git_branch": str(candidate["branch"]),
+        "git_dirty": bool(candidate["dirty"]),
+        "worktree_fingerprint": str(candidate["worktree_sha256"]),
+    }
+    return manifest
 
 
 # --- IO delegation helpers (R4) -------------------------------------------

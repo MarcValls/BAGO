@@ -210,6 +210,10 @@ class TestEvidenceBundleSmoke(unittest.TestCase):
             self.assertTrue(manifest["checks"])
             self.assertEqual(manifest["status"], "pass")
             self.assertIn("direct-assistance", {check["id"] for check in manifest["checks"]})
+            identity = manifest["details"]["candidate_identity"]
+            self.assertRegex(identity["git_head"], r"^[0-9a-f]{40}$")
+            self.assertRegex(identity["worktree_fingerprint"], r"^[0-9a-f]{64}$")
+            self.assertIn("git_dirty", identity)
             self.assertTrue((output / "report.md").exists())
             self.assertTrue((output / "assistant_response.txt").exists())
 

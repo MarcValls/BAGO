@@ -172,6 +172,10 @@ def test_release_workflows_bind_checkout_tag_sha_and_installed_identity() -> Non
     for value in ("$reg.Version", "$reg.InstallRef", "$reg.InstallSha"):
         assert value in manual
         assert value in canonical
+    assert "runs-on: windows-latest" in canonical
+    assert "Assert disposable runner and tag-only execution" in canonical
+    assert '$env:GITHUB_ACTIONS -ne \'true\'' in canonical
+    assert "refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+" in canonical
 
 
 def test_embedded_nsi_payload_includes_and_passes_distribution_hash_sidecar() -> None:
