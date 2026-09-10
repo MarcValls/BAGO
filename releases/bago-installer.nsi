@@ -69,6 +69,12 @@ Section "BAGO Core" SecCore
     Abort
   ${EndIf}
 
+  DetailPrint "Confirmando instalación y limpiando rollback previo..."
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\install-embedded-payload.ps1" -RepoRoot "$INSTDIR" -Finalize' $0
+  ${If} $0 != 0
+    DetailPrint "Aviso: no se pudo limpiar el rollback previo (código $0); no es un fallo de instalación."
+  ${EndIf}
+
   DetailPrint "Instalando launcher de backend..."
   SetOutPath "$INSTDIR\scripts"
   File /oname=dev.ps1 "${DEV_PS1_FILE}"

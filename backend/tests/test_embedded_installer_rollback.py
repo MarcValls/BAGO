@@ -104,6 +104,26 @@ def test_resume_rolls_back_unfinalized_replacement_before_retry(tmp_path: Path) 
     assert (target / "electron-viewer" / "BAGO.exe").read_bytes() == b"MZ-test"
 
 
+def test_nsis_installer_finalizes_after_verified_success() -> None:
+    """Regression guard: a completed install must clean up its rollback backup.
+
+    Without an explicit -Finalize call after verifying BAGO.exe, the
+    ``.BAGO-rollback`` directory from a prior successful install lingers
+    forever. On the *next* install/update, install-embedded-payload.ps1 then
+    misreads that stale backup as evidence of an interrupted swap (its only
+    signal is "does electron-viewer\\BAGO.exe already exist"), and restores
+    the old backup before overwriting it again with the new payload -
+    silently corrupting the rollback safety net on every normal update.
+    """
+    nsi = NSIS.read_text(encoding="utf-8")
+    verify_idx = nsi.index('MB_ICONSTOP|MB_OK "Error: BAGO.exe no se encontró tras instalar."')
+    finalize_idx = nsi.index("-Finalize")
+    assert finalize_idx > verify_idx, (
+        "-Finalize must be invoked only after BAGO.exe existence is verified"
+    )
+    assert '-RepoRoot "$INSTDIR" -Finalize' in nsi
+
+
 def test_builder_resolves_installer_version_from_canonical_authority() -> None:
     """Installer artifact names must follow release_version.txt, not a hard-coded value."""
     builder = BUILDER.read_text(encoding="utf-8")
