@@ -1,5 +1,5 @@
 {
-  "current": "4.11.0",
+  "current": "4.11.1",
   "history": [
     {
       "version": "4.0.0",
@@ -146,9 +146,15 @@
       "released": null
     },
     {
-      "ended": null,
+      "ended": "2026-09-10T21:33:00Z",
       "version": "4.11.0",
       "notes": "Candidato de release: generaliza el gate de gobernanza para aceptar evidencia real de proveedores alternativos, deteccion de deriva de identidad del candidato, correcciones de seleccion de proveedor/modelo en el panel de agentes y desacoplo del estado del primer arranque respecto del backend.",
+      "released": null
+    },
+    {
+      "ended": null,
+      "version": "4.11.1",
+      "notes": "Patch release: el instalador NSIS nunca invocaba -Finalize tras verificar una instalacion exitosa, por lo que el backup .BAGO-rollback nunca se limpiaba. En la siguiente instalacion/actualizacion, install-embedded-payload.ps1 confundia ese backup obsoleto con una instalacion interrumpida y lo restauraba antes de reinstalar, corrompiendo la red de seguridad de rollback en cada actualizacion normal.",
       "released": null
     }
   ]

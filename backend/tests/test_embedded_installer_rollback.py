@@ -104,6 +104,58 @@ def test_resume_rolls_back_unfinalized_replacement_before_retry(tmp_path: Path) 
     assert (target / "electron-viewer" / "BAGO.exe").read_bytes() == b"MZ-test"
 
 
+def test_nsis_installer_finalizes_after_verified_success() -> None:
+    """Regression guard: a completed install must clean up its rollback backup.
+
+    Without an explicit -Finalize call after verifying BAGO.exe, the
+    ``.BAGO-rollback`` directory from a prior successful install lingers
+    forever. On the *next* install/update, install-embedded-payload.ps1 then
+    misreads that stale backup as evidence of an interrupted swap (its only
+    signal is "does electron-viewer\\BAGO.exe already exist"), and restores
+    the old backup before overwriting it again with the new payload -
+    silently corrupting the rollback safety net on every normal update.
+
+    -Finalize must run only after *every* installer write has succeeded
+    (backend launcher script, registry entries, uninstaller, shortcuts) -
+    not merely after the BAGO.exe existence check - otherwise an interruption
+    between an early -Finalize call and those later writes would leave a
+    half-registered install with no way back to the previous one.
+    """
+    nsi = NSIS.read_text(encoding="utf-8")
+    verify_idx = nsi.index('MB_ICONSTOP|MB_OK "Error: BAGO.exe no se encontró tras instalar."')
+    dev_ps1_idx = nsi.index('File /oname=dev.ps1')
+    write_uninstaller_idx = nsi.index('WriteUninstaller "$INSTDIR\\uninstall.exe"')
+    last_shortcut_idx = nsi.index('CreateShortcut "$SMPROGRAMS\\BAGO\\Desinstalar BAGO.lnk"')
+    finalize_idx = nsi.index("-Finalize")
+
+    assert finalize_idx > verify_idx, (
+        "-Finalize must be invoked only after BAGO.exe existence is verified"
+    )
+    assert finalize_idx > dev_ps1_idx, (
+        "-Finalize must run after the backend launcher script is installed"
+    )
+    assert finalize_idx > write_uninstaller_idx, (
+        "-Finalize must run after the uninstaller is written"
+    )
+    assert finalize_idx > last_shortcut_idx, (
+        "-Finalize must run after all shortcuts are created, i.e. at the very"
+        " end of a fully successful install - not right after the BAGO.exe"
+        " check, so an interruption before that point can still be recovered"
+        " from the previous install's backup"
+    )
+    assert '-RepoRoot "$INSTDIR" -Finalize' in nsi
+
+    # A failed cleanup must abort the installer rather than silently warn and
+    # report success: a lingering backup after a "successful" install would
+    # reproduce the exact stale-restore corruption this patch fixes on the
+    # very next update.
+    finalize_block_end = nsi.index("SectionEnd", finalize_idx)
+    finalize_block = nsi[finalize_idx:finalize_block_end]
+    assert "Abort" in finalize_block, (
+        "a failed -Finalize call must abort the installer, not just warn"
+    )
+
+
 def test_builder_resolves_installer_version_from_canonical_authority() -> None:
     """Installer artifact names must follow release_version.txt, not a hard-coded value."""
     builder = BUILDER.read_text(encoding="utf-8")

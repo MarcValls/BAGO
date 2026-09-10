@@ -1,6 +1,6 @@
-# BAGO v4.11.0 — candidato de release
+# BAGO v4.11.1 — parche de instalador (rollback)
 
-[![Version](https://img.shields.io/badge/version-4.11.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.11.1-blue)]()
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
@@ -11,7 +11,18 @@
 
 ---
 
-## Novedades preparadas para 4.11.0
+## Novedades preparadas para 4.11.1
+
+### Fix del instalador
+- El instalador NSIS no invocaba `-Finalize` tras verificar una instalación
+  exitosa, por lo que el backup `.BAGO-rollback` nunca se limpiaba. En la
+  siguiente instalación/actualización, `install-embedded-payload.ps1`
+  confundía ese backup obsoleto con una instalación interrumpida y lo
+  restauraba antes de reinstalar, corrompiendo la red de seguridad de
+  rollback en cada actualización normal. Se añade la llamada `-Finalize`
+  tras la verificación y un test de regresión.
+
+### Novedades ya publicadas en 4.11.0
 
 ### Contratos y arquitectura
 - Se declara y prueba la frontera kernel/extensión, con compatibilidad de entradas existentes y una migración de imports enumerada y verificable.
@@ -107,7 +118,7 @@ BAGO/
 
 ### Opción A — Instalador Windows (recomendado)
 
-La última release pública es [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3). Descarga `bago-4.9.3-setup.exe` y ejecútalo. La candidata 4.11.0 aún no debe distribuirse: está pendiente de firma Authenticode autorizada.
+La última release pública es [v4.11.0](https://github.com/MarcValls/BAGO/releases/tag/v4.11.0) (pre-release, **sin firmar** — no hay credenciales de firma Authenticode configuradas). Descarga `bago-4.11.0-setup.exe` y ejecútalo; Windows SmartScreen mostrará una advertencia esperada («Más información → Ejecutar de todas formas»). La 4.11.1 (este parche del instalador) está pendiente de publicación.
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
 - El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
@@ -296,7 +307,8 @@ npm run sh:status
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
-| v4.11.0 | Pendiente de publicación | Candidato preparado; requiere instalador firmado y E2E del artefacto final |
+| v4.11.1 | Pendiente de publicación | Fix del instalador (limpieza de rollback tras verificación); requiere build y publicación |
+| [v4.11.0](https://github.com/MarcValls/BAGO/releases/tag/v4.11.0) | 2026-09-10 | `bago-4.11.0-setup.exe` (pre-release, sin firmar) |
 | [v4.10.0](https://github.com/MarcValls/BAGO/releases/tag/v4.10.0) | 2026-09-05 | `bago-4.10.0-setup.exe` · `bago-4.10.0-distribution.zip` (pre-release, sin firmar) |
 | [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3) | 2026-09-01 | `bago-4.9.3-setup.exe` |
 | [v4.9.2](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2) | 2026-08-29 | `bago-4.9.2-setup.exe` |

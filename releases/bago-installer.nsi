@@ -96,6 +96,14 @@ Section "BAGO Core" SecCore
   CreateShortcut "$DESKTOP\BAGO.lnk" "$INSTDIR\electron-viewer\BAGO.exe" "" "$INSTDIR\electron-viewer\bago.ico" 0
   CreateShortcut "$SMPROGRAMS\BAGO\Desinstalar BAGO.lnk" "$INSTDIR\uninstall.exe"
 
+  DetailPrint "Confirmando instalación y limpiando rollback previo..."
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\install-embedded-payload.ps1" -RepoRoot "$INSTDIR" -Finalize' $0
+  ${If} $0 != 0
+    IfSilent +2
+    MessageBox MB_ICONSTOP|MB_OK "Error: no se pudo limpiar el rollback previo (código $0). La instalación quedaría en un estado ambiguo para futuras actualizaciones."
+    Abort
+  ${EndIf}
+
   DetailPrint "¡Instalación completada!"
 SectionEnd
 
