@@ -1,6 +1,6 @@
-# BAGO v4.10.0 — candidato de release
+# BAGO v4.11.0 — candidato de release
 
-[![Version](https://img.shields.io/badge/version-4.10.0-blue)]()
+[![Version](https://img.shields.io/badge/version-4.11.0-blue)]()
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
@@ -11,7 +11,7 @@
 
 ---
 
-## Novedades preparadas para 4.10.0
+## Novedades preparadas para 4.11.0
 
 ### Contratos y arquitectura
 - Se declara y prueba la frontera kernel/extensión, con compatibilidad de entradas existentes y una migración de imports enumerada y verificable.
@@ -107,7 +107,7 @@ BAGO/
 
 ### Opción A — Instalador Windows (recomendado)
 
-La última release pública es [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3). Descarga `bago-4.9.3-setup.exe` y ejecútalo. La candidata 4.10.0 aún no debe distribuirse: está pendiente de firma Authenticode autorizada.
+La última release pública es [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3). Descarga `bago-4.9.3-setup.exe` y ejecútalo. La candidata 4.11.0 aún no debe distribuirse: está pendiente de firma Authenticode autorizada.
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
 - El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
@@ -296,7 +296,8 @@ npm run sh:status
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
-| v4.10.0 | Pendiente de publicación | Candidato preparado; requiere instalador firmado y E2E del artefacto final |
+| v4.11.0 | Pendiente de publicación | Candidato preparado; requiere instalador firmado y E2E del artefacto final |
+| [v4.10.0](https://github.com/MarcValls/BAGO/releases/tag/v4.10.0) | 2026-09-05 | `bago-4.10.0-setup.exe` · `bago-4.10.0-distribution.zip` (pre-release, sin firmar) |
 | [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3) | 2026-09-01 | `bago-4.9.3-setup.exe` |
 | [v4.9.2](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2) | 2026-08-29 | `bago-4.9.2-setup.exe` |
 | [v4.9.1](https://github.com/MarcValls/BAGO/releases/tag/v4.9.1) | 2026-08-25 | `BAGO-Installation-Manager-4.9.1-win-x64.exe` · `bago-v4.9.1.zip` |
