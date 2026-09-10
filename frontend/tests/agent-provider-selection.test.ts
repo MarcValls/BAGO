@@ -100,7 +100,7 @@ describe('agent provider/model eligibility', () => {
     });
   });
 
-  it('falls back to the first valid provider/model instead of leaving the UI blank', () => {
+  it('preserves a complete existing selection while providing a default for a new agent', () => {
     const groups = buildAgentModelGroups([
       {
         id: 'openai',
@@ -123,12 +123,12 @@ describe('agent provider/model eligibility', () => {
     ]);
 
     expect(resolveAgentModelSelection(groups, 'missing', 'undefined')).toEqual({
-      provider: 'openai',
-      model: 'gpt-4o-mini',
+      provider: 'missing',
+      model: 'undefined',
     });
     expect(resolveAgentModelSelection(groups, 'openai', 'ghost-model')).toEqual({
       provider: 'openai',
-      model: 'gpt-4o-mini',
+      model: 'ghost-model',
     });
     expect(resolveAgentModelSelection(groups, null, undefined)).toEqual({
       provider: 'openai',

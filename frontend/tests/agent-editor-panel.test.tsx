@@ -105,6 +105,25 @@ describe('AgentEditorPanel', () => {
     })));
   });
 
+  it('preserves an existing engine when saving a renamed agent before providers load', async () => {
+    const client = setupClient();
+    vi.mocked(client.listAgents).mockResolvedValue({ ok: true, agents: [createdAgent] });
+    vi.mocked(client.getProviders).mockReturnValue(new Promise<never>(() => {}));
+    vi.spyOn(client, 'updateAgent').mockResolvedValue({ ...createdAgent, name: 'Analista actualizado' });
+
+    render(<AgentEditorPanel client={client} onClose={vi.fn()} />);
+
+    fireEvent.click(await screen.findByText(createdAgent.name));
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Analista actualizado' } });
+    fireEvent.submit(screen.getByRole('button', { name: /^guardar$/i }).closest('form') as HTMLFormElement);
+
+    await waitFor(() => expect(client.updateAgent).toHaveBeenCalledWith(createdAgent.id, expect.objectContaining({
+      name: 'Analista actualizado',
+      provider: createdAgent.provider,
+      model: createdAgent.model,
+    })));
+  });
+
   it('surfaces invalid AI draft responses without creating an agent', async () => {
     const client = setupClient();
     vi.mocked(client.sendInternalChat).mockResolvedValue({ ok: true, response: 'No JSON' });

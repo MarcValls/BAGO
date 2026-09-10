@@ -74,6 +74,75 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+
+def _bundle_relative(path: str) -> str:
+    return path.replace("\\", "/").lstrip("*/")
+
+
+def _manifest_inventory(data: dict[str, Any]) -> set[str]:
+    inventory: set[str] = set()
+    files = data.get("files")
+    if isinstance(files, list):
+        for item in files:
+            if isinstance(item, dict) and isinstance(item.get("path"), str):
+                inventory.add(_bundle_relative(item["path"]))
+            elif isinstance(item, str):
+                inventory.add(_bundle_relative(item))
+    artifacts = data.get("artifacts")
+    if not inventory and isinstance(artifacts, list):
+        inventory = {_bundle_relative(item) for item in artifacts if isinstance(item, str)}
+    return inventory
+
+
+def _parse_checksums(checksums_path: Path) -> tuple[dict[str, str], list[str]]:
+    checksums: dict[str, str] = {}
+    reasons: list[str] = []
+    for line in checksums_path.read_text(encoding="utf-8").splitlines():
+        parts = line.split(None, 1)
+        if len(parts) != 2:
+            reasons.append(f"línea de checksum inválida: {line!r}")
+            continue
+        expected, relative = parts
+        checksums[_bundle_relative(relative)] = expected.lower()
+    return checksums, reasons
+
+
+def _reject_unignored_repo_output(repo: Path, output: Path) -> None:
+    repo_root = Path(fingerprint(repo)["path"]).resolve()
+    try:
+        relative = output.resolve().relative_to(repo_root)
+    except ValueError:
+        return
+    if relative == Path("."):
+        raise ValueError("--output no puede apuntar a la raíz del repositorio")
+    probe = relative.as_posix()
+    result = subprocess.run(
+        ["git", "check-ignore", "-q", probe],
+        cwd=repo_root, capture_output=True,
+    )
+    if result.returncode != 0:
+        raise ValueError(
+            "--output dentro del repositorio debe estar cubierto por .gitignore para no invalidar el candidato"
+        )
+
+
+def _materialize_artifacts(output: Path, artifacts: list[dict[str, str]]) -> list[dict[str, str]]:
+    materialized: list[dict[str, str]] = []
+    for item in artifacts:
+        provider = item["provider"]
+        relative = _bundle_relative(item["bundle_path"])
+        target = output / "providers" / provider / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(Path(item["path"]), target)
+        materialized.append({
+            "path": str(target),
+            "sha256": item["sha256"],
+            "candidate_sha": item["candidate_sha"],
+            "provider": provider,
+        })
+    return materialized
+
+
 def _verify_bundle(path: Path, provider: str, identity: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
     reasons: list[str] = []
     artifacts: list[dict[str, str]] = []
@@ -85,13 +154,20 @@ def _verify_bundle(path: Path, provider: str, identity: dict[str, Any]) -> tuple
     else:
         try:
             data = json.loads(manifest_path.read_text(encoding="utf-8"))
-            for line in checksums_path.read_text(encoding="utf-8").splitlines():
-                parts = line.split(None, 1)
-                if len(parts) != 2:
-                    reasons.append(f"línea de checksum inválida: {line!r}")
-                    continue
-                expected, relative = parts
-                relative = relative.lstrip("*").replace("/", os.sep)
+            checksums, checksum_reasons = _parse_checksums(checksums_path)
+            reasons.extend(checksum_reasons)
+            inventory = _manifest_inventory(data)
+            expected_inventory = set(inventory)
+            expected_inventory.add("manifest.json")
+            missing = sorted(expected_inventory - set(checksums))
+            unexpected = sorted(set(checksums) - expected_inventory)
+            if not inventory:
+                reasons.append("el manifest no declara inventario de archivos")
+            if missing:
+                reasons.append(f"faltan checksums declarados: {', '.join(missing)}")
+            if unexpected:
+                reasons.append(f"checksums no declarados por el manifest: {', '.join(unexpected)}")
+            for relative, expected in checksums.items():
                 target = (path / relative).resolve()
                 try:
                     target.relative_to(path.resolve())
@@ -101,16 +177,23 @@ def _verify_bundle(path: Path, provider: str, identity: dict[str, Any]) -> tuple
                 if not target.is_file() or _sha256(target) != expected.lower():
                     reasons.append(f"digest divergente: {relative}")
                 else:
-                    artifacts.append({"path": str(target), "sha256": expected.lower(), "candidate_sha": identity["git_head"]})
+                    artifacts.append({
+                        "path": str(target), "sha256": expected.lower(),
+                        "candidate_sha": identity["git_head"], "provider": provider,
+                        "bundle_path": relative,
+                    })
         except (OSError, json.JSONDecodeError) as exc:
             reasons.append(f"bundle ilegible: {exc}")
     details = data.get("details", {}) if isinstance(data, dict) else {}
     candidate = details.get("candidate_identity", {}) if isinstance(details, dict) else {}
     if data.get("status") != "pass":
         reasons.append("status del bundle no es pass")
+    checks = data.get("checks", []) if isinstance(data, dict) else []
     if details.get("provider") != provider:
         reasons.append(f"provider esperado {provider}, observado {details.get('provider')!r}")
-    if not all(item.get("status") == "pass" for item in data.get("checks", [])):
+    if not isinstance(checks, list) or not checks:
+        reasons.append("el manifest debe declarar checks no vacíos")
+    elif not all(isinstance(item, dict) and item.get("status") == "pass" for item in checks):
         reasons.append("el bundle contiene checks no pass")
     for field in ("git_head", "worktree_fingerprint"):
         if candidate.get(field) != identity[field]:
@@ -118,8 +201,11 @@ def _verify_bundle(path: Path, provider: str, identity: dict[str, Any]) -> tuple
     if candidate.get("git_dirty") is not False:
         reasons.append("el bundle no declara worktree limpio")
     artifacts.extend([
-        {"path": str(manifest_path.resolve()), "sha256": _sha256(manifest_path), "candidate_sha": identity["git_head"]},
-        {"path": str(checksums_path.resolve()), "sha256": _sha256(checksums_path), "candidate_sha": identity["git_head"]},
+        {
+            "path": str(checksums_path.resolve()), "sha256": _sha256(checksums_path),
+            "candidate_sha": identity["git_head"], "provider": provider,
+            "bundle_path": "checksums.sha256",
+        },
     ] if manifest_path.is_file() and checksums_path.is_file() else [])
     result = "PASS" if not reasons else "BLOCKED"
     return {
@@ -138,6 +224,7 @@ def _verify_bundle(path: Path, provider: str, identity: dict[str, Any]) -> tuple
 def build_receipt(repo: Path, bundles: dict[str, Path], output: Path, profile: str = "standard") -> Path:
     started = _now()
     start_identity = _identity(repo)
+    _reject_unignored_repo_output(repo, output)
     checks: list[dict[str, Any]] = []
     artifacts: list[dict[str, str]] = []
     preflight_checks = [{"check_id": "clean-worktree", "result": "PASS" if not start_identity["git_dirty"] else "BLOCKED",
@@ -146,6 +233,8 @@ def build_receipt(repo: Path, bundles: dict[str, Path], output: Path, profile: s
         check, bundle_artifacts = _verify_bundle(bundle.resolve(), provider, start_identity)
         checks.append(check)
         artifacts.extend(bundle_artifacts)
+    output.mkdir(parents=True, exist_ok=True)
+    materialized_artifacts = _materialize_artifacts(output, artifacts)
     end_identity = _identity(repo)
     identity_equal = start_identity == end_identity
     reasons = []
@@ -167,13 +256,25 @@ def build_receipt(repo: Path, bundles: dict[str, Path], output: Path, profile: s
         "preflight": {"result": preflight_result, "checks": preflight_checks},
         "checks": checks,
         "summary": {"totals": totals, "required_totals": totals, "verdict": verdict},
-        "artifacts": {"sha256sums": "SHA256SUMS", "entries": artifacts},
+        "artifacts": {"sha256sums": "SHA256SUMS", "entries": materialized_artifacts},
     }
-    output.mkdir(parents=True, exist_ok=True)
     receipt_path = output / "receipt.json"
     receipt_path.write_text(json.dumps(receipt, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
-    lines = [f"{item['sha256']}  {Path(item['path']).name}" for item in artifacts]
+    lines = [f"{item['sha256']}  {Path(item['path']).resolve().relative_to(output.resolve()).as_posix()}" for item in materialized_artifacts]
     (output / "SHA256SUMS").write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8", newline="\n")
+    final_identity = _identity(repo)
+    if final_identity != end_identity:
+        final_reasons = [*reasons, "la identidad Git cambió después de escribir el receipt"]
+        receipt["identity"]["end"] = final_identity
+        receipt["integrity"] = {
+            "status": "INVALIDATED",
+            "identity_equal": False,
+            "invalidating_reasons": final_reasons,
+        }
+        receipt["preflight"]["result"] = "BLOCKED"
+        receipt["summary"]["verdict"] = "INCOMPLETE"
+        receipt_path.write_text(json.dumps(receipt, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+        verdict = "INCOMPLETE"
     print(json.dumps({"receipt": str(receipt_path), "verdict": verdict, "git_head": start_identity["git_head"], "worktree_fingerprint": start_identity["worktree_fingerprint"]}))
     return receipt_path
 

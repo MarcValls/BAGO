@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildSnapshot } from '../src/app/bootstrapSnapshot';
 import { FIRST_RUN_DISMISSED_KEY, FIRST_RUN_KEY, firstRunInitialStep, firstRunProviderOptions, markFirstRunComplete, markFirstRunDismissed, shouldShowFirstRun, shouldSkipAutomaticFirstRun } from '../src/features/first-run/firstRun';
 
 describe('first run contract', () => {
@@ -74,5 +75,21 @@ describe('first run contract', () => {
       workspace: { linkedToSession: true, manifestState: 'valid' },
       session: { state: 'valid' }
     } as never)).toBe(3);
+  });
+
+  it('opens workspace setup when a healthy backend has no workspace binding', () => {
+    const snapshot = buildSnapshot({
+      status: {
+        backend_available: true,
+        health: { ok: true },
+        provider: 'copilot',
+        model: 'gpt-5.4-mini',
+        workspace_state: { binding_confirmed: false, state: 'missing' },
+      },
+      session: { session_id: 'session-1' },
+    });
+
+    expect(snapshot?.system.state).toBe('confirmed');
+    expect(firstRunInitialStep(snapshot)).toBe(2);
   });
 });

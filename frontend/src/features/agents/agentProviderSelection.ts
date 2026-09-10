@@ -102,10 +102,13 @@ export function resolveAgentModelSelection(
   provider: string | undefined | null,
   model: string | undefined | null
 ): { provider: string; model: string } | null {
-  if (!groups.length) return null;
-
   const safeProvider = (provider ?? '').trim();
   const safeModel = (model ?? '').trim();
+  if (safeProvider && safeModel) {
+    return { provider: safeProvider, model: safeModel };
+  }
+  if (!groups.length) return null;
+
   const providerGroup = groups.find((group) => group.providerId === safeProvider);
   if (providerGroup && providerGroup.models.length > 0) {
     if (!safeModel || !providerGroup.models.includes(safeModel)) {

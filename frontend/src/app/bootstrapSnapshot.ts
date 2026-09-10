@@ -180,9 +180,7 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
     version: readMenuStateText(menuStateRaw.version || status.contract_version || status.schema_version || raw.version)
   };
   const rawPermissions = readRecord(raw.permissions);
-  const systemState: UiBootstrapSnapshot['system']['state'] = health.ok === false
-    ? 'error' : bindingConfirmed ? 'confirmed' : bindingReason || ['invalid', 'legacy', 'missing'].includes(manifestState)
-      ? 'blocked' : !raw.status ? 'loading' : 'unknown';
+  const systemState: UiBootstrapSnapshot['system']['state'] = health.ok === false || !backendAvailable ? 'error' : !raw.status ? 'loading' : 'confirmed';
   const contextRevision = status.context_revision ?? session.status?.context_revision;
   const contextState: UiBootstrapSnapshot['context']['state'] = certificationStatus === 'CERTIFIED'
     ? 'confirmed' : contextRevision && lastReceiptId ? 'partial' : contextRevision ? 'stale'

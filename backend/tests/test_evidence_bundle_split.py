@@ -189,6 +189,62 @@ class TestEvidenceBundleSmoke(unittest.TestCase):
                     output_dir=Path(tmp) / "bundle",
                 )
 
+    def test_bundle_invalidates_when_candidate_changes_during_provider_execution(self):
+        class FakeManager:
+            provider = "fake-provider"
+            model = "fake-model"
+            session_id = "session-1"
+
+        initial = {
+            "path": str(REPO_ROOT),
+            "sha": "a" * 40,
+            "branch": "codex/objetivos01",
+            "dirty": False,
+            "worktree_sha256": "1" * 64,
+        }
+        final = {
+            "path": str(REPO_ROOT),
+            "sha": "b" * 40,
+            "branch": "codex/objetivos01",
+            "dirty": False,
+            "worktree_sha256": "2" * 64,
+        }
+
+        def run_phase(**kwargs):
+            output_dir = kwargs["output_dir"]
+            (output_dir / "session").mkdir(parents=True, exist_ok=True)
+            (output_dir / "session" / "session.json").write_text(
+                "{}", encoding="utf-8"
+            )
+            profile = kwargs["profile"]
+            return (
+                "provider response",
+                {"/save": {"ok": True, "message": "saved"}},
+                "generated plan",
+                [{"content": profile.knowledge_entry}],
+                ["session/session.json"],
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "bundle"
+            with mock.patch.object(
+                generator, "candidate_fingerprint", side_effect=[initial, final]
+            ), mock.patch.object(generator, "_run_session_phase", side_effect=run_phase):
+                manifest_path = generator._generate_bundle_with_manager(
+                    mgr=FakeManager(),
+                    mode="simulated",
+                    profile=model.PROFILES["community-knowledge"],
+                    output_dir=output,
+                    workspace_path=Path(tmp),
+                )
+
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["status"], "fail")
+            checks = {item["id"]: item["status"] for item in manifest["checks"]}
+            self.assertEqual(checks["candidate-identity-stable"], "fail")
+            self.assertEqual(manifest["details"]["candidate_identity"]["git_head"], "a" * 40)
+            self.assertEqual(manifest["details"]["candidate_identity_end"]["git_head"], "b" * 40)
+
     def test_simulated_bundle_in_tempdir(self):
         """End-to-end smoke: simulated bundle writes manifest + report."""
         from bago_core.evidence_model import registered_mock_adapter

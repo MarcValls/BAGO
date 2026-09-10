@@ -327,6 +327,11 @@ export function AgentEditorPanel({ client, onClose }: Props) {
     && (state.provider || state.model)
     && !agentModelSelectionAvailable(providerOptions.groups, state.provider, state.model)
   ), [providerOptions.groups, providerOptions.loading, state.model, state.provider]);
+  const agentModelSelectionChanged = Boolean(state.selectedAgent && (
+    state.provider !== (state.selectedAgent.provider || '')
+    || state.model !== (state.selectedAgent.model || '')
+  ));
+
   const canCreateDraft = Boolean(creationDraft && state.name.trim() && state.systemPrompt.trim())
     && agentModelSelectionAvailable(providerOptions.groups, state.provider, state.model);
 
@@ -359,7 +364,7 @@ export function AgentEditorPanel({ client, onClose }: Props) {
 
   const handleSave = useCallback(async () => {
     if (!state.selectedAgent) return;
-    if (state.provider || state.model) {
+    if (agentModelSelectionChanged && (state.provider || state.model)) {
       if (!agentModelSelectionAvailable(providerOptions.groups, state.provider, state.model)) {
         setState((s) => ({ ...s, error: 'Selecciona un proveedor/modelo usable confirmado por el backend antes de guardar.' }));
         return;
@@ -398,7 +403,7 @@ export function AgentEditorPanel({ client, onClose }: Props) {
           : msg,
       }));
     }
-  }, [client, providerOptions.groups, state.selectedAgent, state.name, state.systemPrompt, state.model, state.provider, state.temperature, state.maxTokens, state.enabled]);
+  }, [agentModelSelectionChanged, client, providerOptions.groups, state.selectedAgent, state.name, state.systemPrompt, state.model, state.provider, state.temperature, state.maxTokens, state.enabled]);
 
   const handleTest = useCallback(async () => {
     if (!state.selectedAgent) return;
@@ -896,7 +901,7 @@ export function AgentEditorPanel({ client, onClose }: Props) {
                 <button
                   type="submit"
                   className="btn btn--primary"
-                  disabled={state.saving || !state.isDirty || currentSelectionUnavailable}
+                  disabled={state.saving || !state.isDirty || (agentModelSelectionChanged && currentSelectionUnavailable)}
                 >
                   <Icon name={state.saving ? 'refresh' : 'check'} size={14} />
                   {state.saving ? 'Guardando...' : 'Guardar'}
