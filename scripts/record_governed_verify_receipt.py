@@ -135,14 +135,14 @@ def _verify_bundle(path: Path, provider: str, identity: dict[str, Any]) -> tuple
     }, artifacts
 
 
-def build_receipt(repo: Path, codex: Path, copilot: Path, output: Path, profile: str = "standard") -> Path:
+def build_receipt(repo: Path, bundles: dict[str, Path], output: Path, profile: str = "standard") -> Path:
     started = _now()
     start_identity = _identity(repo)
     checks: list[dict[str, Any]] = []
     artifacts: list[dict[str, str]] = []
     preflight_checks = [{"check_id": "clean-worktree", "result": "PASS" if not start_identity["git_dirty"] else "BLOCKED",
                          "reason": "El candidato Git está limpio." if not start_identity["git_dirty"] else "El worktree tiene cambios; no se puede gobernar el receipt."}]
-    for provider, bundle in (("codex", codex), ("copilot", copilot)):
+    for provider, bundle in bundles.items():
         check, bundle_artifacts = _verify_bundle(bundle.resolve(), provider, start_identity)
         checks.append(check)
         artifacts.extend(bundle_artifacts)
@@ -178,15 +178,36 @@ def build_receipt(repo: Path, codex: Path, copilot: Path, output: Path, profile:
     return receipt_path
 
 
+def _bundle_map_from_args(args: argparse.Namespace) -> dict[str, Path]:
+    bundles: dict[str, Path] = {}
+    for provider, bundle in (("codex", getattr(args, "codex_bundle", None)), ("copilot", getattr(args, "copilot_bundle", None))):
+        if bundle is not None:
+            bundles[provider] = bundle.resolve()
+    for entry in getattr(args, "provider_bundle", []) or []:
+        provider, sep, bundle = entry.partition("=")
+        if not sep or not provider or not bundle:
+            raise ValueError(f"Formato inválido para --provider-bundle: {entry!r}; usa PROVIDER=PATH")
+        bundles[provider.strip()] = Path(bundle.strip()).resolve()
+    if not bundles:
+        raise ValueError("Debe indicar al menos un bundle real con --codex-bundle, --copilot-bundle o --provider-bundle")
+    return bundles
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--codex-bundle", required=True, type=Path)
-    parser.add_argument("--copilot-bundle", required=True, type=Path)
+    parser.add_argument("--codex-bundle", type=Path, help="Ruta del bundle real de codex")
+    parser.add_argument("--copilot-bundle", type=Path, help="Ruta del bundle real de copilot")
+    parser.add_argument("--provider-bundle", action="append", default=[], metavar="PROVIDER=PATH",
+                        help="Bundle real de cualquier proveedor, por ejemplo --provider-bundle ollama-cloud=/ruta/bundle")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--repo", type=Path, default=ROOT)
     parser.add_argument("--profile", choices=("quick", "standard", "release"), default="standard")
     args = parser.parse_args(argv)
-    receipt = build_receipt(args.repo.resolve(), args.codex_bundle.resolve(), args.copilot_bundle.resolve(), args.output.resolve(), args.profile)
+    try:
+        bundles = _bundle_map_from_args(args)
+        receipt = build_receipt(args.repo.resolve(), bundles, args.output.resolve(), args.profile)
+    except ValueError as exc:
+        parser.error(str(exc))
     payload = json.loads(receipt.read_text(encoding="utf-8"))
     return 0 if payload["summary"]["verdict"] == "VERIFIED" else 2
 
