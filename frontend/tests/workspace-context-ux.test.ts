@@ -14,9 +14,15 @@ const components = readdirSync(componentsDir)
 describe('workspace and context UX contract', () => {
   it('offers the same browser selector during first run', () => {
     expect(firstRun).toContain('<WorkspacePickerDialog');
-    expect(firstRun).toContain('mode="select"');
     expect(picker).toContain('client.browseWorkspace');
-    expect(picker).toContain('Usar esta carpeta');
+    expect(picker).toContain('projectInspectionAction');
+    expect(picker).toContain('action.label');
+    expect(firstRun).toContain('continueWithInspectedWorkspace');
+    expect(firstRun).toContain('activateWorkspace(projectRoot, inspectionAction.seed)');
+    expect(firstRun).toContain('onConfirm={(seedAfterLink)');
+    expect(controlPlane).toContain('seedAfterLink: Boolean(options?.seedAfterLink)');
+    expect(firstRun).not.toContain('Usar proyecto existente');
+    expect(firstRun).not.toContain('Crear proyecto demo');
     expect(controlPlane).toMatch(/event\.key === 'Escape'[\s\S]*setWorkspacePickerOpen\(false\)/);
     expect(picker).toContain("document.addEventListener('keydown', onKeyDown, true)");
     expect(components).toMatch(/\.command-palette-backdrop\.workspace-picker-backdrop\s*\{[^}]*place-items:\s*center;[^}]*padding:\s*24px;/);

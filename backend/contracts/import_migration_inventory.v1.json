@@ -322,7 +322,7 @@
       "path": "backend/.bago/providers/codex.py",
       "mutations": [
         {
-          "line": 28,
+          "line": 29,
           "call": "sys.path.insert"
         }
       ]
@@ -538,11 +538,11 @@
       "path": "backend/bago_core/evidence_generator.py",
       "mutations": [
         {
-          "line": 59,
+          "line": 60,
           "call": "import add_piece_paths"
         },
         {
-          "line": 72,
+          "line": 73,
           "call": "add_piece_paths"
         }
       ]

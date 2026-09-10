@@ -15,6 +15,8 @@ import sys
 import zipfile
 from pathlib import Path
 
+from package_v4 import build_package
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -84,35 +86,24 @@ def build(out_dir: Path, clean: bool) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     zip_path = out_dir / f"bago-v{version}.zip"
 
-    if clean and zip_path.exists():
-        zip_path.unlink()
+    if clean:
+        for stale in (
+            zip_path,
+            out_dir / f"{zip_path.name}.manifest.json",
+            out_dir / f"{zip_path.name}.sha256",
+            out_dir / f"{zip_path.name}.report.md",
+        ):
+            stale.unlink(missing_ok=True)
 
-    file_count = 0
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for p in sorted(REPO_ROOT.rglob("*")):
-            if not p.is_file():
-                continue
-            rel = p.relative_to(REPO_ROOT)
-            if not _should_include(rel):
-                continue
-            zf.write(p, rel)
-            file_count += 1
-
-    digest = hashlib.sha256(zip_path.read_bytes()).hexdigest()
-    manifest = {
-        "version": version,
-        "zip": zip_path.name,
-        "zip_sha256": digest,
-        "file_count": file_count,
-        "files": [str(n) for n in zipfile.ZipFile(zip_path).namelist()],
-    }
-    (out_dir / f"{zip_path.name}.manifest.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    # Keep the legacy entry point, but delegate the package contract to the
+    # canonical v4 packager.  The latter writes the provenance payload both
+    # into the archive and into the manifest, which the release tests verify.
+    result = build_package(REPO_ROOT, out_dir, release_version=version)
+    zip_path = Path(result["zip"])
+    print(
+        f"OK: {zip_path} ({result['file_count']} files, "
+        f"sha256={result['zip_sha256'][:16]}...)"
     )
-    (out_dir / f"{zip_path.name}.sha256").write_text(
-        f"{digest}  {zip_path.name}\n", encoding="utf-8"
-    )
-    print(f"OK: {zip_path} ({file_count} files, sha256={digest[:16]}...)")
     return zip_path
 
 

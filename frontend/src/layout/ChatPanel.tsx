@@ -20,6 +20,7 @@ import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTyp
 import { buildChatModelOptions } from '@/layout/chatModelOptions';
 import { groupTechnicalTurns, presentChatTurn } from '@/shared/chatPresentation';
 import { shouldOpenStartScreen } from '@/layout/chatStartScreen';
+import { readRecord, readText, toStringList } from '@/shared/unknownValue';
 
 export interface ContextPatchDisplay {
   patch: ContextPatchRequest;
@@ -147,6 +148,47 @@ interface TurnArticleProps {
 
 type TechnicalPresentation = Extract<ReturnType<typeof presentChatTurn>, { kind: 'activity' | 'error' }>;
 
+function ChatInterpretation({ interpretation }: { interpretation: Record<string, unknown> }) {
+  const selected = readRecord(interpretation.selected_interpretation);
+  const formalization = readRecord(interpretation.formalization);
+  const summary = readText(selected.summary)
+    || readText(interpretation.final_answer)
+    || 'Interpretación reflexiva disponible para orientar este turno.';
+  const intent = readText(interpretation.intent) || readText(interpretation.operational_intent) || 'general';
+  const confidence = Number(interpretation.confidence);
+  const unknowns = toStringList(interpretation.unknowns);
+  const restrictions = toStringList(interpretation.restrictions);
+  const interpretationId = readText(interpretation.question_id || interpretation.interpretationId);
+
+  return (
+    <details className="chat-interpretation" open>
+      <summary>
+        <Icon name="interpret" size={13} />
+        <strong>Interpretación previa</strong>
+        <span>orienta esta respuesta</span>
+      </summary>
+      <div className="chat-interpretation-body">
+        <p className="chat-interpretation-summary">{summary}</p>
+        <div className="chat-interpretation-facts">
+          <span><small>Intención</small><b>{intent}</b></span>
+          {Number.isFinite(confidence) && <span><small>Confianza</small><b>{Math.round(confidence * 100)}%</b></span>}
+          {readText(formalization.objective) && <span><small>Objetivo</small><b>{readText(formalization.objective)}</b></span>}
+        </div>
+        {(unknowns.length > 0 || restrictions.length > 0) && (
+          <div className="chat-interpretation-lists">
+            {unknowns.length > 0 && <div><small>Abierto</small><ul>{unknowns.map((item) => <li key={`unknown-${item}`}>{item}</li>)}</ul></div>}
+            {restrictions.length > 0 && <div><small>Restricciones</small><ul>{restrictions.map((item) => <li key={`restriction-${item}`}>{item}</li>)}</ul></div>}
+          </div>
+        )}
+        <footer>
+          <span>Se interpreta una vez antes de generar la respuesta.</span>
+          {interpretationId && <code>{interpretationId}</code>}
+        </footer>
+      </div>
+    </details>
+  );
+}
+
 function TurnArticle(props: TurnArticleProps) {
   const { turn } = props;
   const turnSelection: SelectionRecord = {
@@ -182,6 +224,7 @@ function TurnArticle(props: TurnArticleProps) {
         {turn.role === 'assistant' && (turn.provider || turn.model) && <span>{[turn.provider, turn.model].filter(Boolean).join(' · ')}</span>}
         {turn.status && <StatusBadge status={turn.status} />}
       </div>
+      {turn.role === 'assistant' && turn.interpretation && <ChatInterpretation interpretation={turn.interpretation} />}
       <div className="message-text">{turn.text || (turn.status === 'running' ? '...' : '')}</div>
       {clarificationOptions.length > 0 && <div className="message-patches" onClick={(event) => event.stopPropagation()}>
         {clarificationOptions.map((option, index) => <button
@@ -220,10 +263,12 @@ export function ChatPanel(props: Props) {
   const [modelPickerPos, setModelPickerPos] = useState<{ top: number; right: number; maxHeight: number } | null>(null);
   const modelPickerRootRef = useRef<HTMLDivElement>(null);
   const [reasoningChanging, setReasoningChanging] = useState(false);
+  const activeConversationId = props.conversations?.active_conversation_id || props.history?.conversation_id || '';
   const [welcomeOpen, setWelcomeOpen] = useState(() => shouldOpenStartScreen({
     startScreenRequested: Boolean(props.startScreen),
     isDocked: Boolean(props.isDocked),
-    turnCount: props.turns.length
+    turnCount: props.turns.length,
+    activeConversationId
   }));
   const [conversationBusy, setConversationBusy] = useState('');
   const [conversationError, setConversationError] = useState('');
@@ -240,8 +285,8 @@ export function ChatPanel(props: Props) {
   );
 
   useEffect(() => {
-    if (props.isDocked || props.turns.length > 0) setWelcomeOpen(false);
-  }, [props.isDocked, props.turns.length]);
+    if (props.isDocked || props.turns.length > 0 || activeConversationId) setWelcomeOpen(false);
+  }, [activeConversationId, props.isDocked, props.turns.length]);
   const timelineGroups = useMemo(() => groupTechnicalTurns(props.turns), [props.turns]);
   const filteredModelOptions = useMemo(() => {
     const query = modelQuery.trim().toLocaleLowerCase();
@@ -252,7 +297,6 @@ export function ChatPanel(props: Props) {
   const automaticModel = [props.activeProvider, props.snapshot?.model.effectiveModel || props.snapshot?.model.configuredModel].filter(Boolean).join('/') || 'router del sistema';
   const showWelcome = welcomeOpen;
   const conversationItems = props.conversations?.conversations || [];
-  const activeConversationId = props.conversations?.active_conversation_id || props.history?.conversation_id || '';
   const activeConversation = conversationItems.find((item) => item.conversation_id === activeConversationId) || null;
   const handlePreparePlan = async () => {
     if (!props.onPreparePlan || preparingPlan) return;
@@ -623,6 +667,7 @@ export function ChatPanel(props: Props) {
             </div>}
             <textarea
               id="bago-chat-composer"
+              aria-label="Mensaje para BAGO"
               className="chat-composer-textarea"
               value={draft}
               onChange={(e) => props.onDraftChange('chat', e.target.value)}

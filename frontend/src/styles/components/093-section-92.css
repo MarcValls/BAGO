@@ -97,11 +97,162 @@
 .agent-form-empty {
   margin: auto;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
+  text-align: center;
+  gap: 8px;
 }
 .agent-form-empty p { margin: 0; }
+.agent-form-empty svg { color: var(--accent); }
+.agent-form-empty strong { color: var(--text-2); font-size: 13px; }
+.agent-form-empty p { max-width: 290px; color: var(--text-3); font-size: 11px; line-height: 1.5; }
+
+.agent-canonical-catalogue {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.agent-canonical-catalogue > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.agent-canonical-catalogue > header strong { color: var(--text); font-size: 12px; }
+.agent-canonical-catalogue > header span { overflow: hidden; color: var(--text-3); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+
+.agent-create-card,
+.agent-review-banner,
+.agent-provider-notice {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.agent-create-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+}
+
+.agent-create-card h4,
+.agent-review-banner h4 {
+  margin: 0 0 5px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.agent-create-card p,
+.agent-review-banner p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.agent-create-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.agent-create-goal {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+}
+
+.agent-create-goal span {
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.agent-create-goal textarea {
+  min-height: 82px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--control-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 9px 10px;
+}
+
+.agent-create-card > .agent-provider-notice,
+.agent-create-card > .form-error,
+.agent-create-card > button {
+  grid-column: 1 / -1;
+}
+
+.agent-create-review {
+  padding: 0;
+}
+
+.agent-review-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.agent-review-banner > div {
+  min-width: 0;
+}
+
+.agent-provider-notice {
+  padding: 9px 10px;
+  color: var(--text-2);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.agent-provider-notice.is-warning {
+  border-color: color-mix(in srgb, var(--amber) 28%, transparent);
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.agent-provider-notice.is-error {
+  border-color: color-mix(in srgb, var(--red) 32%, transparent);
+  color: var(--red);
+  background: var(--red-soft);
+}
+
+@media (max-width: 880px) {
+  .agent-editor-body { flex-direction: column; overflow-y: auto; }
+  .agent-list-pane {
+    width: auto;
+    max-height: 190px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .agent-form-pane { min-height: 0; }
+}
+
+@media (max-width: 640px) {
+  .agent-form-header,
+  .agent-form-row { flex-direction: column; align-items: stretch; }
+  .agent-form-row > .form-group { min-width: 0; }
+  .agent-form-actions { align-items: stretch; flex-direction: column; }
+  .agent-form-actions > .btn,
+  .agent-form-actions > .inline-confirm { width: 100%; box-sizing: border-box; }
+}
 
 .agent-list-item {
   display: flex;
@@ -160,6 +311,21 @@
   padding: 8px 10px;
   width: 100%;
   box-sizing: border-box;
+}
+.form-group select {
+  min-height: 36px;
+}
+.form-group select:disabled {
+  cursor: not-allowed;
+  opacity: .65;
+}
+.form-group input:focus-visible,
+.form-group textarea:focus-visible,
+.form-group select:focus-visible,
+.agent-create-goal textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
 }
 .toggle-label {
   display: inline-flex;

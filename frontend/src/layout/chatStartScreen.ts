@@ -2,6 +2,7 @@ export interface StartScreenInput {
   startScreenRequested: boolean;
   isDocked: boolean;
   turnCount: number;
+  activeConversationId?: string;
 }
 
 /**
@@ -15,5 +16,8 @@ export interface StartScreenInput {
 export function shouldOpenStartScreen(input: StartScreenInput): boolean {
   if (input.isDocked) return false;
   if (!input.startScreenRequested) return false;
+  // An empty, persisted conversation is still a conversation to resume. Do
+  // not place the welcome decision screen in front of its composer.
+  if (input.activeConversationId) return false;
   return input.turnCount === 0;
 }

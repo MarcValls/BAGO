@@ -25,6 +25,18 @@ export default defineConfig({
               name: 'vendor',
               test: /node_modules/,
             },
+            {
+              name: 'workspace',
+              test: /[\\/]src[\\/]features[\\/]workspace[\\/]/,
+            },
+            {
+              name: 'context',
+              test: /[\\/]src[\\/]features[\\/]context-tree[\\/]/,
+            },
+            {
+              name: 'pipeline',
+              test: /[\\/]src[\\/]features[\\/]pipeline[\\/]/,
+            },
           ],
         },
       },

@@ -1,5 +1,6 @@
 function registerIpcHandlers({
   ipcMain,
+  clipboard,
   dialog,
   INSTALLS_ROOT,
   getDependencyService,
@@ -11,9 +12,29 @@ function registerIpcHandlers({
   if (!ipcMain) {
     throw new Error('ipcMain es obligatorio');
   }
+  if (!clipboard) {
+    throw new Error('clipboard es obligatorio');
+  }
 
   const handle = (channel, handler) => ipcMain.handle(channel, handler);
 
+  handle('bago:clipboard-read-text', () => clipboard.readText());
+  handle('bago:clipboard-read-payload', () => {
+    const text = clipboard.readText();
+    const image = clipboard.readImage();
+    const imageBytes = image.isEmpty() ? 0 : image.toPNG().byteLength;
+    const imageTooLarge = imageBytes > 8 * 1024 * 1024;
+    return {
+      text,
+      imageDataUrl: image.isEmpty() || imageTooLarge ? '' : image.toDataURL(),
+      imageMimeType: image.isEmpty() || imageTooLarge ? '' : 'image/png',
+      imageBytes,
+      error: imageTooLarge ? 'La imagen supera el límite seguro de 8 MB' : '',
+    };
+  });
+  handle('bago:clipboard-write-text', (_event, text) => {
+    clipboard.writeText(String(text || ''));
+  });
   handle('bago:supervisor-cmd', (_event, args) => getRuntimeService().runSupervisorCmd(args));
   handle('bago:zombie-cleanup', () => getRuntimeService().cleanupZombies());
   handle('bago:install-state-get', () => getInstallService().getInstallState());

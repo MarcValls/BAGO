@@ -14,6 +14,13 @@ function sectionStatus(section: ActiveSection | PanelId, snapshot: UiBootstrapSn
   return 'unknown';
 }
 
+export function sidebarStatusLabel(status: ReturnType<typeof sectionStatus>): string {
+  if (status === 'ok') return 'Listo';
+  if (status === 'warn') return 'Requiere atención';
+  if (status === 'error') return 'Error';
+  return 'Estado no confirmado';
+}
+
 interface Props {
   activeSection: ActiveSection;
   snapshot: UiBootstrapSnapshot | null;
@@ -38,11 +45,14 @@ export function MainSidebar(props: Props) {
               const isActive = section.isPanel
                 ? props.openDrawer === section.id
                 : props.activeSection === section.id;
+              const status = sectionStatus(section.id, props.snapshot);
+              const statusLabel = sidebarStatusLabel(status);
               return (
                 <button
                   key={section.id}
                   type="button"
                   className={`sidebar-item ${isActive ? 'is-active' : ''}`}
+                  aria-label={`${section.label}. Estado: ${statusLabel}`}
                   aria-current={isActive ? 'page' : undefined}
                   title={props.collapsed ? `${section.label} · ${section.helper || ''}` : section.helper}
                   onClick={() => section.isPanel ? props.onOpenDrawer(section.id as PanelId) : props.onNavigate(section.id as ActiveSection)}
@@ -52,7 +62,7 @@ export function MainSidebar(props: Props) {
                   {section.shortcut && !props.collapsed && (
                     <kbd className="sidebar-item-shortcut">{section.shortcut}</kbd>
                   )}
-                  <span className={`sidebar-status-dot status-${sectionStatus(section.id, props.snapshot)}`} />
+                  <span className={`sidebar-status-dot status-${status}`} role="img" aria-label={`Estado: ${statusLabel}`} title={`Estado: ${statusLabel}`} />
                   {isActive && <span className="sidebar-active-mark" />}
                 </button>
               );

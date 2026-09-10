@@ -9,6 +9,7 @@ export interface ProviderCenterProvider {
   description?: string;
   state?: string;
   configured?: boolean;
+  enabled?: boolean;
   modelCount?: number;
   models?: string[];
   raw?: unknown;
@@ -58,6 +59,14 @@ function stateTone(state: string | undefined): 'good' | 'warn' | 'bad' | 'neutra
   if (clean.includes('blocked') || clean.includes('error') || clean.includes('disabled')) return 'bad';
   if (clean.includes('degraded') || clean.includes('pending') || clean.includes('unknown')) return 'warn';
   return 'neutral';
+}
+
+function providerStatusLabel(provider: ProviderCenterProvider): string {
+  const state = String(provider.state || '').toLowerCase();
+  if (provider.enabled === false || state.includes('disabled')) return 'Inactivo';
+  if (state.includes('blocked') || state.includes('error') || state.includes('unauthenticated')) return 'Bloqueado';
+  if (provider.configured) return 'Activo';
+  return 'Pendiente';
 }
 
 interface ProviderFormState {
@@ -388,7 +397,7 @@ export function ProviderCenterModule(props: ProviderCenterModuleProps) {
         </article>
         <article className="provider-center__stat">
           <span>Sesión / Último uso</span>
-          <strong style={{ fontSize: 12 }}>{props.sessionModel ? props.sessionModel.split('/').pop() : (props.routerLastPick || '—')}</strong>
+          <strong className="provider-center__stat-current">{props.sessionModel ? props.sessionModel.split('/').pop() : (props.routerLastPick || '—')}</strong>
           <small>{props.sessionModel ? 'Override de sesión activo' : 'Sin override'}</small>
         </article>
       </div>
@@ -618,7 +627,7 @@ export function ProviderCenterModule(props: ProviderCenterModuleProps) {
                   className="provider-center__row-main"
                   onClick={() => props.onInspectProvider?.(provider)}
                 >
-                  <span className={`provider-center__pill tone-${stateTone(provider.state)}`}>{provider.configured ? 'Activo' : 'Inactivo'}</span>
+                  <span className={`provider-center__pill tone-${stateTone(provider.state)}`}>{providerStatusLabel(provider)}</span>
                   <span className="provider-center__row-copy">
                     <strong>{provider.name}</strong>
                     <small>{provider.description || provider.state || 'Sin descripción'}</small>
@@ -674,18 +683,16 @@ export function ProviderCenterModule(props: ProviderCenterModuleProps) {
               )}
             </div>
           </div>
-
           {props.sessionModel && (
-            <div style={{ padding: '8px 12px', borderRadius: 10, background: 'rgba(103,136,247,.12)', border: '1px solid rgba(103,136,247,.3)', fontSize: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <div className="provider-center__session-override">
               <span>
-                <span style={{ color: 'var(--text-3)' }}>Sesión: </span>
+                <span>Sesión: </span>
                 <strong>{props.sessionModel}</strong>
               </span>
               {props.onSetSessionModel && (
                 <button
                   type="button"
-                  className="provider-center__ghost"
-                  style={{ fontSize: 11, padding: '0 8px', minHeight: 26 }}
+                  className="provider-center__ghost provider-center__ghost--compact"
                   onClick={() => void props.onSetSessionModel?.(null)}
                 >
                   ✕ Quitar override
@@ -701,8 +708,7 @@ export function ProviderCenterModule(props: ProviderCenterModuleProps) {
               return (
                 <article
                   key={entry.id}
-                  className="provider-center__row"
-                  style={isSessionModel ? { outline: '1px solid rgba(103,136,247,.4)', borderRadius: 12 } : undefined}
+                  className={`provider-center__row ${isSessionModel ? 'is-session-model' : ''}`}
                   onContextMenu={(event) => props.onRouterEntryContextMenu?.(entry, event)}
                 >
                   <button
@@ -719,7 +725,7 @@ export function ProviderCenterModule(props: ProviderCenterModuleProps) {
                     </span>
                     <span className="provider-center__row-meta">{entry.contextTokens ? `${Math.round(entry.contextTokens / 1000)}k ctx` : '—'}</span>
                   </button>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div className="provider-center__row-actions">
                     <button
                       type="button"
                       className="provider-center__secondary"
@@ -731,7 +737,6 @@ export function ProviderCenterModule(props: ProviderCenterModuleProps) {
                       <button
                         type="button"
                         className={`provider-center__secondary ${isSessionModel ? 'is-active' : ''}`}
-                        style={{ fontSize: 11 }}
                         disabled={isSetting}
                         onClick={() => void handleSetSessionModel(entry)}
                       >

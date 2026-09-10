@@ -59,7 +59,20 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
     leaked_error: str | None = None
     stream_failed = False
     try:
-        for chunk in ctx.session_mgr.send_stream(message):
+        stream = iter(ctx.session_mgr.send_stream(message))
+        first_chunk = next(stream, None)
+        interpretation = getattr(ctx.session_mgr, "last_stream_interpretation", None)
+        if not interpretation and ctx.session_mgr.last_receipt:
+            receipt_data = ctx.session_mgr.last_receipt.to_dict()
+            receipt_metadata = receipt_data.get("metadata") if isinstance(receipt_data, dict) else None
+            if isinstance(receipt_metadata, dict):
+                interpretation = receipt_metadata.get("reflexive_interpretation")
+        if isinstance(interpretation, dict):
+            interpretation_line = f"data: {json.dumps({'interpretation': interpretation})}\n\n"
+            handler.wfile.write(interpretation_line.encode("utf-8"))
+            handler.wfile.flush()
+
+        for chunk in (() if first_chunk is None else (first_chunk,)):
             if is_canonical_error_payload(chunk):
                 # Do NOT stream the internal canonical error payload to
                 # the user. Capture it for logging and stop the stream
@@ -69,6 +82,14 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
             line = f"data: {json.dumps({'chunk': chunk})}\n\n"
             handler.wfile.write(line.encode("utf-8"))
             handler.wfile.flush()
+        if leaked_error is None:
+            for chunk in stream:
+                if is_canonical_error_payload(chunk):
+                    leaked_error = chunk
+                    break
+                line = f"data: {json.dumps({'chunk': chunk})}\n\n"
+                handler.wfile.write(line.encode("utf-8"))
+                handler.wfile.flush()
     except Exception as exc:
         stream_failed = True
         import os
@@ -100,6 +121,10 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
         "clarification": getattr(ctx.session_mgr, "last_clarification", None),
         "context_receipt": receipt,
     }
+    if receipt and isinstance(receipt.get("metadata"), dict):
+        interpretation = receipt["metadata"].get("reflexive_interpretation")
+        if isinstance(interpretation, dict):
+            done_payload["interpretation"] = interpretation
     done_line = f"data: {json.dumps(done_payload)}\n\n"
     handler.wfile.write(done_line.encode("utf-8"))
     handler.wfile.flush()

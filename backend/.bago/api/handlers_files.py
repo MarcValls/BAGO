@@ -353,7 +353,9 @@ _WRITE_FORBIDDEN = {".git", ".env", "state", "dist", "release", "__pycache__", "
 
 def _resolve_write_root(mgr) -> "Path":
     """Resolve the best available writable root from the session manager.
-    Prefers project_root. Skips temp/AppData mirror paths."""
+    Explicit project authorities remain writable even when the user selected a
+    directory below Temp/AppData. Only derived mirror/base-path fallbacks are
+    filtered, so an isolated runtime can never redirect writes to ``cwd``."""
     import tempfile, os
     _tmp = Path(tempfile.gettempdir()).resolve()
     _appdata = Path(os.environ.get("APPDATA", "")).resolve() if os.environ.get("APPDATA") else None
@@ -379,7 +381,14 @@ def _resolve_write_root(mgr) -> "Path":
                 pass
         return False
 
-    for attr in ("project_root", "workspace_scope_root", "workspace_mirror_root", "base_path"):
+    for attr in ("project_root", "workspace_scope_root"):
+        val = getattr(mgr, attr, None)
+        if val:
+            p = Path(str(val)).resolve()
+            if p.exists():
+                return p
+
+    for attr in ("workspace_mirror_root", "base_path"):
         val = getattr(mgr, attr, None)
         if val:
             p = Path(str(val)).resolve()

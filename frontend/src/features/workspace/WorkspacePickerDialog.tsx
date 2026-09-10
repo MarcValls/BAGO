@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BagoClient } from '@/api/client';
 import { Icon } from '@/shared/Icon';
-import { useProjectInspection } from './useProjectInspection';
+import { projectInspectionAction, useProjectInspection } from './useProjectInspection';
 
 interface BrowseSnapshot {
   path: string;
@@ -21,11 +21,10 @@ interface Props {
   onChooseExplorer?: (defaultPath?: string) => Promise<string | null>;
   onConfirm: (seed: boolean) => void;
   client: BagoClient;
-  mode?: 'activate' | 'select';
   title?: string;
 }
 
-export function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplorer, onConfirm, client, mode = 'activate', title = 'Elegir directorio de trabajo' }: Props) {
+export function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplorer, onConfirm, client, title = 'Elegir directorio de trabajo' }: Props) {
   const initialPath = useRef(value);
   const browseRequestRef = useRef(0);
   const [browse, setBrowse] = useState<BrowseState>({ kind: 'loading' });
@@ -48,6 +47,7 @@ export function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplor
   useEffect(() => { void openDirectory(initialPath.current); }, [openDirectory]);
 
   const isReady = inspect.kind === 'ready' && inspect.configured && inspect.linked && inspect.bindingConfirmed;
+  const action = projectInspectionAction(inspect);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -61,12 +61,12 @@ export function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplor
         event.key === 'Enter'
         && (event.ctrlKey || event.metaKey)
         && value.trim()
-        && (mode === 'select' || inspect.kind !== 'loading')
-      ) onConfirm(mode === 'activate' && !isReady);
+        && action.kind !== 'unavailable'
+      ) onConfirm(action.seed);
     };
     document.addEventListener('keydown', onKeyDown, true);
     return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [inspect.kind, isReady, mode, onClose, onConfirm, value]);
+  }, [action.kind, action.seed, onClose, onConfirm, value]);
 
   const chooseNative = async () => {
     if (!onChooseExplorer) return;
@@ -119,12 +119,13 @@ export function WorkspacePickerDialog({ value, onChange, onClose, onChooseExplor
             {inspect.kind === 'error' && <p className="is-error"><Icon name="warning" size={12} /> {inspect.message}</p>}
             {inspect.kind === 'ready' && isReady && <p className="is-ok"><Icon name="check" size={12} /> Configurado y vinculado</p>}
             {inspect.kind === 'ready' && !isReady && <p className="is-warn"><Icon name="warning" size={12} /> Requiere inicialización{inspect.bindingReason ? ` · ${inspect.bindingReason}` : ''}</p>}
+            <p className={`workspace-browser-action-detail is-${action.kind}`} role="status">{action.detail}</p>
           </aside>
         </div>
 
         <footer className="workspace-browser-actions">
           <div>{onChooseExplorer && <button type="button" className="secondary-button compact" onClick={() => void chooseNative()}><Icon name="folder" size={13} /> Abrir Explorer</button>}</div>
-          <div><button type="button" className="secondary-button compact" onClick={onClose}>Cancelar</button>{mode === 'select' ? <button type="button" className="primary-button compact" disabled={!value.trim()} onClick={() => onConfirm(false)}>Usar esta carpeta</button> : isReady ? <button type="button" className="primary-button compact" onClick={() => onConfirm(false)}>Activar workspace</button> : <><button type="button" className="secondary-button compact" disabled={!value.trim() || inspect.kind === 'loading'} onClick={() => onConfirm(false)}>Activar sin sembrar</button><button type="button" className="primary-button compact" disabled={!value.trim() || inspect.kind === 'loading'} onClick={() => onConfirm(true)}>Sembrar y activar</button></>}</div>
+          <div><button type="button" className="secondary-button compact" onClick={onClose}>Cancelar</button><button type="button" className="primary-button compact" disabled={!value.trim() || action.kind === 'unavailable'} onClick={() => onConfirm(action.seed)}>{action.label}</button></div>
         </footer>
       </section>
     </div>

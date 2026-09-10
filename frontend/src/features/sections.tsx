@@ -1340,7 +1340,12 @@ export function ControlSections(props: Props) {
         onOpenContextInTree={(id) => props.onOpenContextInTree?.(id)}
         pastedImage={props.pastedImage}
         onRemovePastedImage={props.onRemovePastedImage}
-        onPreparePlan={props.onPreparePlan}
+        onPreparePlan={async (task) => {
+          const objective = task.trim();
+          if (!objective) return;
+          props.onDraftChange('pipeline', objective);
+          props.onSetSection('pipeline');
+        }}
         startScreen
         recentProjects={recentProjects}
         onStartNew={() => {

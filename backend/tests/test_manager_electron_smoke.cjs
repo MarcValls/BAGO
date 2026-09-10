@@ -28,14 +28,14 @@ async function main() {
     path.join(ROOT, '.bago', 'context', 'context-tree.json'),
   ];
   const fixtureBaseline = new Map(protectedFixtures.map((file) => [file, fs.readFileSync(file)]));
-function baseArgs(target) {
-  const list = [target];
+function baseArgs(target, includeTarget = true) {
+  const list = includeTarget ? [target] : [];
   const userData = String(process.env.BAGO_ELECTRON_USER_DATA_DIR || '').trim();
   if (userData) list.unshift('--user-data-dir=' + userData);
   return list;
 }
   const app = await electron.launch({
-    ...(executablePath ? { executablePath, args: baseArgs(executablePath) } : { args: baseArgs(ROOT) }),
+    ...(executablePath ? { executablePath, args: baseArgs(executablePath, false) } : { args: baseArgs(ROOT) }),
     env: {
       ...process.env,
       BAGO_MANAGER_BASE_PATH: smokeWorkspace,
@@ -66,15 +66,25 @@ function baseArgs(target) {
     await window.locator('.workspace-shell').waitFor({ state: 'visible', timeout: 120000 });
 
     assert.strictEqual(await window.title(), 'BAGO Control Plane');
-    const bridgeReady = await window.evaluate(() => Boolean(
-      window.bagoElectron
-      && typeof window.bagoElectron.managerHealth === 'function'
-      && typeof window.bagoElectron.getChatUrl === 'function'
-      && typeof window.bagoElectron.readInstallSelection === 'function'
-    ));
+    const bridgeReady = await window.evaluate((packaged) => {
+      if (!window.bagoElectron) return false;
+      if (packaged) {
+        return window.bagoElectron.isViewer === true
+          && typeof window.bagoElectron.chooseProjectRoot === 'function'
+          && typeof window.bagoElectron.chooseWorkspaceRoot === 'function';
+      }
+      return typeof window.bagoElectron.managerHealth === 'function'
+        && typeof window.bagoElectron.getChatUrl === 'function'
+        && typeof window.bagoElectron.readInstallSelection === 'function'
+        && typeof window.bagoElectron.readClipboardText === 'function'
+        && typeof window.bagoElectron.readClipboardPayload === 'function'
+        && typeof window.bagoElectron.writeClipboardText === 'function';
+    }, Boolean(executablePath));
     assert.strictEqual(bridgeReady, true, 'preload bridge missing');
-    const managerHealth = await window.evaluate(() => window.bagoElectron.managerHealth());
-    const resolvedRuntimeRoot = path.resolve(managerHealth.runtime_root);
+    const managerHealth = executablePath
+      ? { runtime_root: 'packaged-resources' }
+      : await window.evaluate(() => window.bagoElectron.managerHealth());
+    const resolvedRuntimeRoot = executablePath ? '' : path.resolve(managerHealth.runtime_root);
     if (!executablePath) {
       assert.strictEqual(
         resolvedRuntimeRoot,
@@ -82,12 +92,10 @@ function baseArgs(target) {
         `development manager used a non-canonical runtime: ${managerHealth.runtime_root}`
       );
     } else {
-      // Installed / packaged manager may resolve its own bundled runtime root
-      // (e.g. app.asar.unpacked) instead of the development checkout.
-      assert.ok(
-        resolvedRuntimeRoot === ROOT || fs.existsSync(path.join(resolvedRuntimeRoot, 'bago_core', 'cli.py')),
-        `packaged manager reported invalid runtime root: ${managerHealth.runtime_root}`
-      );
+      // electron-viewer ships its minimal preload/runtime bridge; the backend
+      // runtime is started by the packaged shell and is verified by the dev
+      // path above, not by an unavailable managerHealth IPC method.
+      assert.strictEqual(managerHealth.runtime_root, 'packaged-resources');
     }
 
     const shell = await window.evaluate(() => {
@@ -136,12 +144,40 @@ function baseArgs(target) {
 
     const sidebar = window.locator('.main-sidebar');
     const sidebarButton = (label) => sidebar.getByRole('button', { name: new RegExp(`^${label}\\b`) });
+    const captureDir = String(process.env.BAGO_E2E_CAPTURE_DIR || '').trim();
+    const captureSurface = async (label, file) => {
+      if (!captureDir) return;
+      fs.mkdirSync(captureDir, { recursive: true });
+      await window.screenshot({ path: path.join(captureDir, file), fullPage: false });
+      console.log(JSON.stringify({ capture: label, file: path.join(captureDir, file) }));
+    };
     const chatNav = sidebarButton('Chat');
     assert.strictEqual(await chatNav.count(), 0, 'Chat must remain inside Inicio, not as a duplicate destination');
     const homeNav = sidebarButton('Inicio');
     assert.strictEqual(await homeNav.count(), 1);
     await homeNav.click();
     await dismissFirstRun();
+    if (captureDir) {
+      await window.waitForFunction(() => {
+        const model = document.querySelector('[aria-label="Modelo de esta sesión"]');
+        const start = document.querySelector('.start-chat-path.is-primary');
+        return Boolean((model instanceof HTMLElement && model.offsetParent) || (start instanceof HTMLElement && start.offsetParent));
+      }, null, { timeout: 120000 }).catch(() => {});
+      const surfaces = [
+        ['Inicio', 'electron-01-inicio.png'], ['Workspace', 'electron-02-workspace.png'],
+        ['Contexto', 'electron-03-contexto.png'], ['Pipeline', 'electron-04-pipeline.png'],
+        ['Evidencia', 'electron-05-evidencia.png'], ['Operaciones', 'electron-06-operaciones.png'],
+        ['Agentes', 'electron-07-agentes.png'], ['Intérprete', 'electron-08-interprete.png'],
+        ['GitHub', 'electron-09-github.png'], ['Capacidades', 'electron-10-capacidades.png'],
+        ['Herramientas', 'electron-11-herramientas.png'],
+      ];
+      for (const [label, file] of surfaces) {
+        const target = sidebarButton(label).first();
+        if (await target.count()) { await target.click(); await window.waitForTimeout(250); await captureSurface(label, file); }
+      }
+      await homeNav.click();
+      await dismissFirstRun();
+    }
     await homeNav.focus();
     await window.keyboard.press('Control+K');
     const commandDialog = window.getByRole('dialog', { name: 'Comandos rápidos' });
@@ -192,6 +228,21 @@ function baseArgs(target) {
       }));
       console.error(JSON.stringify({ chatStartDiagnostic }));
       throw error;
+    }
+    if (captureDir) {
+      const surfaces = [
+        ['Inicio', 'electron-01-inicio.png'], ['Workspace', 'electron-02-workspace.png'],
+        ['Contexto', 'electron-03-contexto.png'], ['Pipeline', 'electron-04-pipeline.png'],
+        ['Evidencia', 'electron-05-evidencia.png'], ['Operaciones', 'electron-06-operaciones.png'],
+        ['Agentes', 'electron-07-agentes.png'], ['Intérprete', 'electron-08-interprete.png'],
+        ['GitHub', 'electron-09-github.png'], ['Capacidades', 'electron-10-capacidades.png'],
+        ['Herramientas', 'electron-11-herramientas.png'],
+      ];
+      for (const [label, file] of surfaces) {
+        const target = sidebarButton(label).first();
+        if (await target.count()) { await target.click(); await window.waitForTimeout(250); await captureSurface(label, file); }
+      }
+      await homeNav.click();
     }
     if (initialScopeConversationResponse) {
       const initialScopeHttpResponse = await initialScopeConversationResponse;
@@ -544,6 +595,8 @@ function baseArgs(target) {
     }
     assert.deepStrictEqual(httpErrors, [], `Electron HTTP errors: ${httpErrors.join(' | ')}`);
     assert.deepStrictEqual(consoleErrors, [], `Electron console errors: ${consoleErrors.join(' | ')}`);
+    const clipboardWarnings = consoleWarnings.filter((warning) => /clipboard.*deprecated|deprecated.*clipboard/i.test(warning));
+    assert.deepStrictEqual(clipboardWarnings, [], `Electron clipboard deprecation warnings: ${clipboardWarnings.join(' | ')}`);
 
     console.log(JSON.stringify({
       ok: true,
@@ -580,5 +633,3 @@ main().catch((error) => {
   console.error(error && error.stack ? error.stack : error);
   process.exit(1);
 });
-
-

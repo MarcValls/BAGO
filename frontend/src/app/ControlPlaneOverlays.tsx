@@ -73,7 +73,7 @@ export function CommandPalette({ actions, onClose }: { actions: BagoAction[]; on
       <div className="command-palette">
         <div className="command-palette-search">
           <span>/</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar módulo, acción o comando" />
+          <input aria-label="Buscar módulo, acción o comando" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar módulo, acción o comando" />
           <kbd>Esc</kbd>
         </div>
         <div className="command-palette-list">

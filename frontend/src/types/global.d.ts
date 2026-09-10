@@ -19,9 +19,9 @@ export interface WorkspaceLinkResult {
 }
 
 export interface BagoElectronBridge {
-  readClipboardText?: () => string;
+  readClipboardText?: () => Promise<string> | string;
   readClipboardPayload?: () => Promise<{ text?: string; imageDataUrl?: string; imageMimeType?: string; imageBytes?: number; error?: string }> | { text?: string; imageDataUrl?: string; imageMimeType?: string; imageBytes?: number; error?: string };
-  writeClipboardText?: (text: string) => void;
+  writeClipboardText?: (text: string) => Promise<void> | void;
   chooseWorkspaceRoot?: (options?: { defaultPath?: string; basePath?: string; initialPath?: string }) => Promise<WorkspaceSelectionResult | null>;
   chooseProjectRoot?: (options?: { defaultPath?: string; basePath?: string; initialPath?: string }) => Promise<WorkspaceSelectionResult | null>;
   linkProjectRoot?: (root: string) => Promise<WorkspaceLinkResult | null>;

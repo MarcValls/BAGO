@@ -115,8 +115,8 @@ def _project_audit() -> dict[str, Any]:
     }
 
 
-def _bago_audit(mgr: Any) -> dict[str, Any]:
-    status = mgr.status()
+def _bago_audit(mgr: Any, status: dict[str, Any] | None = None) -> dict[str, Any]:
+    status = status if status is not None else mgr.status()
     workspace_state = status.get("workspace_state") or getattr(mgr, "workspace_state", lambda: {})()
     framework_root = Path(str(status.get("framework_root") or ROOT_DIR)).resolve()
     runtime_version = _normalize_version(_read_text(framework_root / "release_version.txt"))

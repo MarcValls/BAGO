@@ -45,3 +45,22 @@ def test_short_confirmation_does_not_replace_existing_goal():
     session = Session()
     assert session._capture_conversational_goal("Sí, confirmo", "work") is False
     assert session.persistent_goal == "Crear la aplicación de ideas"
+
+
+def test_reflexive_interpretation_is_rendered_as_advisory_model_context():
+    from session_turn_mixin import SessionTurnMixin
+
+    block = SessionTurnMixin._reflexive_prompt_block({
+        "intent": "implementar",
+        "operational_intent": "execute",
+        "formalization": {"objective": "crear una aplicación"},
+        "restrictions": [{"kind": "constraint", "value": "preservar la API"}],
+        "unknowns": [{"kind": "missing", "value": "ruta"}],
+        "confidence": 0.74,
+        "metrics": {"ambiguity": 0.25},
+    })
+
+    assert "BAGO OPERATIONAL INTENT" in block
+    assert '"operational_intent": "execute"' in block
+    assert "original user message remains authoritative" in block
+    assert "preservar la API" in block

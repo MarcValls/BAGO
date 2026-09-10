@@ -75,15 +75,20 @@ def test_canonical_task_types_have_explicit_policies(router, task, task_type, wo
 def test_system_change_keeps_architect_as_high_risk_escalation_only(router):
     ordinary = {role['id'] for role in router.plan_cabinet('review the backend contract')['roles']}
     risky = {role['id'] for role in router.plan_cabinet('implement a high-risk cross-module system change')['roles']}
+    risky_execution = {role['id'] for role in router.plan_cabinet('implement a high-risk production feature')['roles']}
 
     assert 'role_production_arquitecto' not in ordinary
     assert 'role_production_arquitecto' in risky
+    assert 'role_production_arquitecto' in risky_execution
+    assert 'role_production_generador' in risky_execution
 
 
 @pytest.mark.parametrize('task', [
     'Can you implement a widget and run tests?',
     'Could you fix the failing test?',
     'Por favor, corrige el parser y verifica las pruebas.',
+    '¿Puedes implementar un widget y ejecutar pruebas?',
+    '¿Podrías corregir el parser y verificar las pruebas?',
 ])
 def test_polite_change_requests_keep_generator_role(router, task):
     role_ids = {role['id'] for role in router.plan_cabinet(task)['roles']}

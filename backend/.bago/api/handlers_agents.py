@@ -188,6 +188,8 @@ def handle_duplicate(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
 @safe_handler
 def handle_test(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
     """Run a no-op test of the agent configuration — validates model/provider resolution."""
+    import time
+    started = time.perf_counter()
     registry = _load_agents_registry()
     for agent in registry.get("agents", []):
         if agent.get("id") == agent_id:
@@ -198,11 +200,17 @@ def handle_test(handler: "BaseHTTPRequestHandler", agent_id: str) -> None:
                 errors.append("Modelo no especificado")
             if not provider:
                 errors.append("Provider no especificado")
+            duration_ms = round((time.perf_counter() - started) * 1000)
             _send(handler, 200, {
                 "ok": True,
                 "agentId": agent_id,
                 "success": len(errors) == 0,
+                "provider": provider,
+                "model": model,
+                "durationMs": duration_ms,
+                "output": "Configuración válida" if not errors else "",
                 "errors": errors,
+                "error": "; ".join(errors) if errors else "",
                 "message": "Test completado sin errores" if not errors else "Errores encontrados",
             })
             return
