@@ -1,5 +1,5 @@
 {
-  "current": "4.10.0",
+  "current": "4.11.0",
   "history": [
     {
       "version": "4.9.1",
@@ -16,8 +16,14 @@
     {
       "version": "4.10.0",
       "started": "2026-09-01T00:00:00Z",
-      "ended": null,
+      "ended": "2026-09-10T00:00:00Z",
       "notes": "Current product version."
+    },
+    {
+      "version": "4.11.0",
+      "started": "2026-09-10T00:00:00Z",
+      "ended": null,
+      "notes": "Governance gate generalized to accept arbitrary real provider evidence bundles (#212); candidate-identity drift detection in evidence_generator; agent editor provider/model selection preserved during catalog loading; first-run system state decoupled from workspace binding."
     }
   ]
 }
