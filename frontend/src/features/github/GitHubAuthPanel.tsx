@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { BagoClient } from '@/api/client';
 import type { GitHubAuthState } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
@@ -24,12 +24,20 @@ const CREDENTIAL_STORAGE_LABELS: Record<string, string> = {
   unknown: 'Desconocido',
 };
 
+const AUTH_POLL_INTERVAL_MS = 2_000;
+const AUTH_POLL_ATTEMPTS = 60;
+
 export function GitHubAuthPanel({ client, onClose }: Props) {
   const [authState, setAuthState] = useState<GitHubAuthState | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const authPollGeneration = useRef(0);
+
+  useEffect(() => () => {
+    authPollGeneration.current += 1;
+  }, []);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -49,17 +57,41 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
   }, [loadStatus]);
 
   const handleAuthenticate = useCallback(async () => {
+    const generation = authPollGeneration.current + 1;
+    authPollGeneration.current = generation;
     setActionLoading('authenticate');
     setError(null);
     try {
-      await client.startGitHubAuth();
-      await loadStatus();
+      const started = await client.startGitHubAuth();
+      if (started.authenticated) {
+        await loadStatus();
+        return;
+      }
+      if (started.installed === false || started.error) {
+        throw new Error(started.error || 'GitHub CLI no está disponible');
+      }
+
+      for (let attempt = 0; attempt < AUTH_POLL_ATTEMPTS; attempt += 1) {
+        if (authPollGeneration.current !== generation) return;
+        const state = await client.refreshGitHubAuth();
+        if (authPollGeneration.current !== generation) return;
+        setAuthState(state);
+        if (state.authenticated) return;
+        await new Promise((resolve) => window.setTimeout(resolve, AUTH_POLL_INTERVAL_MS));
+      }
+      setError('La autorización sigue pendiente. Puedes volver a intentarlo cuando termines en GitHub.');
     } catch (e: unknown) {
-      setError(friendlyErrorMessage(e));
+      if (authPollGeneration.current === generation) setError(friendlyErrorMessage(e));
     } finally {
-      setActionLoading(null);
+      if (authPollGeneration.current === generation) setActionLoading(null);
     }
   }, [client, loadStatus]);
+
+  const cancelAuthenticationWait = useCallback(() => {
+    authPollGeneration.current += 1;
+    setActionLoading(null);
+    setError(null);
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     setActionLoading('refresh');
@@ -214,8 +246,15 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
                   disabled={actionLoading !== null}
                 >
                   <Icon name="link" size={14} />
-                  {actionLoading === 'authenticate' ? 'Conectando...' : 'Conectar con GitHub'}
+                  {actionLoading === 'authenticate' ? 'Esperando autorización...' : 'Conectar con GitHub'}
                 </button>
+              )}
+
+              {actionLoading === 'authenticate' && (
+                <div className="github-auth-progress" role="status">
+                  <span>Completa la autorización en GitHub. BAGO detectará la sesión automáticamente.</span>
+                  <button type="button" className="btn-link" onClick={cancelAuthenticationWait}>Dejar de esperar</button>
+                </div>
               )}
 
               {authState.authenticated && (

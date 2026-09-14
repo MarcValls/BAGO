@@ -56,6 +56,7 @@ from bago_core.evidence_report import (
     _simulated_mode_check,
     _validation_commands,
 )
+from bago_core.candidate_identity import fingerprint as candidate_fingerprint
 from bago_core.resolver import add_piece_paths, resolve_piece_path
 
 # The legacy evidence bundle imported `from commands import execute` at the
@@ -215,6 +216,23 @@ def _build_manifest_checks(
     return checks
 
 
+def _candidate_identity_payload() -> dict[str, Any]:
+    candidate = candidate_fingerprint(_BAGO_ROOT)
+    return {
+        "repo_root": str(candidate["path"]), "git_head": str(candidate["sha"]),
+        "git_branch": str(candidate["branch"]), "git_dirty": bool(candidate["dirty"]),
+        "worktree_fingerprint": str(candidate["worktree_sha256"]),
+    }
+
+
+def _candidate_identity_check(initial_candidate: dict[str, Any], final_candidate: dict[str, Any]) -> dict[str, str]:
+    stable = all(initial_candidate.get(field) == final_candidate.get(field) for field in ("git_head", "git_dirty", "worktree_fingerprint"))
+    detail = "La identidad Git permanecio estable durante la ejecucion del provider."
+    if not stable:
+        detail = "La identidad Git cambio durante la ejecucion del provider."
+    return {"id": "candidate-identity-stable", "status": "pass" if stable else "fail", "detail": detail}
+
+
 def _build_manifest(
     *,
     mode: str,
@@ -224,9 +242,11 @@ def _build_manifest(
     checks: list[dict[str, str]],
     copied_artifacts: list[str],
     plan_text: str,
+    initial_candidate: dict[str, Any],
+    final_candidate: dict[str, Any],
 ) -> dict[str, Any]:
     """Compose the manifest.json payload (R4, R8)."""
-    return _build_manifest_dict(
+    manifest = _build_manifest_dict(
         mode=mode,
         profile=profile,
         provider=mgr.provider,
@@ -240,6 +260,13 @@ def _build_manifest(
             mode, profile.objective_id, output_dir, mgr.provider, mgr.model
         ),
     )
+    # Bind every live/simulated bundle to the exact repository candidate that
+    # started provider execution. If the checkout changes during execution, the
+    # stability check above makes the bundle fail closed instead of relabeling it.
+    details = manifest.setdefault("details", {})
+    details["candidate_identity"] = initial_candidate
+    details["candidate_identity_end"] = final_candidate
+    return manifest
 
 
 # --- IO delegation helpers (R4) -------------------------------------------
@@ -363,6 +390,8 @@ def _run_session_phase(
     direct_response = mgr.send(
         profile.user_prompt if mode == "simulated" else profile.real_prompt
     )
+    if mode == "real" and getattr(mgr, "last_response_state", "") == "failed":
+        raise RuntimeError(f"El provider no pudo completar la respuesta: {direct_response.strip()}")
     if not direct_response.strip():
         raise RuntimeError("La respuesta del provider esta vacia.")
 
@@ -387,6 +416,8 @@ def _build_checks_and_manifest(
     copied_artifacts: list[str],
     exported_memory: list[dict[str, Any]],
     plan_text: str,
+    initial_candidate: dict[str, Any],
+    final_candidate: dict[str, Any],
 ) -> tuple[list[dict[str, str]], dict[str, Any]]:
     """Compose the contract checks and the manifest payload (R4)."""
     checks = _build_manifest_checks(
@@ -398,6 +429,7 @@ def _build_checks_and_manifest(
         output_dir=output_dir,
         mgr=mgr,
     )
+    checks.append(_candidate_identity_check(initial_candidate, final_candidate))
     manifest = _build_manifest(
         mode=mode,
         profile=profile,
@@ -406,6 +438,8 @@ def _build_checks_and_manifest(
         checks=checks,
         copied_artifacts=copied_artifacts,
         plan_text=plan_text,
+        initial_candidate=initial_candidate,
+        final_candidate=final_candidate,
     )
     return checks, manifest
 
@@ -427,6 +461,7 @@ def _generate_bundle_with_manager(
     R4 helper (`_run_session_phase`, `_write_bundle_artifacts`,
     `_build_checks_and_manifest`, `_finalize_manifest`).
     """
+    initial_candidate = _candidate_identity_payload()
     direct_response, commands, plan_text, exported_memory, copied_artifacts = (
         _run_session_phase(
             mgr=mgr,
@@ -436,6 +471,7 @@ def _generate_bundle_with_manager(
             output_dir=output_dir,
         )
     )
+    final_candidate = _candidate_identity_payload()
     _write_bundle_artifacts(
         output_dir=output_dir,
         profile=profile,
@@ -454,6 +490,8 @@ def _generate_bundle_with_manager(
         copied_artifacts=copied_artifacts,
         exported_memory=exported_memory,
         plan_text=plan_text,
+        initial_candidate=initial_candidate,
+        final_candidate=final_candidate,
     )
     _finalize_manifest(
         output_dir=output_dir,

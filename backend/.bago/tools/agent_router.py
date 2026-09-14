@@ -5,8 +5,10 @@ import argparse
 import io
 import json
 import os
+import re
 import shutil
 import sys
+import unicodedata
 import urllib.error
 import urllib.request
 from contextlib import redirect_stdout
@@ -33,9 +35,128 @@ def _resolve_ollama_models_dir() -> Path:
 OLLAMA_MODELS_DIR = _resolve_ollama_models_dir()
 SCAN_ROOT = Path.cwd()
 BAGO_ROOT = SCAN_ROOT / '.bago'
+FRAMEWORK_BAGO_ROOT = Path(__file__).resolve().parents[1]
 STATE_DIR = BAGO_ROOT / 'state'
 ROUTER_HISTORY = STATE_DIR / 'route_history.json'
 ROUTER_POLICY = STATE_DIR / 'llm_config.json'
+MAX_CONCURRENT = 3
+
+_CABINET_RULES = (
+    {
+        'task_type': 'system_change',
+        'terms': ('governance', 'canon', 'contract', 'architecture', 'system change'),
+        'workflow': 'workflow_system_change',
+        'roles': (
+            'role_government_orquestador_central',
+            'role_supervision_auditor_canonico',
+            'role_production_validador',
+        ),
+        'skip_if_explicit_change': False,
+    },
+    {
+        'task_type': 'organization',
+        'terms': ('organize', 'organization', 'organización', 'organizar'),
+        'workflow': 'workflow_execution',
+        'roles': (
+            'role_government_orquestador_central',
+            'role_production_organizador',
+            'role_production_validador',
+        ),
+        'skip_if_explicit_change': False,
+    },
+    {
+        'task_type': 'project_bootstrap',
+        'terms': ('bootstrap this project', 'bootstrap project', 'project bootstrap', 'bootstrap', 'inicializa el proyecto'),
+        'workflow': 'workflow_bootstrap_repo_first',
+        'roles': (
+            'role_government_orquestador_central',
+            'role_production_analista',
+            'role_production_validador',
+        ),
+        'skip_if_explicit_change': False,
+    },
+    {
+        'task_type': 'security',
+        'terms': ('security', 'secret', 'credential', 'permission', 'seguridad', 'secreto', 'credencial', 'permiso'),
+        'workflow': 'workflow_validation',
+        'roles': (
+            'role_government_orquestador_central',
+            'role_specialist_security_reviewer',
+            'role_supervision_centinela_sinceridad',
+            'role_production_validador',
+        ),
+        'skip_if_explicit_change': False,
+    },
+    {
+        'task_type': 'history_migration',
+        'terms': ('migration', 'migrate', 'legacy', 'archive', 'historical', 'migracion', 'migrar', 'legado', 'archivo', 'histori'),
+        'workflow': 'workflow_history_migration',
+        'roles': (
+            'role_government_orquestador_central',
+            'role_production_analista',
+            'role_supervision_auditor_canonico',
+            'role_production_validador',
+        ),
+        'skip_if_explicit_change': False,
+    },
+    {
+        'task_type': 'validation',
+        'terms': ('verify', 'validate', 'test', 'audit', 'check', 'verifica', 'valid', 'prueba', 'audita', 'comprueba'),
+        'workflow': 'workflow_validation',
+        'roles': (
+            'role_government_orquestador_central',
+            'role_production_validador',
+        ),
+        'skip_if_explicit_change': True,
+    },
+    {
+        'task_type': 'design',
+        'terms': ('design', 'architecture', 'contract', 'dise', 'arquitectura', 'contrato'),
+        'workflow': 'workflow_design',
+        'roles': (
+            'role_government_orquestador_central',
+            'role_production_analista',
+            'role_production_arquitecto',
+            'role_production_validador',
+        ),
+        'skip_if_explicit_change': True,
+    },
+    {
+        'task_type': 'execution',
+        'terms': ('implement', 'fix', 'refactor', 'build', 'code', 'write', 'edit', 'implemen', 'corrige', 'refactor', 'codigo', 'escribe', 'edita'),
+        'workflow': 'workflow_execution',
+        'roles': (
+            'role_government_orquestador_central',
+            'role_production_generador',
+            'role_production_validador',
+        ),
+        'skip_if_explicit_change': False,
+    },
+)
+
+_HIGH_RISK_ROLE_OVERRIDES = {
+    'system_change': (
+        'role_government_orquestador_central',
+        'role_production_arquitecto',
+        'role_supervision_auditor_canonico',
+        'role_production_validador',
+    ),
+    'execution': (
+        'role_government_orquestador_central',
+        'role_production_arquitecto',
+        'role_production_generador',
+        'role_production_validador',
+    ),
+}
+
+_POLITE_PREFIX_RE = re.compile(
+    r'^[\s¿¡?!.,:;]*(?:(?:please|por favor|can you|could you|would you|puedes|podrías)[\s¿¡?!.,:;]+)+',
+    re.IGNORECASE,
+)
+_CHANGE_VERB_PREFIXES = (
+    'implement', 'fix', 'refactor', 'build', 'write', 'edit',
+    'corrig', 'correg', 'constru', 'escrib',
+)
 
 
 def _resolve_bago_root(scan_root: Path) -> Path:
@@ -43,6 +164,43 @@ def _resolve_bago_root(scan_root: Path) -> Path:
     if scan_root.name == '.bago':
         return scan_root
     return scan_root / '.bago'
+
+
+def _strip_polite_prefix(task: str) -> str:
+    return _POLITE_PREFIX_RE.sub('', task.lower()).strip(' ,:;')
+
+
+def _normalize_task_token(token: str) -> str:
+    stripped = token.strip("¿¡?!.,:;()[]{}\"'")
+    normalized = unicodedata.normalize('NFKD', stripped)
+    without_marks = ''.join(
+        char for char in normalized
+        if not unicodedata.combining(char)
+    )
+    return without_marks.lower()
+
+
+def _has_change_verb(task: str) -> bool:
+    primary_verb = task.split(maxsplit=1)[0] if task else ''
+    normalized = _normalize_task_token(primary_verb)
+    return any(normalized.startswith(prefix) for prefix in _CHANGE_VERB_PREFIXES)
+
+
+def _select_cabinet_rule(lowered_task: str, explicit_change_request: bool) -> dict | None:
+    for rule in _CABINET_RULES:
+        if explicit_change_request and rule['skip_if_explicit_change']:
+            continue
+        if any(term in lowered_task for term in rule['terms']):
+            return rule
+        if rule['task_type'] == 'execution' and explicit_change_request:
+            return rule
+    return None
+
+
+def _apply_high_risk_roles(task_type: str, role_ids: tuple[str, ...], high_risk_change: bool) -> tuple[str, ...]:
+    if not high_risk_change:
+        return role_ids
+    return _HIGH_RISK_ROLE_OVERRIDES.get(task_type, role_ids)
 
 
 def configure_paths(root_override: str | None = None) -> Path:
@@ -188,24 +346,97 @@ def _record_route(route: dict) -> None:
     save_json(ROUTER_HISTORY, history[-200:])
 
 
+def _load_active_roles() -> dict[str, dict]:
+    framework_manifest = FRAMEWORK_BAGO_ROOT / 'roles' / 'manifest.json'
+    project_manifest = BAGO_ROOT / 'roles' / 'manifest.json'
+    manifest_root = FRAMEWORK_BAGO_ROOT if framework_manifest.is_file() else BAGO_ROOT
+    manifest_path = manifest_root / 'roles' / 'manifest.json'
+    manifest = load_json(manifest_path, {})
+    roles = manifest.get('roles') if isinstance(manifest, dict) else None
+    if not isinstance(roles, dict):
+        raise RuntimeError(f'Invalid or missing role manifest: {manifest_path}')
+
+    active_roles: dict[str, dict] = {}
+    for role_id, role in roles.items():
+        if not isinstance(role, dict) or role.get('status') != 'active':
+            continue
+        relative_file = role.get('file')
+        if not isinstance(relative_file, str) or not (manifest_root / 'roles' / relative_file).is_file():
+            raise RuntimeError(f'Active role {role_id!r} has no readable role file')
+        active_roles[role_id] = role
+    return active_roles
+
+
+def plan_cabinet(task: str) -> dict:
+    """Return a role plan; role execution remains an explicit caller action."""
+    normalized_task = task.strip()
+    if not normalized_task:
+        raise ValueError('Cabinet planning requires a non-empty task')
+
+    lowered = normalized_task.lower()
+    primary_request = _strip_polite_prefix(normalized_task)
+    explicit_change_request = _has_change_verb(primary_request)
+    high_risk_change = any(term in lowered for term in (
+        'high-risk', 'high risk', 'cross-module', 'cross module',
+        'production', 'destructive', 'alto riesgo', 'entre módulos',
+    ))
+    task_type, workflow, role_ids = 'analysis', 'workflow_analysis', (
+        'role_government_orquestador_central',
+        'role_production_analista',
+        'role_production_validador',
+    )
+    rule = _select_cabinet_rule(lowered, explicit_change_request)
+    if rule is not None:
+        task_type = rule['task_type']
+        workflow = rule['workflow']
+        role_ids = rule['roles']
+
+    role_ids = _apply_high_risk_roles(task_type, role_ids, high_risk_change)
+
+    active_roles = _load_active_roles()
+    missing_roles = [role_id for role_id in role_ids if role_id not in active_roles]
+    if missing_roles:
+        raise RuntimeError(f'Cabinet plan requires unavailable active roles: {", ".join(missing_roles)}')
+
+    waves = [list(role_ids[index:index + MAX_CONCURRENT]) for index in range(0, len(role_ids), MAX_CONCURRENT)]
+    return {
+        'task': normalized_task,
+        'task_type': task_type,
+        'workflow': workflow,
+        'max_concurrent': MAX_CONCURRENT,
+        'waves': waves,
+        'roles': [
+            {
+                'id': role_id,
+                'name': active_roles[role_id].get('name', role_id),
+                'file': f"roles/{active_roles[role_id]['file']}",
+            }
+            for role_id in role_ids
+        ],
+        'execution': 'plan-only; explicit approval and executor are required before roles run',
+    }
+
+
 def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool = True, record: bool = False) -> dict:
     policy = load_policy()
     available = _available_agents(agents)
 
-    # ── Orchestrator gate (opt-in: BAGO_ORCHESTRATE=1) ────────────────────────
+    # ── Optional brief integration (does not activate roles) ───────────────────
     brief_id: str = ''
     if os.environ.get('BAGO_ORCHESTRATE') == '1':
-        try:
-            import importlib.util as _ilu
-            _orc_path = Path(__file__).parent / 'orchestrator_v4.py'
-            _spec = _ilu.spec_from_file_location('orchestrator_v4', _orc_path)
-            _orc = _ilu.module_from_spec(_spec)  # type: ignore[arg-type]
-            _spec.loader.exec_module(_orc)  # type: ignore[union-attr]
-            _orc.configure_paths(str(SCAN_ROOT))
-            _brief = _orc.create_brief(task_description=task)
-            brief_id = _brief.get('id', '')
-        except Exception:
-            pass  # Orchestrator no disponible — continúa sin él
+        import importlib.util as _ilu
+        _orc_path = Path(__file__).parent / 'orchestrator_v4.py'
+        _spec = _ilu.spec_from_file_location('orchestrator_v4', _orc_path)
+        if _spec is None or _spec.loader is None:
+            raise RuntimeError(f'Cannot load orchestrator integration: {_orc_path}')
+        _orc = _ilu.module_from_spec(_spec)
+        sys.modules[_spec.name] = _orc
+        _spec.loader.exec_module(_orc)
+        _orc.configure_paths(str(SCAN_ROOT))
+        _brief = _orc.create_brief(task=task)
+        brief_id = getattr(_brief, 'id', '')
+        if not isinstance(brief_id, str) or not brief_id:
+            raise RuntimeError('Orchestrator integration returned a brief without an id')
     # ─────────────────────────────────────────────────────────────────────────
 
     if not available:
@@ -239,11 +470,6 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
     }
     if brief_id:
         result['brief_id'] = brief_id
-        # Registrar asignación en el brief
-        try:
-            _orc.assign_brief(brief_id, agent=agent_id)  # type: ignore[name-defined]
-        except Exception:
-            pass
     if record:
         _record_route(result)
     return result
@@ -260,6 +486,7 @@ def _scratch_dir(label: str) -> Path:
 def _run_tests() -> int:
     scratch = _scratch_dir('agent_router')
     old_host = os.environ.get('OLLAMA_HOST')
+    old_orchestration = os.environ.get('BAGO_ORCHESTRATE')
     try:
         configure_paths(str(scratch))
         save_json(ROUTER_POLICY, {'default_agent': 'copilot', 'prefer_local': True})
@@ -270,6 +497,10 @@ def _run_tests() -> int:
             {'id': 'copilot', 'available': True},
         ]
         route = route_task('implement multi-file auth and run tests', agents=agents, use_classifier=False)
+        os.environ['BAGO_ORCHESTRATE'] = '1'
+        orchestrated_route = route_task('review the backend contract', agents=agents, use_classifier=False)
+        brief_id = orchestrated_route.get('brief_id', '')
+        brief_payload = load_json(BAGO_ROOT / 'state' / 'orchestrator' / f'{brief_id}.json', {})
         detected = detect_agents()
         original_up = _ollama_server_up
         try:
@@ -281,13 +512,36 @@ def _run_tests() -> int:
         with redirect_stdout(out):
             json_rc = main(['--root', str(scratch), '--task', 'brainstorm offline notes', '--json', '--no-classifier'])
         json_payload = json.loads(out.getvalue())
+        role_dir = BAGO_ROOT / 'roles' / 'gobierno'
+        role_dir.mkdir(parents=True, exist_ok=True)
+        (role_dir / 'ORQUESTADOR_CENTRAL.md').write_text('# role\n', encoding='utf-8')
+        production_dir = BAGO_ROOT / 'roles' / 'produccion'
+        production_dir.mkdir(parents=True, exist_ok=True)
+        (production_dir / 'ANALISTA.md').write_text('# role\n', encoding='utf-8')
+        (production_dir / 'VALIDADOR.md').write_text('# role\n', encoding='utf-8')
+        save_json(BAGO_ROOT / 'roles' / 'manifest.json', {
+            'roles': {
+                'role_government_orquestador_central': {
+                    'status': 'active', 'name': 'orquestador_central', 'file': 'gobierno/ORQUESTADOR_CENTRAL.md',
+                },
+                'role_production_analista': {
+                    'status': 'active', 'name': 'ANALISTA', 'file': 'produccion/ANALISTA.md',
+                },
+                'role_production_validador': {
+                    'status': 'active', 'name': 'VALIDADOR', 'file': 'produccion/VALIDADOR.md',
+                },
+            },
+        })
+        cabinet = plan_cabinet('analyze the current repository')
         results = [
             ('default_ollama_url', isinstance(_default_ollama_url(), str) and _default_ollama_url().startswith('http'), 'default ollama url is a string'),
             ('resolve_models_dir', isinstance(_resolve_ollama_models_dir(), Path), 'ollama models dir resolves to Path'),
             ('route_has_agent', isinstance(route, dict) and route.get('agent') == 'codex', 'route_task returns dict with agent key'),
+            ('orchestration_brief_is_explicit', isinstance(brief_id, str) and brief_payload.get('status') == 'pending', 'opt-in orchestration creates a pending domain brief without assigning the provider as a specialist'),
             ('available_agents_list', isinstance(detected, list) and all('id' in item for item in detected), 'detect_agents returns agent list'),
             ('deterministic_fallback', fallback.get('agent') == 'ollama', 'fallback is deterministic when classifier is unavailable'),
             ('json_output_mode', json_rc == 0 and isinstance(json_payload, dict) and 'agent' in json_payload, 'json output mode prints route json'),
+            ('cabinet_plan_is_bounded', cabinet['workflow'] == 'workflow_analysis' and len(cabinet['waves']) == 1 and len(cabinet['waves'][0]) <= MAX_CONCURRENT, 'cabinet plan uses active roles and respects concurrency'),
         ]
         return print_test_results(results)
     finally:
@@ -295,6 +549,10 @@ def _run_tests() -> int:
             os.environ.pop('OLLAMA_HOST', None)
         else:
             os.environ['OLLAMA_HOST'] = old_host
+        if old_orchestration is None:
+            os.environ.pop('BAGO_ORCHESTRATE', None)
+        else:
+            os.environ['BAGO_ORCHESTRATE'] = old_orchestration
         if scratch.exists():
             shutil.rmtree(scratch)
         configure_paths()
@@ -309,6 +567,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--history', action='store_true', help='Show routing history and exit')
     parser.add_argument('--limit', type=int, default=10, help='History entry limit')
     parser.add_argument('--no-classifier', action='store_true', help='Disable ollama classifier')
+    parser.add_argument('--cabinet', action='store_true', help='Plan cabinet roles without activating them')
     parser.add_argument('task_words', nargs='*')
     args = parser.parse_args(argv)
     configure_paths(args.root or None)
@@ -330,6 +589,16 @@ def main(argv: list[str] | None = None) -> int:
     task_text = args.task.strip() or ' '.join(args.task_words).strip()
     if not task_text:
         parser.print_help()
+        return 0
+    if args.cabinet:
+        plan = plan_cabinet(task_text)
+        if args.json:
+            print(json.dumps(plan, indent=2, ensure_ascii=False))
+        else:
+            print(f"workflow={plan['workflow']} task_type={plan['task_type']} max_concurrent={plan['max_concurrent']}")
+            for number, wave in enumerate(plan['waves'], start=1):
+                print(f"wave={number} roles={','.join(wave)}")
+            print(plan['execution'])
         return 0
     route = route_task(task_text, use_classifier=not args.no_classifier, record=True)
     if args.json:

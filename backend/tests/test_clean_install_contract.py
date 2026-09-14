@@ -29,6 +29,8 @@ def test_installer_is_safe_for_clean_and_repeat_installs() -> None:
     assert "NoShellIntegration" in installer
     assert "PreserveDevRole" in installer
     assert '$selectionDevPath = if ($PreserveDevRole) { "" } else { $sourceFull }' in installer
+    assert '$explicitUserRoot = [System.Environment]::GetEnvironmentVariable("BAGO_USER_ROOT")' in installer
+    assert "if ([string]::IsNullOrWhiteSpace($explicitUserRoot)) {" in installer
     assert '"install_config.json", ".bago\\config.json"' in installer
     assert "UTF8Encoding" in installer
     assert "auto_allow_tools = $false" in installer

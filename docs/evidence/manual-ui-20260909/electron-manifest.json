@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-09-09T15:48:00Z",
+  "mode": "real-electron-dev-backend",
+  "captureCommand": "BAGO_E2E_CAPTURE_DIR=docs/evidence/manual-ui-20260909 node backend/tests/test_manager_electron_smoke.cjs",
+  "captures": [
+    "electron-01-inicio.png",
+    "electron-02-workspace.png",
+    "electron-03-contexto.png",
+    "electron-04-pipeline.png",
+    "electron-05-evidencia.png",
+    "electron-06-operaciones.png",
+    "electron-07-agentes.png",
+    "electron-08-interprete.png",
+    "electron-09-github.png",
+    "electron-10-capacidades.png",
+    "electron-11-herramientas.png"
+  ],
+  "smoke": {
+    "ok": true,
+    "destinations": 11,
+    "operationViews": 5,
+    "chatModelOptions": 25,
+    "httpErrors": [],
+    "consoleWarnings": "Electron clipboard deprecation warnings only"
+  }
+}

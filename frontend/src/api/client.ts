@@ -68,6 +68,72 @@ function shouldFallbackToLegacy(error: unknown): boolean {
   return error instanceof TypeError;
 }
 
+type AgentEnvelope =
+  | { ok?: boolean; agent: import('@/contracts/backend').AgentConfig }
+  | import('@/contracts/backend').AgentConfig;
+
+/**
+ * El backend responde `{ ok, agent }` en get/create/update/duplicate.
+ * Se acepta también el agente plano por compatibilidad.
+ */
+function unwrapAgent(res: AgentEnvelope): import('@/contracts/backend').AgentConfig {
+  if (res && typeof res === 'object' && 'agent' in res && res.agent) {
+    return res.agent;
+  }
+  return res as import('@/contracts/backend').AgentConfig;
+}
+
+function normalizeInterpretationResponse(
+  response: Record<string, unknown>
+): import('@/contracts/backend').InterpretationResult {
+  const nested = response.interpretation;
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    return nested as import('@/contracts/backend').InterpretationResult;
+  }
+
+  const analysis = response.analysis && typeof response.analysis === 'object' && !Array.isArray(response.analysis)
+    ? response.analysis as Record<string, unknown>
+    : {};
+  const question = String(response.question || analysis.literal_reading || '');
+  const operationalIntent = String(analysis.operational_intent || analysis.intent || 'general');
+  const restrictions = Array.isArray(analysis.restrictions)
+    ? analysis.restrictions.map((item) => typeof item === 'object' && item ? String((item as Record<string, unknown>).value || '') : String(item)).filter(Boolean)
+    : [];
+  const context = Array.isArray(analysis.context_factors)
+    ? analysis.context_factors.map((item) => typeof item === 'object' && item ? String((item as Record<string, unknown>).kind || '') : String(item)).filter(Boolean)
+    : [];
+
+  return {
+    interpretationId: String(analysis.question_id || response.question_id || `legacy-${Date.now()}`),
+    input: question,
+    stages: [
+      { id: 'legacy-input', order: 0, type: 'input', label: 'Entrada', summary: question },
+      { id: 'legacy-intent', order: 1, type: 'intent', label: 'Intención', summary: operationalIntent },
+      { id: 'legacy-context', order: 2, type: 'context', label: 'Contexto', summary: context.join(', ') || 'Sin contexto adicional' },
+      { id: 'legacy-constraints', order: 3, type: 'constraints', label: 'Restricciones', summary: restrictions.join('; ') || 'Sin restricciones explícitas' },
+      { id: 'legacy-output', order: 4, type: 'output', label: 'Salida', summary: String(response.report || analysis.final_answer || '') },
+    ],
+    interpretedIntent: String(analysis.intent || operationalIntent),
+    operationalSpec: {
+      source: question,
+      intent: String(analysis.intent || operationalIntent),
+      operation: operationalIntent,
+      product: String(analysis.objective || ''),
+      context,
+      constraints: restrictions,
+      acceptance: [],
+      lifecycle_state: 'PROPOSED',
+    },
+    finalOutput: String(response.report || analysis.final_answer || ''),
+    confidence: typeof analysis.confidence === 'number' ? analysis.confidence : undefined,
+    provider: typeof response.provider === 'string' ? response.provider : undefined,
+    model: typeof response.model === 'string' ? response.model : undefined,
+    startedAt: new Date().toISOString(),
+    finishedAt: new Date().toISOString(),
+    durationMs: 0,
+  };
+}
+
 export class BagoClient {
   constructor(
     private apiBase: string,
@@ -480,24 +546,28 @@ export class BagoClient {
     return this.request('/agents', { method: 'GET' });
   }
 
-  getAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
-    return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'GET' });
+  async getAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
+    const res = await this.request<AgentEnvelope>(`/agents/${encodeURIComponent(id)}`, { method: 'GET' });
+    return unwrapAgent(res);
   }
 
-  createAgent(payload: Omit<import('@/contracts/backend').AgentConfig, 'id' | 'revision' | 'createdAt' | 'updatedAt'>): Promise<import('@/contracts/backend').AgentConfig> {
-    return this.request('/agents', { method: 'POST', body: JSON.stringify(payload) });
+  async createAgent(payload: Omit<import('@/contracts/backend').AgentConfig, 'id' | 'revision' | 'createdAt' | 'updatedAt'>): Promise<import('@/contracts/backend').AgentConfig> {
+    const res = await this.request<AgentEnvelope>('/agents', { method: 'POST', body: JSON.stringify(payload) });
+    return unwrapAgent(res);
   }
 
-  updateAgent(id: string, payload: import('@/contracts/backend').AgentUpdateRequest): Promise<import('@/contracts/backend').AgentConfig> {
-    return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) });
+  async updateAgent(id: string, payload: import('@/contracts/backend').AgentUpdateRequest): Promise<import('@/contracts/backend').AgentConfig> {
+    const res = await this.request<AgentEnvelope>(`/agents/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(payload) });
+    return unwrapAgent(res);
   }
 
   deleteAgent(id: string): Promise<void> {
     return this.request(`/agents/${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
 
-  duplicateAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
-    return this.request(`/agents/${encodeURIComponent(id)}/duplicate`, { method: 'POST', body: JSON.stringify({}) });
+  async duplicateAgent(id: string): Promise<import('@/contracts/backend').AgentConfig> {
+    const res = await this.request<AgentEnvelope>(`/agents/${encodeURIComponent(id)}/duplicate`, { method: 'POST', body: JSON.stringify({}) });
+    return unwrapAgent(res);
   }
 
   testAgent(id: string): Promise<import('@/contracts/backend').AgentTestResult> {
@@ -505,8 +575,12 @@ export class BagoClient {
   }
 
   // --- Interpretations ---
-  createInterpretation(payload: import('@/contracts/backend').InterpretationRequest): Promise<import('@/contracts/backend').InterpretationResult> {
-    return this.request('/interpretations', { method: 'POST', body: JSON.stringify(payload) }, 60_000);
+  async createInterpretation(payload: import('@/contracts/backend').InterpretationRequest): Promise<import('@/contracts/backend').InterpretationResult> {
+    const response = await this.request<Record<string, unknown>>('/interpretations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }, 60_000);
+    return normalizeInterpretationResponse(response);
   }
 
   getInterpretation(id: string): Promise<import('@/contracts/backend').InterpretationResult> {
@@ -526,7 +600,7 @@ export class BagoClient {
     return this.request('/github/status', { method: 'GET' });
   }
 
-  startGitHubAuth(): Promise<{ auth_url: string }> {
+  startGitHubAuth(): Promise<import('@/contracts/backend').GitHubAuthStartResult> {
     return this.request('/github/auth/start', { method: 'POST', body: JSON.stringify({}) });
   }
 
@@ -577,10 +651,15 @@ export class BagoClient {
     }, 60_000);
   }
 
+  // El backend resuelve el modelo por body ({"model": name}); sin modelo descarga todos.
   unloadProviderBuffer(modelName?: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(modelName ? `/provider/buffer/unload/${encodeURIComponent(modelName)}` : '/provider/buffer/unload', {
+    return this.request<Record<string, unknown>>('/provider/buffer/unload', {
       method: 'POST',
-      body: JSON.stringify({ channel: 'ui-react', surface: 'ui-react' })
+      body: JSON.stringify({
+        ...(modelName ? { model: modelName } : {}),
+        channel: 'ui-react',
+        surface: 'ui-react'
+      })
     });
   }
 
@@ -891,7 +970,8 @@ export class BagoClient {
 
   async streamChat(
     message: string,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    onInterpretation?: (interpretation: Record<string, unknown>) => void,
   ): Promise<Record<string, unknown>> {
     const response = await fetch(this.url('/chat/stream'), {
       method: 'POST',
@@ -925,6 +1005,9 @@ export class BagoClient {
           if (typeof payload.chunk === 'string') {
             onChunk(payload.chunk);
             fullText += payload.chunk;
+          }
+          if (payload.interpretation && typeof payload.interpretation === 'object' && !Array.isArray(payload.interpretation)) {
+            onInterpretation?.(payload.interpretation as Record<string, unknown>);
           }
           finalPayload = { ...finalPayload, ...payload };
         } catch {

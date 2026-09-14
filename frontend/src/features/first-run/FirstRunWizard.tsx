@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import type { BackendProviders, UiBootstrapSnapshot } from '@/contracts/backend';
 import { Icon } from '@/shared/Icon';
 import { friendlyErrorMessage } from '@/shared/friendly-error';
-import { firstRunProviderOptions, firstRunReadiness } from './firstRun';
+import { firstRunInitialStep, firstRunProviderOptions, firstRunReadiness } from './firstRun';
+import { projectInspectionAction, useProjectInspection } from '@/features/workspace/useProjectInspection';
 import type { BagoClient } from '@/api/client';
 import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
 
@@ -13,7 +14,7 @@ interface Props {
   onRefresh: () => Promise<void> | void;
   onConfigureProvider: (provider: string, config: { enabled?: boolean; base_url?: string; api_key?: string; model?: string }) => Promise<void>;
   onTestProvider: (provider: string, config: { base_url?: string; api_key?: string; model?: string }) => Promise<{ ok: boolean; detail?: string }>;
-  onActivateWorkspace: (root: string) => Promise<boolean>;
+  onActivateWorkspace: (root: string, options?: { seedAfterLink?: boolean }) => Promise<boolean>;
   onCreateDemo: (root: string) => Promise<boolean>;
   client: BagoClient;
   onChooseWorkspace?: (defaultPath?: string) => Promise<string | null>;
@@ -24,7 +25,7 @@ interface Props {
 const STEPS = ['Comprobar', 'Proveedor', 'Proyecto', 'Listo'];
 
 export function FirstRunWizard(props: Props) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => firstRunInitialStep(props.snapshot));
   const [providerId, setProviderId] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -36,6 +37,8 @@ export function FirstRunWizard(props: Props) {
   const [tested, setTested] = useState<Record<string, { ok: boolean; detail: string }>>({});
   const options = useMemo(() => firstRunProviderOptions(props.providers), [props.providers]);
   const readiness = firstRunReadiness(props.snapshot);
+  const inspection = useProjectInspection(projectRoot, props.client);
+  const inspectionAction = projectInspectionAction(inspection);
 
   const chooseProvider = (id: string) => {
     setProviderId(id);
@@ -55,6 +58,7 @@ export function FirstRunWizard(props: Props) {
         model: model.trim() || undefined
       });
       setMessage(`${options.find((item) => item.id === providerId)?.label || providerId} configurado`);
+      setStep(2);
     } catch (error) {
       setMessage(friendlyErrorMessage(error, 'No se pudo configurar el proveedor'));
     } finally {
@@ -78,17 +82,17 @@ export function FirstRunWizard(props: Props) {
     } finally { setWorking(false); }
   };
 
-  const prepareProject = async (demo: boolean) => {
-    if (!projectRoot.trim()) {
+  const activateWorkspace = async (selectedRoot = projectRoot, seedAfterLink = false) => {
+    if (!selectedRoot.trim()) {
       setMessage('Indica una ruta absoluta para el proyecto.');
       return;
     }
     setWorking(true);
     setMessage('');
     try {
-      const ok = demo ? await props.onCreateDemo(projectRoot.trim()) : await props.onActivateWorkspace(projectRoot.trim());
+      const ok = await props.onActivateWorkspace(selectedRoot.trim(), { seedAfterLink });
       if (ok) {
-        setMessage(demo ? 'Proyecto demo creado y activado' : 'Proyecto activado');
+        setMessage('Proyecto activado');
         setStep(3);
       } else setMessage('BAGO no pudo activar el proyecto. Revisa la ruta.');
     } catch (error) {
@@ -96,6 +100,11 @@ export function FirstRunWizard(props: Props) {
     } finally {
       setWorking(false);
     }
+  };
+
+  const continueWithInspectedWorkspace = async () => {
+    if (inspectionAction.kind === 'unavailable') return;
+    await activateWorkspace(projectRoot, inspectionAction.seed);
   };
 
   return (<>
@@ -128,13 +137,17 @@ export function FirstRunWizard(props: Props) {
               })}
             </div>
             <label className="first-run-field"><span>Proveedor</span><select value={providerId} onChange={(event) => chooseProvider(event.target.value)}><option value="">Selecciona un proveedor</option>{options.map((item) => <option key={item.id} value={item.id}>{item.label}{item.configured ? ' · configurado' : ''}</option>)}</select></label>
-            {providerId && <><label className="first-run-field"><span>URL base (si aplica)</span><input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} /></label><label className="first-run-field"><span>API key (si aplica)</span><input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} autoComplete="off" /></label><label className="first-run-field"><span>Modelo preferido (opcional)</span><input value={model} onChange={(event) => setModel(event.target.value)} placeholder="Se detectará si lo dejas vacío" /></label><div className="first-run-actions"><button type="button" className="secondary-button" onClick={() => void testProvider()} disabled={working}>Probar proveedor ahora</button><button type="button" className="primary-button" onClick={() => void saveProvider()} disabled={working}>Guardar proveedor</button></div></>}
+            {providerId && <><label className="first-run-field" htmlFor="first-run-provider-base-url"><span>URL base (si aplica)</span><input id="first-run-provider-base-url" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.ejemplo.com" /></label><label className="first-run-field" htmlFor="first-run-provider-api-key"><span>API key (si aplica)</span><input id="first-run-provider-api-key" type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} autoComplete="off" /></label><label className="first-run-field" htmlFor="first-run-provider-model"><span>Modelo preferido (opcional)</span><input id="first-run-provider-model" value={model} onChange={(event) => setModel(event.target.value)} placeholder="Se detectará si lo dejas vacío" /></label><div className="first-run-actions"><button type="button" className="secondary-button" onClick={() => void testProvider()} disabled={working}>Probar proveedor ahora</button><button type="button" className="primary-button" onClick={() => void saveProvider()} disabled={working}>Guardar proveedor</button></div></>}
           </div>}
           {step === 2 && <div className="first-run-panel">
-            <h3>Activa tu primer proyecto</h3><p>Usa una carpeta existente o crea una demo ejecutable desde cero.</p>
+            <h3>Activa tu primer proyecto</h3><p>Elige una carpeta y BAGO comprobará su estado antes de mostrar la acción necesaria.</p>
             <label className="first-run-field"><span>Ruta absoluta</span><input value={projectRoot} onChange={(event) => setProjectRoot(event.target.value)} placeholder="C:\\Users\\tu_usuario\\Documents\\BAGO-Demo" /></label>
+            {projectRoot.trim() && <p className={`first-run-inspection ${inspection.kind === 'error' ? 'is-error' : inspectionAction.kind === 'open' ? 'is-ok' : ''}`} role="status">{inspectionAction.detail}</p>}
             <button type="button" className="secondary-button" onClick={() => setWorkspacePickerOpen(true)}><Icon name="folder" size={14} /> Examinar carpetas</button>
-            <div className="first-run-actions"><button type="button" className="secondary-button" onClick={() => void prepareProject(false)} disabled={working}>Usar proyecto existente</button><button type="button" className="primary-button" onClick={() => void prepareProject(true)} disabled={working}>Crear proyecto demo</button></div><small>La demo solo se crea si la carpeta no existe o está vacía.</small>
+            <div className="first-run-actions">
+              <button type="button" className="primary-button" onClick={() => void continueWithInspectedWorkspace()} disabled={working || !projectRoot.trim() || inspectionAction.kind === 'unavailable'}>{inspectionAction.label}</button>
+            </div>
+            {inspectionAction.kind === 'prepare' && <small>Preparar puede crear los archivos de BAGO que falten en esta carpeta.</small>}
           </div>}
           {step === 3 && <div className="first-run-panel first-run-ready"><span className="first-run-ready-icon"><Icon name="check" size={28} /></span><h3>BAGO está listo</h3><p>Ya puedes conversar, reunir contexto y convertir decisiones en tareas del Pipeline.</p><button type="button" className="primary-button" onClick={props.onFinish}>Entrar en BAGO</button></div>}
           {message && <p className="first-run-message" role="status">{message}</p>}
@@ -142,7 +155,7 @@ export function FirstRunWizard(props: Props) {
         {step < 3 && <footer className="first-run-foot"><button type="button" className="text-button" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>Atrás</button><button type="button" className="primary-button" onClick={() => setStep(Math.min(3, step + 1))}>Continuar</button></footer>}
       </section>
     </div>
-    {workspacePickerOpen && <WorkspacePickerDialog value={projectRoot} onChange={setProjectRoot} onClose={() => setWorkspacePickerOpen(false)} onChooseExplorer={props.onChooseWorkspace} onConfirm={() => setWorkspacePickerOpen(false)} client={props.client} mode="select" title="Selecciona el primer proyecto" />}
+    {workspacePickerOpen && <WorkspacePickerDialog value={projectRoot} onChange={setProjectRoot} onClose={() => setWorkspacePickerOpen(false)} onChooseExplorer={props.onChooseWorkspace} onConfirm={(seedAfterLink) => { setWorkspacePickerOpen(false); void activateWorkspace(projectRoot, seedAfterLink); }} client={props.client} title="Selecciona y activa tu primer proyecto" />}
   </>);
 }
 

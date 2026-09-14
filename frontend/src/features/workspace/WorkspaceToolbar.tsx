@@ -17,14 +17,11 @@ const FILTER_LABELS: Record<WorkspaceFilter, string> = {
   web: 'Web',
   text: 'Texto',
   directory: 'Carpetas',
-  modified: 'Modificados',
-  'with-errors': 'Con errores',
-  'in-context': 'En contexto',
-  'with-evidence': 'Con evidencia'
+  'with-errors': 'Con errores'
 };
 
 const FILTER_ORDER: WorkspaceFilter[] = [
-  'all', 'code', 'python', 'typescript', 'javascript', 'json', 'markdown', 'shell', 'web', 'text', 'directory', 'modified', 'with-errors', 'in-context', 'with-evidence'
+  'all', 'code', 'python', 'typescript', 'javascript', 'json', 'markdown', 'shell', 'web', 'text', 'directory', 'with-errors'
 ];
 
 interface ToolbarProps {

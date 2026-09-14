@@ -239,11 +239,23 @@ export interface InterpretationEvidence {
   value?: unknown;
 }
 
+export interface OperationalIntentSpec {
+  source: string;
+  intent: string;
+  operation: string;
+  product?: string;
+  context: string[];
+  constraints: string[];
+  acceptance: string[];
+  lifecycle_state: string;
+}
+
 export interface InterpretationResult {
   interpretationId: string;
   input: string;
   stages: InterpretationStage[];
   interpretedIntent: string;
+  operationalSpec?: OperationalIntentSpec;
   finalOutput?: string;
   confidence?: number;
   agentId?: string;
@@ -258,8 +270,14 @@ export interface InterpretationResult {
 
 export interface InterpretationRequest {
   input: string;
+  /** Compatibility field for the legacy /interpret route still used by live runtimes. */
+  question?: string;
   agentId?: string;
-  context?: Record<string, unknown>;
+  operation?: string;
+  product?: string;
+  context?: string[] | Record<string, unknown>;
+  constraints?: string[];
+  acceptance?: string[];
   options?: Record<string, unknown>;
 }
 
@@ -277,6 +295,16 @@ export interface GitHubAuthState {
   credentialStorage?: GitHubCredentialStorage;
   error?: string;
   checkedAt: string;
+}
+
+export interface GitHubAuthStartResult {
+  authenticated?: boolean;
+  installed?: boolean;
+  pending?: boolean;
+  hostname?: string;
+  message?: string;
+  error?: string | null;
+  auth_url?: string;
 }
 
 export type GitHubStatusState =
@@ -582,6 +610,8 @@ export interface ChatTurn {
   provider?: string;
   model?: string;
   clarification?: Record<string, unknown>;
+  /** Interpretación reflexiva generada por el backend antes de responder. */
+  interpretation?: Record<string, unknown>;
   raw?: unknown;
   timestamp: string;
 }
@@ -628,4 +658,4 @@ export interface UiBootData {
   router_policy?: BackendRouterPolicy;
 }
 
-export type PanelId = 'capabilities' | 'pipeline' | 'tools' | 'agents' | 'interpreter' | 'github-auth';
+export type PanelId = 'capabilities' | 'tools' | 'agents' | 'interpreter' | 'github-auth';

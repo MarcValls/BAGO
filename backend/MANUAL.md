@@ -1,4 +1,9 @@
-# BAGO 4.9.0 — Manual de Usuario
+# HISTORICAL — BAGO 4.9.0 User Manual
+
+> **Historical record.** This manual documents the 4.9.0 release surface and
+> its artifact names. It is not the operating guide for the 4.10.0 candidate.
+> Use the repository [README](../README.md) and
+> [documentation index](../DOCUMENTATION.md) for current instructions.
 
 > **Session-First AI Chat**
 > El contexto de sesión sobrevive al cambio de provider.
@@ -47,6 +52,16 @@ Blindajes de repositorio fuente:
 - Los checks de PR viven bajo `.github/workflows/` en el repo fuente.
 - Los hooks locales viven bajo `.githooks/` en el repo fuente.
 - La activación de hooks y protección de ramas no forma parte del snapshot runtime.
+
+Modo de mantenedor único (solo propietario):
+
+1. Conservar PR obligatoria, administradores forzados y el check `validate`.
+2. Aplicar la excepción explícita con `pwsh scripts/apply_branch_protection.ps1 -SingleMaintainer`.
+3. Usar exclusivamente recibos `bago.single-maintainer.github.v1` generados por
+   `scripts/generate_github_single_maintainer_receipt.py`; requieren la política
+   versionada, propietario autenticado y permiso `admin`.
+   Usar `--status VALIDATED` sólo después del merge y para un paquete ligado al SHA
+   real de su commit de merge.
 
 Break-glass (emergencia):
 

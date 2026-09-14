@@ -94,10 +94,7 @@ export type WorkspaceFilter =
   | 'web'
   | 'text'
   | 'directory'
-  | 'modified'
-  | 'with-errors'
-  | 'in-context'
-  | 'with-evidence';
+  | 'with-errors';
 
 export type BottomPanel = 'problems' | 'changes' | 'patterns' | 'output' | null;
 

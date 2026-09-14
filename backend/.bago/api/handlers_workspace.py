@@ -16,8 +16,8 @@ def _mgr(handler):
     return get_mgr(handler)
 
 
-def _workspace_payload(mgr: Any) -> dict[str, Any]:
-    status = mgr.status()
+def _workspace_payload(mgr: Any, status: dict[str, Any] | None = None) -> dict[str, Any]:
+    status = status if status is not None else mgr.status()
     workspace_state = status.get("workspace_state") or getattr(mgr, "workspace_state", lambda: {})()
     welcome_state = status.get("welcome_state") or getattr(mgr, "welcome_state", lambda: {})()
     menu_state = status.get("menu_state") or getattr(mgr, "menu_state", lambda: {})()
@@ -91,6 +91,11 @@ def _workspace_payload(mgr: Any) -> dict[str, Any]:
         "session_id": getattr(mgr, "session_id", "?"),
         "provider": getattr(mgr, "provider", "?"),
         "model": getattr(mgr, "model", "?"),
+        # The interactive client scopes conversations to the user project,
+        # never to its internal .gabo state directory.
+        "root": project_root,
+        "state_root": workspace_root,
+        "scope_root": workspace_scope_root,
         "status": status,
         "workspace_state": workspace_state,
         "welcome_state": welcome_state,

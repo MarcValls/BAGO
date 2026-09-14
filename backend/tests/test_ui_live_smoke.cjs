@@ -152,12 +152,13 @@ async function main() {
     assert.ok(animNone, `context-map-node animation under reduced-motion: name=${reducedMotion.animationName} duration=${reducedMotion.animationDuration}`);
     await page.emulateMedia({ reducedMotion: 'no-preference' });
 
-    const chatNav = page.locator('.sidebar-item[title^="Chat ·"]');
+    const chatNav = page.getByRole('button', { name: /^Chat\b/ });
     assert.equal(await chatNav.count(), 0, 'Chat must remain inside Inicio, not as a duplicate destination');
-    const homeNav = page.locator('.sidebar-item[title^="Inicio ·"]');
+    const homeNav = page.getByRole('button', { name: /^Inicio/ });
     assert.equal(await homeNav.count(), 1);
     await homeNav.click();
-    await page.locator('.chat-model-selector').waitFor({ state: 'visible' });
+    // En el escenario offline el chat permanece bloqueado; no se espera un
+    // selector de modelo visible hasta que el backend confirme la sesión.
     assert.equal(await homeNav.getAttribute('aria-current'), 'page');
     const renderedText = await page.locator('body').innerText();
     assert.ok(!renderedText.includes("Unexpected token '<'"), 'raw JSON parser error leaked into the UI');
@@ -546,7 +547,7 @@ async function main() {
         await chatPage.locator('.app-root').waitFor({ state: 'visible', timeout: 30000 });
 
         // Navegar a Inicio
-        const homeItem = chatPage.locator('.sidebar-item[title^="Inicio ·"]');
+        const homeItem = chatPage.getByRole('button', { name: /^Inicio/ }).first();
         await homeItem.waitFor({ state: 'visible', timeout: 15000 });
         await homeItem.click();
 
@@ -628,7 +629,7 @@ async function main() {
         await provPage.locator('.app-root').waitFor({ state: 'visible', timeout: 30000 });
 
         // El centro de proveedores vive bajo el destino canónico Operaciones.
-        const providerNav = provPage.locator('.sidebar-item[title^="Operaciones ·"]').first();
+        const providerNav = provPage.getByRole('button', { name: /^Operaciones/ }).first();
         const providerNavCount = await providerNav.count();
 
         let providerGridFound = false;
@@ -768,7 +769,7 @@ async function main() {
         await sessPage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
         await sessPage.locator('.app-root').waitFor({ state: 'visible', timeout: 30000 });
 
-        const homeItem = sessPage.locator('.sidebar-item[title^="Inicio ·"]');
+        const homeItem = sessPage.getByRole('button', { name: /^Inicio/ }).first();
         await homeItem.waitFor({ state: 'visible', timeout: 15000 });
         await homeItem.click();
         await sessPage.waitForTimeout(1500);
@@ -796,7 +797,9 @@ async function main() {
         });
 
         // The bootstrap mock had 2 sessions — verify the app loaded without error
-        // and the progressive session-scoped model picker exists
+        // and the current session-scoped model picker is visible in Inicio.
+        const sessionModelPicker = sessPage.getByRole('button', { name: 'Modelo de esta sesión', exact: true });
+        await sessionModelPicker.waitFor({ state: 'visible', timeout: 15000 });
         assert.ok(sessionInfo.hasSessionModel, 'Session picker: .chat-model-selector no encontrado');
         assert.deepEqual(sessErrors, [], `session picker console errors: ${sessErrors.join(' | ')}`);
         return { sessionInfo };

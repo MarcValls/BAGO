@@ -26,8 +26,18 @@
   position: sticky;
   z-index: var(--z-raised);
   top: 0;
+  gap: 4px;
+  padding-inline: 8px;
+  flex-wrap: wrap;
+  overflow-x: visible;
   background: color-mix(in srgb, var(--surface) 93%, transparent);
   backdrop-filter: blur(12px);
+}
+.operation-subnav button {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+  padding-inline: 8px;
 }
 .operation-workspace {
   flex: 1 1 auto;

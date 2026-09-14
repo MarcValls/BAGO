@@ -102,12 +102,22 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
   const session = raw.session || {};
   const menuStateRaw = readMenuStateValue(raw);
   const workspaceMeta = raw.workspace || {};
+  const workspaceBinding = readRecord(workspaceMeta.binding);
+  const workspaceStatus = readRecord(workspaceMeta.status);
   const binding = session.binding || {};
   const statusWorkspaceState = readRecord(status.workspace_state);
   const sessionWorkspaceState = readRecord(session.workspace_state);
-  const projectRoot = String(status.project_root || status.repo_root || binding.project_root || '');
-  const workspaceRoot = String(status.workspace_state_root || session.binding?.workspace_state_root || '');
-  const scopeRoot = String(status.workspace_scope_root || binding.workspace_scope_root || projectRoot || '');
+  const projectRoot = String(
+    status.project_root || status.repo_root || workspaceMeta.root || workspaceBinding.project_root
+    || workspaceStatus.project_root || binding.project_root || ''
+  );
+  // `root` is the user project scope. `.gabo` remains an internal state root
+  // and must never become the conversation workspace.
+  const scopeRoot = String(
+    status.workspace_scope_root || workspaceMeta.scope_root || workspaceBinding.workspace_scope_root
+    || workspaceStatus.workspace_scope_root || binding.workspace_scope_root || projectRoot || ''
+  );
+  const workspaceRoot = scopeRoot;
   const mirrorRoot = String(status.workspace_mirror_root || binding.workspace_mirror_root || '');
   const contextRoot = String(status.workspace_context_root || binding.workspace_context_root || '');
   const authorizedRoot = String(status.authorized_root || binding.authorized_root || scopeRoot || '');
@@ -139,6 +149,12 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
   const health = status.health || {};
   const healthDetail = readText(health.detail);
   const healthLatencyMs = toNumber(health.latency_ms);
+  // A bootstrap payload proves that the HTTP request completed, not that the
+  // backend is usable. Preserve an explicit availability/health failure so
+  // first-run automation cannot treat a failed runtime as ready.
+  const backendAvailable = health.ok === false
+    ? false
+    : (toBoolean(status.backend_available) ?? toBoolean(status.backendAvailable) ?? true);
   const objective = String(status.objective || binding.objective || '');
   const activeAgent = String(status.active_agent || session.active_agent || '');
   const lastEnvelope = readRecord(raw.last_envelope);
@@ -164,9 +180,7 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
     version: readMenuStateText(menuStateRaw.version || status.contract_version || status.schema_version || raw.version)
   };
   const rawPermissions = readRecord(raw.permissions);
-  const systemState: UiBootstrapSnapshot['system']['state'] = health.ok === false
-    ? 'error' : bindingConfirmed ? 'confirmed' : bindingReason || ['invalid', 'legacy', 'missing'].includes(manifestState)
-      ? 'blocked' : !raw.status ? 'loading' : 'unknown';
+  const systemState: UiBootstrapSnapshot['system']['state'] = health.ok === false || !backendAvailable ? 'error' : !raw.status ? 'loading' : 'confirmed';
   const contextRevision = status.context_revision ?? session.status?.context_revision;
   const contextState: UiBootstrapSnapshot['context']['state'] = certificationStatus === 'CERTIFIED'
     ? 'confirmed' : contextRevision && lastReceiptId ? 'partial' : contextRevision ? 'stale'
@@ -203,7 +217,7 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
 
   const snapshot: UiBootstrapSnapshot = {
     system: {
-      state: systemState, backendAvailable: true,
+      state: systemState, backendAvailable,
       version: String(status.framework_version || status.version || ''),
       apiVersion: String(status.api_version || ''), contractVersion: String(status.contract_version || ''),
       schemaVersion: String(status.schema_version || ''), healthDetail: healthDetail || undefined,

@@ -33,7 +33,7 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
     id: 'main',
     label: 'Principal',
     items: [
-      { id: 'home', label: 'Inicio', icon: 'home', helper: 'Conversación y punto de entrada', shortcut: 'Ctrl+1' },
+      { id: 'home', label: 'Inicio · Conversación', icon: 'home', helper: 'Conversación principal y punto de entrada', shortcut: 'Ctrl+1' },
       { id: 'workspace', label: 'Workspace', icon: 'workspace', helper: 'Archivos, fuentes y directorio de trabajo', shortcut: 'Ctrl+2' }
     ]
   },
@@ -73,6 +73,19 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
 ];
 
 export const NAVIGATION_ORDER: (ActiveSection | PanelId)[] = NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.id));
+
+const PANEL_DESTINATIONS = new Set<ActiveSection | PanelId>(
+  NAVIGATION_GROUPS.flatMap((group) => group.items).filter((item) => item.isPanel).map((item) => item.id)
+);
+
+/**
+ * Autoridad única sobre si un destino de navegación es un panel o una sección.
+ * El sidebar, la paleta y los atajos deben preguntar aquí en lugar de mantener
+ * listas propias que puedan divergir del registro.
+ */
+export function isPanelDestination(id: ActiveSection | PanelId): id is PanelId {
+  return PANEL_DESTINATIONS.has(id);
+}
 
 export function resolveNavigationShortcut(key: string): ActiveSection | PanelId | null {
   const shortcut = `Ctrl+${key}`.toLowerCase();

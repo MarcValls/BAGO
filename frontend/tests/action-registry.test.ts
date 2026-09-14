@@ -27,6 +27,7 @@ describe('canonical shell action registry', () => {
       'Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+4', 'Ctrl+5', 'Ctrl+6', 'Ctrl+7', 'Ctrl+8', 'Ctrl+9', 'Ctrl+-', 'Ctrl+='
     ]);
     expect(NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.label))).toContain('Operaciones');
+    expect(NAVIGATION_GROUPS.flatMap((group) => group.items.map((item) => item.label))).toContain('Inicio · Conversación');
   });
 
   it('exposes object and verb labels plus the reusable workspace action', () => {

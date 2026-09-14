@@ -41,6 +41,20 @@
   background: var(--bg-soft);
 }
 
+.tools-catalog-empty {
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  min-height: 220px;
+  padding: 20px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.tools-catalog-empty svg { margin: 0 auto; color: var(--accent); }
+.tools-catalog-empty strong { color: var(--text-2); font-size: 11px; }
+.tools-catalog-empty span { font-size: 10px; line-height: 1.5; }
+
 .tools-search {
   display: flex;
   align-items: center;

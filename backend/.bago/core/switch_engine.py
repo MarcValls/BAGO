@@ -33,8 +33,8 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from model_equivalence import EquivalenceMap, TransferVerdict, TransferStrategy
-from provider_adapter import ProviderAdapter, ModelInfo, HealthStatus, ProviderResponse
+from bago_core.providers.routing import EquivalenceMap, TransferVerdict, TransferStrategy
+from bago_core.providers import ProviderAdapter, ModelInfo, HealthStatus, ProviderResponse
 
 
 class SwitchError(Exception):
@@ -105,7 +105,8 @@ class SwitchEngine:
             if t == current_tier:
                 score = 100
             elif t is not None and current_tier is not None:
-                score = 100 - abs(t - current_tier) * 30
+                distance = self.equiv.tier_distance(t, current_tier)
+                score = 0 if distance is None else 100 - distance * 30
             scored.append((score, m.model_id))
 
         scored.sort(key=lambda x: (-x[0], x[1]))

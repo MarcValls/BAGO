@@ -25,12 +25,16 @@ DYNAMIC_PREFIXES = (
 )
 
 
-def _load_dispatch_meta(api_dir: Path) -> tuple[list[tuple[str, str, str, str]], tuple[str, ...]]:
+def _load_dispatch_meta(api_dir: Path) -> tuple[list[tuple[str, str, str, str]], list[tuple[str, str, str, str]], tuple[str, ...]]:
     sys.path.insert(0, str(api_dir))
     try:
       mod = importlib.import_module("api_dispatch")
       importlib.reload(mod)
-      return list(getattr(mod, "ROUTE_META", [])), tuple(getattr(mod, "API_PREFIXES", ()))
+      return (
+          list(getattr(mod, "ROUTE_META", [])),
+          list(getattr(mod, "DYNAMIC_ROUTE_META", [])),
+          tuple(getattr(mod, "API_PREFIXES", ())),
+      )
     finally:
       for key in list(sys.modules.keys()):
           if key == "api_dispatch" or key.startswith("handlers_"):
@@ -57,18 +61,9 @@ def _extract_frontend_endpoints(client_file: Path) -> set[str]:
 
 
 def build_contract() -> dict:
-    route_meta, api_prefixes = _load_dispatch_meta(API_DIR)
+    route_meta, dynamic_route_meta, api_prefixes = _load_dispatch_meta(API_DIR)
     routes = [_route_entry(*entry) for entry in route_meta]
-    dynamic_routes = [
-        _route_entry("GET", "/models/<provider>", "handlers_models", "handle"),
-        _route_entry("GET", "/files/read/<path:filepath>", "handlers_files", "handle_read"),
-        _route_entry("GET", "/evidence/receipts/<receipt_id>", "handlers_evidence", "handle_receipt"),
-        _route_entry("GET", "/evidence/claims/<claim_id>", "handlers_evidence", "handle_claim"),
-        _route_entry("GET", "/jobs/<execution_id>", "handlers_jobs", "handle_get"),
-        _route_entry("POST", "/jobs/<execution_id>/cancel", "handlers_jobs", "handle_cancel"),
-        _route_entry("POST", "/jobs/<execution_id>/retry", "handlers_jobs", "handle_retry"),
-        _route_entry("POST", "/router/toggle/<key>", "handlers_router", "handle_toggle"),
-    ]
+    dynamic_routes = [_route_entry(*entry) for entry in dynamic_route_meta]
     return {
         "source": "backend/.bago/api/api_dispatch.py",
         "routes": routes,
@@ -90,7 +85,7 @@ def validate(contract: dict) -> int:
 
     if GABO_API_DIR.exists():
         try:
-            gabo_meta, _ = _load_dispatch_meta(GABO_API_DIR)
+            gabo_meta, _, _ = _load_dispatch_meta(GABO_API_DIR)
         except Exception as exc:
             errors.append(f"could not load .gabo api_dispatch: {exc}")
             gabo_meta = []

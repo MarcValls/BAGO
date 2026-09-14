@@ -37,4 +37,15 @@ describe('context action flow', () => {
     expect(sections).toContain("[title.trim(), summary.trim()].filter(Boolean).join('\\n\\n')");
     expect(contextModule).toContain('await props.onCreatePlan(\n      compactTaskTitle(proposal.title),');
   });
+
+  it('offers a visible Pipeline action in the selected task detail without executing it', () => {
+    expect(contextModule).toContain('Preparar pipeline');
+    expect(contextModule).toContain('onClick={() => void startBranchTask(selectedBranch)}');
+    expect(contextModule).toContain('Abrir el Pipeline con el título de esta tarea');
+  });
+
+  it('preloads the Pipeline from Chat instead of creating a plan from the draft', () => {
+    expect(sections).toContain("props.onDraftChange('pipeline', objective);");
+    expect(sections).toContain("props.onSetSection('pipeline');");
+  });
 });

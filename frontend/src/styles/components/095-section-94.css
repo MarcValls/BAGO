@@ -70,6 +70,17 @@
 }
 .github-error-detail { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--red); }
 .github-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.github-auth-progress {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.github-auth-progress .btn-link { flex: 0 0 auto; }
 .github-security-note {
   display: flex;
   align-items: flex-start;

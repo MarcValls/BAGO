@@ -1,0 +1,135 @@
+{
+  "generatedAt": "2026-09-09T15:15:10.447Z",
+  "mode": "rendered-ui-with-contractual-mock",
+  "captures": [
+    {
+      "file": "01-inicio-chat.png",
+      "note": "Inicio: conversación, historial y compositor."
+    },
+    {
+      "file": "01-inicio-historial-abierto.png",
+      "note": "Inicio: historial de conversaciones expandido."
+    },
+    {
+      "file": "01-inicio-selector-modelo.png",
+      "note": "Inicio: selector de modelo de la sesión."
+    },
+    {
+      "file": "02-workspace-explorador.png",
+      "note": "Workspace: árbol de archivos, fuentes y lector."
+    },
+    {
+      "file": "02-workspace-archivo-seleccionado.png",
+      "note": "Workspace: archivo seleccionado y abierto en el editor."
+    },
+    {
+      "file": "02-workspace-menu-archivo.png",
+      "note": "Workspace: menú contextual de un archivo."
+    },
+    {
+      "file": "03-contexto-trabajo.png",
+      "note": "Contexto: árbol y presupuesto."
+    },
+    {
+      "file": "04-contexto-api.png",
+      "note": "Contexto: rutas API avanzadas."
+    },
+    {
+      "file": "05-pipeline-crear.png",
+      "note": "Pipeline: crear tarea guiada."
+    },
+    {
+      "file": "05-pipeline-crear-objetivo.png",
+      "note": "Pipeline: objetivo escrito antes de avanzar."
+    },
+    {
+      "file": "05-pipeline-revision-objetivo.png",
+      "note": "Pipeline: revisión del objetivo antes de generar."
+    },
+    {
+      "file": "pipeline-ejecuci-n.png",
+      "note": "Pipeline: Ejecución."
+    },
+    {
+      "file": "pipeline-flujo.png",
+      "note": "Pipeline: Flujo."
+    },
+    {
+      "file": "pipeline-planes-y-programaci-n.png",
+      "note": "Pipeline: Planes y programación."
+    },
+    {
+      "file": "pipeline-capacidades.png",
+      "note": "Pipeline: Capacidades."
+    },
+    {
+      "file": "pipeline-simulaci-n.png",
+      "note": "Pipeline: Simulación."
+    },
+    {
+      "file": "pipeline-entrenamiento-rl.png",
+      "note": "Pipeline: Entrenamiento RL."
+    },
+    {
+      "file": "12-evidencia-recibos.png",
+      "note": "Evidencia: recibos y trazas."
+    },
+    {
+      "file": "13-evidencia-auditoria.png",
+      "note": "Evidencia: auditoría y claims."
+    },
+    {
+      "file": "14-operaciones-proveedores.png",
+      "note": "Operaciones: proveedores."
+    },
+    {
+      "file": "operaciones-runtime.png",
+      "note": "Operaciones: Runtime."
+    },
+    {
+      "file": "operaciones-memoria.png",
+      "note": "Operaciones: Memoria."
+    },
+    {
+      "file": "operaciones-visión.png",
+      "note": "Operaciones: Visión."
+    },
+    {
+      "file": "operaciones-configuración.png",
+      "note": "Operaciones: Configuración."
+    },
+    {
+      "file": "panel-agentes.png",
+      "note": "Panel lateral: Agentes."
+    },
+    {
+      "file": "panel-intérprete.png",
+      "note": "Panel lateral: Intérprete."
+    },
+    {
+      "file": "panel-interprete-resultado.png",
+      "note": "Panel técnico: resultado de interpretación bajo demanda."
+    },
+    {
+      "file": "panel-github.png",
+      "note": "Panel lateral: GitHub."
+    },
+    {
+      "file": "panel-capacidades.png",
+      "note": "Panel lateral: Capacidades."
+    },
+    {
+      "file": "panel-herramientas.png",
+      "note": "Panel lateral: Herramientas."
+    },
+    {
+      "file": "24-paleta-comandos.png",
+      "note": "Paleta de comandos."
+    },
+    {
+      "file": "25-ayuda-atajos.png",
+      "note": "Ayuda y atajos."
+    }
+  ],
+  "errors": []
+}

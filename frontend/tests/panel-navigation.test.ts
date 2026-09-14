@@ -20,7 +20,11 @@ describe('panel navigation', () => {
   });
 
   it('PANEL_WIDTHS has entries for all panel ids', () => {
-    const panelIds = ['agents', 'interpreter', 'github-auth', 'capabilities', 'pipeline', 'tools'] as const;
+    const panelIds = NAVIGATION_GROUPS
+      .flatMap((group) => group.items)
+      .filter((item) => item.isPanel)
+      .map((item) => item.id as keyof typeof PANEL_WIDTHS);
+    expect(panelIds.length).toBeGreaterThan(0);
     for (const id of panelIds) {
       expect(typeof PANEL_WIDTHS[id]).toBe('number');
       expect(PANEL_WIDTHS[id]).toBeGreaterThan(0);

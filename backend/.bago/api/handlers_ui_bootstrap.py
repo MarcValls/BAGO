@@ -19,8 +19,8 @@ def _mgr(handler):
     return get_mgr(handler)
 
 
-def _session_payload(mgr: Any) -> dict[str, Any]:
-    status = mgr.status()
+def _session_payload(mgr: Any, status: dict[str, Any] | None = None) -> dict[str, Any]:
+    status = status if status is not None else mgr.status()
     workspace_state = status.get("workspace_state") or getattr(mgr, "workspace_state", lambda: {})()
     welcome_state = status.get("welcome_state") or getattr(mgr, "welcome_state", lambda: {})()
     menu_state = status.get("menu_state") or getattr(mgr, "menu_state", lambda: {})()
@@ -114,16 +114,17 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
         send_json(handler, 503, {"error": "SessionManager no disponible"})
         return
 
-    session_payload = _session_payload(mgr)
+    status = mgr.status()
+    session_payload = _session_payload(mgr, status)
     status = session_payload.get("status", {})
     evidence_items = _evidence_items(mgr)
     latest_evidence = evidence_items[0] if evidence_items else {}
     jobs = _job_list(mgr)
     schedule = _scheduled_jobs(mgr)
-    workspace = _workspace_payload(mgr)
+    workspace = _workspace_payload(mgr, status)
     jobs_summary = _job_summary(mgr)
     router_policy = _policy_payload(handler)
-    audit = {"project": _project_audit(), "bago": _bago_audit(mgr)}
+    audit = {"project": _project_audit(), "bago": _bago_audit(mgr, status)}
     history_messages = list(getattr(getattr(mgr, "store", None), "get_history", lambda: [])() or [])
     providers_payload = build_providers_payload(mgr)
     conversations = mgr.store.list_conversations() if hasattr(mgr.store, "list_conversations") else [{

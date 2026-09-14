@@ -26,7 +26,7 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
-from provider_adapter import ProviderAdapter, ModelInfo, HealthStatus, ProviderResponse, TokenUsage
+from bago_core.providers import ProviderAdapter, ModelInfo, HealthStatus, ProviderResponse, TokenUsage
 
 
 ANTHROPIC_API = "https://api.anthropic.com/v1"

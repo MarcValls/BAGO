@@ -1,0 +1,33 @@
+{
+  "$schema": "./CHANGE_UNIT.schema.json",
+  "id": "example.verify.workspace-context",
+  "operation": "verify",
+  "target_module": "frontend.workspace-context",
+  "allowed_files": [
+    "frontend/src/features/workspace/WorkspacePickerDialog.tsx",
+    "frontend/src/features/workspace/useProjectInspection.ts",
+    "frontend/tests/workspace-context-ux.test.ts"
+  ],
+  "allowed_dependencies": [
+    "frontend/src/api/client.ts",
+    "frontend/src/shared/providerStates.ts"
+  ],
+  "forbidden_dependencies": [
+    "backend/.bago/**/internal/**",
+    "unapproved persistent state ownership"
+  ],
+  "public_contract_changes": false,
+  "required_tests": [
+    "npm run typecheck",
+    "npm run test:frontend"
+  ],
+  "required_evidence": [
+    "exact final repository fingerprint",
+    "workspace-context regression results",
+    "independent final verification"
+  ],
+  "closure": "PREPARED",
+  "behavior_change_authorized": false,
+  "boundary_escalation": false,
+  "notes": "Illustrative prepared unit only; not an active authorization or execution receipt."
+}

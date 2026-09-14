@@ -14,6 +14,7 @@ on:
       - 'releases/bago-installer.nsi'
       - 'releases/install-embedded-payload.ps1'
       - 'releases/build-installer.ps1'
+      - 'releases/resolve-nsis.ps1'
       - 'backend/scripts/package_v4.py'
       - 'release_version.txt'
       - '.github/workflows/build-installer.yml'
@@ -23,6 +24,7 @@ on:
       - 'releases/bago-installer.nsi'
       - 'releases/install-embedded-payload.ps1'
       - 'releases/build-installer.ps1'
+      - 'releases/resolve-nsis.ps1'
       - 'backend/scripts/package_v4.py'
       - 'release_version.txt'
       - '.github/workflows/build-installer.yml'
@@ -40,12 +42,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '22'
+          node-version: '22.16.0'
 
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: '3.14.5'
 
       - name: Install and validate candidate
         run: |
@@ -66,7 +68,8 @@ jobs:
 
       - name: Install NSIS
         run: |
-          choco install nsis -y
+          $makensis = & "$PWD\releases\resolve-nsis.ps1" -ToolsDirectory (Join-Path $env:RUNNER_TEMP 'nsis-tools')
+          "NSIS_MAKENSIS=$makensis" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       - name: Compile electron-viewer
         working-directory: electron-viewer
@@ -80,7 +83,7 @@ jobs:
         run: |
           Write-Host "Building canonical embedded-payload installer..."
           $version = $env:BAGO_VERSION
-          & .\build-installer.ps1 -SkipBuild -Version $version
+          & .\build-installer.ps1 -SkipBuild -Version $version -GitRef $env:GITHUB_REF_NAME -GitSha $env:GITHUB_SHA -NsisMakensis $env:NSIS_MAKENSIS
 
           if ($LASTEXITCODE -ne 0) {
             Write-Host "ERROR: canonical installer build failed"
@@ -100,14 +103,15 @@ jobs:
           Write-Host "✓ Installer created: $setupFile ($size MB, SHA256 verified)"
         shell: pwsh
 
-      - name: Upload installer as artifact
+      - name: Upload unsigned CI installer as artifact
         uses: actions/upload-artifact@v5
         with:
-          name: bago-${{ env.BAGO_VERSION }}-setup
+          name: unsigned-ci-bago-${{ env.BAGO_VERSION }}-setup
           path: |
             releases/bago-${{ env.BAGO_VERSION }}-setup.exe
             releases/bago-${{ env.BAGO_VERSION }}-setup.exe.sha256
           retention-days: 30
 
-      # Publication remains tag-gated in canonical-ci.yml. A manual build can
-      # create an artifact, but cannot publish a release on its own authority.
+      # This artifact is deliberately named unsigned-ci. It is diagnostic and
+      # cannot be published as a release asset. Publicable installers are built,
+      # signed, verified and evidenced by build-release-installer.yml.

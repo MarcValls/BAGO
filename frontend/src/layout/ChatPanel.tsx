@@ -19,6 +19,8 @@ import { ContextPatchValidationCard } from '@/features/context-tree/ContextPatch
 import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTypes';
 import { buildChatModelOptions } from '@/layout/chatModelOptions';
 import { groupTechnicalTurns, presentChatTurn } from '@/shared/chatPresentation';
+import { shouldOpenStartScreen } from '@/layout/chatStartScreen';
+import { readRecord, readText, toStringList } from '@/shared/unknownValue';
 
 export interface ContextPatchDisplay {
   patch: ContextPatchRequest;
@@ -78,6 +80,7 @@ interface Props {
   isDocked?: boolean;
   pastedImage?: { dataUrl: string; mimeType: string } | null;
   onRemovePastedImage?: () => void;
+  onPreparePlan?: (task: string) => Promise<void>;
 }
 
 function summarize(message: Record<string, unknown>): string {
@@ -145,6 +148,47 @@ interface TurnArticleProps {
 
 type TechnicalPresentation = Extract<ReturnType<typeof presentChatTurn>, { kind: 'activity' | 'error' }>;
 
+function ChatInterpretation({ interpretation }: { interpretation: Record<string, unknown> }) {
+  const selected = readRecord(interpretation.selected_interpretation);
+  const formalization = readRecord(interpretation.formalization);
+  const summary = readText(selected.summary)
+    || readText(interpretation.final_answer)
+    || 'Interpretación reflexiva disponible para orientar este turno.';
+  const intent = readText(interpretation.intent) || readText(interpretation.operational_intent) || 'general';
+  const confidence = Number(interpretation.confidence);
+  const unknowns = toStringList(interpretation.unknowns);
+  const restrictions = toStringList(interpretation.restrictions);
+  const interpretationId = readText(interpretation.question_id || interpretation.interpretationId);
+
+  return (
+    <details className="chat-interpretation" open>
+      <summary>
+        <Icon name="interpret" size={13} />
+        <strong>Interpretación previa</strong>
+        <span>orienta esta respuesta</span>
+      </summary>
+      <div className="chat-interpretation-body">
+        <p className="chat-interpretation-summary">{summary}</p>
+        <div className="chat-interpretation-facts">
+          <span><small>Intención</small><b>{intent}</b></span>
+          {Number.isFinite(confidence) && <span><small>Confianza</small><b>{Math.round(confidence * 100)}%</b></span>}
+          {readText(formalization.objective) && <span><small>Objetivo</small><b>{readText(formalization.objective)}</b></span>}
+        </div>
+        {(unknowns.length > 0 || restrictions.length > 0) && (
+          <div className="chat-interpretation-lists">
+            {unknowns.length > 0 && <div><small>Abierto</small><ul>{unknowns.map((item) => <li key={`unknown-${item}`}>{item}</li>)}</ul></div>}
+            {restrictions.length > 0 && <div><small>Restricciones</small><ul>{restrictions.map((item) => <li key={`restriction-${item}`}>{item}</li>)}</ul></div>}
+          </div>
+        )}
+        <footer>
+          <span>Se interpreta una vez antes de generar la respuesta.</span>
+          {interpretationId && <code>{interpretationId}</code>}
+        </footer>
+      </div>
+    </details>
+  );
+}
+
 function TurnArticle(props: TurnArticleProps) {
   const { turn } = props;
   const turnSelection: SelectionRecord = {
@@ -180,6 +224,7 @@ function TurnArticle(props: TurnArticleProps) {
         {turn.role === 'assistant' && (turn.provider || turn.model) && <span>{[turn.provider, turn.model].filter(Boolean).join(' · ')}</span>}
         {turn.status && <StatusBadge status={turn.status} />}
       </div>
+      {turn.role === 'assistant' && turn.interpretation && <ChatInterpretation interpretation={turn.interpretation} />}
       <div className="message-text">{turn.text || (turn.status === 'running' ? '...' : '')}</div>
       {clarificationOptions.length > 0 && <div className="message-patches" onClick={(event) => event.stopPropagation()}>
         {clarificationOptions.map((option, index) => <button
@@ -211,13 +256,20 @@ function TurnArticle(props: TurnArticleProps) {
 
 export function ChatPanel(props: Props) {
   const [modelChanging, setModelChanging] = useState(false);
+  const [preparingPlan, setPreparingPlan] = useState(false);
   const [modelError, setModelError] = useState('');
   const [modelQuery, setModelQuery] = useState('');
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [modelPickerPos, setModelPickerPos] = useState<{ top: number; right: number; maxHeight: number } | null>(null);
   const modelPickerRootRef = useRef<HTMLDivElement>(null);
   const [reasoningChanging, setReasoningChanging] = useState(false);
-  const [welcomeOpen, setWelcomeOpen] = useState(Boolean(props.startScreen && !props.isDocked));
+  const activeConversationId = props.conversations?.active_conversation_id || props.history?.conversation_id || '';
+  const [welcomeOpen, setWelcomeOpen] = useState(() => shouldOpenStartScreen({
+    startScreenRequested: Boolean(props.startScreen),
+    isDocked: Boolean(props.isDocked),
+    turnCount: props.turns.length,
+    activeConversationId
+  }));
   const [conversationBusy, setConversationBusy] = useState('');
   const [conversationError, setConversationError] = useState('');
   const [renamingId, setRenamingId] = useState('');
@@ -233,8 +285,8 @@ export function ChatPanel(props: Props) {
   );
 
   useEffect(() => {
-    if (props.isDocked) setWelcomeOpen(false);
-  }, [props.isDocked]);
+    if (props.isDocked || props.turns.length > 0 || activeConversationId) setWelcomeOpen(false);
+  }, [activeConversationId, props.isDocked, props.turns.length]);
   const timelineGroups = useMemo(() => groupTechnicalTurns(props.turns), [props.turns]);
   const filteredModelOptions = useMemo(() => {
     const query = modelQuery.trim().toLocaleLowerCase();
@@ -245,8 +297,16 @@ export function ChatPanel(props: Props) {
   const automaticModel = [props.activeProvider, props.snapshot?.model.effectiveModel || props.snapshot?.model.configuredModel].filter(Boolean).join('/') || 'router del sistema';
   const showWelcome = welcomeOpen;
   const conversationItems = props.conversations?.conversations || [];
-  const activeConversationId = props.conversations?.active_conversation_id || props.history?.conversation_id || '';
   const activeConversation = conversationItems.find((item) => item.conversation_id === activeConversationId) || null;
+  const handlePreparePlan = async () => {
+    if (!props.onPreparePlan || preparingPlan) return;
+    setPreparingPlan(true);
+    try {
+      await props.onPreparePlan(draft.trim());
+    } finally {
+      setPreparingPlan(false);
+    }
+  };
   const updateTimelinePosition = useCallback(() => {
     const timeline = timelineRef.current;
     if (!timeline) return;
@@ -396,7 +456,7 @@ export function ChatPanel(props: Props) {
             <div className="chat-conversation-popover">
               <header><strong>Conversaciones</strong><small>Persistentes en esta sesión</small></header>
               <div className="chat-conversation-list">
-                {conversationItems.map((item) => <article key={item.conversation_id} className={item.active ? 'is-active' : ''}>
+                {conversationItems.map((item) => <article key={item.conversation_id} data-conversation-id={item.conversation_id} className={item.active ? 'is-active' : ''}>
                   {renamingId === item.conversation_id ? (
                     <form onSubmit={(event) => {
                       event.preventDefault();
@@ -607,6 +667,7 @@ export function ChatPanel(props: Props) {
             </div>}
             <textarea
               id="bago-chat-composer"
+              aria-label="Mensaje para BAGO"
               className="chat-composer-textarea"
               value={draft}
               onChange={(e) => props.onDraftChange('chat', e.target.value)}
@@ -623,6 +684,19 @@ export function ChatPanel(props: Props) {
                 </span>
                 {!canChat && <span className="chat-composer-blocked-hint">{chatBlockedHint(props.snapshot)}</span>}
               </div>
+              {draft.trim().length > 20 && props.onPreparePlan && (
+                <button
+                  className="secondary-button chat-prepare-plan-button"
+                  type="button"
+                  onClick={() => void handlePreparePlan()}
+                  disabled={preparingPlan}
+                  aria-busy={preparingPlan}
+                  title="Convertir este borrador en un plan del Pipeline sin re-escribirlo"
+                >
+                  <Icon name="pipeline" size={14} />
+                  <span>{preparingPlan ? 'Preparando…' : 'Preparar plan'}</span>
+                </button>
+              )}
               <button
                 className="primary-button chat-send-button"
                 type="button"

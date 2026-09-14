@@ -1,10 +1,11 @@
-# ROUTER DE ROLES · BAGO AMTEC línea canónica previa CORREGIDO
+# Router de roles — gabinete BAGO
 
 ## Objetivo
 
 Traducir tipo de tarea, alcance, riesgo y necesidad de trazabilidad en un conjunto de roles.
 La vista compacta canónica de combinaciones vive en `MATRIZ_DE_ENRUTADO.md`.
-Este archivo solo explica el criterio y las excepciones.
+Este archivo solo explica el criterio y las excepciones. El router produce un
+plan; un executor autorizado decide y registra cualquier activación.
 
 ## Variables
 
@@ -48,3 +49,6 @@ Objetivo:
 - traducirlo a contexto BAGO,
 - arrancar al maestro,
 - decidir el workflow de continuación.
+
+Los agentes de bootstrap no se añaden automáticamente al gabinete. Después de
+resolver el contexto, el gabinete se planifica desde `roles/manifest.json`.

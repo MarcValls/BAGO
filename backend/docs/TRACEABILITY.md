@@ -5,7 +5,7 @@ Traceability is file-manifest based in this snapshot.
 ## Authorities
 
 - `release_version.txt`
-- `versions.json`
+- `versions.json` (derived compatibility index; not version authority)
 - `scripts/package_v4.py`
 - `current.manifest.json`
 - `current.sha256`

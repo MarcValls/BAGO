@@ -158,21 +158,9 @@ function filterTree(nodes: ExplorerNode[], query: string, filter: WorkspaceFilte
       case 'web': return node.language === 'css' || node.language === 'html';
       case 'text': return node.language === 'text' || node.language === 'unknown' || node.language === 'dotenv';
       case 'directory': return node.kind === 'directory';
-      case 'modified': {
-        const tab = tabs.find((t) => t.path === node.path);
-        return tab ? (tab.state === 'dirty' || tab.state === 'saving' || tab.state === 'save_error') : false;
-      }
       case 'with-errors': {
         const tab = tabs.find((t) => t.path === node.path);
         return tab ? tab.diagnostics.some((d) => d.severity === 'error' || d.severity === 'warning') : false;
-      }
-      case 'in-context': {
-        const tab = tabs.find((t) => t.path === node.path);
-        return tab?.inContext || false;
-      }
-      case 'with-evidence': {
-        const tab = tabs.find((t) => t.path === node.path);
-        return tab?.withEvidence || false;
       }
       default: return true;
     }

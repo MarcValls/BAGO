@@ -1,7 +1,7 @@
 # BAGO Modules
 
 This inventory records what is proven, what is partial, and what is still experimental.
-Structural layers and runtime flows live in `docs/architecture.md`.
+Structural layers and runtime flows live in `docs/ARCHITECTURE.md`.
 
 ## Status Legend
 

@@ -30,12 +30,17 @@ gate records in the audit bundle, and the independent review.
 - Workflow YAML parse, diff check and session-export hygiene.
 - Raw patch reproducibility for BAGO and `gestor-con-bago`, plus recovered
   dirty-boundary identity and LF-normalized applicability.
-- Independent final review of the candidate and evidence.
+- Independent final review of the candidate and evidence, unless the tracked
+  `bago.single-maintainer-governance.v1` exception is active. That exception
+  requires an authenticated repository owner with `admin` permission, a
+  GitHub-revalidated receipt, a mandatory PR, enforced administrators, and the
+  live `validate` status check; it must never be described as independent review.
 - External package verification recalculates every manifest entry, the ZIP sidecar, every required gate and all archived patch apply checks; its report remains outside the immutable ZIP.
 
 `VALIDATED` is forbidden while any required gate has a non-zero exit code, a
-required gate is absent, candidate identities conflict, or independent review
-reports a blocking finding.
+required gate is absent, candidate identities conflict, or the applicable
+independent-review or single-maintainer authority receipt reports a blocking
+finding.
 
 The recovered dirty-boundary blocker recorded in
 `remediation-baseline-addendum-20260824.md` is closed by

@@ -9,7 +9,7 @@ import time
 from typing import Any, Iterator
 
 import translation_middleware as tm
-from provider_adapter import HealthStatus, ModelInfo, ProviderAdapter, ProviderResponse
+from bago_core.providers import HealthStatus, ModelInfo, ProviderAdapter, ProviderResponse
 
 
 class TranslationAdapter(ProviderAdapter):

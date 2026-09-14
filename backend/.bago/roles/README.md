@@ -1,4 +1,4 @@
-# 🎭 ROLES FACTORY — Sistema de Roles Especializados BAGO
+# Roles Factory — BAGO Cabinet
 
 ## ¿Qué hay aquí?
 
@@ -19,8 +19,8 @@ Este directorio contiene el **Sistema de Fábrica de Roles** de BAGO — equival
 .bago/roles/
 ├── gobierno/              ← Gobierno de BAGO (maestro, orquestador)
 ├── especialistas/         ← Especialistas por dominio (seguridad, UX, etc)
-├── supervision/           ← Supervisión y cumplimiento (vacío)
-└── produccion/            ← Operaciones y despliegue (vacío)
+├── supervision/           ← Supervisión y cumplimiento
+└── produccion/            ← Operaciones y despliegue
 ```
 
 ---
@@ -153,25 +153,24 @@ Análisis profundo en dominio específico.
 ### SUPERVISION (Supervisión)
 Verificación de calidad y cumplimiento.
 
-**Roles existentes:** (ninguno, crear según necesidades)
+**Roles existentes:** AUDITOR_CANONICO, CENTINELA_SINCERIDAD y VERTICE.
 
 ### PRODUCTION (Producción)
 Operaciones y despliegue.
 
-**Roles existentes:** (ninguno, crear según necesidades)
+**Roles existentes:** ANALISTA, ARQUITECTO, GENERADOR, ORGANIZADOR y VALIDADOR.
 
 ---
 
-## 🔗 Diferencia: Agents vs Roles
+## Agents vs Roles
 
 | Aspecto | Agents | Roles |
 |---------|--------|-------|
-| **Qué hacen** | Analizan código | Gobiernan proceso |
-| **Cómo actúan** | subprocess + JSON | Documentos MD + lógica BAGO |
-| **Cuándo** | Al revisar artefactos | En cualquier punto del ciclo |
-| **Coordinación** | Paralelo (ThreadPoolExecutor) | Secuencial/gobernanza |
-| **Output** | Hallazgos técnicos | Decisiones, veredictos |
-| **Ejemplo** | security_analyzer.py | MAESTRO_BAGO.md |
+| **Propósito** | Preparan bootstrap y transición | Delimitan responsabilidades del gabinete |
+| **Ubicación** | `agents/` | `roles/` y `roles/manifest.json` |
+| **Activación** | Solo por el flujo que los necesite | Planificados con `agent_router.py --cabinet` |
+| **Ejecución** | Depende del executor disponible | Nunca implícita: requiere aprobación y executor |
+| **Resultado** | Contexto o apoyo concreto | Plan de roles y evidencia de trabajo delegado |
 
 ---
 

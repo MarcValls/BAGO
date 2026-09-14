@@ -1,0 +1,8 @@
+{
+  "contract": "bago.single-maintainer-governance.v1",
+  "mode": "single-maintainer",
+  "owner": "MarcValls",
+  "required_status_check": "validate",
+  "requires_pull_request": true,
+  "review_requirement": "not-applicable"
+}

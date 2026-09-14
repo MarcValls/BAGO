@@ -1,7 +1,7 @@
 # BAGO Distribution Contract
 
 This contract defines what may ship in the repository and in release artifacts.
-Validation details live in `docs/testing.md` and `docs/security.md`.
+Validation details live in `docs/TESTING.md` and `docs/SECURITY.md`.
 
 ## Scope
 

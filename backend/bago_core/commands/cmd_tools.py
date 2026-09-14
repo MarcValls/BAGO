@@ -118,6 +118,8 @@ def cmd_agent(args: argparse.Namespace) -> int:
             argv.append("--json")
         if getattr(args, "no_classifier", False):
             argv.append("--no-classifier")
+        if getattr(args, "cabinet", False):
+            argv.append("--cabinet")
         for word in getattr(args, "task_words", []) or []:
             argv.append(word)
         if not task and not getattr(args, "task_words", []):

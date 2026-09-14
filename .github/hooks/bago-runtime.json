@@ -11,6 +11,14 @@
           "BAGO_COPILOT_HOOK_EVENT": "sessionStart"
         },
         "timeoutSec": 10
+      },
+      {
+        "type": "prompt",
+        "prompt": "/agent bago-assistant"
+      },
+      {
+        "type": "prompt",
+        "prompt": "Da la bienvenida como bago-assistant. Resume en no mas de cinco lineas el contexto BAGO inyectado al inicio, indica Estado y Siguiente paso, y espera la peticion del usuario. No ejecutes herramientas, no delegues y no inventes trabajo."
       }
     ],
     "postToolUse": [

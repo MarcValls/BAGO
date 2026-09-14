@@ -1,4 +1,13 @@
-# BAGO 4.9.0 — historical pre-remediation local release index
+# BAGO Release Documentation Index
+
+## Current candidate
+
+- Current candidate version: `4.10.0` (resolve from `../release_version.txt`).
+- Candidate release notes: [RELEASE_NOTES_4.10.0.md](RELEASE_NOTES_4.10.0.md).
+- Its publication and signed-release status are defined by the root
+  [README](../README.md) and the candidate-bound evidence, not by this index.
+
+## Historical pre-remediation local release index
 
 This snapshot was captured before the AUD-001..010 remediation. It describes
 file identities only and is not current candidate, publication or installation evidence.

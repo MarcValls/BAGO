@@ -1226,12 +1226,17 @@ New-Item -ItemType Directory -Path (Join-Path $defaultUserRoot "runtime") -Force
 $selectionDevPath = if ($PreserveDevRole) { "" } else { $sourceFull }
 Update-InstallSelection -UserRoot $defaultUserRoot -InstallPath $installFull -DevPath $selectionDevPath
 
-# Mantener la ruta legacy ~/.bago sincronizada para compatibilidad con shell antiguo.
-$legacyUserRoot = [System.Environment]::GetEnvironmentVariable("USERPROFILE")
-if (-not [string]::IsNullOrWhiteSpace($legacyUserRoot)) {
-    $legacyUserRoot = Join-Path $legacyUserRoot ".bago"
-    New-Item -ItemType Directory -Path $legacyUserRoot -Force | Out-Null
-    Update-InstallSelection -UserRoot $legacyUserRoot -InstallPath $installFull -DevPath ""
+# Mantener la ruta legacy ~/.bago sincronizada solo cuando no se ha solicitado
+# un límite explícito de estado. BAGO_USER_ROOT es una frontera de aislamiento:
+# una instalación de prueba o portátil no debe escribir en el perfil real.
+$explicitUserRoot = [System.Environment]::GetEnvironmentVariable("BAGO_USER_ROOT")
+if ([string]::IsNullOrWhiteSpace($explicitUserRoot)) {
+    $legacyUserRoot = [System.Environment]::GetEnvironmentVariable("USERPROFILE")
+    if (-not [string]::IsNullOrWhiteSpace($legacyUserRoot)) {
+        $legacyUserRoot = Join-Path $legacyUserRoot ".bago"
+        New-Item -ItemType Directory -Path $legacyUserRoot -Force | Out-Null
+        Update-InstallSelection -UserRoot $legacyUserRoot -InstallPath $installFull -DevPath ""
+    }
 }
 
 if ($credentialStoreCfg.mode -ne "session") {

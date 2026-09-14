@@ -1,4 +1,4 @@
-# BAGO 4.1.5 — Herramientas portadas (`.bago/tools/`)
+# BAGO Tools — Historical ports and active utilities
 
 Utilidades **standalone** recuperadas de BAGO 3.x y adaptadas a 4.1.5.
 Son scripts ejecutables directamente (no están cableados al `ToolRegistry`
@@ -30,6 +30,16 @@ python .bago/tools/agent_router.py --task "implement multi-file auth"
 python .bago/tools/agent_router.py --history --json
 bago agent route --task "review this PR"
 ```
+
+Planificación del gabinete de roles (sin activar ni ejecutar voces):
+
+```bash
+python .bago/tools/agent_router.py --cabinet --task "review the release contract" --json
+```
+
+El plan se resuelve exclusivamente desde `roles/manifest.json`, valida que los
+roles activos tengan archivo y limita cada oleada a tres roles. La activación
+posterior requiere un executor autorizado y evidencia explícita.
 
 ### `secret_scan.py` — Escáner de secretos hardcodeados
 Recorre código fuente buscando contraseñas/API keys/tokens/PEM/strings de

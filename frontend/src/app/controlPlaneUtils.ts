@@ -24,6 +24,24 @@ export function hashString(input: string): string {
   return hash.toString(36);
 }
 
+/**
+ * Recupera la interpretación reflexiva que el backend adjunta al turno o a
+ * su receipt. La interpretación es previa y asesora; la respuesta original
+ * sigue siendo la salida que debe leer el usuario.
+ */
+export function readTurnInterpretation(message: unknown): Record<string, unknown> | undefined {
+  const record = readRecord(message);
+  const metadata = readRecord(record.metadata);
+  const receipt = readRecord(record.receipt || record.context_receipt);
+  const receiptMetadata = readRecord(receipt.metadata);
+  const interpretation = readRecord(
+    record.interpretation
+      || metadata.reflexive_interpretation
+      || receiptMetadata.reflexive_interpretation,
+  );
+  return Object.keys(interpretation).length > 0 ? interpretation : undefined;
+}
+
 export function shouldOfferSeed(snapshot: UiBootstrapSnapshot | null, selectedRoot: string): boolean {
   const cleanRoot = selectedRoot.trim();
   if (!cleanRoot || !snapshot) return false;
@@ -83,6 +101,7 @@ export function historyToTurns(history: BackendHistory | undefined): ChatTurn[] 
       provider: String(message.provider || metadata.provider || ''),
       model: String(message.model || metadata.model || ''),
       clarification: normalized.clarification,
+      interpretation: readTurnInterpretation({ ...message, receipt: message.receipt || message.context_receipt }),
       raw: message,
       timestamp: String(message.timestamp || message.created_at || nowStamp())
     };

@@ -64,7 +64,8 @@ export function InterpreterPanel({ client, onClose }: Props) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await client.createInterpretation({ input: input.trim() });
+      const text = input.trim();
+      const res = await client.createInterpretation({ input: text, question: text });
       setResult(res);
     } catch (e: unknown) {
       setError(friendlyErrorMessage(e));
@@ -73,15 +74,13 @@ export function InterpreterPanel({ client, onClose }: Props) {
     }
   }, [client, input]);
 
-  const handleCancel = useCallback(async () => {
+  // El backend no expone cancelacion de interpretaciones: se marca en cliente
+  // para no dejar el boton en un error permanente.
+  const handleCancel = useCallback(() => {
     if (!result?.interpretationId) return;
-    try {
-      await client.cancelInterpretation(result.interpretationId);
-      setResult((r) => r ? { ...r, cancelledAt: new Date().toISOString() } : r);
-    } catch (e: unknown) {
-      setError(friendlyErrorMessage(e));
-    }
-  }, [client, result]);
+    setSubmitting(false);
+    setResult((r) => r ? { ...r, cancelledAt: new Date().toISOString() } : r);
+  }, [result]);
 
   const confidenceColor = (confidence: number | undefined | null) => {
     if (confidence == null) return 'var(--color-text-muted)';
@@ -165,6 +164,28 @@ export function InterpreterPanel({ client, onClose }: Props) {
                 <StageRow key={`${stage.type}-${idx}`} stage={stage} />
               ))}
             </div>
+
+            {result.operationalSpec && (
+              <div className="interpreter-operational-spec">
+                <span className="interpreter-output-label">Especificación operacional</span>
+                <div className="interpreter-spec-grid">
+                  <div><span>Intención</span><strong>{result.operationalSpec.intent}</strong></div>
+                  <div><span>Operación</span><strong>{result.operationalSpec.operation}</strong></div>
+                  <div><span>Producto</span><strong>{result.operationalSpec.product || 'No especificado'}</strong></div>
+                  <div><span>Estado</span><strong>{result.operationalSpec.lifecycle_state}</strong></div>
+                </div>
+                {(result.operationalSpec.constraints.length > 0 || result.operationalSpec.acceptance.length > 0) && (
+                  <div className="interpreter-spec-lists">
+                    {result.operationalSpec.constraints.length > 0 && (
+                      <div><span>Restricciones</span><ul>{result.operationalSpec.constraints.map((item) => <li key={item}>{item}</li>)}</ul></div>
+                    )}
+                    {result.operationalSpec.acceptance.length > 0 && (
+                      <div><span>Aceptación</span><ul>{result.operationalSpec.acceptance.map((item) => <li key={item}>{item}</li>)}</ul></div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="interpreter-final-output">
               <span className="interpreter-output-label">Salida final</span>

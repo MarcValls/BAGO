@@ -4,10 +4,10 @@
       "family": "gobierno",
       "name": "maestro_bago",
       "file": "gobierno/MAESTRO_BAGO.md",
-      "description": "Líder visible. Único punto de contacto con el usuario. Recibe petición, decide delegación, entrega resultado final integrado.",
+      "description": "Líder visible. Único punto de contacto con el usuario. Recibe petición, decide delegación y entrega un resultado integrado con evidencia explícita.",
       "created": "2026-04-28T00:00:00Z",
       "status": "active",
-      "version": "3.0-conductor",
+      "version": "3.1-planner",
       "conductor": "tools/agent_router.py",
       "tools": []
     },
@@ -15,10 +15,10 @@
       "family": "gobierno",
       "name": "orquestador_central",
       "file": "gobierno/ORQUESTADOR_CENTRAL.md",
-      "description": "Director interno. Clasifica tarea, selecciona voces, enforcea máx 3 simultáneas (PUERTA_CERRADA), señaliza PUERTA_ABIERTA al completar.",
+      "description": "Director interno. Clasifica tarea y planifica voces en oleadas de hasta tres; la activación requiere executor autorizado y evidencia.",
       "created": "2026-04-28T00:00:00Z",
       "status": "active",
-      "version": "3.0-conductor",
+      "version": "3.1-planner",
       "conductor": "tools/agent_router.py",
       "tools": []
     },
@@ -229,6 +229,6 @@
   },
   "created": "2026-04-28T00:00:00Z",
   "version": "current",
-  "description": "Manifest refreshed during 2026-Q2 .bago audit cleanup",
-  "updated": "2026-06-21T12:45:00Z"
+  "description": "Cabinet role authority; plans are explicit, concurrency-bounded, and require authorized execution.",
+  "updated": "2026-09-06T18:00:00Z"
 }

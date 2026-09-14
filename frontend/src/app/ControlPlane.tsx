@@ -19,15 +19,17 @@ import type { ContextPatchRequest } from '@/features/context-tree/contextTreeTyp
 import { buildSnapshot } from '@/app/bootstrapSnapshot';
 import { ActivityToast, CommandPalette, HelpOverlay } from '@/app/ControlPlaneOverlays';
 import { readRecord, readText, toStringList } from '@/shared/unknownValue';
+import { readTurnInterpretation } from '@/app/controlPlaneUtils';
 import { normalizeChatResponse } from '@/shared/chatResponse';
 import { friendlyErrorMessage } from '@/shared/friendly-error';
 import { EMPTY_CLIPBOARD, readClipboardPayload, type ClipboardPayload } from '@/shared/clipboard';
 import { FirstRunWizard } from '@/features/first-run/FirstRunWizard';
-import { markFirstRunComplete, shouldShowFirstRun, shouldSkipAutomaticFirstRun } from '@/features/first-run/firstRun';
-import { createShellActions, NAVIGATION_ORDER, type BagoAction } from '@/navigation/actionRegistry';
+import { markFirstRunComplete, markFirstRunDismissed, shouldShowFirstRun, shouldSkipAutomaticFirstRun } from '@/features/first-run/firstRun';
+import { createShellActions, resolveNavigationShortcut, isPanelDestination, type BagoAction } from '@/navigation/actionRegistry';
 import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
 import { canPersistWorkspaceAuthority } from '@/shared/workspaceAuthority';
 import { useActiveProviderModels } from '@/shared/useActiveProviderModels';
+import { buildChatModelEntries } from '@/shared/providerStates';
 
 function nowStamp(): string {
   return new Date().toISOString();
@@ -163,7 +165,15 @@ export function ControlPlane() {
     // deben coexistir dos columnas derechas. Si el chat está acoplado,
     // se desacopla primero para que la pantalla actual siga siendo
     // lo único visible.
-    setAndPersistUiState({ activePanel: panelId, chatDocked: false });
+    //
+    // Además, abrir un panel debe SIEMPRE mostrarlo: el workspace se
+    // oculta por CSS en cuanto hay panel lateral, mientras que los modos
+    // focus/lectura ocultan el propio panel. Si ambas cosas coincidieran,
+    // el área de trabajo quedaría vacía, así que se vuelve a modo normal.
+    // Por el mismo motivo se descarta la selección del inspector, que
+    // suprime el render del panel.
+    setInspectorSelection(null);
+    setAndPersistUiState({ activePanel: panelId, chatDocked: false, globalMode: 'normal' });
   };
   const panelCloseDrawer = () => setAndPersistUiState({ activePanel: null });
   // CANON[INSPECTOR-MUTEX]: acoplar el chat es mutuamente excluyente
@@ -185,6 +195,21 @@ export function ControlPlane() {
     });
     if (willDock) setInspectorSelection(null);
   }, []);
+  const toggleChatDocked = useCallback(() => {
+    setUiState((current) => {
+      const willDock = !current.chatDocked;
+      const next = patchUiState(current, {
+        chatDocked: willDock,
+        activePanel: willDock ? null : current.activePanel,
+        activeSection: willDock && current.activeSection === 'chat' ? 'home' : current.activeSection
+      });
+      persistUiState(next);
+      persistApiConfig(next.apiBase || readStoredApiBase());
+      clientRef.current.setConfig(next.apiBase || readStoredApiBase(), next.apiToken || '');
+      return next;
+    });
+    setInspectorSelection(null);
+  }, []);
   const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false);
   const [workspacePickerValue, setWorkspacePickerValue] = useState('');
   const [firstRunOpen, setFirstRunOpen] = useState(() => shouldShowFirstRun(typeof window === 'undefined' ? null : window.localStorage));
@@ -198,6 +223,10 @@ export function ControlPlane() {
   const clientRef = useRef(createBagoClient(uiState.apiBase || readStoredApiBase(), uiState.apiToken));
   const conversationRevisionRef = useRef(0);
   const { activeProvider, activeModels } = useActiveProviderModels(clientRef.current, snapshot);
+  const chatModelEntries = useMemo(
+    () => buildChatModelEntries(selectRouterEntries(routerState), providers),
+    [providers, routerState]
+  );
 
   // CANON[CTX-013]: el árbol de contexto vive aquí, no dentro del
   // módulo, para que tanto el chat (que muestra tarjetas inline de
@@ -288,7 +317,13 @@ export function ControlPlane() {
       return current.length ? current : historyToTurns(nextHistory || undefined);
     });
     if (nextOpening.id === 'enter_directly') {
-      setUiState((current) => current.activeSection === 'chat' ? current : patchUiState(current, { activeSection: 'home' }));
+      // A late bootstrap must not overwrite a navigation chosen while the
+      // conversation mutation was in flight. `chat` is only a compatibility
+      // alias for Inicio, so normalize that stale value and preserve every
+      // real destination selected by the user.
+      setUiState((current) => current.activeSection === 'chat'
+        ? patchUiState(current, { activeSection: 'home' })
+        : current);
     }
     return nextSnapshot;
   };
@@ -509,23 +544,24 @@ export function ControlPlane() {
       // Ctrl+Shift+C: acoplar / desacoplar el chat a la pantalla actual.
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'c') {
         event.preventDefault();
-        const willDock = !uiState.chatDocked;
-        setChatDocked(willDock);
+        toggleChatDocked();
         return;
       }
-      // Ctrl+1..9: navegar según el registro canónico compartido con el sidebar.
-      if ((event.ctrlKey || event.metaKey) && /^[1-9]$/.test(event.key)) {
-        event.preventDefault();
-        const idx = parseInt(event.key, 10) - 1;
-        const target = NAVIGATION_ORDER[idx];
+      // Atajos de navegación: se resuelven contra el mismo registro canónico
+      // que pinta el sidebar, de modo que todo atajo anunciado en la interfaz
+      // abre realmente su destino (incluidos Ctrl+- y Ctrl+=) y los paneles se
+      // distinguen por `isPanel` en lugar de por una lista duplicada.
+      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey) {
+        const target = resolveNavigationShortcut(event.key);
         if (target) {
-          if ('agents' === target || 'interpreter' === target || 'github-auth' === target) {
+          event.preventDefault();
+          if (isPanelDestination(target)) {
             openPanel(target);
           } else {
-            navigate(target as ActiveSection);
+            navigate(target);
           }
+          return;
         }
-        return;
       }
       // F11: focus
       if (event.key === 'F11') {
@@ -551,7 +587,7 @@ export function ControlPlane() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [entered, uiState.chatDocked]);
+  }, [entered, toggleChatDocked]);
 
   useEffect(() => {
     const bridge = getElectronBridge();
@@ -938,6 +974,8 @@ export function ControlPlane() {
         : uiState.chatMode === 'trace'
         ? await clientRef.current.streamChat(text, (chunk) => {
           setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? { ...turn, text: turn.text + chunk } : turn));
+        }, (interpretation) => {
+          setTurns((current) => current.map((turn) => turn.id === assistantBuffer.id ? { ...turn, interpretation } : turn));
         })
         : await clientRef.current.sendChat(text);
       const receipt = (payload.receipt || payload.context_receipt || null) as Record<string, unknown> | null;
@@ -956,6 +994,7 @@ export function ControlPlane() {
           provider: String(payload.provider || snapshot.model.provider || ''),
           model: String(payload.model || snapshot.model.effectiveModel || snapshot.model.configuredModel || ''),
           clarification: Object.keys(clarification).length ? clarification : normalized.clarification,
+          interpretation: readTurnInterpretation({ receipt }),
           raw: payload
         };
       }));
@@ -1223,10 +1262,9 @@ export function ControlPlane() {
       toggleFocus: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'focus' ? 'normal' : 'focus' }),
       toggleReview: () => setAndPersistUiState({ globalMode: uiState.globalMode === 'review' ? 'normal' : 'review' }),
       toggleChatDock: () => {
-        const willDock = !uiState.chatDocked;
         // CANON[INSPECTOR-MUTEX]: el dock de chat es mutuamente
         // excluyente con cualquier panel lateral o inspector.
-        setChatDocked(willDock);
+        toggleChatDocked();
       },
       chatDocked: uiState.chatDocked,
       runCommand: (command) => { void runCommand(command); },
@@ -1253,6 +1291,13 @@ export function ControlPlane() {
     if (!clean) return;
     setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, pipeline: clean } }));
     await runCommand(`/plan ${clean}`);
+  };
+
+  const preparePipelineTask = async (task: string) => {
+    const clean = task.trim();
+    if (!clean) return;
+    setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, pipeline: clean } }));
+    navigate('pipeline');
   };
 
   const openShell = (section: ActiveSection, mode: UiState['globalMode'] = 'normal') => {
@@ -1329,6 +1374,18 @@ export function ControlPlane() {
 
   const createNewConversation = async (): Promise<void> => {
     conversationRevisionRef.current += 1;
+    // The welcome view can become interactive before the first bootstrap has
+    // committed its snapshot. Resolve the authoritative workspace first so a
+    // new chat is never created outside its confirmed workspace scope.
+    let workspaceSnapshot = snapshot;
+    let root = String(workspaceSnapshot?.project.root || workspaceSnapshot?.workspace.root || '').trim();
+    if (!root) {
+      workspaceSnapshot = await refreshAfterMutation();
+      root = String(workspaceSnapshot?.project.root || workspaceSnapshot?.workspace.root || '').trim();
+    }
+    if (!root) {
+      throw new Error('El backend no confirmó un workspace para la conversación nueva.');
+    }
     const created = await clientRef.current.createConversation();
     const conversationId = String(
       created.conversation?.conversation_id
@@ -1337,12 +1394,9 @@ export function ControlPlane() {
       || ''
     ).trim();
     if (!conversationId) throw new Error('El backend no confirmó la nueva conversación.');
-    const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
-    if (root) {
-      const scoped = await clientRef.current.scopeWorkspaceConversation(root, conversationId);
-      if (scoped.ok === false || String(scoped.conversation_id || '') !== conversationId) {
-        throw new Error('El backend no confirmó el alcance del workspace para el chat nuevo.');
-      }
+    const scoped = await clientRef.current.scopeWorkspaceConversation(root, conversationId);
+    if (scoped.ok === false || String(scoped.conversation_id || '') !== conversationId) {
+      throw new Error('El backend no confirmó el alcance del workspace para el chat nuevo.');
     }
     await refreshAfterMutation();
     replaceConversationState(created);
@@ -1354,7 +1408,7 @@ export function ControlPlane() {
     conversationRevisionRef.current += 1;
     const switched = await clientRef.current.switchConversation(conversationId);
     replaceConversationState(switched);
-    const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
+    const root = String(snapshot?.project.root || snapshot?.workspace.root || '').trim();
     if (root) await clientRef.current.scopeWorkspaceConversation(root, conversationId);
     await refreshAfterMutation();
     setLastMessage('conversación activada');
@@ -1372,7 +1426,7 @@ export function ControlPlane() {
     const archived = await clientRef.current.archiveConversation(conversationId);
     replaceConversationState(archived);
     const activeId = String(archived.active_conversation_id || archived.history?.conversation_id || '').trim();
-    const root = String(snapshot?.workspace.root || snapshot?.project.root || '').trim();
+    const root = String(snapshot?.project.root || snapshot?.workspace.root || '').trim();
     if (root && activeId) await clientRef.current.scopeWorkspaceConversation(root, activeId);
     await refreshAfterMutation();
     setLastMessage('conversación archivada');
@@ -1433,17 +1487,10 @@ export function ControlPlane() {
           onRunCommand={(command) => void runCommand(command)}
           onChooseWorkspace={chooseWorkspaceFromHeader}
           onGoHome={() => {
-            try { window.sessionStorage.removeItem('bago.start.chat-mode'); } catch { /* storage unavailable */ }
             navigate('home');
           }}
           onOpenHelp={() => setAndPersistUiState({ helpOpen: true })}
-          onToggleChatDock={() => {
-            const willDock = !uiState.chatDocked;
-            // CANON[INSPECTOR-MUTEX]: el botón de la cabecera sigue
-            // la misma regla que el atajo y el palette: acoplar
-            // siempre cierra el panel/inspector a la derecha.
-            setChatDocked(willDock);
-          }}
+          onOpenChat={() => openShell('chat')}
           chatDocked={uiState.chatDocked}
           globalMode={uiState.globalMode}
           appearanceTheme={uiState.appearanceTheme}
@@ -1508,6 +1555,7 @@ export function ControlPlane() {
                   routes={routes}
                   providers={providers}
                   router={routerState}
+                  chatModelEntries={chatModelEntries}
                   history={history}
                   conversations={conversations}
                   files={files}
@@ -1523,6 +1571,7 @@ export function ControlPlane() {
                   onRunContextCommand={runContextCommand}
                   onRunAction={runAction}
                   onRunPlanTask={runPlanTask}
+                  onPreparePlan={preparePipelineTask}
                   onSetSection={navigate}
                   onSetChatMode={(mode) => setAndPersistUiState({ chatMode: mode })}
                   onSetGlobalMode={(mode) => setAndPersistUiState({ globalMode: mode })}
@@ -1612,7 +1661,7 @@ export function ControlPlane() {
                       chatMode={uiState.chatMode}
                       history={history}
                       conversations={conversations}
-                      routerEntries={selectRouterEntries(routerState)}
+                      routerEntries={chatModelEntries}
                       sessionModel={sessionModel}
                       activeProvider={activeProvider}
                       activeModels={activeModels}
@@ -1640,6 +1689,7 @@ export function ControlPlane() {
                       onOpenContextInTree={openContextInTree}
                       pastedImage={pastedImage}
                       onRemovePastedImage={() => setPastedImage(null)}
+                      onPreparePlan={preparePipelineTask}
                     />
                   </div>
                 </div>
@@ -1684,12 +1734,12 @@ export function ControlPlane() {
           onRefresh={bootstrap}
           onConfigureProvider={configureProvider}
           onTestProvider={testProvider}
-          onActivateWorkspace={(root) => activateWorkspaceRoot(root, 'workspace activado desde el recorrido', { seedAfterLink: true })}
+          onActivateWorkspace={(root, options) => activateWorkspaceRoot(root, 'workspace activado desde el recorrido', { seedAfterLink: Boolean(options?.seedAfterLink) })}
           onCreateDemo={createAndActivateDemo}
           client={clientRef.current}
           onChooseWorkspace={chooseWorkspacePath}
           onClose={() => {
-            markFirstRunComplete(window.localStorage);
+            markFirstRunDismissed(window.localStorage);
             setFirstRunDismissed(true);
             setFirstRunRequested(false);
             setFirstRunOpen(false);

@@ -1,6 +1,6 @@
-# BAGO v4.9.2
+# BAGO v4.11.1 — parche de instalador (rollback)
 
-[![Version](https://img.shields.io/badge/version-4.9.2-blue)](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2)
+[![Version](https://img.shields.io/badge/version-4.11.1-blue)]()
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
 [![Node](https://img.shields.io/badge/node-20%2B-green)]()
@@ -11,18 +11,31 @@
 
 ---
 
-## Novedades en 4.9.2
+## Novedades publicadas en 4.11.1
 
-### Hotfix del instalador
-- El instalador NSIS incorpora y valida el sidecar SHA-256 del ZIP de distribución antes de sustituir la instalación existente.
-- El constructor local y los workflows de release generan el sidecar de forma consistente; el smoke aislado verificó instalación, `/health` y el cierre limpio de `BAGO.exe`.
+### Fix del instalador
+- El instalador NSIS no invocaba `-Finalize` tras verificar una instalación
+  exitosa, por lo que el backup `.BAGO-rollback` nunca se limpiaba. En la
+  siguiente instalación/actualización, `install-embedded-payload.ps1`
+  confundía ese backup obsoleto con una instalación interrumpida y lo
+  restauraba antes de reinstalar, corrompiendo la red de seguridad de
+  rollback en cada actualización normal. Se añade la llamada `-Finalize`,
+  ejecutada solo al final de una instalación completamente exitosa (tras
+  registrar la app y crear accesos directos) y con aborto explícito si la
+  limpieza falla, más un test de regresión.
 
-### Remediación
-- Cierre declarado `EXECUTED` (ver `.bago/context/PROJECT_CONTEXT.md` + `.bago/audits/remediation-closure-contract-20260824.md` + `remediation-handoff-20260824.md`)
-- La atribución inicial del baseline dirty fue recuperada: `.bago/audits/recovered-dirty-boundary-20260824.patch` conserva el patch CRLF con SHA-256 `943f59fd339f0f57c63f21beb785c0d3c35f6977ecf7bf569b74c324a523bb79`, y su forma LF normalizada aplica contra el baseline archivado
-- La promoción a `VERIFIED`/`VALIDATED` sigue dependiendo de gates crudos, bundle reproducible e identidad de candidato coherente
+### Novedades ya publicadas en 4.11.0
 
-> Estado `EXECUTED` no equivale a `VERIFIED` ni `VALIDATED`. No afirmar promoción sin bundle reproducible.
+### Contratos y arquitectura
+- Se declara y prueba la frontera kernel/extensión, con compatibilidad de entradas existentes y una migración de imports enumerada y verificable.
+- Capability API v1 alinea permisos, confirmaciones, red, simulación e información de recibos entre backend y frontend.
+- La identidad del modelo, sus capacidades observadas y la política de routing quedan separadas; el camino RL sigue sin autoridad de ejecución automática.
+
+### Seguridad de distribución
+- El preflight de firma Authenticode falla de forma segura y emite un recibo JSON aunque GitHub responda que falta el entorno de firma.
+- Las proyecciones de rutas, migración y versión se verifican contra drift en CI.
+
+> Este candidato no está publicado: requiere un entorno `release-signing`, una identidad de firma pública autorizada y los gates de artefacto firmados.
 
 ## Novedades en 4.9.0
 
@@ -95,7 +108,7 @@ BAGO/
 |---|---|
 | Windows | 10 / 11 (plataforma principal) |
 | Python | 3.14+ |
-| Node.js | 20.19.0 o ≥ 22.12.0 |
+| Node.js | ≥ 22.12.0 |
 | npm | ≥ 10.0.0 |
 | Ollama | Opcional — necesario para el path local con modelo en vivo |
 
@@ -107,7 +120,7 @@ BAGO/
 
 ### Opción A — Instalador Windows (recomendado)
 
-Descarga `bago-4.9.2-setup.exe` desde [Releases](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2) y ejecútalo. El instalador:
+La última release pública es [v4.11.1](https://github.com/MarcValls/BAGO/releases/tag/v4.11.1) (pre-release, **sin firmar** — no hay credenciales de firma Authenticode configuradas). Descarga `bago-4.11.1-setup.exe` y ejecútalo; Windows SmartScreen mostrará una advertencia esperada («Más información → Ejecutar de todas formas»).
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
 - El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
@@ -296,6 +309,10 @@ npm run sh:status
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
+| [v4.11.1](https://github.com/MarcValls/BAGO/releases/tag/v4.11.1) | 2026-09-11 | `bago-4.11.1-setup.exe` (pre-release, sin firmar) — fix del instalador (rollback) |
+| [v4.11.0](https://github.com/MarcValls/BAGO/releases/tag/v4.11.0) | 2026-09-10 | `bago-4.11.0-setup.exe` (pre-release, sin firmar) |
+| [v4.10.0](https://github.com/MarcValls/BAGO/releases/tag/v4.10.0) | 2026-09-05 | `bago-4.10.0-setup.exe` · `bago-4.10.0-distribution.zip` (pre-release, sin firmar) |
+| [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3) | 2026-09-01 | `bago-4.9.3-setup.exe` |
 | [v4.9.2](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2) | 2026-08-29 | `bago-4.9.2-setup.exe` |
 | [v4.9.1](https://github.com/MarcValls/BAGO/releases/tag/v4.9.1) | 2026-08-25 | `BAGO-Installation-Manager-4.9.1-win-x64.exe` · `bago-v4.9.1.zip` |
 | [v4.9.0](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0) | 2026-08-18 | `BAGO-Installation-Manager-4.9.0-win-x64.exe` · `bago-v4.9.0.zip` |
@@ -313,13 +330,13 @@ python -m pytest backend/tests
 # 2. Build del frontend y del visor Electron
 npm run build
 
-# 3. Empaquetar backend runtime
-python backend/scripts/package_v4.py --version 4.9.2
+# 3. Empaquetar backend runtime con la versión canónica
+python backend/scripts/package_v4.py --version <version>
 
-# 4. Crear o mover el tag a HEAD
-# git tag -a v4.9.2 -m "BAGO v4.9.2"
-# git push origin v4.9.2
-# La subida del release corre vía .github/workflows/release.yml usando gh release upload
+# 4. Solo después de que el preflight de firma esté listo, crear el tag inmutable
+# git tag -a v<version> -m "release: publish BAGO v<version>"
+# git push origin v<version>
+# Ejecutar Build Release Installer Artifact y publicar exclusivamente sus artefactos firmados.
 ```
 
 ---
@@ -350,11 +367,12 @@ Ver [`backend/docs/SECURITY.md`](backend/docs/SECURITY.md) para la postura de se
 
 | Documento | Descripción |
 |---|---|
-| [`backend/MANUAL.md`](backend/MANUAL.md) | Manual de usuario (español) |
+| [`DOCUMENTATION.md`](DOCUMENTATION.md) | Índice de documentación vigente e histórica |
+| [`backend/MANUAL.md`](backend/MANUAL.md) | Manual histórico de usuario para 4.9.0 |
 | [`backend/docs/MVP.md`](backend/docs/MVP.md) | Límite del MVP |
 | [`backend/docs/MODULES.md`](backend/docs/MODULES.md) | Matriz de estado de módulos |
 | [`backend/docs/CLAIMS.md`](backend/docs/CLAIMS.md) | Matriz de evidencias |
-| [`backend/docs/SUPPORT_MATRIX.md`](backend/docs/SUPPORT_MATRIX.md) | Soporte por sistema operativo |
+| [`backend/docs/support-matrix.md`](backend/docs/support-matrix.md) | Soporte por sistema operativo |
 | [`backend/docs/SECURITY.md`](backend/docs/SECURITY.md) | Defaults de seguridad y gates |
 | [`backend/docs/TESTING.md`](backend/docs/TESTING.md) | Comandos de validación |
 | [`backend/docs/ARCHITECTURE.md`](backend/docs/ARCHITECTURE.md) | Arquitectura del sistema |

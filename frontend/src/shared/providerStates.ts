@@ -1,4 +1,4 @@
-import type { BackendProviders } from '@/contracts/backend';
+import type { BackendProviders, BackendRouterEntry } from '@/contracts/backend';
 
 export function mergeProviderStates(payload: BackendProviders | null): Array<Record<string, unknown>> {
   const catalog = Array.isArray(payload?.catalog) ? payload.catalog : [];
@@ -34,4 +34,26 @@ export function mergeProviderStates(payload: BackendProviders | null): Array<Rec
     });
   }
   return [...merged.values()];
+}
+
+export function buildChatModelEntries(
+  routerEntries: BackendRouterEntry[],
+  payload: BackendProviders | null
+): BackendRouterEntry[] {
+  const merged = [...routerEntries];
+  for (const provider of mergeProviderStates(payload)) {
+    const providerId = String(provider.id || provider.name || '').trim();
+    if (!providerId || !Array.isArray(provider.models)) continue;
+    for (const rawModel of provider.models) {
+      const model = typeof rawModel === 'string'
+        ? rawModel
+        : String((rawModel as Record<string, unknown>)?.id || (rawModel as Record<string, unknown>)?.model_id || (rawModel as Record<string, unknown>)?.name || '');
+      if (!model) continue;
+      const key = `${providerId}/${model}`;
+      if (!merged.some((entry) => String(entry.key || `${entry.provider || ''}/${entry.model_id || entry.wire_name || ''}`) === key)) {
+        merged.push({ provider: providerId, model_id: model, wire_name: model, key, available: true });
+      }
+    }
+  }
+  return merged;
 }

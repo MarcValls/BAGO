@@ -23,7 +23,7 @@ def _fixture_repo(tmp_path: Path) -> tuple[Path, Path, Path, str]:
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "AGENTS.md").write_text(
-        "BAGOx-BEHAVIOR-PACKAGE-v1.2-RC1\n"
+        "BAGOx Behavior Package v1.3-RC1-FIX2\n"
         "Resolve the canonical product version from `release_version.txt`.\n",
         encoding="utf-8",
     )

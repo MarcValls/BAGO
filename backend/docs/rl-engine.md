@@ -8,8 +8,8 @@ This is the overview for RL policy surfaces. The live authority is split across 
 - `bago_core/rl_policies.py`
 - `.bago/core/rl_engine.py`
 - `.bago/api/control_shadow.py`
-- `docs/security.md`
-- `docs/modules.md`
+- `docs/SECURITY.md`
+- `docs/MODULES.md`
 - `tests/test_ollama_tool_calling.py`
 - `tests/test_f4_guardrails.py`
 

@@ -3,7 +3,9 @@
 Record unresolved conflicts between requirements, constraints, or interpretations here.
 
 - Formal validation remains open until every required final gate and the
-  independent review refer to the same immutable candidate SHA.
+  applicable GitHub-revalidated authority receipt refer to the same immutable
+  candidate SHA. Independent review remains the default; the tracked
+  single-maintainer exception is explicitly non-independent.
 - `RESOLVED 2026-08-28`: the initial dirty baseline recorded diff SHA-256
   `943f59fd339f0f57c63f21beb785c0d3c35f6977ecf7bf569b74c324a523bb79`,
   and the corresponding CRLF patch bytes are now retained in

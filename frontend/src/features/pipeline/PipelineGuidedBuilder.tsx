@@ -20,6 +20,7 @@ const TEMPLATES: PipelineTemplate[] = [
 ];
 
 const STAGES = ['Objetivo', 'Origen', 'Entradas', 'Dependencias', 'Ejecución', 'Programación', 'Revisión'] as const;
+const QUICK_STAGES = ['Objetivo', 'Revisión'] as const;
 const CAPABILITIES = [
   { id: 'local.text-transform', label: 'Transformar texto' },
   { id: 'local.file-batch', label: 'Procesar archivos' },
@@ -53,6 +54,7 @@ function parseVariables(value: string): Record<string, unknown> | null {
 
 export function PipelineGuidedBuilder(props: Props) {
   const [stage, setStage] = useState(0);
+  const [mode, setMode] = useState<'quick' | 'advanced'>('quick');
   const [source, setSource] = useState<'idea' | 'template' | 'package'>('idea');
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [variablesText, setVariablesText] = useState('{\n  "input": ""\n}');
@@ -78,15 +80,18 @@ export function PipelineGuidedBuilder(props: Props) {
     update(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
   };
 
+  const quick = mode === 'quick';
+  const stages = quick ? QUICK_STAGES : STAGES;
+  const reviewStage = stages.length - 1;
   const canAdvance = stage === 0
     ? Boolean(props.task.trim())
-    : stage === 2
+    : !quick && stage === 2
       ? variables !== null
-      : stage === 5
+      : !quick && stage === 5
         ? !scheduleEnabled || scheduleConfirmed
         : true;
 
-  const continueHint = stage < STAGES.length - 1 && !canAdvance ? (
+  const continueHint = stage < reviewStage && !canAdvance ? (
     stage === 0 ? 'Describe el objetivo para continuar.'
     : stage === 2 ? 'Corrige el JSON de variables.'
     : stage === 5 ? 'Confirma la programación o desmárcala.'
@@ -95,21 +100,23 @@ export function PipelineGuidedBuilder(props: Props) {
 
   const create = async () => {
     const objective = props.task.trim();
-    if (!objective || !variables) return;
+    if (!objective || (!quick && !variables)) return;
     setBusy(true);
     setError('');
     try {
-      const contract = [
-        objective,
-        '',
-        'Configuración estructurada del Pipeline:',
-        `- origen: ${source}${selected ? ` (${selected.name})` : ''}`,
-        `- variables: ${JSON.stringify(variables)}`,
-        `- capacidades: ${capabilities.length ? capabilities.join(', ') : 'ninguna'}`,
-        `- permisos aprobables: ${permissions.length ? permissions.join(', ') : 'ninguno'}`,
-        `- política de modelo: ${modelPolicy}`,
-        '- conserva receipts y detén el flujo ante fallos no recuperables.'
-      ].join('\n');
+      const contract = quick
+        ? objective
+        : [
+            objective,
+            '',
+            'Configuración estructurada del Pipeline:',
+            `- origen: ${source}${selected ? ` (${selected.name})` : ''}`,
+            `- variables: ${JSON.stringify(variables)}`,
+            `- capacidades: ${capabilities.length ? capabilities.join(', ') : 'ninguna'}`,
+            `- permisos aprobables: ${permissions.length ? permissions.join(', ') : 'ninguno'}`,
+            `- política de modelo: ${modelPolicy}`,
+            '- conserva receipts y detén el flujo ante fallos no recuperables.'
+          ].join('\n');
       await props.onCreatePlan(contract);
       if (scheduleEnabled) {
         await props.client.createSchedule({
@@ -134,13 +141,13 @@ export function PipelineGuidedBuilder(props: Props) {
 
   return <section className="pipeline-builder pipeline-guided-builder" aria-label="Creador guiado de Pipeline">
     <nav className="pipeline-builder-steps" aria-label="Pasos del creador">
-      {STAGES.map((label, index) => <button key={label} type="button" className={stage === index ? 'is-active' : index < stage ? 'is-complete' : ''} aria-current={stage === index ? 'step' : undefined} onClick={() => { if (index <= stage || canAdvance) setStage(index); }}><span>{index + 1}</span>{label}</button>)}
+      {stages.map((label, index) => <button key={label} type="button" className={stage === index ? 'is-active' : index < stage ? 'is-complete' : ''} aria-current={stage === index ? 'step' : undefined} onClick={() => { if (index <= stage || canAdvance) setStage(index); }}><span>{index + 1}</span>{label}</button>)}
     </nav>
 
     <div className="pipeline-builder-stage">
-      {stage === 0 && <label className="pipeline-builder-task"><span>¿Qué resultado debe producir?</span><textarea value={props.task} onChange={(event) => props.onTaskChange(event.target.value)} placeholder="Describe el objetivo, para quién es y cómo sabrás que está terminado…" rows={8} maxLength={PIPELINE_TASK_MAX_LENGTH} /><small>{props.task.length.toLocaleString()} / {PIPELINE_TASK_MAX_LENGTH.toLocaleString()} caracteres</small></label>}
+      {stage === 0 && <div className="pipeline-builder-fields"><label className="pipeline-builder-task"><span>¿Qué resultado debe producir?</span><textarea value={props.task} onChange={(event) => props.onTaskChange(event.target.value)} placeholder="Describe el objetivo, para quién es y cómo sabrás que está terminado…" rows={8} maxLength={PIPELINE_TASK_MAX_LENGTH} /><small>{props.task.length.toLocaleString()} / {PIPELINE_TASK_MAX_LENGTH.toLocaleString()} caracteres</small></label>{quick && <><p className="pipeline-builder-note">El plan rápido conserva este objetivo y no añade configuración adicional.</p><button className="text-button" type="button" onClick={() => { setMode('advanced'); setStage(1); }}>Configurar opciones avanzadas</button></>}</div>}
 
-      {stage === 1 && <div className="pipeline-builder-source"><h3>Elige un punto de partida</h3><div className="pipeline-source-grid">
+      {!quick && stage === 1 && <div className="pipeline-builder-source"><h3>Elige un punto de partida</h3><div className="pipeline-source-grid">
         <button type="button" className={source === 'idea' ? 'is-selected' : ''} onClick={() => { setSource('idea'); setSelectedTemplate(''); }}><Icon name="sparkle" size={18} /><span><strong>Idea libre</strong><small>Construir desde el objetivo escrito.</small></span></button>
         <button type="button" className={source === 'template' ? 'is-selected' : ''} onClick={() => setSource('template')}><Icon name="pipeline" size={18} /><span><strong>Plantilla</strong><small>Partir de un patrón editable.</small></span></button>
         <button type="button" className={source === 'package' ? 'is-selected' : ''} onClick={() => setSource('package')}><Icon name="pack" size={18} /><span><strong>Paquete</strong><small>Usar un Pipeline BAGO instalado.</small></span></button>
@@ -154,11 +161,11 @@ export function PipelineGuidedBuilder(props: Props) {
 
       {stage === 5 && <div className="pipeline-builder-fields"><h3>Programación opcional</h3><label className="capability-package-check"><input type="checkbox" checked={scheduleEnabled} onChange={(event) => { setScheduleEnabled(event.target.checked); if (!event.target.checked) setScheduleConfirmed(false); }} /><span>Crear una programación recurrente después de generar el Pipeline</span></label>{scheduleEnabled && <div className="pipeline-builder-schedule-fields"><label><span>Cada</span><input type="number" min={1} value={scheduleMinutes} onChange={(event) => setScheduleMinutes(Math.max(1, Number(event.target.value) || 1))} /><span>minutos</span></label><label className="capability-package-check"><input type="checkbox" checked={scheduleConfirmed} onChange={(event) => setScheduleConfirmed(event.target.checked)} /><span>Confirmo que BAGO podrá ejecutar esta tarea automáticamente</span></label></div>}<p className="pipeline-builder-note">Importar una plantilla nunca activa su programación. Esta confirmación crea una nueva programación explícita.</p></div>}
 
-      {stage === 6 && <div className="pipeline-builder-review"><h3>Revisa antes de crear</h3><dl><div><dt>Objetivo</dt><dd>{props.task.trim().split('\n')[0]}</dd></div><div><dt>Origen</dt><dd>{source}{selected ? ` · ${selected.name}` : ''}</dd></div><div><dt>Entradas</dt><dd>{variables ? Object.keys(variables).length : 0} variables</dd></div><div><dt>Dependencias</dt><dd>{capabilities.length ? capabilities.join(', ') : 'Ninguna'}</dd></div><div><dt>Permisos</dt><dd>{permissions.length ? permissions.join(', ') : 'Ninguno'}</dd></div><div><dt>Modelo</dt><dd>{modelPolicy}</dd></div><div><dt>Programación</dt><dd>{scheduleEnabled ? `cada ${scheduleMinutes} minutos` : 'No crear'}</dd></div></dl><p>Al crear se genera un plan persistente. La ejecución seguirá siendo una acción separada y confirmable.</p></div>}
+      {stage === reviewStage && <div className="pipeline-builder-review"><h3>Revisa antes de crear</h3><dl><div><dt>Objetivo</dt><dd>{props.task.trim().split('\n')[0]}</dd></div>{quick ? <><div><dt>Configuración</dt><dd>Rápida · sin dependencias ni programación</dd></div><div><dt>Contrato enviado</dt><dd>Solo el objetivo</dd></div></> : <><div><dt>Origen</dt><dd>{source}{selected ? ` · ${selected.name}` : ''}</dd></div><div><dt>Entradas</dt><dd>{variables ? Object.keys(variables).length : 0} variables</dd></div><div><dt>Dependencias</dt><dd>{capabilities.length ? capabilities.join(', ') : 'Ninguna'}</dd></div><div><dt>Permisos</dt><dd>{permissions.length ? permissions.join(', ') : 'Ninguno'}</dd></div><div><dt>Modelo</dt><dd>{modelPolicy}</dd></div><div><dt>Programación</dt><dd>{scheduleEnabled ? `cada ${scheduleMinutes} minutos` : 'No crear'}</dd></div></>}</dl>{quick && <button className="text-button" type="button" onClick={() => { setMode('advanced'); setStage(1); }}>Configurar opciones avanzadas</button>}<p>Al crear se genera un plan persistente. La ejecución seguirá siendo una acción separada y confirmable.</p></div>}
     </div>
 
     {error && <div className="system-tool-message is-error" role="alert">{error}</div>}
-    <footer><button className="secondary-button" type="button" disabled={stage === 0 || busy} onClick={() => setStage((current) => Math.max(0, current - 1))}>Atrás</button>{stage < STAGES.length - 1 ? <button className="primary-button" type="button" disabled={!canAdvance || busy} onClick={() => setStage((current) => Math.min(STAGES.length - 1, current + 1))}>Continuar <Icon name="chevron" size={14} /></button> : <button className="primary-button" type="button" disabled={busy || !props.task.trim() || variables === null || (scheduleEnabled && !scheduleConfirmed)} onClick={() => void create()}><Icon name="pipeline" size={15} /> {busy ? 'Creando…' : props.hasSteps ? 'Crear nuevo plan' : 'Generar Pipeline'}</button>}</footer>
+    <footer><button className="secondary-button" type="button" disabled={stage === 0 || busy} onClick={() => setStage((current) => Math.max(0, current - 1))}>Atrás</button>{stage < reviewStage ? <button className="primary-button" type="button" disabled={!canAdvance || busy} onClick={() => setStage((current) => Math.min(reviewStage, current + 1))}>Continuar <Icon name="chevron" size={14} /></button> : <button className="primary-button" type="button" disabled={busy || !props.task.trim() || (!quick && (variables === null || (scheduleEnabled && !scheduleConfirmed)))} onClick={() => void create()}><Icon name="pipeline" size={15} /> {busy ? 'Creando…' : props.hasSteps ? 'Crear nuevo plan' : 'Generar Pipeline'}</button>}</footer>
     {continueHint && <p className="pipeline-builder-footer-hint" aria-live="polite">{continueHint}</p>}
   </section>;
 }

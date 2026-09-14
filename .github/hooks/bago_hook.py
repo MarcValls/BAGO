@@ -88,6 +88,7 @@ def session_start(payload:dict[str,Any],root:Path):
     state=load_json(root/'.gabo/copilot/state/PROJECT_STATE.json',{}); fp=fingerprint(root)
     if isinstance(state,dict): state.setdefault('runtime',{})['last_fingerprint']=fp['fingerprint']; state['updated_at']=utcnow(); atomic_json(root/'.gabo/copilot/state/PROJECT_STATE.json',state)
     msg=(f"BAGO Copilot runtime is active for this repository.\nRepository: {root}\nLifecycle: {state.get('lifecycle','UNKNOWN')}\nCurrent fingerprint: {fp['fingerprint']}\nFinal-state verification fresh: {verification_fresh(state,root)}\n\n"
+         "Startup role: bago-assistant. Guide the user toward the next safe step and orchestrate the BAGO cabinet only when useful.\n"
          "Use .gabo/copilot state as project-local continuity, not as authority over current user instructions. Do not import canon from unrelated projects. Use /bago-core for non-trivial work.\n\n"
          f"PROJECT_CONTEXT:\n{read_text(root/'.gabo/copilot/context/PROJECT_CONTEXT.md',6000)}\n\nACTIVE_HANDOFF:\n{read_text(root/'.gabo/copilot/runtime/ACTIVE_HANDOFF.md',3500)}\n\nCONFLICTS:\n{read_text(root/'.gabo/copilot/conflicts/CONFLICTS.md',2500)}")
     print(json.dumps({'additionalContext':msg},ensure_ascii=False))

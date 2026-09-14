@@ -1,7 +1,15 @@
 [CmdletBinding()]
 param(
     [switch]$SkipBuild,
-    [string]$Version = ""
+    [Parameter(Mandatory = $true)]
+    [string]$Version,
+    [Parameter(Mandatory = $true)]
+    [string]$GitRef,
+    [Parameter(Mandatory = $true)]
+    [string]$GitSha,
+    [Parameter(Mandatory = $true)]
+    [string]$NsisMakensis,
+    [switch]$DeferSidecar
 )
 
 Set-StrictMode -Version Latest
@@ -9,14 +17,22 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $PSCommandPath
 $repoRoot = Split-Path -Parent $scriptDir
 $versionFile = Join-Path $repoRoot "release_version.txt"
-if ([string]::IsNullOrWhiteSpace($Version)) {
-    $Version = (Get-Content -LiteralPath $versionFile -Raw).Trim()
-}
+$canonicalVersion = (Get-Content -LiteralPath $versionFile -Raw).Trim()
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
     throw "Version canónica inválida: '$Version'"
 }
+if ($Version -ne $canonicalVersion) {
+    throw "Version solicitada '$Version' no coincide con release_version.txt '$canonicalVersion'."
+}
+if ($GitSha -notmatch '^[0-9a-f]{40}$') {
+    throw "GitSha inválido: '$GitSha'."
+}
+if (-not (Test-Path -LiteralPath $NsisMakensis)) {
+    throw "NSIS makensis.exe no encontrado en la ruta fijada: '$NsisMakensis'."
+}
 $version = $Version
 $runtimeDir = Join-Path $scriptDir "compiled\runtime"
+$frontendDist = Join-Path $repoRoot "frontend\dist"
 $viewerSource = Join-Path $repoRoot "electron-viewer\dist\win-unpacked"
 $setupFile = Join-Path $scriptDir "bago-$version-setup.exe"
 $nsiFile = Join-Path $scriptDir "bago-installer.nsi"
@@ -87,6 +103,14 @@ if (Test-Path -LiteralPath $runtimeDir) {
 }
 New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
 Copy-CleanTree -Source (Join-Path $repoRoot "backend") -Destination $runtimeDir
+if (-not (Test-Path -LiteralPath (Join-Path $frontendDist "index.html"))) {
+    throw "No existe frontend\\dist\\index.html; construya el frontend antes de empaquetar."
+}
+$runtimeUiDist = Join-Path $runtimeDir "ui-react\dist"
+if (Test-Path -LiteralPath $runtimeUiDist) {
+    Remove-Item -LiteralPath $runtimeUiDist -Recurse -Force
+}
+Copy-Item -LiteralPath $frontendDist -Destination $runtimeUiDist -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "scripts\validate_global_payload.ps1") -Destination (Join-Path $runtimeDir "scripts\validate_global_payload.ps1") -Force
 Copy-Item -LiteralPath $viewerSource -Destination (Join-Path $runtimeDir "electron-viewer") -Recurse -Force
 
@@ -100,19 +124,15 @@ Set-Content -LiteralPath "$zipFile.sha256" -Value $zipHashLine -Encoding ASCII
 Write-Host "[4/5] Validando payload..."
 & (Join-Path $repoRoot "scripts\validate_global_payload.ps1") -Root $runtimeDir -ExpectedVersion $version
 
-$makensis = @(
-    "C:\Program Files (x86)\NSIS\makensis.exe",
-    "C:\Program Files\NSIS\makensis.exe"
-) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-if (-not $makensis) { throw "NSIS makensis.exe no encontrado." }
-
 Write-Host "[5/5] Compilando NSIS..."
 Push-Location $scriptDir
 try {
-    & $makensis /V3 `
+    & $NsisMakensis /V3 `
         "/DAPP_VERSION=$version" `
-        "/DAPP_GIT_REF=v$version" `
+        "/DAPP_GIT_REF=$GitRef" `
+        "/DAPP_GIT_SHA=$GitSha" `
         "/DDISTRIBUTION_ZIP_FILE=bago-$version-distribution.zip" `
+        "/DDEV_PS1_FILE=..\scripts\dev.ps1" `
         $nsiFile
     if ($LASTEXITCODE -ne 0) { throw "NSIS fallo con codigo $LASTEXITCODE." }
 } finally {
@@ -121,8 +141,12 @@ try {
 
 if (-not (Test-Path -LiteralPath $setupFile)) { throw "No se genero $setupFile" }
 $hash = (Get-FileHash -LiteralPath $setupFile -Algorithm SHA256).Hash
-$hashLine = "$hash  $([System.IO.Path]::GetFileName($setupFile))"
-Set-Content -LiteralPath "$setupFile.sha256" -Value $hashLine -Encoding ASCII
+if (-not $DeferSidecar) {
+    $hashLine = "$hash  $([System.IO.Path]::GetFileName($setupFile))"
+    Set-Content -LiteralPath "$setupFile.sha256" -Value $hashLine -Encoding ASCII
+} elseif (Test-Path -LiteralPath "$setupFile.sha256") {
+    Remove-Item -LiteralPath "$setupFile.sha256" -Force
+}
 $sizeMb = [Math]::Round((Get-Item -LiteralPath $setupFile).Length / 1MB, 2)
 
 [ordered]@{
@@ -131,4 +155,5 @@ $sizeMb = [Math]::Round((Get-Item -LiteralPath $setupFile).Length / 1MB, 2)
     version = $version
     size_mb = $sizeMb
     sha256 = $hash
+    sidecar_deferred = [bool]$DeferSidecar
 } | ConvertTo-Json -Compress

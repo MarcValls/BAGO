@@ -83,7 +83,7 @@ export function normalizeActiveSection(value: unknown): ActiveSection {
 
 export function createDefaultUiState(): UiState {
   return {
-    sidebarCollapsed: true,
+    sidebarCollapsed: false,
     activeSection: 'home',
     globalMode: 'normal',
     chatMode: 'live',

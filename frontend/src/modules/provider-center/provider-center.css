@@ -114,6 +114,10 @@
   white-space: nowrap;
 }
 
+.provider-center__stat-current {
+  font-size: 12px;
+}
+
 .provider-center__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -186,6 +190,11 @@
 .provider-center__row:hover {
   border-color: var(--border-strong);
   background: var(--surface-3);
+}
+
+.provider-center__row.is-session-model {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .provider-center__row-main {
@@ -287,6 +296,12 @@
   background: var(--accent-soft);
 }
 
+.provider-center__ghost--compact {
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
 .provider-center__ghost:disabled,
 .provider-center__secondary:disabled {
   cursor: wait;
@@ -303,6 +318,35 @@
   color: var(--text-3);
   font-size: 11px;
   text-align: center;
+}
+
+.provider-center__session-override {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  font-size: 12px;
+}
+
+.provider-center__session-override > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-center__session-override > span > span {
+  color: var(--text-3);
+}
+
+.provider-center__row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .provider-center__overlay {

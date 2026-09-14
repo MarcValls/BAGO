@@ -48,10 +48,87 @@
   ],
   "dynamic_routes": [
     {
+      "handler_fn": "handle_get",
+      "handler_module": "handlers_kv",
+      "method": "GET",
+      "path": "/api/v1/kb/<key>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_put",
+      "handler_module": "handlers_kv",
+      "method": "PUT",
+      "path": "/api/v1/kb/<key>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_delete",
+      "handler_module": "handlers_kv",
+      "method": "DELETE",
+      "path": "/api/v1/kb/<key>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_get",
+      "handler_module": "handlers_agents",
+      "method": "GET",
+      "path": "/agents/<agent_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_duplicate",
+      "handler_module": "handlers_agents",
+      "method": "POST",
+      "path": "/agents/<agent_id>/duplicate",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_test",
+      "handler_module": "handlers_agents",
+      "method": "POST",
+      "path": "/agents/<agent_id>/test",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_put",
+      "handler_module": "handlers_agents",
+      "method": "PUT",
+      "path": "/agents/<agent_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_delete",
+      "handler_module": "handlers_agents",
+      "method": "DELETE",
+      "path": "/agents/<agent_id>",
+      "pattern": true
+    },
+    {
       "handler_fn": "handle",
       "handler_module": "handlers_models",
       "method": "GET",
       "path": "/models/<provider>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_list_models",
+      "handler_module": "handlers_providers",
+      "method": "GET",
+      "path": "/providers/<provider>/models",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_active_models_get",
+      "handler_module": "handlers_providers",
+      "method": "GET",
+      "path": "/providers/<provider>/active-models",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_active_models_set",
+      "handler_module": "handlers_providers",
+      "method": "POST",
+      "path": "/providers/<provider>/active-models",
       "pattern": true
     },
     {
@@ -94,6 +171,97 @@
       "handler_module": "handlers_jobs",
       "method": "POST",
       "path": "/jobs/<execution_id>/retry",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_plans_get",
+      "handler_module": "handlers_jobs",
+      "method": "GET",
+      "path": "/plans/<plan_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_get",
+      "handler_module": "handlers_capabilities",
+      "method": "GET",
+      "path": "/api/v1/capabilities/<capability_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_get",
+      "handler_module": "handlers_capability_packages",
+      "method": "GET",
+      "path": "/api/v1/capability-packages/<capability_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_export",
+      "handler_module": "handlers_capability_packages",
+      "method": "GET",
+      "path": "/api/v1/capability-packages/<capability_id>/export",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_enable",
+      "handler_module": "handlers_capability_packages",
+      "method": "POST",
+      "path": "/api/v1/capability-packages/<capability_id>/enable",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_configure",
+      "handler_module": "handlers_capability_packages",
+      "method": "POST",
+      "path": "/api/v1/capability-packages/<capability_id>/configure",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_execute",
+      "handler_module": "handlers_capability_packages",
+      "method": "POST",
+      "path": "/api/v1/capability-packages/<capability_id>/execute",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_install_example",
+      "handler_module": "handlers_capability_packages",
+      "method": "POST",
+      "path": "/api/v1/capability-packages/<capability_id>/install-example",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_plans_execute",
+      "handler_module": "handlers_jobs",
+      "method": "POST",
+      "path": "/plans/<plan_id>/execute",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_get",
+      "handler_module": "handlers_schedule",
+      "method": "GET",
+      "path": "/schedule/<schedule_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_update",
+      "handler_module": "handlers_schedule",
+      "method": "POST",
+      "path": "/schedule/<schedule_id>",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_run",
+      "handler_module": "handlers_schedule",
+      "method": "POST",
+      "path": "/schedule/<schedule_id>/run",
+      "pattern": true
+    },
+    {
+      "handler_fn": "handle_delete",
+      "handler_module": "handlers_schedule",
+      "method": "POST",
+      "path": "/schedule/<schedule_id>/delete",
       "pattern": true
     },
     {
@@ -243,6 +411,13 @@
       "handler_module": "handlers_capability_packages",
       "method": "GET",
       "path": "/api/v1/capability-packages/examples",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_list",
+      "handler_module": "handlers_kv",
+      "method": "GET",
+      "path": "/api/v1/kb",
       "pattern": false
     },
     {
@@ -600,6 +775,13 @@
       "handler_module": "handlers_command",
       "method": "POST",
       "path": "/api/v1/commands",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_set",
+      "handler_module": "handlers_kv",
+      "method": "POST",
+      "path": "/api/v1/kb",
       "pattern": false
     },
     {

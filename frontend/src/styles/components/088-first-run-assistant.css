@@ -66,3 +66,8 @@
 .release-update-link { width: fit-content; margin-top: 2px; color: var(--accent); font-size: 11px; text-decoration: none; }
 .release-update-link:hover { text-decoration: underline; }
 @media (max-width: 700px) { .release-update-card { align-items: stretch; flex-direction: column; } .release-update-card .system-panel-actions { justify-content: flex-start; } }
+
+/* UX audit F4: contextual project inspection state in First Run wizard */
+.first-run-inspection { margin: 8px 0 12px; padding: 8px 10px; font-size: 13px; color: var(--text-2); background: var(--surface-2); border-radius: 8px; border: 1px solid var(--border); }
+.first-run-inspection.is-ok { color: var(--green); border-color: rgba(75,190,135,.35); }
+.first-run-inspection.is-error { color: var(--danger); border-color: rgba(239,94,94,.28); }

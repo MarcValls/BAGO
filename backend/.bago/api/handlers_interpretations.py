@@ -41,17 +41,17 @@ def _normalize_input(text: str) -> str:
 def _detect_intent(text: str) -> str:
     """Simple keyword-based intent detection."""
     lower = text.lower()
-    if any(k in lower for k in ("create", "new", "add", "make")):
+    if any(k in lower for k in ("create", "new", "add", "make", "crear", "crea", "genera", "generar")):
         return "create_resource"
-    if any(k in lower for k in ("delete", "remove", "drop")):
+    if any(k in lower for k in ("delete", "remove", "drop", "elimina", "eliminar", "borra", "borrar")):
         return "delete_resource"
-    if any(k in lower for k in ("update", "edit", "modify", "change")):
+    if any(k in lower for k in ("update", "edit", "modify", "change", "corrige", "corregir", "actualiza", "actualizar", "modifica", "modificar")):
         return "update_resource"
-    if any(k in lower for k in ("show", "list", "get", "find", "search")):
+    if any(k in lower for k in ("show", "list", "get", "find", "search", "muestra", "listar", "busca", "buscar")):
         return "query_resource"
-    if any(k in lower for k in ("explain", "what", "how", "why")):
+    if any(k in lower for k in ("explain", "what", "how", "why", "explica", "explicar", "qué", "como", "por qué")):
         return "explanation"
-    if any(k in lower for k in ("test", "run", "execute", "check")):
+    if any(k in lower for k in ("test", "run", "execute", "check", "ejecuta", "ejecutar", "corre", "correr", "verifica", "verificar")):
         return "execution"
     return "general"
 
@@ -231,6 +231,17 @@ def handle_post(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     except Exception:
         pass
 
+    interpreted_intent = _detect_intent(input_text)
+    from operational_intent import derive_operational_intent
+    operational_spec = derive_operational_intent(
+        input_text,
+        interpreted_intent=interpreted_intent,
+        operation=str(body.get("operation") or ""),
+        product=str(body.get("product") or ""),
+        context=body.get("context"),
+        constraints=body.get("constraints"),
+        acceptance=body.get("acceptance"),
+    ).to_dict()
     stages = _build_stages(interpretation_id, input_text)
 
     # Run interpretation through the reflexive interpreter if available
@@ -251,7 +262,8 @@ def handle_post(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         "interpretationId": interpretation_id,
         "input": input_text,
         "stages": stages,
-        "interpretedIntent": _detect_intent(input_text),
+        "interpretedIntent": interpreted_intent,
+        "operationalSpec": operational_spec,
         "finalOutput": final_output,
         "confidence": confidence,
         "agentId": agent_id,

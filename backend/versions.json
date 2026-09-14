@@ -1,5 +1,5 @@
 {
-  "current": "4.9.2",
+  "current": "4.11.1",
   "history": [
     {
       "version": "4.0.0",
@@ -128,10 +128,34 @@
       "released": "2026-08-25"
     },
     {
-      "ended": null,
+      "ended": "2026-09-01",
       "version": "4.9.2",
       "notes": "Patch release: el instalador NSIS embebe y verifica el sidecar SHA-256 del payload offline.",
       "released": "2026-08-29"
+    },
+    {
+      "ended": "2026-09-04",
+      "version": "4.9.3",
+      "notes": "Patch release: corrige la descarga verificable de NSIS y añade el consumidor de recibos de remediación protegidos.",
+      "released": "2026-09-01"
+    },
+    {
+      "ended": "2026-09-10",
+      "version": "4.10.0",
+      "notes": "Candidato de release: consolida contratos de kernel, proveedores, Capability API v1, routing de modelos y proyecciones verificables. Publicación pendiente de firma Authenticode autorizada.",
+      "released": null
+    },
+    {
+      "ended": "2026-09-10T21:33:00Z",
+      "version": "4.11.0",
+      "notes": "Candidato de release: generaliza el gate de gobernanza para aceptar evidencia real de proveedores alternativos, deteccion de deriva de identidad del candidato, correcciones de seleccion de proveedor/modelo en el panel de agentes y desacoplo del estado del primer arranque respecto del backend.",
+      "released": null
+    },
+    {
+      "ended": null,
+      "version": "4.11.1",
+      "notes": "Patch release: el instalador NSIS nunca invocaba -Finalize tras verificar una instalacion exitosa, por lo que el backup .BAGO-rollback nunca se limpiaba. En la siguiente instalacion/actualizacion, install-embedded-payload.ps1 confundia ese backup obsoleto con una instalacion interrumpida y lo restauraba antes de reinstalar, corrompiendo la red de seguridad de rollback en cada actualizacion normal.",
+      "released": null
     }
   ]
 }

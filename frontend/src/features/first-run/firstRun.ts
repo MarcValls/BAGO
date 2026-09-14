@@ -1,6 +1,7 @@
 import type { BackendProviders, UiBootstrapSnapshot } from '@/contracts/backend';
 
 export const FIRST_RUN_KEY = 'bago.first-run.v1.completed';
+export const FIRST_RUN_DISMISSED_KEY = 'bago.first-run.v1.dismissed';
 
 export interface FirstRunProviderOption {
   id: string;
@@ -15,11 +16,15 @@ export interface FirstRunProviderOption {
 }
 
 export function shouldShowFirstRun(storage: Pick<Storage, 'getItem'> | null): boolean {
-  return storage?.getItem(FIRST_RUN_KEY) !== 'true';
+  return storage?.getItem(FIRST_RUN_KEY) !== 'true' && storage?.getItem(FIRST_RUN_DISMISSED_KEY) !== 'true';
 }
 
 export function markFirstRunComplete(storage: Pick<Storage, 'setItem'> | null): void {
   storage?.setItem(FIRST_RUN_KEY, 'true');
+}
+
+export function markFirstRunDismissed(storage: Pick<Storage, 'setItem'> | null): void {
+  storage?.setItem(FIRST_RUN_DISMISSED_KEY, 'true');
 }
 
 export function firstRunProviderOptions(providers: BackendProviders | null): FirstRunProviderOption[] {
@@ -47,10 +52,25 @@ export function firstRunProviderOptions(providers: BackendProviders | null): Fir
 
 export function firstRunReadiness(snapshot: UiBootstrapSnapshot | null) {
   return {
-    backend: Boolean(snapshot?.system.backendAvailable),
-    provider: snapshot?.model.state === 'confirmed' || snapshot?.model.state === 'degraded',
-    workspace: Boolean(snapshot?.workspace.linkedToSession && snapshot.workspace.manifestState === 'valid')
+    // Only backend-confirmed state may remove the setup path. A successful
+    // bootstrap request is not enough when the payload itself reports an
+    // unavailable backend, degraded provider, or no valid session binding.
+    backend: Boolean(snapshot?.system.backendAvailable && snapshot.system.state === 'confirmed'),
+    provider: snapshot?.model.state === 'confirmed',
+    workspace: Boolean(
+      snapshot?.workspace.linkedToSession
+      && snapshot.workspace.manifestState === 'valid'
+      && snapshot.session.state === 'valid'
+    )
   };
+}
+
+export function firstRunInitialStep(snapshot: UiBootstrapSnapshot | null): number {
+  const readiness = firstRunReadiness(snapshot);
+  if (!readiness.backend) return 0;
+  if (!readiness.provider) return 1;
+  if (!readiness.workspace) return 2;
+  return 3;
 }
 
 export function shouldSkipAutomaticFirstRun(snapshot: UiBootstrapSnapshot | null): boolean {
