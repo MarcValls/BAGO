@@ -163,6 +163,8 @@ def test_builder_resolves_installer_version_from_canonical_authority() -> None:
 
     assert r'Join-Path $repoRoot "release_version.txt"' in builder
     assert r'backend\release_version.txt' not in builder
+    assert '$version = "' not in builder, "builder must not hard-code a mutable product version"
+    assert "-SkipBuild -Version $version" in workflow
     assert "[Parameter(Mandatory = $true)]" in builder
     assert '-GitRef $env:GITHUB_REF_NAME' in workflow
     assert '-GitSha $env:GITHUB_SHA' in workflow
