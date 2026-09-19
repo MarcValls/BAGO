@@ -218,9 +218,38 @@ export function ExternalCapabilitiesPanel({ client, onClose }: Props) {
   });
 
   const execute = () => selected && runAction('execute', async () => {
-    const response = await client.executeCapabilityPackage(selected.id, { input, confirmed, approved_permissions: selected.permissions });
+    if (!confirmed) throw new Error('Confirma explícitamente esta ejecución antes de continuar.');
+
+    const interactionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `interaction-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const challengeResponse = await client.executeCapabilityPackage(selected.id, {
+      input,
+      authorization_action: 'challenge',
+      interaction_id: interactionId
+    });
+    const challengeId = challengeResponse.authorization?.challenge?.challenge_id;
+    if (!challengeId) throw new Error('El backend no emitió un AuthorizationChallenge válido.');
+
+    const authorizationResponse = await client.executeCapabilityPackage(selected.id, {
+      input,
+      authorization_action: 'approve',
+      challenge_id: challengeId,
+      interaction_id: interactionId,
+      user_decision: 'approve'
+    });
+    const permitToken = authorizationResponse.authorization?.permit?.token;
+    if (!permitToken) throw new Error('El backend no emitió un Permit verificable.');
+
+    const response = await client.executeCapabilityPackage(selected.id, {
+      input,
+      authorization_permit: permitToken
+    });
+    if (!response.receipt) throw new Error('La ejecución no devolvió receipt.');
+
     setLatestReceipt(response.receipt);
-    setNotice(response.ok ? 'Ejecución completada con receipt.' : 'La ejecución terminó con error; se conservó el receipt.');
+    setNotice(response.ok ? 'Ejecución autorizada y completada con receipt.' : 'La ejecución autorizada terminó con error; se conservó el receipt.');
     setConfirmed(false);
     await load();
   });
