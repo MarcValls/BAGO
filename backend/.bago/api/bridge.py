@@ -588,8 +588,10 @@ if __name__ == "__main__":
     from handlers_router import restore_session_model, restore_session_reasoning
     restore_session_model(mgr)
     restore_session_reasoning(mgr)
-    # Auto-allow tool execution so file-write and other tools run without a manual approval step
-    mgr.set_tool_approval_policy("always")
+    # HTTP/desktop bridge must fail closed for model tool calls. A persisted
+    # legacy "always" policy is not proof that the current user authorized the
+    # current operation, so interactive approval is required at bridge startup.
+    mgr.set_tool_approval_policy("ask")
     engine = SwitchEngine(mgr.adapters)
     server = BagoAPIServer(mgr, engine, port=args.port, token=args.token, static_dir=args.ui_dist or None)
     server.start()
