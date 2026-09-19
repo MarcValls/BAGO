@@ -99,7 +99,64 @@ export interface CapabilityPackageResponse {
   package: CapabilityPackageRecord;
 }
 
+export interface AuthorizationChallenge {
+  challenge_id: string;
+  state: 'pending' | 'approved' | 'expired';
+  interaction_id: string;
+  session_id: string;
+  capability_id: string;
+  permissions: string[];
+  operation_fingerprint: string;
+  issued_at: string;
+  expires_at: string;
+}
+
+export interface UserAuthorizationProof {
+  proof_id: string;
+  principal_id: string;
+  authenticated_session_id: string;
+  interaction_id: string;
+  operation_fingerprint: string;
+  user_decision: 'approve';
+  issued_at: string;
+  expires_at: string;
+  provenance: { kind: string; channel: string; contract: string };
+}
+
+export interface AuthorizationDecision {
+  decision_id: string;
+  result: 'allow';
+  proof_id: string;
+  operation_fingerprint: string;
+  reason: string;
+  decided_at: string;
+}
+
+export interface AuthorizationPermit {
+  permit_id: string;
+  token: string;
+  decision_id: string;
+  proof_id: string;
+  operation_fingerprint: string;
+  session_id: string;
+  issued_at: string;
+  expires_at: string;
+}
+
+export interface CapabilityExecutionAuthorization {
+  state: 'challenge' | 'authorized' | 'consumed';
+  challenge?: AuthorizationChallenge;
+  proof?: UserAuthorizationProof;
+  decision?: AuthorizationDecision;
+  permit?: AuthorizationPermit;
+  permit_id?: string;
+  decision_id?: string;
+  proof_id?: string;
+  operation_fingerprint?: string;
+}
+
 export interface CapabilityExecutionResponse {
   ok: boolean;
-  receipt: CapabilityReceipt;
+  receipt?: CapabilityReceipt;
+  authorization?: CapabilityExecutionAuthorization;
 }
