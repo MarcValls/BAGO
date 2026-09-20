@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import sys
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -9,9 +10,22 @@ import pytest
 import authorization_boundary as auth
 import capability_packages
 import handlers_schedule
+import delegation_grant as dg
+import execution_gateway as eg
+import schedule_registry as sr
 from authorization_boundary import AuthorizationBoundary
 from delegation_grant import DelegationError, DelegationGrantRegistry
 from execution_gateway import ExecutionContext, ExecutionGateway, ExecutionGatewayError
+
+
+@pytest.fixture(autouse=True)
+def _bind_dynamic_p4_modules(monkeypatch):
+    monkeypatch.setitem(sys.modules, "authorization_boundary", auth)
+    monkeypatch.setitem(sys.modules, "capability_packages", capability_packages)
+    monkeypatch.setitem(sys.modules, "delegation_grant", dg)
+    monkeypatch.setitem(sys.modules, "execution_gateway", eg)
+    monkeypatch.setitem(sys.modules, "handlers_schedule", handlers_schedule)
+    monkeypatch.setitem(sys.modules, "schedule_registry", sr)
 
 
 def _package():
