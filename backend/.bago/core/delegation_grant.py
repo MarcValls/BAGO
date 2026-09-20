@@ -155,16 +155,21 @@ class DelegationGrantRegistry:
             raise DelegationError("Proof fingerprint mismatch", code="delegation_proof_mismatch")
 
         target = request.target
-        args = request.arguments
-        if not isinstance(target, dict) or not isinstance(args, dict):
+        if not isinstance(target, dict):
             raise DelegationError("Delegation request shape is invalid", code="delegation_request_invalid")
 
         schedule_id = str(target.get("schedule_id") or "").strip()
         schedule_digest = str(target.get("schedule_digest") or "").strip()
+        envelope = target.get("delegation")
         if not schedule_id or not schedule_digest:
             raise DelegationError("Delegation must bind a schedule", code="delegation_schedule_binding_required")
+        if not isinstance(envelope, dict):
+            raise DelegationError(
+                "Delegation authority envelope must be human-visible in request.target",
+                code="delegation_visible_envelope_required",
+            )
 
-        allowed_effects = sorted({str(item).strip() for item in args.get("allowed_effects", []) if str(item).strip()})
+        allowed_effects = sorted({str(item).strip() for item in envelope.get("allowed_effects", []) if str(item).strip()})
         if not allowed_effects:
             raise DelegationError("allowed_effects is required", code="delegation_effects_required")
         for effect_id in allowed_effects:
@@ -178,18 +183,18 @@ class DelegationGrantRegistry:
                     code="delegation_effect_not_delegable",
                 )
 
-        child_actor_kind = str(args.get("child_actor_kind") or "scheduler").strip().lower()
-        child_source_surface = str(args.get("child_source_surface") or "scheduler").strip()
+        child_actor_kind = str(envelope.get("child_actor_kind") or "scheduler").strip().lower()
+        child_source_surface = str(envelope.get("child_source_surface") or "scheduler").strip()
         if child_actor_kind != "scheduler" or child_source_surface != "scheduler":
             raise DelegationError(
                 "Scheduler grants must bind the scheduler actor and source surface",
                 code="delegation_runtime_binding_invalid",
             )
 
-        target_digest = str(args.get("target_digest") or "").strip()
-        arguments_digest = str(args.get("arguments_digest") or "").strip()
-        scope = str(args.get("scope") or "").strip()
-        policy_version = str(args.get("policy_version") or "").strip()
+        target_digest = str(envelope.get("target_digest") or "").strip()
+        arguments_digest = str(envelope.get("arguments_digest") or "").strip()
+        scope = str(envelope.get("scope") or "").strip()
+        policy_version = str(envelope.get("policy_version") or "").strip()
         if not target_digest or not arguments_digest or not scope or not policy_version:
             raise DelegationError(
                 "Delegation child constraints are incomplete",
@@ -201,18 +206,18 @@ class DelegationGrantRegistry:
                 code="delegation_policy_stale",
             )
 
-        expires_at = _parse_iso(args.get("expires_at"))
+        expires_at = _parse_iso(envelope.get("expires_at"))
         now = _now()
         if expires_at <= now:
             raise DelegationError("Delegation is already expired", code="delegation_expired")
         try:
-            max_runs = int(args.get("max_runs"))
+            max_runs = int(envelope.get("max_runs"))
         except (TypeError, ValueError) as exc:
             raise DelegationError("max_runs must be an integer", code="delegation_max_runs_invalid") from exc
         if max_runs < 1:
             raise DelegationError("max_runs must be greater than zero", code="delegation_max_runs_invalid")
 
-        grant_id = str(args.get("grant_id") or f"delegation-{uuid.uuid4().hex}").strip()
+        grant_id = str(envelope.get("grant_id") or f"delegation-{uuid.uuid4().hex}").strip()
         if not grant_id or "/" in grant_id or "\\" in grant_id:
             raise DelegationError("Invalid DelegationGrant id", code="delegation_id_invalid")
 
