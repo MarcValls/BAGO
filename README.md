@@ -1,17 +1,73 @@
-# BAGO v4.11.1 — parche de instalador (rollback)
+# BAGO v4.11.1 — control plane de IA local y gobernado
 
 [![Version](https://img.shields.io/badge/version-4.11.1-blue)]()
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
-[![Node](https://img.shields.io/badge/node-20%2B-green)]()
-[![Verification](https://img.shields.io/badge/verification-candidate--bound-blue)]()
+[![Node](https://img.shields.io/badge/node-22.12%2B-green)]()
+[![Execution boundary](https://img.shields.io/badge/execution%20boundary-migration%20open-orange)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
-**BAGO** es un plano de control de IA local. Su función principal es mantener la sesión como fuente de verdad mientras los proveedores y modelos permanecen como motores de ejecución intercambiables.
+**BAGO** es un plano de control de IA local, orientado a sesión, contexto, proveedores, capacidades, permisos, evidencia y ejecución gobernada. La sesión y el backend mantienen la verdad operacional; los LLM y proveedores son motores intercambiables que pueden proponer trabajo, pero no deben convertirse por sí solos en autoridad de ejecución.
+
+La versión canónica del producto se resuelve desde `release_version.txt`. La última release pública es **v4.11.1**. El branch `main` contiene además trabajo arquitectónico posterior a esa release —incluidas las fases P1–P4 de la unificación de `ExecutionGateway`— que todavía no forma parte del artefacto publicado v4.11.1.
 
 ---
 
-## Novedades publicadas en 4.11.1
+## Estado actual de `main` — post-v4.11.1
+
+Cadena de ejecución gobernada materializada hasta P4:
+
+```text
+intent / task
+  -> ExecutionRequest
+  -> AuthorizationChallenge
+  -> UserAuthorizationProof
+  -> AuthorizationDecision
+  -> Permit
+  -> ExecutionGateway
+  -> EffectAdapter
+  -> material effect
+  -> Receipt
+```
+
+Para ejecución programada:
+
+```text
+direct user decision
+  -> schedule.delegate
+  -> parent Permit
+  -> ExecutionGateway
+  -> DelegationGrant
+  -> scheduler trigger
+  -> child ExecutionRequest
+  -> child Permit
+  -> ExecutionGateway
+  -> EffectAdapter
+  -> effect
+```
+
+| Fase | Estado actual |
+|---|---|
+| P1 · Effect Registry + Effect-Sink Inventory | IMPLEMENTED |
+| P2 · ExecutionRequest v2 | IMPLEMENTED |
+| P3 · ExecutionGateway v2 | IMPLEMENTED_SLICE |
+| P4 · Scheduler + DelegationGrant | MERGED · RETEST_READY · CI PASS |
+| P5 · LLM Tool Calls | OPEN |
+| P6–P12 · migración hasta frontera única | PENDING |
+| P13–P14 · Strong Human Identity Proof | FUTURE |
+
+Estado global de seguridad de ejecución:
+
+- `LEGACY_SCHEDULE_CONFIRMATION_AUTHORITY = REMOVED`
+- `SCHEDULED_RUN_CHILD_PERMIT = REQUIRED`
+- `UNIQUE_EXECUTION_BOUNDARY = NOT_YET`
+- `STRONG_HUMAN_IDENTITY_VERIFIED = NO`
+
+Por tanto, BAGO ya tiene una frontera de ejecución cerrada para las rutas migradas, pero **todavía no** puede afirmar que `ExecutionGateway` sea la única frontera de efectos del sistema completo.
+
+---
+
+## Release pública v4.11.1
 
 ### Fix del instalador
 - El instalador NSIS no invocaba `-Finalize` tras verificar una instalación
@@ -24,7 +80,7 @@
   registrar la app y crear accesos directos) y con aborto explícito si la
   limpieza falla, más un test de regresión.
 
-### Novedades ya publicadas en 4.11.0
+### Base incorporada desde v4.11.0
 
 ### Contratos y arquitectura
 - Se declara y prueba la frontera kernel/extensión, con compatibilidad de entradas existentes y una migración de imports enumerada y verificable.
@@ -32,10 +88,10 @@
 - La identidad del modelo, sus capacidades observadas y la política de routing quedan separadas; el camino RL sigue sin autoridad de ejecución automática.
 
 ### Seguridad de distribución
-- El preflight de firma Authenticode falla de forma segura y emite un recibo JSON aunque GitHub responda que falta el entorno de firma.
+- La release pública v4.11.1 incluye `bago-4.11.1-setup.exe` firmado con Authenticode SHA-256.
+- El SHA-256 publicado del instalador es `5066db72146e3231afd18312f44948bccb2116dc23e107e4a24a721005d50e92`.
 - Las proyecciones de rutas, migración y versión se verifican contra drift en CI.
-
-> Este candidato no está publicado: requiere un entorno `release-signing`, una identidad de firma pública autorizada y los gates de artefacto firmados.
+- Los cambios posteriores de `main` no se consideran parte del instalador v4.11.1 hasta que exista una nueva release/tag y sus gates correspondientes.
 
 ## Novedades en 4.9.0
 
@@ -120,7 +176,7 @@ BAGO/
 
 ### Opción A — Instalador Windows (recomendado)
 
-La última release pública es [v4.11.1](https://github.com/MarcValls/BAGO/releases/tag/v4.11.1) (pre-release, **sin firmar** — no hay credenciales de firma Authenticode configuradas). Descarga `bago-4.11.1-setup.exe` y ejecútalo; Windows SmartScreen mostrará una advertencia esperada («Más información → Ejecutar de todas formas»).
+La última release pública es [v4.11.1](https://github.com/MarcValls/BAGO/releases/tag/v4.11.1). Descarga `bago-4.11.1-setup.exe`; el artefacto publicado está firmado con Authenticode SHA-256 y acompañado por su sidecar `.sha256`.
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
 - El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
@@ -269,6 +325,24 @@ npm run sh:stop
 npm run sh:status
 ```
 
+### Gate de frescura del README
+
+`README.md` forma parte de la verdad verificable del repositorio. `Canonical CI` ejecuta:
+
+```powershell
+python scripts/verify_readme_freshness.py
+```
+
+El gate falla si:
+
+- la versión del README no coincide con `release_version.txt`;
+- el requisito de Node no coincide con `package.json`;
+- desaparecen estados arquitectónicos obligatorios;
+- reaparecen claims obsoletos de firma/distribución;
+- un PR/push cambia superficies que afectan al README —versión, contratos, arquitectura, seguridad, release/instalación o fronteras de ejecución— sin modificar también `README.md`.
+
+El CI **no auto-commitea** documentación. Obliga a que el cambio y su documentación viajen juntos en el mismo diff.
+
 ---
 
 ## Proveedores soportados
@@ -289,11 +363,17 @@ npm run sh:status
 
 | Área | Estado | Notas |
 |---|---|---|
-| Runtime core | Verificable | Suite y resultados ligados al SHA candidato |
-| Instalación Windows | NOT_RUN en candidato actual | El instalador NSIS histórico no valida el SHA de remediación |
-| Ciclo de vida Electron | Verificación pendiente | El código fuente tiene gates; falta validar el instalador exacto del candidato |
-| UI React | Verificable | Tests ligados al SHA candidato, tema claro/oscuro, tokens CSS |
+| Runtime core | Verificable | Canonical CI y suites backend/frontend ligadas al SHA |
+| Release Windows v4.11.1 | ✅ Publicada | Instalador Authenticode SHA-256 firmado + sidecar SHA-256 |
+| `main` post-release | En desarrollo gobernado | Contiene P1–P4; requiere nueva release para distribuirse como artefacto publicado |
+| Ciclo de vida Electron | Verificable en CI | Packaged Electron smoke forma parte de Canonical CI |
+| UI React | Verificable | Build, typecheck y tests en CI |
 | Seguridad y postura API | ✅ Estable | `backend/docs/SECURITY.md` |
+| Effect Registry / sink inventory | ✅ Implementado | P1 |
+| ExecutionRequest v2 | ✅ Implementado | P2 |
+| ExecutionGateway v2 | 🔶 Slice implementado | P3; no es todavía frontera única |
+| Scheduler + DelegationGrant | ✅ MERGED · RETEST_READY | P4; child Permit obligatorio; authority legacy eliminada |
+| Strong Human Identity Proof | ⏳ Pendiente | P13–P14; WebAuthn/Windows Hello/FIDO2 todavía no verificados |
 | Soporte de plataforma | ✅ Windows | macOS/Linux: experimental |
 | Sistema de capacidades | ✅ Funcional | `capability-anatomy`, provider center |
 | Conversaciones multi-turno | ✅ Funcional | `active_conversation_id`, session registry |
@@ -309,7 +389,7 @@ npm run sh:status
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
-| [v4.11.1](https://github.com/MarcValls/BAGO/releases/tag/v4.11.1) | 2026-09-11 | `bago-4.11.1-setup.exe` (pre-release, sin firmar) — fix del instalador (rollback) |
+| [v4.11.1](https://github.com/MarcValls/BAGO/releases/tag/v4.11.1) | 2026-09-10 | `bago-4.11.1-setup.exe` + `.sha256` — Authenticode SHA-256 firmado; fix de rollback |
 | [v4.11.0](https://github.com/MarcValls/BAGO/releases/tag/v4.11.0) | 2026-09-10 | `bago-4.11.0-setup.exe` (pre-release, sin firmar) |
 | [v4.10.0](https://github.com/MarcValls/BAGO/releases/tag/v4.10.0) | 2026-09-05 | `bago-4.10.0-setup.exe` · `bago-4.10.0-distribution.zip` (pre-release, sin firmar) |
 | [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3) | 2026-09-01 | `bago-4.9.3-setup.exe` |
@@ -376,6 +456,10 @@ Ver [`backend/docs/SECURITY.md`](backend/docs/SECURITY.md) para la postura de se
 | [`backend/docs/SECURITY.md`](backend/docs/SECURITY.md) | Defaults de seguridad y gates |
 | [`backend/docs/TESTING.md`](backend/docs/TESTING.md) | Comandos de validación |
 | [`backend/docs/ARCHITECTURE.md`](backend/docs/ARCHITECTURE.md) | Arquitectura del sistema |
+| [`backend/docs/contracts/execution_gateway_unification_plan.v1.md`](backend/docs/contracts/execution_gateway_unification_plan.v1.md) | Plan lineal P1–P14 para frontera única de ejecución |
+| [`backend/docs/contracts/execution_gateway.v2.md`](backend/docs/contracts/execution_gateway.v2.md) | ExecutionRequest v2 + ExecutionGateway v2 |
+| [`backend/docs/contracts/scheduler_delegation.v1.md`](backend/docs/contracts/scheduler_delegation.v1.md) | P4 · Scheduler + DelegationGrant |
+| [`backend/docs/contracts/user_authorization_provenance.v1.md`](backend/docs/contracts/user_authorization_provenance.v1.md) | Procedencia de autorización de usuario |
 
 ---
 
