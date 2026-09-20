@@ -7,7 +7,11 @@ import pytest
 
 import authorization_boundary as auth
 import delegation_grant as dg
-from delegation_grant import DelegationError, DelegationGrantRegistry
+from delegation_grant import (
+    DelegationError,
+    DelegationGrantRegistry,
+    canonical_schedule_descriptor,
+)
 from effect_registry import REGISTRY
 from execution_gateway import EffectAdapterRegistry, ExecutionContext, ExecutionGateway
 from execution_request import build_execution_request, stable_digest
@@ -35,7 +39,19 @@ def _issue_grant(tmp_path, monkeypatch, *, max_runs: int = 2, allowed_effect: st
     child_target = {"path": "notes/example.txt"}
     child_arguments = {"content": "A"}
     schedule_id = "schedule-1"
-    schedule_digest = stable_digest({"schedule_id": schedule_id, "definition": "fixed"})
+    schedule_descriptor = canonical_schedule_descriptor(
+        {
+            "id": schedule_id,
+            "target_type": "capability",
+            "target": {"capability_id": "fixed"},
+            "schedule_type": "interval",
+            "interval_s": 60,
+            "timezone": "UTC",
+            "overlap_policy": "skip",
+            "misfire_policy": "run_once",
+        }
+    )
+    schedule_digest = stable_digest(schedule_descriptor)
     grant_id = "delegation-test-1"
 
     parent = build_execution_request(
@@ -47,9 +63,11 @@ def _issue_grant(tmp_path, monkeypatch, *, max_runs: int = 2, allowed_effect: st
         target={
             "schedule_id": schedule_id,
             "schedule_digest": schedule_digest,
+            "schedule": schedule_descriptor,
             "delegation": {
                 "grant_id": grant_id,
                 "allowed_effects": [allowed_effect],
+                "child_target": child_target,
                 "target_digest": stable_digest(child_target),
                 "arguments_digest": stable_digest(child_arguments),
                 "scope": "workspace",
@@ -263,7 +281,17 @@ def test_nondelegable_effect_cannot_be_granted(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
     boundary = auth.AuthorizationBoundary()
     schedule_id = "schedule-delete"
-    schedule_digest = stable_digest({"schedule_id": schedule_id})
+    schedule_descriptor = canonical_schedule_descriptor(
+        {
+            "id": schedule_id,
+            "target_type": "capability",
+            "target": {"capability_id": "danger"},
+            "schedule_type": "interval",
+            "interval_s": 60,
+            "timezone": "UTC",
+        }
+    )
+    schedule_digest = stable_digest(schedule_descriptor)
     target = {"path": "danger.txt"}
     arguments = {}
     parent = build_execution_request(
@@ -275,8 +303,10 @@ def test_nondelegable_effect_cannot_be_granted(tmp_path, monkeypatch):
         target={
             "schedule_id": schedule_id,
             "schedule_digest": schedule_digest,
+            "schedule": schedule_descriptor,
             "delegation": {
                 "allowed_effects": ["filesystem.delete"],
+                "child_target": target,
                 "target_digest": stable_digest(target),
                 "arguments_digest": stable_digest(arguments),
                 "scope": "workspace",
@@ -401,6 +431,16 @@ def test_authorization_challenge_exposes_safe_delegation_envelope(tmp_path, monk
     boundary = auth.AuthorizationBoundary()
     child_target = {"path": "notes/example.txt"}
     child_arguments = {"content": "sensitive-content"}
+    schedule_descriptor = canonical_schedule_descriptor(
+        {
+            "id": "schedule-visible",
+            "target_type": "capability",
+            "target": {"capability_id": "visible"},
+            "schedule_type": "interval",
+            "interval_s": 60,
+            "timezone": "UTC",
+        }
+    )
     request = build_execution_request(
         effect_id="schedule.delegate",
         actor_kind="user",
@@ -409,10 +449,12 @@ def test_authorization_challenge_exposes_safe_delegation_envelope(tmp_path, monk
         source_surface="test",
         target={
             "schedule_id": "schedule-visible",
-            "schedule_digest": "schedule-digest",
+            "schedule_digest": stable_digest(schedule_descriptor),
+            "schedule": schedule_descriptor,
             "delegation": {
                 "grant_id": "delegation-visible",
                 "allowed_effects": ["filesystem.write"],
+                "child_target": child_target,
                 "target_digest": stable_digest(child_target),
                 "arguments_digest": stable_digest(child_arguments),
                 "scope": "workspace",
@@ -429,8 +471,11 @@ def test_authorization_challenge_exposes_safe_delegation_envelope(tmp_path, monk
     )
     challenge = boundary.create_challenge(request, interaction_id="interaction-visible")
 
+    assert challenge["target"]["schedule"]["interval_s"] == 60
+    assert challenge["target"]["schedule"]["target_digest"]
     visible = challenge["target"]["delegation"]
     assert visible["allowed_effects"] == ["filesystem.write"]
+    assert visible["child_target"] == child_target
     assert visible["scope"] == "workspace"
     assert visible["max_runs"] == 3
     assert visible["expires_at"]
