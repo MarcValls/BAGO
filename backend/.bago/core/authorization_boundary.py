@@ -311,6 +311,115 @@ class AuthorizationBoundary:
             "permit": asdict(permit),
         }
 
+    def issue_delegated_permit(
+        self,
+        *,
+        request: ExecutionRequest,
+        state_dir: Path | str,
+        schedule_id: str,
+        schedule_digest: str,
+    ) -> dict[str, Any]:
+        """Mint one normal, short-lived Permit from a bounded DelegationGrant.
+
+        Spending one grant run happens before a child Permit is exposed. If
+        subsequent Permit persistence fails, authority is lost rather than
+        duplicated.
+        """
+        from delegation_grant import DelegationGrantRegistry
+
+        if not str(request.delegation_id or "").strip():
+            raise AuthorizationError(
+                "Delegated execution requires delegation_id",
+                code="authorization_delegation_required",
+            )
+
+        registry = DelegationGrantRegistry(state_dir)
+        claim = registry.claim_child(
+            request.delegation_id,
+            request,
+            schedule_id=schedule_id,
+            schedule_digest=schedule_digest,
+        )
+
+        now = _now()
+        delegation_deadline = _parse_iso(str(claim.get("expires_at") or ""))
+        permit_deadline = min(
+            now + timedelta(seconds=PERMIT_TTL_SECONDS),
+            delegation_deadline,
+        )
+        if permit_deadline <= now:
+            raise AuthorizationError(
+                "Delegation expired before Permit issuance",
+                code="authorization_delegation_expired",
+            )
+
+        proof_id = str(claim.get("proof_id") or "").strip()
+        if not proof_id:
+            raise AuthorizationError(
+                "Delegation provenance is incomplete",
+                code="authorization_delegation_provenance_missing",
+            )
+
+        decision = AuthorizationDecision(
+            decision_id=f"authdec-{uuid.uuid4().hex}",
+            result="allow",
+            proof_id=proof_id,
+            operation_fingerprint=request.fingerprint,
+            effect_id=request.effect_id,
+            reason="delegation_grant_child",
+            decided_at=_iso(now),
+        )
+        raw_token = secrets.token_urlsafe(32)
+        permit = Permit(
+            permit_id=f"permit-{uuid.uuid4().hex}",
+            token=raw_token,
+            decision_id=decision.decision_id,
+            proof_id=proof_id,
+            operation_fingerprint=request.fingerprint,
+            request_id=request.request_id,
+            effect_id=request.effect_id,
+            session_id=request.session_id,
+            issued_at=_iso(now),
+            expires_at=_iso(permit_deadline),
+        )
+        permit_hash = _token_hash(raw_token)
+        delegated_proof = {
+            "proof_id": proof_id,
+            "principal_id": request.principal_id,
+            "authenticated_session_id": request.session_id,
+            "operation_fingerprint": request.fingerprint,
+            "effect_id": request.effect_id,
+            "user_decision": "delegated",
+            "issued_at": _iso(now),
+            "expires_at": _iso(permit_deadline),
+            "provenance": {
+                "kind": "delegation_grant",
+                "grant_id": str(claim.get("grant_id") or ""),
+                "claim_id": str(claim.get("claim_id") or ""),
+                "schedule_id": str(claim.get("schedule_id") or ""),
+                "origin_proof_id": proof_id,
+                "contract": AUTHORIZATION_CONTRACT_VERSION,
+            },
+        }
+
+        with _LOCK:
+            ledger = _read_ledger()
+            ledger["permits"][permit_hash] = {
+                **{key: value for key, value in asdict(permit).items() if key != "token"},
+                "state": "active",
+                "proof": delegated_proof,
+                "decision": asdict(decision),
+                "delegation": dict(claim),
+            }
+            _write_ledger(ledger)
+
+        return {
+            "proof": delegated_proof,
+            "decision": asdict(decision),
+            "permit": asdict(permit),
+            "delegation": dict(claim),
+        }
+
     def consume_permit(
         self,
         *,
