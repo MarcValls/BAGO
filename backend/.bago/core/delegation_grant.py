@@ -51,12 +51,13 @@ def _parse_iso(value: Any) -> datetime:
 
 
 def canonical_schedule_descriptor(raw: dict[str, Any]) -> dict[str, Any]:
-    """Return only schedule fields that can alter when/how delegated work fires."""
+    """Return a privacy-safe, exact authority descriptor for schedule semantics."""
     schedule_type = str(raw.get("schedule_type") or "interval").strip()
+    target = raw.get("target") if isinstance(raw.get("target"), dict) else {}
     return {
         "id": str(raw.get("id") or "").strip(),
         "target_type": str(raw.get("target_type") or "").strip(),
-        "target": raw.get("target") if isinstance(raw.get("target"), dict) else {},
+        "target_digest": stable_digest(target),
         "schedule_type": schedule_type,
         "interval_s": int(raw.get("interval_s") or 0) if schedule_type == "interval" else None,
         "cron_expr": str(raw.get("cron_expr") or "").strip() if schedule_type == "cron" else "",
@@ -160,9 +161,25 @@ class DelegationGrantRegistry:
 
         schedule_id = str(target.get("schedule_id") or "").strip()
         schedule_digest = str(target.get("schedule_digest") or "").strip()
+        schedule_descriptor = target.get("schedule")
         envelope = target.get("delegation")
         if not schedule_id or not schedule_digest:
             raise DelegationError("Delegation must bind a schedule", code="delegation_schedule_binding_required")
+        if not isinstance(schedule_descriptor, dict):
+            raise DelegationError(
+                "Delegation request must expose the bounded schedule descriptor",
+                code="delegation_visible_schedule_required",
+            )
+        if stable_digest(schedule_descriptor) != schedule_digest:
+            raise DelegationError(
+                "Visible schedule descriptor does not match schedule_digest",
+                code="delegation_visible_schedule_mismatch",
+            )
+        if str(schedule_descriptor.get("id") or "") != schedule_id:
+            raise DelegationError(
+                "Visible schedule descriptor is bound to another schedule",
+                code="delegation_schedule_mismatch",
+            )
         if not isinstance(envelope, dict):
             raise DelegationError(
                 "Delegation authority envelope must be human-visible in request.target",
@@ -192,6 +209,7 @@ class DelegationGrantRegistry:
             )
 
         target_digest = str(envelope.get("target_digest") or "").strip()
+        visible_child_target = envelope.get("child_target")
         arguments_digest = str(envelope.get("arguments_digest") or "").strip()
         scope = str(envelope.get("scope") or "").strip()
         policy_version = str(envelope.get("policy_version") or "").strip()
@@ -199,6 +217,16 @@ class DelegationGrantRegistry:
             raise DelegationError(
                 "Delegation child constraints are incomplete",
                 code="delegation_constraints_incomplete",
+            )
+        if not isinstance(visible_child_target, dict):
+            raise DelegationError(
+                "Delegation request must expose the non-sensitive child target",
+                code="delegation_visible_target_required",
+            )
+        if stable_digest(visible_child_target) != target_digest:
+            raise DelegationError(
+                "Visible child target does not match target_digest",
+                code="delegation_visible_target_mismatch",
             )
         if policy_version != request.policy_version or policy_version != REGISTRY.digest:
             raise DelegationError(
