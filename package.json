@@ -21,7 +21,9 @@
     "electron": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 electron",
     "sh:dev": "bash scripts/dev.sh start",
     "sh:stop": "bash scripts/dev.sh stop",
-    "sh:status": "bash scripts/dev.sh status"
+    "sh:status": "bash scripts/dev.sh status",
+    "docs:sync": "python backend/scripts/generate_readme_projection.py",
+    "docs:check": "python backend/scripts/generate_readme_projection.py --check"
   },
   "workspaces": [
     "frontend",
