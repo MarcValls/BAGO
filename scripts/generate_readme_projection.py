@@ -13,6 +13,7 @@ human-authored product/release documentation.
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import re
 from pathlib import Path
@@ -108,7 +109,7 @@ Versión canónica del repositorio: **v{version}**, resuelta desde `release_vers
 
 Estado del plan lineal: `{plan_state}`.
 
-Cadena de ejecución gobernada materizada:
+Cadena de ejecución gobernada materializada:
 
 ```text
 intent / task
@@ -188,6 +189,15 @@ def main() -> int:
                 "error: README generated truth projection drifted. "
                 "Run: python scripts/generate_readme_projection.py"
             )
+            diff = difflib.unified_diff(
+                current.splitlines(),
+                expected.splitlines(),
+                fromfile="README.md",
+                tofile="README.md (generated)",
+                lineterm="",
+            )
+            for line in diff:
+                print(line)
             return 2
         print("README generated truth projection PASS")
         return 0
