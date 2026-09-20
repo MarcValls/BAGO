@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import sys
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
 import authorization_boundary as auth
 import delegation_grant as dg
+import execution_gateway as eg
 from delegation_grant import (
     DelegationError,
     DelegationGrantRegistry,
@@ -15,6 +17,15 @@ from delegation_grant import (
 from effect_registry import REGISTRY
 from execution_gateway import EffectAdapterRegistry, ExecutionContext, ExecutionGateway
 from execution_request import build_execution_request, stable_digest
+
+
+@pytest.fixture(autouse=True)
+def _bind_dynamic_p4_modules(monkeypatch):
+    # conftest deliberately evicts .bago modules between tests; P4 performs
+    # dynamic imports, so keep each test's class identities internally stable.
+    monkeypatch.setitem(sys.modules, "authorization_boundary", auth)
+    monkeypatch.setitem(sys.modules, "delegation_grant", dg)
+    monkeypatch.setitem(sys.modules, "execution_gateway", eg)
 
 
 class _RecordingAdapter:
