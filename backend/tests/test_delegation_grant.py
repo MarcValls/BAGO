@@ -162,6 +162,7 @@ def test_each_delegated_run_gets_fresh_one_time_permit(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     ("mutation", "expected_code"),
     [
+        ("effect", "delegation_effect_exceeds_grant"),
         ("target", "delegation_target_exceeds_grant"),
         ("arguments", "delegation_arguments_exceed_grant"),
         ("scope", "delegation_scope_exceeds_grant"),
@@ -186,7 +187,9 @@ def test_child_authority_cannot_expand(tmp_path, monkeypatch, mutation, expected
         "parent_execution_id": base.parent_execution_id,
         "delegation_id": base.delegation_id,
     }
-    if mutation == "target":
+    if mutation == "effect":
+        kwargs["effect_id"] = "filesystem.read"
+    elif mutation == "target":
         kwargs["target"] = {"path": "notes/other.txt"}
     elif mutation == "arguments":
         kwargs["arguments"] = {"content": "B"}
@@ -325,3 +328,32 @@ def test_client_assertion_cannot_issue_grant_without_parent_authorization(tmp_pa
     with pytest.raises(DelegationError) as denied:
         DelegationGrantRegistry(tmp_path).issue_from_authorized_request(request, fake)
     assert denied.value.code == "delegation_user_origin_unverified"
+
+
+def test_unconsumed_parent_assertion_cannot_issue_grant(tmp_path):
+    request = build_execution_request(
+        effect_id="schedule.delegate",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="session-1",
+        source_surface="test",
+        target={"schedule_id": "schedule-1", "schedule_digest": "abc"},
+        arguments={},
+        scope="persistent",
+        policy_version=REGISTRY.digest,
+    )
+    fake = {
+        "state": "active",
+        "effect_id": request.effect_id,
+        "operation_fingerprint": request.fingerprint,
+        "proof": {
+            "proof_id": "proof-fake",
+            "operation_fingerprint": request.fingerprint,
+            "provenance": {"kind": "direct_user_interaction"},
+        },
+        "decision": {"result": "allow"},
+    }
+
+    with pytest.raises(DelegationError) as denied:
+        DelegationGrantRegistry(tmp_path).issue_from_authorized_request(request, fake)
+    assert denied.value.code == "delegation_parent_permit_not_consumed"
