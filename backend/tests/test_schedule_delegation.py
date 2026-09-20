@@ -11,7 +11,7 @@ import capability_packages
 import handlers_schedule
 from authorization_boundary import AuthorizationBoundary
 from delegation_grant import DelegationError, DelegationGrantRegistry
-from execution_gateway import ExecutionContext, ExecutionGateway
+from execution_gateway import ExecutionContext, ExecutionGateway, ExecutionGatewayError
 
 
 def _package():
@@ -157,3 +157,54 @@ def test_scheduler_handler_contains_no_direct_package_runtime_call():
     assert "execute_package(" not in source
     assert "execute_pipeline_package(" not in source
     assert "confirmed=True" not in source
+
+
+def test_missing_child_adapter_does_not_spend_grant_run(tmp_path, monkeypatch):
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    mgr = SimpleNamespace(base_path=tmp_path, session_id="session-scheduler")
+    payload = {
+        "id": "schedule-plan-1",
+        "name": "Plan periódico",
+        "target_type": "plan",
+        "target": {"plan_id": "plan-1"},
+        "schedule_type": "interval",
+        "interval_s": 60,
+        "timezone": "UTC",
+        "enabled": True,
+        "delegation": {
+            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+            "max_runs": 2,
+        },
+    }
+    request, draft, requested_enabled, _ = handlers_schedule._delegation_request(mgr, payload)
+    boundary = AuthorizationBoundary()
+    challenge = boundary.create_challenge(request, interaction_id="interaction-plan")
+    permit = boundary.approve_challenge(
+        challenge_id=challenge["challenge_id"],
+        interaction_id="interaction-plan",
+        session_id=request.session_id,
+        channel="ui-react",
+    )["permit"]
+    result, _ = ExecutionGateway(boundary).execute(
+        permit_token=permit["token"],
+        request=request,
+        context=ExecutionContext(
+            manager=mgr,
+            services={"state_dir": handlers_schedule._state_dir(mgr)},
+        ),
+    )
+    grant = result["delegation_grant"]
+    schedule = handlers_schedule._registry(mgr).create(
+        {
+            **draft,
+            "enabled": requested_enabled,
+            "delegation_id": grant["grant_id"],
+        }
+    )
+
+    with pytest.raises(ExecutionGatewayError) as missing:
+        handlers_schedule._execute_target(mgr, schedule)
+    assert missing.value.code == "execution_adapter_missing"
+
+    persisted = DelegationGrantRegistry(handlers_schedule._state_dir(mgr)).get(grant["grant_id"])
+    assert persisted["run_count"] == 0
