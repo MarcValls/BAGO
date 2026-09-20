@@ -164,6 +164,8 @@ En un worktree Git, `npm install`/`npm ci` activa automáticamente `core.hooksPa
 
 `Canonical CI` y `Validate Expected` ejecutan además el check remoto. Si cambia una fuente canónica y el README no se regenera, el PR falla.
 
+Además, `Canonical CI` ejecuta `scripts/verify_readme_impact.py`. Este gate inspecciona el diff del PR/push y exige que `README.md` cambie cuando se modifican superficies públicas que pueden volver obsoleto el texto explicativo —arquitectura/seguridad, fronteras de ejecución, instalación/release/lifecycle, comandos o entrypoints de documentación— aunque ese dato no forme parte del bloque generado.
+
 Fuentes actualmente enlazadas:
 
 - `release_version.txt` — versión canónica
