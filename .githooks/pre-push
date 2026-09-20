@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+protected_refs="refs/heads/main refs/heads/windows refs/heads/android"
+
+while read local_ref local_sha remote_ref remote_sha
+do
+  for protected_ref in $protected_refs
+  do
+    if [ "$remote_ref" = "$protected_ref" ]; then
+      echo "[BAGO pre-push] direct push blocked: $remote_ref" >&2
+      echo "[BAGO pre-push] use a working branch and Pull Request." >&2
+      exit 1
+    fi
+  done
+done
+
+exit 0
