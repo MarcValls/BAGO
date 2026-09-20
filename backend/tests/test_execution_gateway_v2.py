@@ -60,6 +60,23 @@ def test_execution_request_fingerprint_is_transport_id_independent() -> None:
     assert a.fingerprint == b.fingerprint
 
 
+def test_execution_request_detaches_mutable_caller_payload() -> None:
+    arguments = {"content": {"value": "A"}}
+    request = build_execution_request(
+        effect_id="filesystem.write",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="session-1",
+        source_surface="test.gateway",
+        target={"path": "notes/example.txt"},
+        arguments=arguments,
+    )
+    fingerprint = request.fingerprint
+    arguments["content"]["value"] = "MUTATED"
+    assert request.arguments["content"]["value"] == "A"
+    assert request.fingerprint == fingerprint
+
+
 def test_execution_request_fingerprint_changes_with_material_semantics() -> None:
     original = _request(value="A")
     changed_arguments = _request(value="B")
