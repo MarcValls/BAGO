@@ -98,6 +98,13 @@ class CapabilityRuntimeEffectAdapter:
             )
         package = get_package(package_id)
         expected_kind = "pipeline" if request.effect_id == "pipeline.execute" else "capability"
+        requested_digest = str(request.target.get("package_digest") or "").strip()
+        current_digest = str(package.get("digest") or "").strip()
+        if requested_digest and requested_digest != current_digest:
+            raise ExecutionGatewayError(
+                "Package changed after authorization request was constructed",
+                code="execution_target_digest_mismatch",
+            )
         if str(package.get("kind") or "") != expected_kind:
             raise ExecutionGatewayError(
                 f"Effect {request.effect_id} cannot execute package kind {package.get('kind')}",
