@@ -1,3 +1,4 @@
+<!-- BEGIN GENERATED: README_TRUTH -->
 # BAGO v4.11.1 — control plane de IA local y gobernado
 
 [![Version](https://img.shields.io/badge/version-4.11.1-blue)]()
@@ -9,15 +10,15 @@
 
 **BAGO** es un plano de control de IA local, orientado a sesión, contexto, proveedores, capacidades, permisos, evidencia y ejecución gobernada. La sesión y el backend mantienen la verdad operacional; los LLM y proveedores son motores intercambiables que pueden proponer trabajo, pero no deben convertirse por sí solos en autoridad de ejecución.
 
-La versión canónica del producto se resuelve desde `release_version.txt`. La última release pública es **v4.11.1**. El branch `main` contiene además trabajo arquitectónico posterior a esa release —incluidas las fases P1–P4 de la unificación de `ExecutionGateway`— que todavía no forma parte del artefacto publicado v4.11.1.
+Versión canónica del repositorio: **v4.11.1**, resuelta desde `release_version.txt`. `main` puede contener trabajo posterior a la última release pública; publicación y distribución se documentan por separado en la sección de releases.
 
 ---
 
-## Estado actual de `main` — post-v4.11.1
+## Estado actual de `main`
 
 Estado del plan lineal: `P4_MERGED · RETEST_READY · P5_OPEN`.
 
-Cadena de ejecución gobernada materializada hasta P4:
+Cadena de ejecución gobernada materializada:
 
 ```text
 intent / task
@@ -48,15 +49,15 @@ direct user decision
   -> effect
 ```
 
-| Fase | Estado actual |
-|---|---|
-| P1 · Effect Registry + Effect-Sink Inventory | IMPLEMENTED |
-| P2 · ExecutionRequest v2 | IMPLEMENTED |
-| P3 · ExecutionGateway v2 | IMPLEMENTED_SLICE |
-| P4 · Scheduler + DelegationGrant | MERGED · RETEST_READY · CI PASS |
-| P5 · LLM Tool Calls | OPEN |
-| P6–P12 · migración hasta frontera única | PENDING |
-| P13–P14 · Strong Human Identity Proof | FUTURE |
+| Fase | Estado | Evidencia principal |
+|---|---|---|
+| P1 · Effect Registry + Effect-Sink Inventory | IMPLEMENTED | PR #218 |
+| P2 · ExecutionRequest v2 | IMPLEMENTED | PR #220 |
+| P3 · ExecutionGateway v2 | IMPLEMENTED_SLICE | PR #220 |
+| P4 · Scheduler + DelegationGrant | MERGED · RETEST_READY | PR #221; Canonical CI / Validate Expected / njsscan PASS sobre el head del PR |
+| P5 · LLM Tool Calls | OPEN | siguiente migración |
+| P6–P12 · cierre de frontera única | PENDING | no puede declararse `UNIQUE_EXECUTION_BOUNDARY` |
+| P13–P14 · Strong Human Identity Proof | FUTURE | solo después de P12 |
 
 Estado global de seguridad de ejecución:
 
@@ -65,7 +66,9 @@ Estado global de seguridad de ejecución:
 - `UNIQUE_EXECUTION_BOUNDARY = NOT_YET`
 - `STRONG_HUMAN_IDENTITY_VERIFIED = NO`
 
-Por tanto, BAGO ya tiene una frontera de ejecución cerrada para las rutas migradas, pero **todavía no** puede afirmar que `ExecutionGateway` sea la única frontera de efectos del sistema completo.
+BAGO tiene una frontera cerrada para las rutas ya migradas. Mientras `UNIQUE_EXECUTION_BOUNDARY = NOT_YET`, no debe afirmarse que `ExecutionGateway` gobierna todos los efectos del sistema.
+
+<!-- END GENERATED: README_TRUTH -->
 
 ---
 
