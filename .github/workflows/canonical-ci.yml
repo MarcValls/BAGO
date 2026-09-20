@@ -60,6 +60,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Import migration inventory drifted." }
           python -m pytest backend/tests/test_version_drift.py -q
           if ($LASTEXITCODE -ne 0) { throw "Version projection drifted." }
+          python backend/scripts/generate_readme_projection.py --check
+          if ($LASTEXITCODE -ne 0) { throw "README truth projection drifted." }
 
       - name: Build, typecheck, and test frontend
         run: |
