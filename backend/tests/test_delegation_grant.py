@@ -142,6 +142,9 @@ def test_grant_is_materialized_only_from_consumed_parent_authorization(tmp_path,
     assert grant["max_runs"] == 2
     assert grant["origin"]["proof_kind"] == "direct_user_interaction"
     assert grant["origin"]["proof_assurance"] == "interactive_origin"
+    assert grant["origin"]["interaction_id"] == "interaction-delegation"
+    assert grant["origin"]["authenticated_session_id"] == "session-1"
+    assert grant["origin"]["parent_source_surface"] == "test.schedule.delegate"
     assert grant["can_redelegate"] is False
     assert grant["delegation_depth"] == 1
 
