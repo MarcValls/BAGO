@@ -34,13 +34,16 @@ def _stable_json(value: Any) -> str:
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),
-            default=str,
         )
     except (TypeError, ValueError) as exc:
         raise ExecutionRequestError(
             f"ExecutionRequest contains non-serializable data: {exc}",
             code="execution_request_not_serializable",
         ) from exc
+
+
+def _canonical_clone(value: Any) -> Any:
+    return json.loads(_stable_json(value))
 
 
 def stable_digest(value: Any) -> str:
@@ -166,20 +169,29 @@ def build_execution_request(
     if not selected_policy:
         raise ExecutionRequestError("policy_version is required", code="execution_policy_required")
 
+    selected_request_id = str(request_id or f"exec-{uuid.uuid4().hex}").strip()
+    if not selected_request_id:
+        raise ExecutionRequestError("request_id is required", code="execution_request_id_required")
+    canonical_target = _canonical_clone(target or {})
+    canonical_arguments = _canonical_clone(arguments if arguments is not None else {})
+    canonical_preconditions = tuple(sorted({
+        str(item).strip() for item in preconditions if str(item).strip()
+    }))
+
     request = ExecutionRequest(
-        request_id=str(request_id or f"exec-{uuid.uuid4().hex}").strip(),
+        request_id=selected_request_id,
         effect_id=clean_effect,
         actor_kind=clean_actor,
         principal_id=clean_principal,
         session_id=clean_session,
         source_surface=clean_surface,
-        target=dict(target or {}),
-        arguments=arguments if arguments is not None else {},
+        target=canonical_target,
+        arguments=canonical_arguments,
         scope=selected_scope,
         policy_version=selected_policy,
         parent_execution_id=clean_parent,
         delegation_id=clean_delegation,
-        preconditions=tuple(str(item).strip() for item in preconditions if str(item).strip()),
+        preconditions=canonical_preconditions,
     )
     # Force canonical serialization now, before authority can be requested.
     _ = request.fingerprint
