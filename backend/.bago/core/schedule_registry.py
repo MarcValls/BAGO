@@ -1,10 +1,11 @@
-"""Persistent schedule registry with interval and five-field cron support."""
+"""Persistent schedule registry without stored-confirmation authority."""
 
 from __future__ import annotations
 
 import json
 import threading
 import uuid
+import zoneinfo
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 _LOCK = threading.RLock()
+SCHEDULE_SCHEMA_VERSION = 2
 VALID_TARGET_TYPES = {"task", "plan", "capability", "pipeline"}
 VALID_SCHEDULE_TYPES = {"interval", "cron"}
 VALID_STATUSES = {"scheduled", "paused", "running", "succeeded", "failed"}
@@ -43,15 +45,12 @@ def _parse_datetime(value: Any) -> datetime | None:
 def _timezone(name: str) -> ZoneInfo:
     if not name:
         name = "UTC"
-    # zoneinfo keys vary across platforms; try known aliases before giving up
     candidates = (name, "Etc/" + name, name.upper(), "UTC", "Etc/UTC", "GMT", "Etc/GMT")
     for key in candidates:
         try:
             return ZoneInfo(key)
         except ZoneInfoNotFoundError:
             pass
-    # Windows and other minimal environments may lack system IANA data;
-    # fall back to the tzdata package if it is installed.
     try:
         import tzdata
 
@@ -135,6 +134,21 @@ def _next_run(record: dict[str, Any], *, after: datetime | None = None) -> datet
     return next_cron_run(record["cron_expr"], record["timezone"], after=current)
 
 
+def _strip_legacy_authority(record: dict[str, Any]) -> dict[str, Any]:
+    clean = dict(record)
+    had_legacy = "confirmed" in clean or "approved_permissions" in clean
+    clean.pop("confirmed", None)
+    clean.pop("approved_permissions", None)
+    delegation_id = str(clean.get("delegation_id") or "").strip()
+    clean["delegation_id"] = delegation_id
+    if had_legacy and not delegation_id:
+        clean["legacy_authority_disabled"] = True
+        clean["enabled"] = False
+        clean["status"] = "paused"
+        clean["next_run_at"] = ""
+    return clean
+
+
 class ScheduleRegistry:
     def __init__(self, state_dir: Path) -> None:
         self.state_dir = Path(state_dir)
@@ -142,18 +156,33 @@ class ScheduleRegistry:
 
     def _read(self) -> dict[str, Any]:
         if not self.path.exists():
-            return {"schema_version": 1, "schedules": {}}
+            return {"schema_version": SCHEDULE_SCHEMA_VERSION, "schedules": {}}
         try:
             payload = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ScheduleError(f"No se pudo leer el registro de programación: {exc}", code="registry_invalid") from exc
         if not isinstance(payload, dict) or not isinstance(payload.get("schedules"), dict):
             raise ScheduleError("El registro de programación no es válido", code="registry_invalid")
-        return payload
+        schedules: dict[str, dict[str, Any]] = {}
+        for schedule_id, item in payload["schedules"].items():
+            if isinstance(item, dict):
+                schedules[str(schedule_id)] = _strip_legacy_authority(item)
+        return {
+            **payload,
+            "schema_version": SCHEDULE_SCHEMA_VERSION,
+            "schedules": schedules,
+        }
 
     def _write(self, payload: dict[str, Any]) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
-        payload["schema_version"] = 1
+        schedules = payload.get("schedules", {})
+        if isinstance(schedules, dict):
+            payload["schedules"] = {
+                str(key): _strip_legacy_authority(value)
+                for key, value in schedules.items()
+                if isinstance(value, dict)
+            }
+        payload["schema_version"] = SCHEDULE_SCHEMA_VERSION
         payload["updated_at"] = _utc_now().isoformat()
         temporary = self.path.with_name(f".{self.path.name}.{uuid.uuid4().hex}.tmp")
         temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -162,7 +191,11 @@ class ScheduleRegistry:
     def list(self) -> list[dict[str, Any]]:
         with _LOCK:
             schedules = self._read()["schedules"]
-            return sorted((dict(item) for item in schedules.values()), key=lambda item: str(item.get("created_at", "")), reverse=True)
+            return sorted(
+                (dict(item) for item in schedules.values()),
+                key=lambda item: str(item.get("created_at", "")),
+                reverse=True,
+            )
 
     def get(self, schedule_id: str) -> dict[str, Any]:
         with _LOCK:
@@ -215,11 +248,12 @@ class ScheduleRegistry:
     def delete(self, schedule_id: str) -> dict[str, Any]:
         with _LOCK:
             payload = self._read()
-            current = payload["schedules"].pop(schedule_id, None)
+            current = payload["schedules"].get(schedule_id)
             if not isinstance(current, dict):
                 raise ScheduleError(f"Programación no encontrada: {schedule_id}", code="not_found")
             if current.get("status") == "running":
                 raise ScheduleError("No se puede eliminar una programación en ejecución", code="running")
+            payload["schedules"].pop(schedule_id, None)
             self._write(payload)
             return {"id": schedule_id, "deleted": True}
 
@@ -229,8 +263,13 @@ class ScheduleRegistry:
         with _LOCK:
             payload = self._read()
             changed = False
-            for schedule_id, current in payload["schedules"].items():
-                if not isinstance(current, dict) or not current.get("enabled") or current.get("status") == "running":
+            for current in payload["schedules"].values():
+                if (
+                    not isinstance(current, dict)
+                    or not current.get("enabled")
+                    or not str(current.get("delegation_id") or "").strip()
+                    or current.get("status") == "running"
+                ):
                     continue
                 due = _parse_datetime(current.get("next_run_at"))
                 if due is None or due > instant:
@@ -253,6 +292,11 @@ class ScheduleRegistry:
                 raise ScheduleError(f"Programación no encontrada: {schedule_id}", code="not_found")
             if current.get("status") == "running":
                 raise ScheduleError("La programación ya está en ejecución", code="running")
+            if not str(current.get("delegation_id") or "").strip():
+                raise ScheduleError(
+                    "La programación no posee DelegationGrant",
+                    code="delegation_required",
+                )
             now = _utc_now()
             current["status"] = "running"
             current["last_run_at"] = now.isoformat()
@@ -300,24 +344,31 @@ class ScheduleRegistry:
         if schedule_type == "cron":
             next_cron_run(cron_expr, timezone_name)
         enabled = bool(raw.get("enabled", False))
-        confirmed = bool(raw.get("confirmed", False))
-        if enabled and not confirmed:
-            raise ScheduleError("Activar una programación requiere confirmación explícita", code="confirmation_required")
-        permissions = raw.get("approved_permissions", [])
-        if not isinstance(permissions, list):
-            raise ScheduleError("approved_permissions debe ser una lista")
+        delegation_id = str(raw.get("delegation_id") or "").strip()
+        if enabled and not delegation_id:
+            raise ScheduleError(
+                "Activar una programación requiere DelegationGrant",
+                code="delegation_required",
+            )
         return {
             "name": name[:120],
             "description": str(raw.get("description") or "")[:500],
             "target_type": target_type,
-            "target": target,
+            "target": dict(target),
             "schedule_type": schedule_type,
             "interval_s": interval_s if schedule_type == "interval" else None,
             "cron_expr": cron_expr if schedule_type == "cron" else "",
             "timezone": timezone_name,
             "enabled": enabled,
-            "confirmed": confirmed,
-            "approved_permissions": sorted({str(item) for item in permissions if str(item)}),
+            "delegation_id": delegation_id,
             "overlap_policy": "skip",
             "misfire_policy": str(raw.get("misfire_policy") or "run_once"),
         }
+
+
+__all__ = [
+    "SCHEDULE_SCHEMA_VERSION",
+    "ScheduleError",
+    "ScheduleRegistry",
+    "next_cron_run",
+]
