@@ -330,23 +330,33 @@ npm run sh:stop
 npm run sh:status
 ```
 
-### Gate de frescura del README
+### Proyección y gate de frescura del README
 
-`README.md` forma parte de la verdad verificable del repositorio. `Canonical CI` ejecuta:
+La cabecera y el bloque de estado de `README.md` son una **truth projection** derivada de `release_version.txt`, `package.json` y `backend/docs/contracts/execution_gateway_unification_plan.v1.md`.
+
+Para regenerarla:
 
 ```powershell
+python scripts/generate_readme_projection.py
+```
+
+`Canonical CI` ejecuta después:
+
+```powershell
+python scripts/generate_readme_projection.py --check
 python scripts/verify_readme_freshness.py
 ```
 
-El gate falla si:
+El CI falla si:
 
+- la proyección generada no coincide exactamente con sus fuentes canónicas;
 - la versión del README no coincide con `release_version.txt`;
 - el requisito de Node no coincide con `package.json`;
 - desaparecen estados arquitectónicos obligatorios;
 - reaparecen claims obsoletos de firma/distribución;
 - un PR/push cambia superficies que afectan al README —versión, contratos, arquitectura, seguridad, release/instalación o fronteras de ejecución— sin modificar también `README.md`.
 
-El CI **no auto-commitea** documentación. Obliga a que el cambio y su documentación viajen juntos en el mismo diff.
+El CI **no auto-commitea** documentación. El generador produce el cambio determinista y el gate obliga a que código/contrato y documentación viajen juntos en el mismo diff.
 
 ---
 
