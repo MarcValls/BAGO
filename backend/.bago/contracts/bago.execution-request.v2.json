@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bago.execution-request.v2",
+  "title": "BAGO ExecutionRequest v2 public descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "contract",
+    "effect_id",
+    "actor_kind",
+    "principal_id",
+    "session_id",
+    "source_surface",
+    "target",
+    "target_digest",
+    "arguments_digest",
+    "scope",
+    "policy_version",
+    "parent_execution_id",
+    "delegation_id",
+    "preconditions",
+    "operation_fingerprint"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "contract": {
+      "const": "bago.execution-request/v2"
+    },
+    "effect_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*\\.[a-z0-9_.-]+$"
+    },
+    "actor_kind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "principal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_surface": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target": {
+      "type": "object"
+    },
+    "target_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "arguments_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parent_execution_id": {
+      "type": "string"
+    },
+    "delegation_id": {
+      "type": "string"
+    },
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "operation_fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

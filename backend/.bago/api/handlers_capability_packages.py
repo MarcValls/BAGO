@@ -12,9 +12,20 @@ def _send(handler: "BaseHTTPRequestHandler", operation: Callable[[], Any]) -> No
     from api_serializers import send_json
     from authorization_boundary import AuthorizationError
     from capability_packages import CapabilityPackageError
+    from execution_gateway import ExecutionGatewayError
+    from execution_request import ExecutionRequestError
 
     try:
         payload = operation()
+    except (ExecutionGatewayError, ExecutionRequestError) as exc:
+        status = 409 if getattr(exc, "code", "") in {
+            "execution_adapter_missing",
+            "execution_target_kind_mismatch",
+            "execution_target_digest_mismatch",
+            "execution_context_session_mismatch",
+        } else 400
+        send_json(handler, status, {"ok": False, "error": str(exc), "code": getattr(exc, "code", "execution_error")})
+        return
     except AuthorizationError as exc:
         status = 404 if exc.code == "authorization_challenge_not_found" else 409 if exc.code in {
             "authorization_challenge_not_pending",
@@ -109,19 +120,31 @@ def handle_execute(handler: "BaseHTTPRequestHandler", capability_id: str, body: 
     """
 
     from api_state import get_mgr
-    from authorization_boundary import AuthorizationBoundary, ExecutionGateway, build_operation
-    from capability_packages import execute_package, execute_pipeline_package, get_package
+    from authorization_boundary import AuthorizationBoundary
+    from capability_packages import get_package
+    from execution_gateway import ExecutionContext, ExecutionGateway
+    from execution_request import build_execution_request
 
     def execute() -> dict[str, Any]:
         payload = body or {}
         mgr = get_mgr(handler)
         package = get_package(capability_id)
         inputs = payload.get("input", {})
-        operation = build_operation(
-            capability_id=capability_id,
-            inputs=inputs,
-            permissions=package.get("permissions", []),
+        effect_id = "pipeline.execute" if package["kind"] == "pipeline" else "capability.execute"
+        request = build_execution_request(
+            effect_id=effect_id,
+            actor_kind="user",
+            principal_id="interactive-local-user",
             session_id=str(getattr(mgr, "session_id", "") or ""),
+            source_surface="api.capability_packages.execute",
+            target={
+                "package_id": capability_id,
+                "package_kind": package["kind"],
+                "package_version": package["version"],
+                "package_digest": package["digest"],
+                "declared_permissions": list(package.get("permissions", [])),
+            },
+            arguments=inputs,
         )
         boundary = AuthorizationBoundary()
         action = str(payload.get("authorization_action") or "").strip().lower()
@@ -129,7 +152,7 @@ def handle_execute(handler: "BaseHTTPRequestHandler", capability_id: str, body: 
 
         if action == "challenge":
             challenge = boundary.create_challenge(
-                operation,
+                request,
                 interaction_id=interaction_id,
             )
             return {
@@ -151,7 +174,7 @@ def handle_execute(handler: "BaseHTTPRequestHandler", capability_id: str, body: 
             authorization = boundary.approve_challenge(
                 challenge_id=str(payload.get("challenge_id") or ""),
                 interaction_id=interaction_id,
-                session_id=operation.session_id,
+                session_id=request.session_id,
                 channel=channel,
             )
             return {
@@ -165,22 +188,10 @@ def handle_execute(handler: "BaseHTTPRequestHandler", capability_id: str, body: 
         gateway = ExecutionGateway(boundary)
         permit_token = str(payload.get("authorization_permit") or "")
 
-        def material_execute() -> dict[str, Any]:
-            # Legacy low-level execution gates are satisfied only after the
-            # server-owned AuthorizationBoundary has consumed the Permit.
-            arguments = {
-                "inputs": inputs,
-                "confirmed": True,
-                "approved_permissions": list(operation.permissions),
-            }
-            if package["kind"] == "pipeline":
-                return execute_pipeline_package(capability_id, manager=mgr, **arguments)
-            return execute_package(capability_id, **arguments)
-
         result, authorization = gateway.execute(
             permit_token=permit_token,
-            operation=operation,
-            executor=material_execute,
+            request=request,
+            context=ExecutionContext(manager=mgr),
         )
         if isinstance(result, dict):
             result = dict(result)
