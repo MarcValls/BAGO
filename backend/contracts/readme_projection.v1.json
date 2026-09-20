@@ -1,0 +1,46 @@
+{
+  "contract": "bago.readme-projection.v1",
+  "generated_from": [
+    "release_version.txt",
+    "package.json",
+    "frontend/package.json",
+    ".github/workflows/canonical-ci.yml",
+    "backend/.bago/core/session_utils.py:ADAPTER_REGISTRY",
+    "backend/.bago/contracts/bago.effect-registry.v1.json",
+    "backend/docs/contracts/user_authorization_provenance.v1.md",
+    "backend/docs/contracts/execution_gateway.v2.md",
+    "backend/docs/contracts/scheduler_delegation.v1.md",
+    "backend/docs/contracts/execution_gateway_unification_plan.v1.md"
+  ],
+  "governance": {
+    "authorization_boundary_status": "IMPLEMENTED_SLICE · CRIT_READY",
+    "effect_count": 27,
+    "effect_registry_status": "active",
+    "effect_registry_version": "1.0.0",
+    "execution_gateway_status": "P2_P3_IMPLEMENTED_SLICE · CRIT_READY",
+    "next_gateway_phase": "P5 — LLM Tool Calls",
+    "schedule_delegate": {
+      "authorization_mode": "strong",
+      "delegable": false,
+      "risk_level": "E6"
+    },
+    "scheduler_delegation_status": "P4_IMPLEMENTED · RETEST_READY",
+    "strong_human_identity_verified": "NO",
+    "unique_execution_boundary": "NOT_YET"
+  },
+  "product": {
+    "node_engine": ">=22.12.0",
+    "npm_engine": ">=10.0.0",
+    "python_ci": "3.14",
+    "version": "4.11.1"
+  },
+  "providers": [
+    "ollama-local",
+    "ollama-cloud",
+    "copilot",
+    "anthropic",
+    "codex",
+    "openrouter",
+    "opencode"
+  ]
+}
