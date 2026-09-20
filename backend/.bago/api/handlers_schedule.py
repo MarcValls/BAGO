@@ -182,7 +182,11 @@ def _child_semantics(mgr, schedule: dict[str, Any]) -> tuple[str, dict[str, Any]
 
 
 def _delegation_request(mgr, raw: dict[str, Any]):
-    from delegation_grant import DelegationError, schedule_descriptor_digest
+    from delegation_grant import (
+        DelegationError,
+        canonical_schedule_descriptor,
+        schedule_descriptor_digest,
+    )
     from effect_registry import REGISTRY
     from execution_request import build_execution_request, stable_digest
 
@@ -227,9 +231,11 @@ def _delegation_request(mgr, raw: dict[str, Any]):
         target={
             "schedule_id": draft["id"],
             "schedule_digest": schedule_digest,
+            "schedule": canonical_schedule_descriptor(draft),
             "delegation": {
                 "grant_id": grant_id,
                 "allowed_effects": [effect_id],
+                "child_target": child_target,
                 "target_digest": stable_digest(child_target),
                 "arguments_digest": stable_digest(child_arguments),
                 "scope": child_scope,
