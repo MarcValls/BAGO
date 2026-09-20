@@ -55,3 +55,15 @@ def test_windows_paths_are_normalized() -> None:
     )
 
     assert errors
+
+
+def test_canonical_ci_wires_readme_impact_gate_with_full_history() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "canonical-ci.yml").read_text(
+        encoding="utf-8"
+    )
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "fetch-depth: 0" in workflow
+    assert "python scripts/verify_readme_impact.py" in workflow
+    assert "README impact gate failed." in workflow
+    assert "scripts/verify_readme_impact.py" in readme
