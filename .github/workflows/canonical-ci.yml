@@ -27,6 +27,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v6
         with:
@@ -62,6 +64,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Version projection drifted." }
           python backend/scripts/generate_readme_projection.py --check
           if ($LASTEXITCODE -ne 0) { throw "README truth projection drifted." }
+          python scripts/verify_readme_impact.py
+          if ($LASTEXITCODE -ne 0) { throw "README impact gate failed." }
 
       - name: Build, typecheck, and test frontend
         run: |
