@@ -3,7 +3,7 @@
 [![Version](https://img.shields.io/badge/version-4.11.1-blue)]()
 [![CI](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml/badge.svg)](https://github.com/MarcValls/BAGO/actions/workflows/canonical-ci.yml)
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
-[![Node](https://img.shields.io/badge/node-22.12%2B-green)]()
+[![Node](https://img.shields.io/badge/node-22.12.0%2B-green)]()
 [![Execution boundary](https://img.shields.io/badge/execution%20boundary-migration%20open-orange)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 
@@ -14,6 +14,8 @@ La versión canónica del producto se resuelve desde `release_version.txt`. La �
 ---
 
 ## Estado actual de `main` — post-v4.11.1
+
+Estado del plan lineal: `P4_MERGED · RETEST_READY · P5_OPEN`.
 
 Cadena de ejecución gobernada materializada hasta P4:
 
