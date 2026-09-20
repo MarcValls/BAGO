@@ -16,6 +16,10 @@ CI = ROOT / ".github" / "workflows" / "canonical-ci.yml"
 VALIDATE_EXPECTED = ROOT / ".github" / "workflows" / "validate-expected.yml"
 GENERATOR = ROOT / "backend" / "scripts" / "generate_api_routes_contract.py"
 README_GENERATOR = ROOT / "backend" / "scripts" / "generate_readme_projection.py"
+PRE_COMMIT = ROOT / ".githooks" / "pre-commit"
+PRE_PUSH = ROOT / ".githooks" / "pre-push"
+HOOK_SETUP = ROOT / "backend" / "scripts" / "setup_git_hooks.ps1"
+POSTINSTALL = ROOT / "scripts" / "postinstall.cjs"
 
 
 def test_routes_projection_is_generated_from_canonical_dispatch() -> None:
@@ -126,3 +130,25 @@ def test_readme_generator_supports_write_and_check_modes() -> None:
     assert "bago.effect-registry.v1.json" in source
     assert "scheduler_delegation.v1.md" in source
     assert "execution_gateway_unification_plan.v1.md" in source
+
+
+def test_repository_hooks_keep_readme_projection_synchronized() -> None:
+    pre_commit = PRE_COMMIT.read_text(encoding="utf-8")
+    pre_push = PRE_PUSH.read_text(encoding="utf-8")
+    setup = HOOK_SETUP.read_text(encoding="utf-8")
+    postinstall = POSTINSTALL.read_text(encoding="utf-8")
+    package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+
+    assert "generate_readme_projection.py" in pre_commit
+    assert "git add README.md backend/contracts/readme_projection.v1.json" in pre_commit
+    assert "generate_readme_projection.py --check" in pre_commit
+    assert "refs/heads/main" in pre_push
+    assert "refs/heads/windows" in pre_push
+    assert "refs/heads/android" in pre_push
+    assert 'git config core.hooksPath ".githooks"' in setup
+    assert "pre-commit" in setup
+    assert "pre-push" in setup
+    assert "core.hooksPath" in postinstall
+    assert package["scripts"]["hooks:setup"]
+    assert package["scripts"]["docs:sync"]
+    assert package["scripts"]["docs:check"]
