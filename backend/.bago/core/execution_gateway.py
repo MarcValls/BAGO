@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol
 
 from authorization_boundary import AuthorizationBoundary
+from effect_registry import REGISTRY
 from execution_request import ExecutionRequest
 
 
@@ -54,6 +55,11 @@ class EffectAdapterRegistry:
                 raise ExecutionGatewayError(
                     "Effect adapter contains an empty effect_id",
                     code="execution_adapter_effect_invalid",
+                )
+            if not REGISTRY.contains(clean):
+                raise ExecutionGatewayError(
+                    f"Effect adapter declares unknown canonical effect_id {clean}",
+                    code="execution_adapter_effect_unknown",
                 )
             if clean in self._by_effect:
                 raise ExecutionGatewayError(
