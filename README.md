@@ -155,9 +155,14 @@ npm run docs:sync
 
 # Comprobar que no existe drift
 npm run docs:check
+
+# Reparar/activar manualmente los Git hooks del repo
+npm run hooks:setup
 ```
 
-`Canonical CI` y `Validate Expected` ejecutan el check. Si cambia una fuente canónica y el README no se regenera, el PR falla.
+En un worktree Git, `npm install`/`npm ci` activa automáticamente `core.hooksPath=.githooks` desde `postinstall`. El `pre-commit` ejecuta `docs:sync`, añade al commit `README.md` y `readme_projection.v1.json`, y vuelve a ejecutar el check. `npm run hooks:setup` permite reactivar o reparar esa configuración explícitamente.
+
+`Canonical CI` y `Validate Expected` ejecutan además el check remoto. Si cambia una fuente canónica y el README no se regenera, el PR falla.
 
 Fuentes actualmente enlazadas:
 
