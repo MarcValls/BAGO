@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -357,3 +358,35 @@ def test_unconsumed_parent_assertion_cannot_issue_grant(tmp_path):
     with pytest.raises(DelegationError) as denied:
         DelegationGrantRegistry(tmp_path).issue_from_authorized_request(request, fake)
     assert denied.value.code == "delegation_parent_permit_not_consumed"
+
+
+def test_stale_policy_version_invalidates_grant(tmp_path, monkeypatch):
+    issued = _issue_grant(tmp_path, monkeypatch)
+    registry_path = issued["state_dir"] / "delegation_grants.json"
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload["grants"][issued["grant"]["grant_id"]]["policy_version"] = "stale-policy"
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    base = issued["child"]
+    stale_child = build_execution_request(
+        effect_id=base.effect_id,
+        actor_kind=base.actor_kind,
+        principal_id=base.principal_id,
+        session_id=base.session_id,
+        source_surface=base.source_surface,
+        target=base.target,
+        arguments=base.arguments,
+        scope=base.scope,
+        policy_version="stale-policy",
+        parent_execution_id=base.parent_execution_id,
+        delegation_id=base.delegation_id,
+    )
+
+    with pytest.raises(DelegationError) as denied:
+        DelegationGrantRegistry(issued["state_dir"]).validate_child(
+            issued["grant"]["grant_id"],
+            stale_child,
+            schedule_id=issued["schedule_id"],
+            schedule_digest=issued["schedule_digest"],
+        )
+    assert denied.value.code == "delegation_policy_stale"
