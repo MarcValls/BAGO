@@ -62,6 +62,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Import migration inventory drifted." }
           python -m pytest backend/tests/test_version_drift.py -q
           if ($LASTEXITCODE -ne 0) { throw "Version projection drifted." }
+          python scripts/generate_readme_projection.py --check
+          if ($LASTEXITCODE -ne 0) { throw "README generated truth projection drifted." }
           python scripts/verify_readme_freshness.py
           if ($LASTEXITCODE -ne 0) { throw "README truth or impact gate failed." }
 
