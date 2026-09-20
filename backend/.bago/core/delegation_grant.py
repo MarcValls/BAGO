@@ -280,9 +280,13 @@ class DelegationGrantRegistry:
             "origin": {
                 "parent_request_id": request.request_id,
                 "parent_operation_fingerprint": request.fingerprint,
+                "parent_session_id": request.session_id,
+                "parent_source_surface": request.source_surface,
                 "parent_permit_id": str(authorization.get("permit_id") or ""),
                 "proof_id": str(authorization.get("proof_id") or proof.get("proof_id") or ""),
                 "decision_id": str(authorization.get("decision_id") or decision.get("decision_id") or ""),
+                "interaction_id": str(proof.get("interaction_id") or ""),
+                "authenticated_session_id": str(proof.get("authenticated_session_id") or ""),
                 "proof_kind": str(provenance.get("kind") or ""),
                 "proof_channel": str(provenance.get("channel") or ""),
                 "proof_assurance": "interactive_origin",
