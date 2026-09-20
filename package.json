@@ -23,7 +23,8 @@
     "sh:stop": "bash scripts/dev.sh stop",
     "sh:status": "bash scripts/dev.sh status",
     "docs:sync": "python backend/scripts/generate_readme_projection.py",
-    "docs:check": "python backend/scripts/generate_readme_projection.py --check"
+    "docs:check": "python backend/scripts/generate_readme_projection.py --check",
+    "hooks:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File backend/scripts/setup_git_hooks.ps1 -RepoRoot ."
   },
   "workspaces": [
     "frontend",
