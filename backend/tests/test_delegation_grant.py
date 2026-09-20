@@ -47,20 +47,20 @@ def _issue_grant(tmp_path, monkeypatch, *, max_runs: int = 2, allowed_effect: st
         target={
             "schedule_id": schedule_id,
             "schedule_digest": schedule_digest,
-            "grant_id": grant_id,
+            "delegation": {
+                "grant_id": grant_id,
+                "allowed_effects": [allowed_effect],
+                "target_digest": stable_digest(child_target),
+                "arguments_digest": stable_digest(child_arguments),
+                "scope": "workspace",
+                "policy_version": REGISTRY.digest,
+                "expires_at": _future(),
+                "max_runs": max_runs,
+                "child_actor_kind": "scheduler",
+                "child_source_surface": "scheduler",
+            },
         },
-        arguments={
-            "grant_id": grant_id,
-            "allowed_effects": [allowed_effect],
-            "target_digest": stable_digest(child_target),
-            "arguments_digest": stable_digest(child_arguments),
-            "scope": "workspace",
-            "policy_version": REGISTRY.digest,
-            "expires_at": _future(),
-            "max_runs": max_runs,
-            "child_actor_kind": "scheduler",
-            "child_source_surface": "scheduler",
-        },
+        arguments={},
         scope="persistent",
         policy_version=REGISTRY.digest,
     )
@@ -272,18 +272,22 @@ def test_nondelegable_effect_cannot_be_granted(tmp_path, monkeypatch):
         principal_id="interactive-local-user",
         session_id="session-1",
         source_surface="test.schedule.delegate",
-        target={"schedule_id": schedule_id, "schedule_digest": schedule_digest},
-        arguments={
-            "allowed_effects": ["filesystem.delete"],
-            "target_digest": stable_digest(target),
-            "arguments_digest": stable_digest(arguments),
-            "scope": "workspace",
-            "policy_version": REGISTRY.digest,
-            "expires_at": _future(),
-            "max_runs": 1,
-            "child_actor_kind": "scheduler",
-            "child_source_surface": "scheduler",
+        target={
+            "schedule_id": schedule_id,
+            "schedule_digest": schedule_digest,
+            "delegation": {
+                "allowed_effects": ["filesystem.delete"],
+                "target_digest": stable_digest(target),
+                "arguments_digest": stable_digest(arguments),
+                "scope": "workspace",
+                "policy_version": REGISTRY.digest,
+                "expires_at": _future(),
+                "max_runs": 1,
+                "child_actor_kind": "scheduler",
+                "child_source_surface": "scheduler",
+            },
         },
+        arguments={},
         scope="persistent",
         policy_version=REGISTRY.digest,
     )
@@ -390,3 +394,45 @@ def test_stale_policy_version_invalidates_grant(tmp_path, monkeypatch):
             schedule_digest=issued["schedule_digest"],
         )
     assert denied.value.code == "delegation_policy_stale"
+
+
+def test_authorization_challenge_exposes_safe_delegation_envelope(tmp_path, monkeypatch):
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    boundary = auth.AuthorizationBoundary()
+    child_target = {"path": "notes/example.txt"}
+    child_arguments = {"content": "sensitive-content"}
+    request = build_execution_request(
+        effect_id="schedule.delegate",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="session-1",
+        source_surface="test",
+        target={
+            "schedule_id": "schedule-visible",
+            "schedule_digest": "schedule-digest",
+            "delegation": {
+                "grant_id": "delegation-visible",
+                "allowed_effects": ["filesystem.write"],
+                "target_digest": stable_digest(child_target),
+                "arguments_digest": stable_digest(child_arguments),
+                "scope": "workspace",
+                "policy_version": REGISTRY.digest,
+                "expires_at": _future(),
+                "max_runs": 3,
+                "child_actor_kind": "scheduler",
+                "child_source_surface": "scheduler",
+            },
+        },
+        arguments={},
+        scope="persistent",
+        policy_version=REGISTRY.digest,
+    )
+    challenge = boundary.create_challenge(request, interaction_id="interaction-visible")
+
+    visible = challenge["target"]["delegation"]
+    assert visible["allowed_effects"] == ["filesystem.write"]
+    assert visible["scope"] == "workspace"
+    assert visible["max_runs"] == 3
+    assert visible["expires_at"]
+    assert visible["arguments_digest"] == stable_digest(child_arguments)
+    assert "sensitive-content" not in str(challenge)
