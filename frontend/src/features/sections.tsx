@@ -616,7 +616,7 @@ export function ControlSections(props: Props) {
   const [sourceBusy, setSourceBusy] = useState(false);
   const [sourceMessage, setSourceMessage] = useState('');
   const [graphFiltered, setGraphFiltered] = useState(true);
-  const [pipelineView, setPipelineView] = useState<'create' | 'execution' | 'flow' | 'control' | 'capabilities' | 'simulation' | 'rl'>('create');
+  const [pipelineView, setPipelineView] = useState<'create' | 'execution' | 'flow' | 'control' | 'capabilities' | 'packages' | 'simulation' | 'rl'>('create');
   const [flowNotice, setFlowNotice] = useState<{ tone: 'info' | 'warning' | 'error'; message: string } | null>(null);
   const [operationView, setOperationView] = useState<'providers' | 'runtime' | 'memory' | 'vision' | 'configuration'>('providers');
   const [pendingStep, setPendingStep] = useState<RecordValue | null>(null);
@@ -632,6 +632,10 @@ export function ControlSections(props: Props) {
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
 
   const snapshot = props.snapshot;
+  const capabilityAnatomyEnabled = snapshot?.features?.capability_anatomy_v02 === true;
+  useEffect(() => {
+    if (!capabilityAnatomyEnabled && pipelineView === 'capabilities') setPipelineView('create');
+  }, [capabilityAnatomyEnabled, pipelineView]);
   useEffect(() => {
     if (!flowNotice) return;
     const t = setTimeout(() => setFlowNotice(null), 6000);
@@ -1446,7 +1450,8 @@ export function ControlSections(props: Props) {
       <button type="button" aria-current={pipelineView === 'execution' ? 'page' : undefined} className={pipelineView === 'execution' ? 'is-active' : ''} onClick={() => setPipelineView('execution')}><Icon name="pipeline" size={16} /> Ejecución</button>
       <button type="button" aria-current={pipelineView === 'flow' ? 'page' : undefined} className={pipelineView === 'flow' ? 'is-active' : ''} onClick={() => setPipelineView('flow')}><Icon name="graph" size={16} /> Flujo</button>
       <button type="button" aria-current={pipelineView === 'control' ? 'page' : undefined} className={pipelineView === 'control' ? 'is-active' : ''} onClick={() => setPipelineView('control')}><Icon name="history" size={16} /> Planes y programación</button>
-      <button type="button" aria-current={pipelineView === 'capabilities' ? 'page' : undefined} className={pipelineView === 'capabilities' ? 'is-active' : ''} onClick={() => setPipelineView('capabilities')}><Icon name="pack" size={16} /> Capacidades</button>
+      {capabilityAnatomyEnabled && <button type="button" aria-current={pipelineView === 'capabilities' ? 'page' : undefined} className={pipelineView === 'capabilities' ? 'is-active' : ''} onClick={() => setPipelineView('capabilities')}><Icon name="pack" size={16} /> Capacidades</button>}
+      <button type="button" aria-current={pipelineView === 'packages' ? 'page' : undefined} className={pipelineView === 'packages' ? 'is-active' : ''} onClick={() => setPipelineView('packages')}><Icon name="pack" size={16} /> Paquetes</button>
       <button type="button" aria-current={pipelineView === 'simulation' ? 'page' : undefined} className={pipelineView === 'simulation' ? 'is-active' : ''} onClick={() => setPipelineView('simulation')}><Icon name="trace" size={16} /> Simulación</button>
       <button type="button" aria-current={pipelineView === 'rl' ? 'page' : undefined} className={pipelineView === 'rl' ? 'is-active' : ''} onClick={() => setPipelineView('rl')}><Icon name="live" size={16} /> Entrenamiento RL</button>
     </nav>;
@@ -1459,7 +1464,7 @@ export function ControlSections(props: Props) {
           hasSteps={steps.length > 0}
           onTaskChange={(value) => props.onDraftChange('pipeline', value)}
           onCreatePlan={props.onRunPlanTask}
-          onOpenCapabilities={() => setPipelineView('capabilities')}
+          onOpenPackages={() => setPipelineView('packages')}
           onCreated={() => { props.onRefresh(); setPipelineView('execution'); }}
         />
       </div>;
@@ -1501,6 +1506,11 @@ export function ControlSections(props: Props) {
       return <div className="pipeline-surface contextual-surface">
         {pipelineTabs}
         <CapabilityAnatomyModule client={props.client} onInspect={(selection) => props.onInspect(selection, 'detail')} />
+      </div>;
+    }
+    if (pipelineView === 'packages') {
+      return <div className="pipeline-surface contextual-surface" aria-label="Gestor de paquetes ejecutables">
+        {pipelineTabs}
         <ExternalCapabilitiesPanel client={props.client} />
       </div>;
     }

@@ -40,6 +40,11 @@ function readStringRecord(value: unknown): Record<string, string> {
   );
 }
 
+function readBooleanRecord(value: unknown): Record<string, boolean> | undefined {
+  const entries = Object.entries(readRecord(value)).filter(([, entry]) => typeof entry === 'boolean') as Array<[string, boolean]>;
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
 function readMenuStateValue(raw: any): Record<string, unknown> {
   return readRecord(raw?.menu_state || raw?.session?.menu_state || raw?.status?.menu_state);
 }
@@ -249,7 +254,9 @@ export function buildSnapshot(raw: any): UiBootstrapSnapshot | null {
       limitingFactor: String(status.context_limiting_factor || ''), receiptId: lastReceiptId || undefined,
       certificationStatus: certificationStatus || undefined
     },
-    permissions: { ...permissions }, capabilities: (status.capabilities as UiBootstrapSnapshot['capabilities']) || undefined,
+    permissions: { ...permissions },
+    features: readBooleanRecord(raw.features),
+    capabilities: (status.capabilities as UiBootstrapSnapshot['capabilities']) || undefined,
     error: raw.error && typeof raw.error === 'object' ? raw.error : undefined,
     evidence: extractRecordArray(raw.evidence, ['items', 'receipts', 'claims', 'latest']),
     jobs: extractRecordArray(raw.jobs, ['jobs', 'items']), codeTask, recommendedActions: [], menuState

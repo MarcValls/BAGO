@@ -71,6 +71,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "auto_evolve_on_start": True,
         "workspace_retrieval": True,
         "directory_context": True,
+        "capability_anatomy_v02": True,
     },
     "model_catalog": {
         "mode": "all",
