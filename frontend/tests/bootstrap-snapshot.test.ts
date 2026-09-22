@@ -30,6 +30,21 @@ describe('bootstrap snapshot normalization', () => {
     expect(buildSnapshot(null)).toBeNull();
   });
 
+  it('preserves only boolean backend feature flags', () => {
+    const snapshot = buildSnapshot({
+      features: {
+        capability_anatomy_v02: true,
+        package_manager_v1: false,
+        ignored: 'not-a-flag'
+      }
+    });
+
+    expect(snapshot?.features).toEqual({
+      capability_anatomy_v02: true,
+      package_manager_v1: false
+    });
+  });
+
   it('preserves an explicit backend availability failure', () => {
     const snapshot = buildSnapshot({
       status: {

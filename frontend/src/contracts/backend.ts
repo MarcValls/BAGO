@@ -422,6 +422,7 @@ export interface UiBootstrapSnapshot {
     canStopPipeline: boolean;
     canRetryPipeline: boolean;
   };
+  features?: Record<string, boolean>;
   capabilities?: CapabilityMap;
   error?: BackendErrorEnvelope | null;
   evidence?: EvidenceItem[];
@@ -656,6 +657,7 @@ export interface UiBootData {
   sources?: Record<string, unknown>;
   router_list?: BackendRouterList;
   router_policy?: BackendRouterPolicy;
+  features?: Record<string, boolean>;
 }
 
 export type PanelId = 'capabilities' | 'tools' | 'agents' | 'interpreter' | 'github-auth';
