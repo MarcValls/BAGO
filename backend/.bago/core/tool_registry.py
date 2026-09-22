@@ -44,6 +44,36 @@ get_cmd_names = _TOOLS.get_cmd_names
 load_registry = _TOOLS.load_registry
 
 
+MODEL_TOOL_EFFECTS: dict[str, str] = {
+    "code-metrics": "filesystem.read",
+    "commit-readiness": "filesystem.read",
+    "dead-code": "filesystem.read",
+    "debt-guard": "filesystem.read",
+    "debt-scanner": "filesystem.read",
+    "dep-audit": "filesystem.read",
+    "dir-list": "filesystem.read",
+    "doctor": "filesystem.read",
+    "file-read": "filesystem.read",
+    "find-dependents": "filesystem.read",
+    "find-references": "filesystem.read",
+    "forced-dependency-scan": "filesystem.read",
+    "git-context": "filesystem.read",
+    "harmony-gate": "filesystem.read",
+    "naming-check": "filesystem.read",
+    "net-scan": "filesystem.read",
+    "read-git-diff": "filesystem.read",
+    "read-lines": "filesystem.read",
+    "read-repository-map": "filesystem.read",
+    "search-symbol": "filesystem.read",
+    "search-text": "filesystem.read",
+    "secret-scan": "filesystem.read",
+    "sincerity-detector": "filesystem.read",
+    "todo-scan": "filesystem.read",
+    "token-rotation-guard": "filesystem.read",
+    "validate-syntax": "filesystem.read",
+}
+
+
 @dataclass(slots=True)
 class ToolCall:
     call_id: str
@@ -59,6 +89,8 @@ class ToolResult:
     content: str
     ok: bool = True
     returncode: int = 0
+    blocked: bool = False
+    block_reason: str = ""
 
 
 class ToolRegistry:
@@ -82,7 +114,7 @@ class ToolRegistry:
     def to_openai(self) -> list[dict[str, Any]]:
         tools: list[dict[str, Any]] = []
         for name, entry in REGISTRY.items():
-            if entry.deprecated:
+            if entry.deprecated or self.model_effect_id(name) is None:
                 continue
             schema = entry.schema if isinstance(entry.schema, dict) and entry.schema else {}
             if "type" not in schema:
@@ -98,6 +130,11 @@ class ToolRegistry:
                 }
             )
         return tools
+
+    @staticmethod
+    def model_effect_id(tool_name: str) -> str | None:
+        """Return the normalized effect for a model-callable read-only tool."""
+        return MODEL_TOOL_EFFECTS.get(str(tool_name or "").strip())
 
     def parse_tool_calls(self, payload: dict[str, Any]) -> list[ToolCall]:
         parsed: list[ToolCall] = []
@@ -208,3 +245,28 @@ class ToolRegistry:
             ok=completed.returncode == 0,
             returncode=completed.returncode,
         )
+
+    def execute_model_call(self, call: ToolCall) -> ToolResult:
+        """Execute only explicitly normalized read-only model tool calls.
+
+        Mutating and unclassified tools remain unavailable to model calls until
+        a corresponding gateway-owned EffectAdapter exists. A persisted
+        ``always`` approval is not execution authority for such a tool.
+        """
+        effect_id = self.model_effect_id(call.name)
+        if effect_id is None:
+            return ToolResult(
+                call_id=call.call_id,
+                name=call.name,
+                content=(
+                    "BLOQUEADO: la herramienta no está normalizada como "
+                    "lectura para llamadas del modelo; las operaciones "
+                    "mutantes requieren un EffectAdapter ligado a "
+                    "ExecutionGateway."
+                ),
+                ok=False,
+                returncode=1,
+                blocked=True,
+                block_reason="model_tool_effect_unbound",
+            )
+        return self.execute_call(call)

@@ -136,6 +136,22 @@ class _ToolRegistry:
             )
         return SimpleNamespace(call_id=call.call_id, name=call.name, ok=False, returncode=1, content=f"Tool not registered: {call.name}")
 
+    def execute_model_call(self, call):
+        if call.name != "file-read":
+            return SimpleNamespace(
+                call_id=call.call_id,
+                name=call.name,
+                ok=False,
+                returncode=1,
+                blocked=True,
+                block_reason="model_tool_effect_unbound",
+                content="BLOQUEADO: la herramienta requiere ExecutionGateway.",
+            )
+        result = self.execute_call(call)
+        result.blocked = False
+        result.block_reason = ""
+        return result
+
 
 class _CaptureOllamaAdapter:
     def __init__(self):
@@ -217,8 +233,8 @@ class _ReadThenEditAdapter(_CaptureOllamaAdapter):
                     }
                 ],
             )
-        assert any(m.get("role") == "tool" and "replacements" in m.get("content", "") for m in messages)
-        return session_manager.ProviderResponse(content="Archivo actualizado.", provider="ollama-local", model_used=model)
+        assert any(m.get("role") == "tool" and "BLOQUEADO" in m.get("content", "") for m in messages)
+        return session_manager.ProviderResponse(content="Edición bloqueada.", provider="ollama-local", model_used=model)
 
 
 def test_ollama_tool_result_messages_use_tool_name():
@@ -337,7 +353,7 @@ def test_plain_chat_streams_even_when_tools_are_registered(tmp_path, monkeypatch
     assert adapter.max_tokens[0] is None
 
 
-def test_session_manager_allows_read_then_edit_tool_rounds(tmp_path, monkeypatch):
+def test_session_manager_blocks_mutating_model_tool_rounds(tmp_path, monkeypatch):
     adapter = _ReadThenEditAdapter()
     project = tmp_path / "project"
     project.mkdir()
@@ -370,7 +386,70 @@ def test_session_manager_allows_read_then_edit_tool_rounds(tmp_path, monkeypatch
     finally:
         mgr.close()
 
-    assert response == "Archivo actualizado."
+    assert response == "Edición bloqueada."
     assert target.read_text(encoding="utf-8") == "old content\n"
-    assert mirror_target.read_text(encoding="utf-8") == "new content\n"
+    assert mirror_target.read_text(encoding="utf-8") == "old content\n"
     assert adapter.calls == 3
+
+
+class _PendingEditAdapter(_CaptureOllamaAdapter):
+    def __init__(self):
+        super().__init__()
+        self.calls = 0
+
+    def chat(self, messages, model, *, system="", temperature=0.7, max_tokens=None, stream=False, tools=None):
+        self.calls += 1
+        if self.calls == 2:
+            return session_manager.ProviderResponse(
+                content="",
+                provider="ollama-local",
+                model_used=model,
+                tool_calls=[
+                    {
+                        "id": "edit-pending-1",
+                        "type": "function",
+                        "function": {
+                            "name": "file-edit",
+                            "arguments": {"path": "note.txt", "old": "old content", "new": "new content"},
+                        },
+                    }
+                ],
+            )
+        assert any(m.get("role") == "tool" and "BLOQUEADO" in m.get("content", "") for m in messages)
+        return session_manager.ProviderResponse(content="Edición bloqueada.", provider="ollama-local", model_used=model)
+
+
+def test_approve_tools_blocks_mutating_model_tool_call(tmp_path, monkeypatch):
+    adapter = _PendingEditAdapter()
+    project = tmp_path / "project"
+    project.mkdir()
+    target = project / "note.txt"
+    target.write_text("old content\n", encoding="utf-8")
+
+    monkeypatch.setattr(session_manager, "ConfigManager", _DummyConfig)
+    monkeypatch.setattr(session_manager, "CredentialManager", _DummyCreds)
+    monkeypatch.setattr(session_manager, "ScriptRegistry", _DummySimple)
+    monkeypatch.setattr(session_manager, "ToolRegistry", lambda *args, **kwargs: _ToolRegistry(kwargs.get("workspace_root")))
+    monkeypatch.setattr(session_manager, "KnowledgeBase", _DummySimple)
+    monkeypatch.setattr(session_manager, "EmbeddingStore", _DummySimple)
+    monkeypatch.setattr(session_manager, "GaboConnector", _DummySimple)
+    monkeypatch.setattr(session_manager, "PlanEngine", _DummySimple)
+    monkeypatch.setattr(session_manager, "PreferenceModel", _DummySimple)
+    monkeypatch.setattr(session_manager, "FeedbackCollector", _DummySimple)
+    monkeypatch.setattr(session_manager, "AgentGateway", _DummyAgentGateway)
+    monkeypatch.setattr(
+        session_manager.SessionManager,
+        "_init_adapter",
+        lambda self: setattr(self, "_adapter", adapter) or {"corrected": False, "requested": self.model, "actual": self.model, "available": []},
+    )
+
+    mgr = session_manager.SessionManager(base_path=str(project), state_root=str(tmp_path / "state"))
+    try:
+        pending = mgr.send("cambia old content por new content")
+        response = mgr.approve_tools()
+    finally:
+        mgr.close()
+
+    assert "modelo quiere usar estas herramientas" in pending.lower()
+    assert response == "Edición bloqueada."
+    assert target.read_text(encoding="utf-8") == "old content\n"
