@@ -53,6 +53,14 @@ INTERNAL_AUTHORITY_PATHS = {
     "backend/.bago/core/authorization_boundary.py",
 }
 
+# These implementations are reached only through registered, server-owned
+# ExecutionGateway adapters. They remain inventory findings; their binding is
+# evidence of that ownership, not an exclusion from the audit.
+GATEWAY_OWNED_PATHS = {
+    "backend/.bago/core/filesystem_effects.py",
+}
+EXECUTION_GATEWAY_PATH = "backend/.bago/core/execution_gateway.py"
+
 # High-signal Python call suffixes. Suffix matching is intentional because Path
 # instances are often local variables, not literal pathlib.Path expressions.
 PYTHON_SUFFIX_RULES: tuple[tuple[str, str, str], ...] = (
@@ -131,10 +139,12 @@ def _relative(path: Path) -> str:
         return path.resolve().as_posix()
 
 
-def _binding_for(path: Path) -> str:
+def _binding_for(path: Path, *, gateway_owned_adapter: bool = False) -> str:
     rel = _relative(path)
     if rel in INTERNAL_AUTHORITY_PATHS:
         return "authority_internal"
+    if rel in GATEWAY_OWNED_PATHS or gateway_owned_adapter:
+        return "gateway_owned"
     # P1 intentionally has no effect adapters yet. Every other sink remains
     # visible as unbound until a later migration step registers an adapter.
     return "unbound"
@@ -183,6 +193,26 @@ def _line_excerpt(lines: list[str], line: int) -> str:
     return ""
 
 
+def _gateway_owned_adapter_ranges(path: Path, tree: ast.AST) -> tuple[tuple[int, int], ...]:
+    """Return concrete adapter class spans in the server-owned gateway module."""
+    if _relative(path) != EXECUTION_GATEWAY_PATH:
+        return ()
+    return tuple(
+        (
+            int(getattr(node, "lineno", 0) or 0),
+            int(getattr(node, "end_lineno", 0) or 0),
+        )
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ClassDef)
+        and node.name != "EffectAdapter"
+        and node.name.endswith("EffectAdapter")
+    )
+
+
+def _is_in_ranges(line: int, ranges: Iterable[tuple[int, int]]) -> bool:
+    return any(start <= line <= end for start, end in ranges)
+
+
 def scan_python(path: Path) -> list[SinkFinding]:
     try:
         source = path.read_text(encoding="utf-8", errors="replace")
@@ -190,6 +220,7 @@ def scan_python(path: Path) -> list[SinkFinding]:
     except (OSError, SyntaxError):
         return []
     lines = source.splitlines()
+    gateway_owned_adapter_ranges = _gateway_owned_adapter_ranges(path, tree)
     findings: list[SinkFinding] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -207,7 +238,13 @@ def scan_python(path: Path) -> list[SinkFinding]:
                 sink=_qualified_name(node.func) or "<call>",
                 effect_id=effect_id,
                 confidence=confidence,
-                binding=_binding_for(path),
+                binding=_binding_for(
+                    path,
+                    gateway_owned_adapter=_is_in_ranges(
+                        int(getattr(node, "lineno", 0) or 0),
+                        gateway_owned_adapter_ranges,
+                    ),
+                ),
                 excerpt=_line_excerpt(lines, int(getattr(node, "lineno", 0) or 0)),
             )
         )

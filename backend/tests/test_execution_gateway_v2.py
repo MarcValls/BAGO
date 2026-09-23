@@ -10,6 +10,7 @@ from execution_gateway import (
     ExecutionContext,
     ExecutionGateway,
     ExecutionGatewayError,
+    build_default_effect_adapter_registry,
 )
 from execution_request import build_execution_request
 
@@ -141,3 +142,49 @@ def test_registry_rejects_duplicate_effect_ownership() -> None:
     with pytest.raises(ExecutionGatewayError) as duplicate:
         registry.register(_RecordingAdapter())
     assert duplicate.value.code == "execution_adapter_duplicate"
+
+
+def test_default_registry_owns_governed_plan_and_filesystem_adapters() -> None:
+    registry = build_default_effect_adapter_registry()
+
+    assert "filesystem.write" in registry.registered_effects()
+    assert "filesystem.read" in registry.registered_effects()
+    assert "plan.execute" in registry.registered_effects()
+
+
+def test_filesystem_write_is_materialized_only_after_gateway_permit(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    manager = type(
+        "Manager",
+        (),
+        {
+            "base_path": tmp_path,
+            "project_root": tmp_path,
+            "workspace_scope_root": tmp_path,
+            "workspace_mirror_root": tmp_path,
+            "session_id": "session-1",
+        },
+    )()
+    boundary = auth.AuthorizationBoundary()
+    request = build_execution_request(
+        effect_id="filesystem.write",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="session-1",
+        source_surface="test.filesystem.gateway",
+        target={"path": "notes/example.txt"},
+        arguments={"content": "gateway-only"},
+    )
+    permit = _permit(boundary, request, interaction="interaction-filesystem")
+
+    result, authorization = ExecutionGateway(boundary).execute(
+        permit_token=permit["token"],
+        request=request,
+        context=ExecutionContext(manager=manager),
+    )
+
+    assert result["ok"] is True
+    assert result["effect_id"] == "filesystem.write"
+    assert result["receipt_id"].startswith("filesystem-write:sha256:")
+    assert authorization["state"] == "consumed"
+    assert (tmp_path / "notes" / "example.txt").read_text(encoding="utf-8") == "gateway-only"

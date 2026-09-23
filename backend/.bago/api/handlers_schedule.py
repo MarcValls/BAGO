@@ -166,8 +166,21 @@ def _child_semantics(mgr, schedule: dict[str, Any]) -> tuple[str, dict[str, Any]
         plan_id = str(target.get("plan_id") or "").strip()
         if not plan_id:
             raise DelegationError("Scheduled plan_id is required", code="delegation_target_invalid")
+        engine = getattr(mgr, "plan_engine", None)
+        plan = engine.get_plan(plan_id) if engine is not None else None
+        if plan is None:
+            raise DelegationError(
+                f"Scheduled plan not found: {plan_id}",
+                code="delegation_target_invalid",
+            )
+        from governed_work_pipeline import GovernedWorkError, plan_execution_target
+
+        try:
+            governed_target = plan_execution_target(plan)
+        except GovernedWorkError as exc:
+            raise DelegationError(str(exc), code=exc.code) from exc
         effect_id = "plan.execute"
-        return effect_id, {"plan_id": plan_id}, {}, REGISTRY.get(effect_id).default_scope
+        return effect_id, governed_target, {}, REGISTRY.get(effect_id).default_scope
 
     if target_type == "task":
         raise DelegationError(

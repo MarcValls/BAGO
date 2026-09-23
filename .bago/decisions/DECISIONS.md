@@ -2,6 +2,91 @@
 
 Record architectural or product decisions that affect canon here.
 
+## 2026-09-23 — Reparar la evidencia de inventory de effect sinks
+
+- Resultado: `effect_sink_inventory.py` conserva todos los findings y reconoce
+  los sinks materializados dentro de adapters server-owned del
+  `ExecutionGateway` como `gateway_owned`.
+- Alcance: `filesystem_effects.py` y clases concretas `*EffectAdapter` del
+  gateway; el ledger de autorización continúa siendo `authority_internal`.
+- No se excluyen tests, tooling, release trees ni sinks legacy para maquillar
+  el contador. `handlers_github` y las demás superficies no migradas siguen
+  `unbound` y hacen fallar `--strict`.
+- Estado: `EXECUTED`; la inventory es trazable, pero `UNBOUND_EFFECT_SINKS = 0`
+  y `UNIQUE_EXECUTION_BOUNDARY` siguen abiertos hasta migrar las superficies
+  restantes.
+
+## 2026-09-23 — Ejecutar integración bounded 04-FIX2 en ExecutionGateway
+
+- Resultado: el sidecar runtime `bago.governed-work-pipeline/v0.2-FIX2` queda
+  `EXECUTED` y `CONNECTED_SCOPED` con Scheduler y PlanEngine.
+- Owners: 03A conserva challenge, decisión, Permit, DelegationGrant, consumo y
+  revocación; 04 solo coordina budget/workflow/step/outcome y conserva
+  referencias de autoridad.
+- Boundaries: `plan.execute`, `filesystem.read` y `filesystem.write` tienen
+  adapters server-owned; cada child material vuelve por `ExecutionGateway`.
+  `process.execute` sigue sin adapter de plan y se bloquea antes de consumir
+  presupuesto.
+- Invariantes ejecutados: presupuesto monotónico con remaining/state,
+  workflow/version/fingerprints, idempotencia y replay, `OUTCOME_UNKNOWN`,
+  referencias delegated y dispatch nested con contexto gateway-owned.
+- Evidencia: `.bago/audits/04-fix2-runtime-integration-20260923.md`,
+  gate bounded `96 passed, 142 subtests passed`, suite backend completa
+  `1240 passed, 2 skipped, 198 subtests passed`, compile PASS y
+  `git diff --check` PASS.
+- Límite: el candidato sigue dirty y no tiene verificación independiente en
+  este cierre; el review queda `OPEN / EXECUTED` y no se promueve a
+  `VERIFIED`/`VALIDATED`. La inventory global de sinks permanece separada.
+
+## 2026-09-23 — Reconciliar identidad del paquete congelado de 04-FIX2
+
+- Resultado: la identidad del baseline queda reconciliada localmente sin
+  modificar sus bytes.
+- Artefacto autoritativo local: `C:\Users\AMTEC_Terminal_1º\Documents\ARQUITECTURA_DE_CONTEXTO\BAGO_ARCONTEXT\RED_RAZONAMIENTO_LR_FROZEN_OPEN_2026-09-21.zip`.
+- SHA-256 del paquete: `e50b310f2d9775979cce813f27fd92640cb4380290204b2da510d38653da60db`.
+- SHA-256 del contrato 04 incluido:
+  `5db2b02ce92b0618cc51559e275c7d12f8d297ce36831213bd2789a4b5288146`.
+- Verificación: las siete entradas de `SHA256SUMS.txt` del paquete coinciden
+  con los bytes contenidos; el `PACKAGE_MANIFEST.md` describe el baseline LR
+  congelado.
+- Referencia superseded: el hash anterior
+  `748556bc39e5c41bec642d9812d31fc5fe78a436a9d8734931c1f975eb2a3d68`
+  pertenece al bundle distinto
+  `output/BAGO-causal-kernel-audit-20260921-a575291c.zip`, cuyo contrato
+  interno es `bago.third-party-remediation.v1` y cuyo candidato es `a575291c`.
+- Límite: la review externa conserva el hash histórico hasta que su autor la
+  reemita; esta decisión local no modifica el paquete ni certifica 04-FIX2.
+- Estado: la identidad está `RECONCILED_LOCALLY`; el review 04-FIX2 queda
+  `OPEN / EXECUTED` con integración runtime `CONNECTED_SCOPED`, pendiente de
+  verificación independiente.
+
+## 2026-09-21 — Open bounded 04-FIX2 review
+
+- Decision: open a formal bounded review of 04_GOVERNED_WORK_PIPELINE_CONTRACT
+  v0.2-FIX1 as 04-FIX2 review.
+- Authority: explicit current owner instruction to choose and execute the
+  canonical opening option after the prepared gap matrix.
+- Baseline: RED_RAZONAMIENTO_LR_FROZEN_OPEN_2026-09-21; package SHA-256
+  748556bc39e5c41bec642d9812d31fc5fe78a436a9d8734931c1f975eb2a3d68;
+  contract SHA-256
+  5db2b02ce92b0618cc51559e275c7d12f8d297ce36831213bd2789a4b5288146.
+- Scope: GWP-02-01 pipeline budget envelope; GWP-02-02 workflow
+  version/fingerprint binding; GWP-02-03 pipeline/step idempotency; and
+  GWP-02-04 delegated-authority references without authority inheritance.
+- Excluded: changes to 01, 02, 03A or 03; STRONG_HUMAN_IDENTITY_PROOF as a
+  04 field; PersistentCognitiveState; and any contract 05.
+- Boundary: the frozen package, manifest, OPEN_CONTRACTS_STATUS and SHA256SUMS
+  remain immutable. This is a sidecar review, not a rewrite of the baseline.
+- Lifecycle: review OPEN; proposed contract changes PREPARED; no VERIFIED or
+  VALIDATED claim is made.
+- Evidence: RED_RAZONAMIENTO_LR_04_GAP_MATRIX_PREPARED_2026-09-21.md and
+  RED_RAZONAMIENTO_LR_04_FIX2_REVIEW_OPEN_2026-09-21.md.
+- Closure: explicit field and authority definitions, negative and concurrency
+  retests for all four gaps, fresh candidate-bound evidence, and a separate
+  verification decision.
+- Reversibility: close the review without modifying the frozen baseline; no
+  future contract is implied by this opening.
+
 ## 2026-08-30 — Adopt BAGOx v1.3-RC1-FIX2 Codex overlay
 
 - Decision: adopt the stable Codex behavioral projection of `BAGOx Behavior Package v1.3-RC1-FIX2` as the BAGO repository overlay.

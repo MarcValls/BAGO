@@ -173,14 +173,29 @@ def test_scheduler_handler_contains_no_direct_package_runtime_call():
     assert "confirmed=True" not in source
 
 
-def test_missing_child_adapter_does_not_spend_grant_run(tmp_path, monkeypatch):
+def test_scheduler_executes_governed_plan_through_gateway(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
-    mgr = SimpleNamespace(base_path=tmp_path, session_id="session-scheduler")
+    from plan_engine import PlanEngine
+
+    engine = PlanEngine()
+    plan = engine.create_plan_with_actions(
+        "Plan periódico gobernado",
+        "1. Crear archivo notes/scheduled.txt con contenido: scheduled",
+    )
+    plan_id = engine.register_plan(plan)
+    mgr = SimpleNamespace(
+        base_path=tmp_path,
+        project_root=tmp_path,
+        workspace_scope_root=tmp_path,
+        workspace_mirror_root=tmp_path,
+        session_id="session-scheduler",
+        plan_engine=engine,
+    )
     payload = {
         "id": "schedule-plan-1",
         "name": "Plan periódico",
         "target_type": "plan",
-        "target": {"plan_id": "plan-1"},
+        "target": {"plan_id": plan_id},
         "schedule_type": "interval",
         "interval_s": 60,
         "timezone": "UTC",
@@ -216,9 +231,14 @@ def test_missing_child_adapter_does_not_spend_grant_run(tmp_path, monkeypatch):
         }
     )
 
-    with pytest.raises(ExecutionGatewayError) as missing:
-        handlers_schedule._execute_target(mgr, schedule)
-    assert missing.value.code == "execution_adapter_missing"
+    execution = handlers_schedule._execute_target(mgr, schedule)
+    assert execution["ok"] is True
+    assert execution["authorization"]["state"] == "consumed"
+    assert execution["authorization"]["delegation_id"] == grant["grant_id"]
+    assert execution["result"]["receipt_id"].startswith("plan-execute:sha256:")
+    assert (tmp_path / "notes" / "scheduled.txt").read_text(encoding="utf-8") == "scheduled"
+    assert plan.steps[0].status == "done"
+    assert plan.governed_work["budget_consumed"] == 1
 
     persisted = DelegationGrantRegistry(handlers_schedule._state_dir(mgr)).get(grant["grant_id"])
-    assert persisted["run_count"] == 0
+    assert persisted["run_count"] == 1
