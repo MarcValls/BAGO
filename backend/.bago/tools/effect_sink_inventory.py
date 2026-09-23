@@ -8,8 +8,9 @@ This is an audit tool, not an authorization mechanism. It answers:
     Is that sink already behind the ExecutionGateway?
 
 Default mode is report-only so the existing migration can be measured without
-breaking CI. --strict is the future closure gate: it exits non-zero while
-unbound or unknown sinks remain.
+breaking CI. ``--strict`` is the runtime closure gate: it exits non-zero while
+runtime sinks remain unbound. ``--strict-classification`` is the inventory
+completeness gate; it fails if a finding has no explicit scope or disposition.
 
 The scanner covers Python plus high-signal PowerShell/JS process/filesystem
 patterns. It intentionally prefers false-positive audit candidates over silent
@@ -60,6 +61,19 @@ GATEWAY_OWNED_PATHS = {
     "backend/.bago/core/filesystem_effects.py",
 }
 EXECUTION_GATEWAY_PATH = "backend/.bago/core/execution_gateway.py"
+
+SCOPE_RUNTIME_AUTHORITY = "runtime_authority"
+SCOPE_RUNTIME_TOOL_PENDING = "runtime_tool_pending"
+SCOPE_TEST = "test"
+SCOPE_BUILD_RELEASE_ADMIN = "build_release_admin"
+SCOPE_DERIVED_RELEASE_SNAPSHOT = "derived_release_snapshot"
+SCOPE_UNCLASSIFIED = "unclassified"
+
+NON_RUNTIME_SCOPES = frozenset({
+    SCOPE_TEST,
+    SCOPE_BUILD_RELEASE_ADMIN,
+    SCOPE_DERIVED_RELEASE_SNAPSHOT,
+})
 
 # High-signal Python call suffixes. Suffix matching is intentional because Path
 # instances are often local variables, not literal pathlib.Path expressions.
@@ -129,6 +143,9 @@ class SinkFinding:
     effect_id: str
     confidence: str
     binding: str
+    scope: str
+    binding_class: str
+    binding_reason: str
     excerpt: str
 
 
@@ -139,15 +156,76 @@ def _relative(path: Path) -> str:
         return path.resolve().as_posix()
 
 
-def _binding_for(path: Path, *, gateway_owned_adapter: bool = False) -> str:
+def _scope_for(path: Path) -> str:
+    """Assign every scanned path to an explicit audit scope.
+
+    Scope is deliberately separate from gateway binding. Tests, packaging and
+    release projections still contain real effect calls, but they are not
+    runtime authority. They remain visible in the inventory and are never
+    silently treated as gateway adapters.
+    """
+
+    rel = _relative(path)
+    parts = set(rel.split("/"))
+    if rel.startswith("backend/release/"):
+        return SCOPE_DERIVED_RELEASE_SNAPSHOT
+    if "tests" in parts or rel.startswith("backend/tests_local/"):
+        return SCOPE_TEST
+    if (
+        rel.startswith("scripts/")
+        or rel.startswith("backend/scripts/")
+        or rel.startswith("backend/tools/")
+    ):
+        return SCOPE_BUILD_RELEASE_ADMIN
+    if rel.startswith("backend/.bago/tools/"):
+        return SCOPE_RUNTIME_TOOL_PENDING
+    if rel.startswith("backend/") or rel.startswith("electron-viewer/"):
+        return SCOPE_RUNTIME_AUTHORITY
+    return SCOPE_UNCLASSIFIED
+
+
+def _ownership_for(
+    path: Path,
+    *,
+    gateway_owned_adapter: bool = False,
+) -> tuple[str, str, str]:
     rel = _relative(path)
     if rel in INTERNAL_AUTHORITY_PATHS:
-        return "authority_internal"
+        return (
+            "authority_internal",
+            "authority_internal",
+            "AuthorizationBoundary owns its persistence ledger",
+        )
     if rel in GATEWAY_OWNED_PATHS or gateway_owned_adapter:
-        return "gateway_owned"
-    # P1 intentionally has no effect adapters yet. Every other sink remains
-    # visible as unbound until a later migration step registers an adapter.
-    return "unbound"
+        return (
+            "gateway_owned",
+            "gateway_adapter",
+            "server-owned EffectAdapter materializes this sink",
+        )
+    scope = _scope_for(path)
+    if scope in NON_RUNTIME_SCOPES:
+        return (
+            "unbound",
+            "nonruntime_effect",
+            f"retained for audit; scope={scope} is not runtime authority",
+        )
+    if scope in {SCOPE_RUNTIME_AUTHORITY, SCOPE_RUNTIME_TOOL_PENDING}:
+        return (
+            "unbound",
+            "runtime_unbound",
+            "runtime sink requires a registered gateway owner",
+        )
+    return (
+        "unbound",
+        "unclassified",
+        "path is outside the declared inventory scopes",
+    )
+
+
+def _binding_for(path: Path, *, gateway_owned_adapter: bool = False) -> str:
+    """Compatibility projection for callers that only need the old binding."""
+
+    return _ownership_for(path, gateway_owned_adapter=gateway_owned_adapter)[0]
 
 
 def _qualified_name(node: ast.AST) -> str:
@@ -229,6 +307,11 @@ def scan_python(path: Path) -> list[SinkFinding]:
         if classification is None:
             continue
         effect_id, confidence = classification
+        line = int(getattr(node, "lineno", 0) or 0)
+        binding, binding_class, binding_reason = _ownership_for(
+            path,
+            gateway_owned_adapter=_is_in_ranges(line, gateway_owned_adapter_ranges),
+        )
         findings.append(
             SinkFinding(
                 path=_relative(path),
@@ -238,14 +321,11 @@ def scan_python(path: Path) -> list[SinkFinding]:
                 sink=_qualified_name(node.func) or "<call>",
                 effect_id=effect_id,
                 confidence=confidence,
-                binding=_binding_for(
-                    path,
-                    gateway_owned_adapter=_is_in_ranges(
-                        int(getattr(node, "lineno", 0) or 0),
-                        gateway_owned_adapter_ranges,
-                    ),
-                ),
-                excerpt=_line_excerpt(lines, int(getattr(node, "lineno", 0) or 0)),
+                binding=binding,
+                scope=_scope_for(path),
+                binding_class=binding_class,
+                binding_reason=binding_reason,
+                excerpt=_line_excerpt(lines, line),
             )
         )
     return findings
@@ -265,6 +345,7 @@ def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str],
             match = pattern.search(line)
             if not match:
                 continue
+            binding, binding_class, binding_reason = _ownership_for(path)
             findings.append(
                 SinkFinding(
                     path=_relative(path),
@@ -274,7 +355,10 @@ def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str],
                     sink=match.group(0)[:120],
                     effect_id=effect_id,
                     confidence=confidence,
-                    binding=_binding_for(path),
+                    binding=binding,
+                    scope=_scope_for(path),
+                    binding_class=binding_class,
+                    binding_reason=binding_reason,
                     excerpt=" ".join(stripped.split())[:240],
                 )
             )
@@ -316,10 +400,15 @@ def build_inventory(roots: Iterable[Path] | None = None) -> dict[str, Any]:
     findings = scan_paths(selected)
     by_effect = Counter(item.effect_id for item in findings)
     by_binding = Counter(item.binding for item in findings)
+    by_scope = Counter(item.scope for item in findings)
+    by_binding_class = Counter(item.binding_class for item in findings)
     high_confidence_unbound = [
         item for item in findings
         if item.binding == "unbound" and item.confidence == "high"
     ]
+    runtime_unbound = [item for item in findings if item.binding_class == "runtime_unbound"]
+    unclassified_scope = [item for item in findings if item.scope == SCOPE_UNCLASSIFIED]
+    unclassified_binding = [item for item in findings if item.binding_class == "unclassified"]
     return {
         "schema": "bago.effect-sink-inventory.v1",
         "repo_root": str(REPO_ROOT),
@@ -329,8 +418,16 @@ def build_inventory(roots: Iterable[Path] | None = None) -> dict[str, Any]:
             "unbound_sinks": sum(1 for item in findings if item.binding == "unbound"),
             "authority_internal_sinks": sum(1 for item in findings if item.binding == "authority_internal"),
             "high_confidence_unbound_sinks": len(high_confidence_unbound),
+            "runtime_unbound_sinks": len(runtime_unbound),
+            "runtime_high_confidence_unbound_sinks": sum(
+                1 for item in runtime_unbound if item.confidence == "high"
+            ),
+            "unclassified_scope_sinks": len(unclassified_scope),
+            "unclassified_binding_sinks": len(unclassified_binding),
             "by_effect": dict(sorted(by_effect.items())),
             "by_binding": dict(sorted(by_binding.items())),
+            "by_binding_class": dict(sorted(by_binding_class.items())),
+            "by_scope": dict(sorted(by_scope.items())),
         },
         "findings": [asdict(item) for item in findings],
     }
@@ -342,7 +439,17 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--strict",
         action="store_true",
-        help="fail while any unbound sink remains (future UNIQUE_EXECUTION_BOUNDARY gate)",
+        help="fail while any runtime-authority sink remains unbound",
+    )
+    parser.add_argument(
+        "--strict-runtime",
+        action="store_true",
+        help="alias for --strict, kept explicit for CI/readability",
+    )
+    parser.add_argument(
+        "--strict-classification",
+        action="store_true",
+        help="fail while any sink lacks an explicit scope or binding class",
     )
     parser.add_argument(
         "--root",
@@ -364,11 +471,20 @@ def main() -> int:
         print("BAGO effect-sink inventory")
         print(f"  total_sinks: {summary['total_sinks']}")
         print(f"  unbound_sinks: {summary['unbound_sinks']}")
+        print(f"  runtime_unbound_sinks: {summary['runtime_unbound_sinks']}")
+        print(f"  unclassified_scope_sinks: {summary['unclassified_scope_sinks']}")
+        print(f"  unclassified_binding_sinks: {summary['unclassified_binding_sinks']}")
         print(f"  high_confidence_unbound_sinks: {summary['high_confidence_unbound_sinks']}")
         for effect_id, count in summary["by_effect"].items():
             print(f"  {effect_id}: {count}")
-    if args.strict and inventory["summary"]["unbound_sinks"]:
+    summary = inventory["summary"]
+    if (args.strict or args.strict_runtime) and summary["runtime_unbound_sinks"]:
         return 2
+    if args.strict_classification and (
+        summary["unclassified_scope_sinks"]
+        or summary["unclassified_binding_sinks"]
+    ):
+        return 3
     return 0
 
 

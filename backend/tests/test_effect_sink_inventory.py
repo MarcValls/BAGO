@@ -113,6 +113,8 @@ def test_handlers_github_remains_unbound() -> None:
         item.effect_id == "process.execute" and item.binding == "unbound"
         for item in github_findings
     )
+    assert all(item.scope == inventory.SCOPE_RUNTIME_AUTHORITY for item in github_findings)
+    assert all(item.binding_class == "runtime_unbound" for item in github_findings)
 
 
 def test_strict_fails_while_legacy_unbound_sinks_exist(monkeypatch) -> None:
@@ -128,6 +130,27 @@ def test_strict_fails_while_legacy_unbound_sinks_exist(monkeypatch) -> None:
     )
 
     assert inventory.main() == 2
+
+
+def test_global_inventory_has_explicit_scope_and_binding_for_every_finding() -> None:
+    result = inventory.build_inventory()
+    summary = result["summary"]
+
+    assert summary["unclassified_scope_sinks"] == 0
+    assert summary["unclassified_binding_sinks"] == 0
+    assert sum(summary["by_scope"].values()) == summary["total_sinks"]
+    assert sum(summary["by_binding_class"].values()) == summary["total_sinks"]
+    assert all(item["scope"] != inventory.SCOPE_UNCLASSIFIED for item in result["findings"])
+
+
+def test_strict_classification_closes_inventory_without_promoting_gateway(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["effect_sink_inventory.py", "--strict-classification"],
+    )
+
+    assert inventory.main() == 0
 
 
 def test_authorization_ledger_sink_is_explicitly_authority_internal() -> None:
