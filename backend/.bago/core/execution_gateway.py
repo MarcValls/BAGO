@@ -222,6 +222,135 @@ class FilesystemReadEffectAdapter:
             raise ExecutionGatewayError(str(exc), code=exc.code) from exc
 
 
+class StateDeleteEffectAdapter:
+    """Gateway-owned adapter for the one bounded session-state deletion.
+
+    Wave B starts with the router's session-model override because it is a
+    destructive effect with a single canonical target.  The adapter owns the
+    final unlink and derives its trusted root from the live SessionManager;
+    callers can request only the exact session override, never an arbitrary
+    state path.
+    """
+
+    effect_ids = frozenset({"state.delete"})
+    _RESOURCE = "session_model_override"
+    _FILENAME = ".bago_session_model.json"
+
+    @staticmethod
+    def _trusted_root(manager: Any) -> Path:
+        raw_root = str(getattr(manager, "state_root", "") or "").strip()
+        if not raw_root:
+            raise ExecutionGatewayError(
+                "State deletion requires SessionManager state_root",
+                code="state_delete_root_required",
+            )
+        return Path(raw_root).expanduser().resolve()
+
+    def execute(self, request: ExecutionRequest, context: ExecutionContext) -> Any:
+        manager = context.manager
+        if manager is None:
+            raise ExecutionGatewayError(
+                "State deletion requires SessionManager context",
+                code="execution_context_manager_required",
+            )
+        authorization = context.services.get("_authorization")
+        if not isinstance(authorization, dict) or authorization.get("state") != "consumed":
+            raise ExecutionGatewayError(
+                "State deletion requires consumed gateway authorization",
+                code="state_delete_authorization_required",
+            )
+        manager_session = str(getattr(manager, "session_id", "") or "")
+        if manager_session != request.session_id:
+            raise ExecutionGatewayError(
+                "ExecutionContext manager belongs to another session",
+                code="execution_context_session_mismatch",
+            )
+
+        root = self._trusted_root(manager)
+        target_root = Path(str(request.target.get("allowed_root") or "")).expanduser().resolve()
+        if target_root != root:
+            raise ExecutionGatewayError(
+                "State deletion trusted root is missing or changed",
+                code="state_delete_root_mismatch",
+            )
+        resource = str(request.target.get("resource") or "").strip()
+        if resource != self._RESOURCE:
+            raise ExecutionGatewayError(
+                "State deletion resource is not approved",
+                code="state_delete_resource_invalid",
+            )
+
+        raw_path = str(request.target.get("path") or "").strip()
+        if not raw_path:
+            raise ExecutionGatewayError(
+                "State deletion target path is required",
+                code="state_delete_path_required",
+            )
+        lexical = Path(raw_path).expanduser()
+        lexical = lexical if lexical.is_absolute() else root / lexical
+        if lexical.is_symlink():
+            raise ExecutionGatewayError(
+                "State deletion target cannot be a symlink",
+                code="state_delete_symlink_forbidden",
+            )
+        target = lexical.resolve()
+        try:
+            target.relative_to(root)
+        except ValueError as exc:
+            raise ExecutionGatewayError(
+                "State deletion target is outside its trusted root",
+                code="state_delete_path_out_of_scope",
+            ) from exc
+        if target != root / self._FILENAME:
+            raise ExecutionGatewayError(
+                "State deletion target is not the session model override",
+                code="state_delete_target_invalid",
+            )
+        if target.exists() and not target.is_file():
+            raise ExecutionGatewayError(
+                "State deletion target must be a file",
+                code="state_delete_target_invalid",
+            )
+
+        existed = target.exists()
+        prior_digest = "missing"
+        if existed:
+            try:
+                prior_digest = hashlib.sha256(target.read_bytes()).hexdigest()
+            except OSError as exc:
+                raise ExecutionGatewayError(
+                    f"Error leyendo el override de modelo: {exc}",
+                    code="state_delete_read_failed",
+                ) from exc
+
+        try:
+            target.unlink()
+            deleted = True
+        except FileNotFoundError:
+            deleted = False
+        except OSError as exc:
+            raise ExecutionGatewayError(
+                f"Error eliminando el override de modelo: {exc}",
+                code="state_delete_failed",
+            ) from exc
+
+        return {
+            "ok": True,
+            "executed": True,
+            "effect_id": request.effect_id,
+            "resource": self._RESOURCE,
+            "path": self._FILENAME,
+            "absolute_path": str(target),
+            "deleted": deleted,
+            "evidence": [
+                f"path:{target}",
+                f"prior_sha256:{prior_digest}",
+                f"deleted:{str(deleted).lower()}",
+            ],
+            "receipt_id": f"state-delete:sha256:{prior_digest}",
+        }
+
+
 _SERVER_STATE_EFFECTS = frozenset({
     "state.write",
     "config.write",
@@ -565,6 +694,7 @@ def build_default_effect_adapter_registry() -> EffectAdapterRegistry:
     registry = EffectAdapterRegistry()
     registry.register(FilesystemEffectAdapter())
     registry.register(FilesystemReadEffectAdapter())
+    registry.register(StateDeleteEffectAdapter())
     registry.register(ServerStateEffectAdapter())
     registry.register(NetworkReadEffectAdapter())
     registry.register(CapabilityRuntimeEffectAdapter())
@@ -845,6 +975,7 @@ __all__ = [
     "ExecutionGatewayError",
     "FilesystemEffectAdapter",
     "FilesystemReadEffectAdapter",
+    "StateDeleteEffectAdapter",
     "PlanRuntimeEffectAdapter",
     "GatewayHTTPResponse",
     "NetworkReadEffectAdapter",
