@@ -18,7 +18,7 @@ Record architectural or product decisions that affect canon here.
   toca Scheduler/PlanEngine ni se mezclan todavía project/workspace/credential.
 - Evidencia de ejecución: tests backend focales `30 passed`; frontend focal
   `34 passed`, typecheck PASS y build PASS. La inventory actual queda en
-  `2098` findings, `473` runtime-unbound (`243` high-confidence runtime),
+  `2099` findings, `473` runtime-unbound (`243` high-confidence runtime),
   `0` scope/binding unclassified; `--strict-classification` pasa y
   `--strict-runtime` permanece abierto con exit `1`.
 - Estado: `EXECUTED / SCOPED`; el cierre global sigue sin promoverse a

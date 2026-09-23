@@ -131,7 +131,7 @@ Candidate-bound execution evidence before final commit:
 - Backend focused gateway/router/authorization suite: `30 passed`.
 - Frontend focused client/ControlPlane/navigation suite: `34 passed`.
 - Frontend typecheck: PASS; production build: PASS (`123 modules`).
-- Current effect inventory: `2098` findings, `473` runtime-unbound and `243`
+- Current effect inventory: `2099` findings, `473` runtime-unbound and `243`
   high-confidence runtime-unbound; `0` unclassified scope/binding.
 - `--strict-classification`: PASS. `--strict-runtime`: FAIL/OPEN, exit `1`.
 
