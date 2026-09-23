@@ -21,12 +21,14 @@ Record architectural or product decisions that affect canon here.
   silencioso y el botón Persistir usa confirmación visible más el mismo
   lifecycle. Los callers `/project` y TTY siguen fuera de este corte y quedan
   para `project.write`.
-- Evidencia focal actual: backend workspace/gateway/authorization/persistencia
-  `31 passed`; backend B2 ampliado previo `47 passed`; frontend cliente/
+- Evidencia candidate-bound sobre `fa7b1727216562fc51591b92e8d777b3ddd51a3f`:
+  backend B2 ampliado `47 passed`; suite backend completa `1260 passed, 2
+  skipped, 198 subtests passed` en `225.85s`; frontend cliente/
   ControlPlane/navegación `35 passed`; typecheck y build frontend PASS (`123`
   módulos); compile y `git diff --check` PASS. La inventory queda separada:
-  `--strict-classification` PASS, `--strict-runtime` continúa FAIL/OPEN por el
-  backlog global y no se usa para promover este corte.
+  `2104` findings, `473` runtime-unbound, `243` runtime high-confidence y `0`
+  scope/binding unclassified; `--strict-classification` PASS y
+  `--strict-runtime` continúa FAIL/OPEN por el backlog global.
 - Estado: `EXECUTED / SCOPED`. No se promueve a `VERIFIED`/`VALIDATED` hasta
   repetir las gates sobre el commit final y completar la revisión independiente.
 
