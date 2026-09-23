@@ -150,6 +150,156 @@ def test_default_registry_owns_governed_plan_and_filesystem_adapters() -> None:
     assert "filesystem.write" in registry.registered_effects()
     assert "filesystem.read" in registry.registered_effects()
     assert "plan.execute" in registry.registered_effects()
+    assert "state.write" in registry.registered_effects()
+    assert "config.write" in registry.registered_effects()
+    assert "memory.write" in registry.registered_effects()
+    assert "agent.definition.write" in registry.registered_effects()
+
+
+def test_server_policy_state_write_is_materialized_by_the_gateway(tmp_path) -> None:
+    from bago_core.atomic_json import write_json_atomic
+
+    target = tmp_path / "state" / "record.json"
+    write_json_atomic(target, {"ok": True, "owner": "gateway"})
+
+    assert target.exists()
+    assert '"owner": "gateway"' in target.read_text(encoding="utf-8")
+
+
+def test_server_policy_state_write_blocks_root_mismatch_before_effect(tmp_path) -> None:
+    request = build_execution_request(
+        effect_id="state.write",
+        actor_kind="server",
+        principal_id="bago-runtime",
+        session_id="server-state-test",
+        source_surface="server.test",
+        target={
+            "path": str(tmp_path / "state.json"),
+            "allowed_root": str(tmp_path / "other-root"),
+            "operation": "replace_text",
+        },
+        arguments={"content": "must-not-exist"},
+        scope="session",
+    )
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway().execute_server_owned(
+            request=request,
+            context=ExecutionContext(services={"_server_allowed_root": str(tmp_path)}),
+        )
+
+    assert blocked.value.code == "server_state_root_mismatch"
+    assert not (tmp_path / "state.json").exists()
+
+
+def test_server_policy_path_traversal_is_blocked_before_effect(tmp_path) -> None:
+    root = tmp_path / "state"
+    target = root / ".." / "outside.json"
+    request = build_execution_request(
+        effect_id="state.write",
+        actor_kind="server",
+        principal_id="bago-runtime",
+        session_id="server-state-test",
+        source_surface="server.test",
+        target={
+            "path": str(target),
+            "allowed_root": str(root),
+            "operation": "replace_text",
+        },
+        arguments={"content": "must-not-exist"},
+        scope="session",
+    )
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway().execute_server_owned(
+            request=request,
+            context=ExecutionContext(services={"_server_allowed_root": str(root)}),
+        )
+
+    assert blocked.value.code == "server_state_path_out_of_scope"
+    assert not (tmp_path / "outside.json").exists()
+
+
+def test_public_gateway_cannot_consume_a_server_policy_effect(tmp_path) -> None:
+    request = build_execution_request(
+        effect_id="state.write",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="session-1",
+        source_surface="test.gateway",
+        target={"path": "state.json"},
+        arguments={"content": "must-not-exist"},
+    )
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway().execute(permit_token="unused", request=request)
+
+    assert blocked.value.code == "execution_server_policy_only"
+
+
+def test_server_policy_network_adapter_blocks_unclassified_surface(monkeypatch) -> None:
+    import urllib.request
+
+    called = False
+
+    def _unexpected(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("network effect must be blocked before urlopen")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _unexpected)
+    request = build_execution_request(
+        effect_id="network.read",
+        actor_kind="server",
+        principal_id="bago-runtime",
+        session_id="network-test",
+        source_surface="server.network.unknown",
+        target={
+            "url": "https://example.invalid/blocked",
+            "method": "GET",
+            "network_class": "unknown",
+            "timeout": 1.0,
+        },
+        arguments={},
+        scope="external",
+    )
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway().execute_server_owned(request=request)
+
+    assert blocked.value.code == "network_read_surface_blocked"
+    assert called is False
+
+
+def test_server_policy_network_adapter_returns_buffered_response(monkeypatch) -> None:
+    import urllib.request
+
+    class _Response:
+        status = 200
+        headers = {"Content-Type": "application/json"}
+
+        def read(self):
+            return b'{"ok":true}'
+
+        def getcode(self):
+            return 200
+
+        def geturl(self):
+            return "https://example.test/status"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *_args, **_kwargs: _Response())
+    from bago_core.server_effects import gateway_urlopen
+
+    with gateway_urlopen("https://example.test/status", timeout=1.0) as response:
+        assert response.status == 200
+        assert response.read() == b'{"ok":true}'
+        assert response.headers["Content-Type"] == "application/json"
 
 
 def test_filesystem_write_is_materialized_only_after_gateway_permit(tmp_path, monkeypatch) -> None:

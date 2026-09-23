@@ -32,6 +32,7 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
+from bago_core.server_effects import gateway_urlopen
 from bago_core.providers import ProviderAdapter, ModelInfo, HealthStatus, ProviderResponse, TokenUsage
 
 
@@ -61,7 +62,7 @@ class OllamaCloudAdapter(ProviderAdapter):
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=self._headers(), method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with gateway_urlopen(req, timeout=timeout) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             if exc.code != 401 or not self.fallback_api_key or self.fallback_api_key == self.api_key:
@@ -72,7 +73,7 @@ class OllamaCloudAdapter(ProviderAdapter):
                 headers=self._headers(self.fallback_api_key),
                 method="POST",
             )
-            with urllib.request.urlopen(retry, timeout=timeout) as resp:
+            with gateway_urlopen(retry, timeout=timeout) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
             self.api_key = self.fallback_api_key
             return result
@@ -80,13 +81,13 @@ class OllamaCloudAdapter(ProviderAdapter):
     def _get(self, url: str, timeout: float = 5.0) -> dict:
         req = urllib.request.Request(url, headers=self._headers(), method="GET")
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
+            with gateway_urlopen(req, timeout=timeout) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             if exc.code != 401 or not self.fallback_api_key or self.fallback_api_key == self.api_key:
                 raise
             retry = urllib.request.Request(url, headers=self._headers(self.fallback_api_key), method="GET")
-            with urllib.request.urlopen(retry, timeout=timeout) as resp:
+            with gateway_urlopen(retry, timeout=timeout) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
             self.api_key = self.fallback_api_key
             return result
@@ -194,7 +195,7 @@ class OllamaCloudAdapter(ProviderAdapter):
         req = urllib.request.Request(url, data=data, headers=self._headers(), method="POST")
 
         def _stream(request):
-            with urllib.request.urlopen(request, timeout=60.0) as resp:
+            with gateway_urlopen(request, timeout=60.0) as resp:
                 for line in resp:
                     line = line.decode("utf-8").strip()
                     if not line:

@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from bago_core.atomic_json import write_json_atomic
+
 _RUNTIME_DIR = Path(__file__).resolve().parents[1] / "chat"
 if str(_RUNTIME_DIR) not in sys.path:
     sys.path.insert(0, str(_RUNTIME_DIR))
@@ -214,7 +216,7 @@ def _read_reasoning(state: "Path") -> str:
 def handle_reasoning_depth(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Persist the session thinking depth and expose its provider effort mapping."""
     from api_serializers import send_json
-    import json, os
+    import json
 
     state = _state_root(handler)
     requested = str(body.get("depth") or "normal").strip().lower()
@@ -222,10 +224,7 @@ def handle_reasoning_depth(handler: "BaseHTTPRequestHandler", body: dict) -> Non
         send_json(handler, 400, {"ok": False, "error": "Profundidad no válida", "allowed": list(_REASONING_DEPTHS)})
         return
     path = _reasoning_path(state)
-    Path(state).mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"depth": requested}, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(str(tmp), str(path))
+    write_json_atomic(path, {"depth": requested})
     mgr = getattr(handler, "session_mgr", None)
     if mgr is not None:
         mgr.reasoning_depth = requested
@@ -289,7 +288,7 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """
     from api_serializers import send_json
     from event_bus import emit
-    import json, os
+    import json
 
     state = _state_root(handler)
     model_key = body.get("model")  # None means clear override
@@ -366,10 +365,7 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         "automatic_provider": automatic_provider,
         "automatic_model": automatic_model,
     }
-    tmp = override_path.with_suffix(".tmp")
-    Path(state).mkdir(parents=True, exist_ok=True)
-    tmp.write_text(json.dumps(override, indent=2), encoding="utf-8")
-    os.replace(str(tmp), str(override_path))
+    write_json_atomic(override_path, override)
 
 
     # Manual selection must turn auto-switch off so the user stays in control.

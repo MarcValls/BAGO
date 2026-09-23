@@ -7,10 +7,19 @@ by canonical effect_id.
 
 from __future__ import annotations
 
+import hashlib
+import base64
+import os
+import threading
+import time
+import uuid
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Mapping, Protocol
 
-from authorization_boundary import AuthorizationBoundary
+from authorization_boundary import AuthorizationBoundary, AuthorizationError
 from effect_registry import REGISTRY
 from execution_request import ExecutionRequest
 
@@ -213,6 +222,259 @@ class FilesystemReadEffectAdapter:
             raise ExecutionGatewayError(str(exc), code=exc.code) from exc
 
 
+_SERVER_STATE_EFFECTS = frozenset({
+    "state.write",
+    "config.write",
+    "memory.write",
+    "agent.definition.write",
+})
+_SERVER_STATE_WRITE_LOCK = threading.RLock()
+
+
+class ServerStateEffectAdapter:
+    """Server-owned adapter for policy-authorized persistent state writes.
+
+    The adapter owns the only material write implementation for this family.
+    Callers can select a target path and payload, but cannot supply an
+    executor. The gateway supplies the policy authorization and the trusted
+    root; this adapter checks the root again immediately before the effect.
+    """
+
+    effect_ids = _SERVER_STATE_EFFECTS
+    server_policy_only = True
+
+    _FORBIDDEN_SEGMENTS = frozenset({".git", ".env", "node_modules", ".venv", "venv"})
+
+    @staticmethod
+    def _resolved_target(raw_path: str, raw_root: str) -> tuple[Path, Path]:
+        root = Path(str(raw_root or "")).expanduser().resolve()
+        if not str(raw_path or "").strip():
+            raise ExecutionGatewayError(
+                "Server state target path is required",
+                code="server_state_path_required",
+            )
+        candidate = Path(str(raw_path)).expanduser()
+        target = (root / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
+        try:
+            target.relative_to(root)
+        except ValueError as exc:
+            raise ExecutionGatewayError(
+                "Server state target is outside its trusted root",
+                code="server_state_path_out_of_scope",
+            ) from exc
+        if target == root:
+            raise ExecutionGatewayError(
+                "Server state target must be a file",
+                code="server_state_target_invalid",
+            )
+        if any(part.lower() in ServerStateEffectAdapter._FORBIDDEN_SEGMENTS for part in target.parts):
+            raise ExecutionGatewayError(
+                "Server state target contains a forbidden segment",
+                code="server_state_forbidden_path",
+            )
+        if target.exists() and target.is_symlink():
+            raise ExecutionGatewayError(
+                "Server state target cannot be a symlink",
+                code="server_state_symlink_forbidden",
+            )
+        return target, root
+
+    @staticmethod
+    def _replace_with_retry(temporary: Path, target: Path) -> None:
+        for attempt in range(8):
+            try:
+                os.replace(temporary, target)
+                return
+            except PermissionError:
+                if os.name != "nt" or attempt == 7:
+                    raise
+                time.sleep(0.02 * (2**attempt))
+
+    def execute(self, request: ExecutionRequest, context: ExecutionContext) -> Any:
+        authorization = context.services.get("_authorization")
+        if not isinstance(authorization, dict) or authorization.get("kind") != "server_policy":
+            raise ExecutionGatewayError(
+                "Persistent state requires server-owned policy authorization",
+                code="server_state_authorization_required",
+            )
+        expected_root = str(context.services.get("_server_allowed_root") or "").strip()
+        target_root = str(request.target.get("allowed_root") or "").strip()
+        if not expected_root or target_root != expected_root:
+            raise ExecutionGatewayError(
+                "Persistent state trusted root is missing or changed",
+                code="server_state_root_mismatch",
+            )
+        target, root = self._resolved_target(str(request.target.get("path") or ""), expected_root)
+        arguments = request.arguments if isinstance(request.arguments, dict) else {}
+        operation = str(request.target.get("operation") or "replace_text").strip().lower()
+        content = str(arguments.get("content") or "")
+
+        try:
+            with _SERVER_STATE_WRITE_LOCK:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if operation == "append_text":
+                    with target.open("a", encoding="utf-8", newline="\n") as handle:
+                        handle.write(content)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                elif operation == "replace_text":
+                    temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
+                    try:
+                        with temporary.open("w", encoding="utf-8", newline="\n") as handle:
+                            handle.write(content)
+                            handle.flush()
+                            os.fsync(handle.fileno())
+                        self._replace_with_retry(temporary, target)
+                    finally:
+                        temporary.unlink(missing_ok=True)
+                else:
+                    raise ExecutionGatewayError(
+                        f"Unsupported server state operation: {operation}",
+                        code="server_state_operation_invalid",
+                    )
+        except ExecutionGatewayError:
+            raise
+        except OSError as exc:
+            raise ExecutionGatewayError(
+                f"Error escribiendo estado persistente: {exc}",
+                code="server_state_write_failed",
+            ) from exc
+
+        digest = hashlib.sha256(target.read_bytes()).hexdigest()
+        try:
+            relative = str(target.relative_to(root)).replace("\\", "/")
+        except ValueError:
+            relative = str(target)
+        return {
+            "ok": True,
+            "executed": True,
+            "effect_id": request.effect_id,
+            "operation": operation,
+            "path": relative,
+            "absolute_path": str(target),
+            "evidence": [f"file_sha256:{digest}", f"path:{target}"],
+            "receipt_id": f"{request.effect_id}:sha256:{digest}",
+        }
+
+
+class GatewayHTTPResponse:
+    """Small buffered response compatible with the existing urllib callers."""
+
+    def __init__(self, body: bytes, *, status: int, headers: Mapping[str, Any], url: str) -> None:
+        self._body = bytes(body)
+        self._offset = 0
+        self.status = int(status)
+        self.code = self.status
+        self.headers = dict(headers)
+        self.url = str(url)
+
+    def read(self, amount: int = -1) -> bytes:
+        if amount is None or amount < 0:
+            amount = len(self._body) - self._offset
+        start = self._offset
+        self._offset = min(len(self._body), self._offset + int(amount))
+        return self._body[start:self._offset]
+
+    def getcode(self) -> int:
+        return self.status
+
+    def geturl(self) -> str:
+        return self.url
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> "GatewayHTTPResponse":
+        return self
+
+    def __exit__(self, *_exc: Any) -> None:
+        self.close()
+
+    def __iter__(self):
+        return iter(self._body.splitlines(keepends=True))
+
+
+class NetworkReadEffectAdapter:
+    """Server-owned policy adapter for approved BAGO transport reads.
+
+    Provider inference calls may use HTTP POST at the transport layer, but
+    this adapter is only reachable for an explicitly classified BAGO transport
+    surface. Release, GitHub and arbitrary external mutations remain outside
+    this policy adapter and must use their explicit effects in later waves.
+    """
+
+    effect_ids = frozenset({"network.read"})
+    server_policy_only = True
+    _ALLOWED_CLASSES = frozenset({"provider_transport", "runtime_probe", "local_discovery"})
+
+    def execute(self, request: ExecutionRequest, context: ExecutionContext) -> Any:
+        authorization = context.services.get("_authorization")
+        if not isinstance(authorization, dict) or authorization.get("kind") != "server_policy":
+            raise ExecutionGatewayError(
+                "Network read requires server-owned policy authorization",
+                code="network_read_authorization_required",
+            )
+        network_class = str(request.target.get("network_class") or "").strip()
+        if network_class not in self._ALLOWED_CLASSES:
+            raise ExecutionGatewayError(
+                "Network target is not an approved BAGO transport surface",
+                code="network_read_surface_blocked",
+            )
+        url = str(request.target.get("url") or "").strip()
+        if not url.lower().startswith(("http://", "https://")):
+            raise ExecutionGatewayError(
+                "Network target must use HTTP(S)",
+                code="network_read_url_invalid",
+            )
+        arguments = request.arguments if isinstance(request.arguments, dict) else {}
+        method = str(request.target.get("method") or "GET").upper()
+        headers = arguments.get("headers") if isinstance(arguments.get("headers"), dict) else {}
+        encoded_data = str(arguments.get("data_b64") or "")
+        try:
+            data = base64.b64decode(encoded_data) if encoded_data else None
+            outbound = urllib.request.Request(
+                url,
+                data=data,
+                headers={str(key): str(value) for key, value in headers.items()},
+                method=method,
+            )
+            timeout = float(request.target.get("timeout") or 30.0)
+            with urllib.request.urlopen(outbound, timeout=timeout) as response:
+                if hasattr(response, "read"):
+                    body = response.read()
+                else:
+                    body = b"".join(response)
+                raw_headers = getattr(response, "headers", {})
+                response_headers = dict(raw_headers.items()) if hasattr(raw_headers, "items") else dict(raw_headers)
+                getcode = getattr(response, "getcode", None)
+                status = int(getattr(response, "status", getcode() if callable(getcode) else 200))
+                geturl = getattr(response, "geturl", None)
+                final_url = str(geturl() if callable(geturl) else url)
+        except ExecutionGatewayError:
+            raise
+        except (urllib.error.HTTPError, urllib.error.URLError):
+            # Preserve urllib's typed transport errors for provider retry and
+            # fallback policies; the effect has already been authorized and
+            # no caller-side sink is reintroduced by re-raising the error.
+            raise
+        except OSError:
+            # Local discovery and provider fallback already treat transport
+            # availability as a recoverable OSError boundary. Preserve that
+            # contract after the server-owned dispatch.
+            raise
+        except Exception as exc:
+            raise ExecutionGatewayError(
+                f"Network read failed: {exc}",
+                code="network_read_failed",
+            ) from exc
+        return GatewayHTTPResponse(
+            body,
+            status=status,
+            headers=response_headers,
+            url=final_url,
+        )
+
+
 class PlanRuntimeEffectAdapter:
     """Governed 04-FIX2 adapter for PlanEngine execution."""
 
@@ -303,6 +565,8 @@ def build_default_effect_adapter_registry() -> EffectAdapterRegistry:
     registry = EffectAdapterRegistry()
     registry.register(FilesystemEffectAdapter())
     registry.register(FilesystemReadEffectAdapter())
+    registry.register(ServerStateEffectAdapter())
+    registry.register(NetworkReadEffectAdapter())
     registry.register(CapabilityRuntimeEffectAdapter())
     registry.register(PlanRuntimeEffectAdapter())
     registry.register(DelegationGrantEffectAdapter())
@@ -329,6 +593,11 @@ class ExecutionGateway:
     ) -> tuple[Any, dict[str, Any]]:
         # Resolve first so a configuration error does not consume a valid Permit.
         adapter = self.adapters.resolve(request.effect_id)
+        if bool(getattr(adapter, "server_policy_only", False)):
+            raise ExecutionGatewayError(
+                f"{request.effect_id} is server-policy-only",
+                code="execution_server_policy_only",
+            )
         authorization = self.boundary.consume_permit(
             permit_token=permit_token,
             request=request,
@@ -336,6 +605,41 @@ class ExecutionGateway:
         trusted_context = context or ExecutionContext()
         trusted_services = dict(trusted_context.services)
         # Gateway-owned metadata overwrites any caller-supplied value.
+        trusted_services["_authorization"] = authorization
+        trusted_services["_gateway"] = self
+        trusted_context = ExecutionContext(
+            manager=trusted_context.manager,
+            services=trusted_services,
+        )
+        result = adapter.execute(request, trusted_context)
+        return result, authorization
+
+    def execute_server_owned(
+        self,
+        *,
+        request: ExecutionRequest,
+        context: ExecutionContext | None = None,
+    ) -> tuple[Any, dict[str, Any]]:
+        """Dispatch one canonical policy effect without a user Permit.
+
+        This path is intentionally narrower than ``execute``: only adapters
+        explicitly marked ``server_policy_only`` and effects declared as
+        ``policy`` may use it. Authority is still resolved before dispatch and
+        the adapter remains the sole materializer.
+        """
+
+        adapter = self.adapters.resolve(request.effect_id)
+        if not bool(getattr(adapter, "server_policy_only", False)):
+            raise ExecutionGatewayError(
+                f"{request.effect_id} is not a server-policy adapter",
+                code="execution_server_adapter_required",
+            )
+        try:
+            authorization = self.boundary.authorize_server_policy(request)
+        except AuthorizationError as exc:
+            raise ExecutionGatewayError(str(exc), code=exc.code) from exc
+        trusted_context = context or ExecutionContext()
+        trusted_services = dict(trusted_context.services)
         trusted_services["_authorization"] = authorization
         trusted_services["_gateway"] = self
         trusted_context = ExecutionContext(
@@ -542,5 +846,8 @@ __all__ = [
     "FilesystemEffectAdapter",
     "FilesystemReadEffectAdapter",
     "PlanRuntimeEffectAdapter",
+    "GatewayHTTPResponse",
+    "NetworkReadEffectAdapter",
+    "ServerStateEffectAdapter",
     "build_default_effect_adapter_registry",
 ]

@@ -10,6 +10,7 @@ from typing import Any, Iterator
 
 import translation_middleware as tm
 from bago_core.providers import HealthStatus, ModelInfo, ProviderAdapter, ProviderResponse
+from bago_core.server_effects import gateway_urlopen
 
 
 class TranslationAdapter(ProviderAdapter):
@@ -53,7 +54,7 @@ class TranslationAdapter(ProviderAdapter):
             req = urllib.request.Request(
                 f"{base}/api/generate", data=body,
                 headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=5) as r:
+            with gateway_urlopen(req, timeout=5) as r:
                 # Ollama devuelve JSON con `done: true` cuando libera
                 _ = r.read()
         except Exception as exc:

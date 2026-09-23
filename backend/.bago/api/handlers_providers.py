@@ -49,12 +49,9 @@ def _load_config() -> dict:
 
 
 def _save_config(cfg: dict) -> None:
-    import json, os
+    from bago_core.atomic_json import write_json_atomic
     p = _config_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(str(tmp), str(p))
+    write_json_atomic(p, cfg)
 
 
 def _provider_secret_ref(provider_id: str, kind: str = "api_key") -> str:
@@ -382,9 +379,10 @@ def _http_get_json(url: str, headers: dict, timeout: float = 8.0):
     import json
     import urllib.request
     import urllib.error
+    from bago_core.server_effects import gateway_urlopen
     req = urllib.request.Request(url, headers=headers, method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with gateway_urlopen(req, timeout=timeout) as resp:
             raw = resp.read()
         return json.loads(raw.decode("utf-8")), None
     except urllib.error.HTTPError as e:
@@ -537,12 +535,9 @@ def _load_active_models(provider_id: str) -> list[str]:
 
 
 def _save_active_models(provider_id: str, models: list[str]) -> None:
-    import json
+    from bago_core.atomic_json import write_json_atomic
     p = _active_models_path(provider_id)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(sorted(set(models)), indent=2, ensure_ascii=False), encoding="utf-8")
-    import os
-    os.replace(str(tmp), str(p))
+    write_json_atomic(p, sorted(set(models)))
 
 
 def handle_active_models_get(handler: "BaseHTTPRequestHandler", provider_id: str) -> None:

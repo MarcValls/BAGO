@@ -53,8 +53,9 @@ def _load_json(path: Path, default: Any) -> Any:
 
 
 def _write_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, indent=2, ensure_ascii=False), encoding="utf-8")
+    from bago_core.atomic_json import write_json_atomic
+
+    write_json_atomic(path, value)
 
 
 @dataclass(slots=True)

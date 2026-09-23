@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from bago_core.atomic_json import write_json_atomic
+
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
@@ -20,9 +22,7 @@ def _state(handler) -> Path:
 
 
 def _interpretations_dir(state: Path) -> Path:
-    d = state / "interpretations"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    return state / "interpretations"
 
 
 def _send(handler, code: int, payload: dict) -> None:
@@ -176,7 +176,7 @@ def _save_interpretation(state: Path, interpretation: dict[str, Any]) -> None:
     fp = _interpretation_path(state, interpretation_id)
     if fp is None:
         raise ValueError("Invalid interpretation id")
-    fp.write_text(__import__("json").dumps(interpretation, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_json_atomic(fp, interpretation)
 
 
 def _load_interpretation(state: Path, interpretation_id: str) -> dict[str, Any] | None:

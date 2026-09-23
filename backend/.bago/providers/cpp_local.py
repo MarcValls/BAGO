@@ -31,6 +31,7 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
+from bago_core.server_effects import gateway_urlopen
 from bago_core.providers import ProviderAdapter, ModelInfo, HealthStatus, ProviderResponse, TokenUsage
 
 
@@ -62,7 +63,7 @@ class CppLocalAdapter(ProviderAdapter):
     def _post(self, url: str, payload: dict[str, Any], timeout: float | None = None) -> dict[str, Any]:
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(req, timeout=timeout or self.timeout) as resp:
+        with gateway_urlopen(req, timeout=timeout or self.timeout) as resp:
             raw = resp.read().decode("utf-8")
         try:
             return json.loads(raw)
@@ -71,7 +72,7 @@ class CppLocalAdapter(ProviderAdapter):
 
     def _get(self, url: str, timeout: float | None = None) -> dict[str, Any]:
         req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=timeout or self.timeout) as resp:
+        with gateway_urlopen(req, timeout=timeout or self.timeout) as resp:
             raw = resp.read().decode("utf-8")
         try:
             return json.loads(raw)
@@ -165,7 +166,7 @@ class CppLocalAdapter(ProviderAdapter):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with gateway_urlopen(req, timeout=self.timeout) as resp:
                 for raw_line in resp:
                     line = raw_line.decode("utf-8").strip()
                     if not line:

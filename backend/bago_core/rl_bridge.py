@@ -53,25 +53,26 @@ class RLBridge:
     def _write_state(self, mode: str) -> dict[str, Any]:
         if mode not in ALLOWED_MODES:
             raise ValueError(f"unsupported RL mode: {mode}")
-        self.state_dir.mkdir(parents=True, exist_ok=True)
+        from bago_core.atomic_json import write_json_atomic
+
         payload = {
             "mode": mode,
             "enabled": mode == "shadow",
             "can_execute": False,
             "updated_at": _utc_now(),
         }
-        self.state_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        write_json_atomic(self.state_file, payload)
         return payload
 
     def append_transition(self, event: dict[str, Any]) -> None:
-        self.state_dir.mkdir(parents=True, exist_ok=True)
+        from bago_core.atomic_json import append_text_durable
+
         payload = {
             "ts": _utc_now(),
             "can_execute": False,
             **event,
         }
-        with self.transition_log.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        append_text_durable(self.transition_log, json.dumps(payload, ensure_ascii=False) + "\n")
 
     def status(self) -> dict[str, Any]:
         state = self._read_state()

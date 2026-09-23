@@ -14,6 +14,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from bago_core.server_effects import gateway_urlopen
+
 
 def _candidate_model_roots() -> list[Path]:
     roots: list[Path] = []
@@ -96,7 +98,7 @@ def _discover_models_from_disk() -> list[str]:
 def _discover_models_from_api(base_url: str) -> list[str]:
     try:
         req = urllib.request.Request(f"{base_url.rstrip('/')}/api/tags")
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with gateway_urlopen(req, timeout=5, network_class="local_discovery") as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except (OSError, urllib.error.URLError, json.JSONDecodeError, ValueError):
         return []

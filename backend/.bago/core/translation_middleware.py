@@ -32,6 +32,7 @@ import urllib.request
 from typing import Any, Iterator
 
 from prompt_loader import load_prompt
+from bago_core.server_effects import gateway_urlopen
 
 
 # ─── Detección de idioma (heurística barata) ────────────────────────────
@@ -114,7 +115,7 @@ def _ollama_generate(
     )
     t0 = time.time()
     try:
-        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+        with gateway_urlopen(req, timeout=timeout_s) as resp:
             d = json.loads(resp.read().decode("utf-8"))
             return (d.get("response") or "").strip(), time.time() - t0, None
     except urllib.error.URLError as exc:

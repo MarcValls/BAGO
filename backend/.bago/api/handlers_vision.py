@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from bago_core.user_state_paths import state_read_candidates, state_root
+from bago_core.server_effects import gateway_urlopen
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
@@ -130,7 +131,7 @@ def _call_ollama_vision(
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+        with gateway_urlopen(req, timeout=timeout_s) as resp:
             raw = resp.read().decode("utf-8")
             result_holder.append({"ok": True, "raw": raw})
     except Exception as exc:  # noqa: BLE001

@@ -91,6 +91,8 @@ class BagoContext:
         Thread-safe. Does not clobber unrelated keys.
         """
         with self._write_lock:
+            from bago_core.atomic_json import write_json_atomic
+
             current: dict = {}
             if self.state_path.exists():
                 try:
@@ -98,10 +100,7 @@ class BagoContext:
                 except Exception:
                     pass
             current.update(patch)
-            self.state_path.write_text(
-                json.dumps(current, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
+            write_json_atomic(self.state_path, current)
             self._state = current
 
     # ── Logging ────────────────────────────────────────────────────────────────
@@ -115,9 +114,9 @@ class BagoContext:
             "msg":   msg,
         }
         try:
-            _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-            with _LOG_PATH.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            from bago_core.atomic_json import append_text_durable
+
+            append_text_durable(_LOG_PATH, json.dumps(entry, ensure_ascii=False) + "\n")
         except Exception:
             pass  # logging must never crash a tool
 
@@ -166,9 +165,9 @@ class BagoContext:
                 pass
         # Cross-process persistence
         try:
-            _EVENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-            with _EVENTS_PATH.open("a", encoding="utf-8") as fh:
-                fh.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            from bago_core.atomic_json import append_text_durable
+
+            append_text_durable(_EVENTS_PATH, json.dumps(payload, ensure_ascii=False) + "\n")
         except Exception:
             pass
 

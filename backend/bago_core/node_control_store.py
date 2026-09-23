@@ -41,14 +41,14 @@ def json_read(path: Path, default: Any) -> Any:
         return default
 
 def json_write(path: Path, payload: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    from bago_core.atomic_json import write_json_atomic
+
+    write_json_atomic(path, payload)
 
 def jsonl_append(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(payload, ensure_ascii=False))
-        fh.write("\n")
+    from bago_core.atomic_json import append_text_durable
+
+    append_text_durable(path, json.dumps(payload, ensure_ascii=False) + "\n")
 
 def registry_paths(base_path: str | Path) -> RegistryPaths:
     root = Path(base_path).resolve() / ".bago" / "node_control"
