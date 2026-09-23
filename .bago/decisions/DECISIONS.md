@@ -2,6 +2,29 @@
 
 Record architectural or product decisions that affect canon here.
 
+## 2026-09-23 — Ejecutar primera oleada de migración de sinks runtime
+
+- Decisión: ejecutar el plan de migración por ondas empezando por la familia
+  interna de persistencia y por los transportes Python que ya forman parte del
+  runtime activo. Cada efecto migrado debe resolver autoridad antes del efecto,
+  usar un adapter server-owned registrado y conservar una prueba negativa de
+  bloqueo previo.
+- Implementación: `ServerStateEffectAdapter` centraliza los efectos de estado
+  (`state.write`, `config.write`, `memory.write`, `agent.definition.write`), y
+  `NetworkReadEffectAdapter` centraliza los transportes clasificados de
+  provider, probe y discovery. Los helpers no materializan efectos por sí
+  mismos ni aceptan callables del caller.
+- Evidencia: la inventory pasa de `2201/587` findings/runtime-unbound a
+  `2092/474`, con `0` hallazgos sin scope/binding; `--strict-classification`
+  pasa. La suite focalizada da `99 passed` y la suite backend da
+  `1251 passed, 2 skipped, 198 subtests passed`.
+- Límite: `--strict-runtime` sigue abierto con `474` runtime-unbound (`305`
+  filesystem.write, `78` filesystem.delete, `79` process.execute y `12`
+  network.read de update/installer). Las waves B-D siguen abiertas; el ledger
+  de autorización permanece `authority_internal`. Estado de esta decisión:
+  `EXECUTED / SCOPED`, sin promoción global a `VERIFIED` o `VALIDATED` y sin
+  PASS independiente todavía.
+
 ## 2026-09-23 — Reparar la evidencia de inventory de effect sinks
 
 - Resultado: `effect_sink_inventory.py` conserva todos los findings y reconoce

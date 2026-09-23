@@ -132,14 +132,10 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
 
 def _save_last_workspace(path: str) -> None:
     """Guarda el path del workspace activo en ~/.bago/last_workspace.json"""
-    import json
+    from bago_core.atomic_json import write_json_atomic
     try:
         target = Path.home() / ".bago" / "last_workspace.json"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(
-            json.dumps({"path": str(path)}, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
+        write_json_atomic(target, {"path": str(path)})
     except OSError:
         pass
 

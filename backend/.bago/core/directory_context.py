@@ -297,11 +297,9 @@ class RepositoryMapBuilder:
         return map_data
 
     def save(self, map_data: dict[str, Any]) -> None:
-        self.context_root.mkdir(parents=True, exist_ok=True)
-        (self.context_root / "repository_map.json").write_text(
-            json.dumps(map_data, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        from bago_core.atomic_json import write_json_atomic, write_text_atomic
+
+        write_json_atomic(self.context_root / "repository_map.json", map_data)
         lines = [
             f"# Repository Map",
             "",
@@ -317,7 +315,7 @@ class RepositoryMapBuilder:
         lines.extend(["", "## Main Directories"])
         for item in map_data.get("directories", [])[:40]:
             lines.append(f"- `{item}`")
-        (self.context_root / "repository_map.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        write_text_atomic(self.context_root / "repository_map.md", "\n".join(lines) + "\n")
 
     def _purpose(self) -> str:
         readme = self.root / "README.md"
@@ -871,7 +869,6 @@ class DirectoryContextEngine:
         symbols = self.indexer.index(files)
         graph = self.graph_builder.build(files, symbols)
         map_data = self.map_builder.build(files, symbols)
-        self.context_root.mkdir(parents=True, exist_ok=True)
         self.map_builder.save(map_data)
         snapshot = {
             "schema": "bago.directory_context.v1",
@@ -999,13 +996,14 @@ class DirectoryContextEngine:
         return refreshed
 
     def append_event(self, event: dict[str, Any]) -> None:
-        self.context_root.mkdir(parents=True, exist_ok=True)
-        with (self.context_root / "events.jsonl").open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
+        from bago_core.atomic_json import append_text_durable
+
+        append_text_durable(
+            self.context_root / "events.jsonl",
+            json.dumps(event, ensure_ascii=False, default=str) + "\n",
+        )
 
     def _write_json(self, name: str, payload: Any) -> None:
-        self.context_root.mkdir(parents=True, exist_ok=True)
-        target = self.context_root / name
-        tmp = target.with_suffix(target.suffix + ".tmp")
-        tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
-        tmp.replace(target)
+        from bago_core.atomic_json import write_json_atomic
+
+        write_json_atomic(self.context_root / name, payload)

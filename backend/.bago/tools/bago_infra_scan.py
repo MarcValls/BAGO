@@ -34,6 +34,8 @@ for _stream in (sys.stdout, sys.stderr):
 
 from _path_helper import ensure_tools_path
 ensure_tools_path()  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from bago_core.server_effects import gateway_urlopen
 from bago_utils import get_scan_root
 
 OLLAMA_DEFAULT_PORT = 11434
@@ -79,7 +81,7 @@ def _probe_http(host: str, port: int, path: str, timeout: float = 2.0) -> dict[s
     try:
         request = urllib.request.Request(f"http://{host}:{port}{path}", method="GET")
         request.add_header("User-Agent", "BAGO-InfraScan/4.1")
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with gateway_urlopen(request, timeout=timeout, network_class="runtime_probe") as response:
             body = response.read(8192).decode("utf-8", errors="replace")
             return {"status": response.status, "body": body, "headers": dict(response.headers)}
     except Exception:

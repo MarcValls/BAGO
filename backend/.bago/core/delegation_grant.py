@@ -97,13 +97,12 @@ class DelegationGrantRegistry:
         return payload
 
     def _write(self, payload: dict[str, Any]) -> None:
-        self.state_dir.mkdir(parents=True, exist_ok=True)
+        from bago_core.atomic_json import write_json_atomic
+
         payload["contract"] = DELEGATION_GRANT_CONTRACT
         payload["schema_version"] = 1
         payload["updated_at"] = _iso(_now())
-        temporary = self.path.with_name(f".{self.path.name}.{uuid.uuid4().hex}.tmp")
-        temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-        temporary.replace(self.path)
+        write_json_atomic(self.path, payload)
 
     def list(self) -> list[dict[str, Any]]:
         with _LOCK:
