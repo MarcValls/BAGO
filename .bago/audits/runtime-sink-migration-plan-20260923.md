@@ -171,6 +171,8 @@ Candidate-bound evidence for the implementation tranche:
 - BAGO-wrapped B2 gateway/workspace/authorization/persistence/project/safety
   gate: `47 passed` before the final persistence-receipt refinement; the
   refined focal gateway/workspace/authorization/atomic gate: `31 passed`.
+- On candidate `fa7b1727216562fc51591b92e8d777b3ddd51a3f`, the full backend
+  suite passes `1260 passed, 2 skipped, 198 subtests passed` in `225.85s`.
 - Frontend client/ControlPlane/navigation gate: `35 passed`; typecheck PASS;
   production build PASS (`123 modules`); Python compile and `git diff --check`
   PASS.
@@ -180,6 +182,6 @@ Candidate-bound evidence for the implementation tranche:
   remains intentionally FAIL/OPEN. The total increases because the inventory
   retains the adapter's material sink findings; no finding is hidden.
 
-This tranche is `EXECUTED / SCOPED`. Full backend evidence, final candidate
-identity and independent verification remain pending; no global `VERIFIED` or
-`VALIDATED` claim is made.
+This tranche is `EXECUTED / SCOPED` on the candidate above. Independent
+verification remains pending; no global `VERIFIED` or `VALIDATED` claim is
+made.
