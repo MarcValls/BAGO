@@ -12,9 +12,14 @@ Record architectural or product decisions that affect canon here.
 - No se excluyen tests, tooling, release trees ni sinks legacy para maquillar
   el contador. `handlers_github` y las demás superficies no migradas siguen
   `unbound` y hacen fallar `--strict`.
-- Estado: `EXECUTED`; la inventory es trazable, pero `UNBOUND_EFFECT_SINKS = 0`
-  y `UNIQUE_EXECUTION_BOUNDARY` siguen abiertos hasta migrar las superficies
-  restantes.
+- La salida añade `scope`, `binding_class` y `binding_reason` por finding.
+  `--strict-classification` pasa con `unclassified_scope_sinks=0` y
+  `unclassified_binding_sinks=0`; `--strict-runtime` sigue fallando con
+  `runtime_unbound_sinks=587`.
+- Estado: inventory `CLASSIFIED / EXECUTED`; `UNBOUND_EFFECT_SINKS = 0` y
+  `UNIQUE_EXECUTION_BOUNDARY` siguen abiertos hasta migrar las superficies
+  runtime restantes. La clasificación cerrada no se presenta como gateway
+  global.
 
 ## 2026-09-23 — Ejecutar integración bounded 04-FIX2 en ExecutionGateway
 
