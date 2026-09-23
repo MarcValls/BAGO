@@ -2,6 +2,34 @@
 
 Record architectural or product decisions that affect canon here.
 
+## 2026-09-23 — Wave B2: cerrar workspace.bind en /workspace/persist
+
+- Decisión: cerrar primero la superficie `POST /workspace/persist` como el
+  único lifecycle de `workspace.bind` para este corte. El handler construye la
+  request, pero no puede llamar a `rebind_project_root()`, `save()` ni publicar
+  `last_workspace.json`; esas tres fases pertenecen al adapter server-owned.
+- Invariantes: challenge y approve no mutan sesión ni filesystem; el Permit
+  liga effect, sesión, root canónico, identidad, scope y digest de binding;
+  el adapter revalida todo dentro de un lock por sesión inmediatamente antes
+  del rebind; un target inválido o cambiado bloquea antes de rebind/save;
+  root ya activo es idempotente; la persistencia exige receipt y distingue
+  JSON de sesión, índice SQLite y `last_workspace`.
+- Implementación: `WorkspaceBindEffectAdapter` registrado en
+  `ExecutionGateway`; `/workspace/persist` usa challenge → approve → Permit →
+  execute; `atomic_json` devuelve receipts server-owned y `SessionManager.save`
+  expone el estado de JSON/SQLite. La UI elimina el persist automático
+  silencioso y el botón Persistir usa confirmación visible más el mismo
+  lifecycle. Los callers `/project` y TTY siguen fuera de este corte y quedan
+  para `project.write`.
+- Evidencia focal actual: backend workspace/gateway/authorization/persistencia
+  `31 passed`; backend B2 ampliado previo `47 passed`; frontend cliente/
+  ControlPlane/navegación `35 passed`; typecheck y build frontend PASS (`123`
+  módulos); compile y `git diff --check` PASS. La inventory queda separada:
+  `--strict-classification` PASS, `--strict-runtime` continúa FAIL/OPEN por el
+  backlog global y no se usa para promover este corte.
+- Estado: `EXECUTED / SCOPED`. No se promueve a `VERIFIED`/`VALIDATED` hasta
+  repetir las gates sobre el commit final y completar la revisión independiente.
+
 ## 2026-09-23 — Iniciar Wave B1 con el borrado del override de modelo
 
 - Decisión: abrir Wave B con el corte mínimo y aislable `state.delete` del
