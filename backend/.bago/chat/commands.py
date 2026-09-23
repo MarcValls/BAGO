@@ -70,7 +70,13 @@ from tool_approval_commands import (
 
 
 def cmd_project(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
-    return _cmd_project_impl(mgr, engine, args, load_module=_load_tool_module)
+    return _cmd_project_impl(
+        mgr,
+        engine,
+        args,
+        load_module=_load_tool_module,
+        direct_user_authorized=True,
+    )
 
 
 def cmd_memory(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:

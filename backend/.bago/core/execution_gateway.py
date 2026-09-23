@@ -911,6 +911,501 @@ class PlanRuntimeEffectAdapter:
             raise ExecutionGatewayError(str(exc), code=exc.code) from exc
 
 
+class ProjectWriteEffectAdapter:
+    """Gateway-owned adapter for bounded project-file and project lifecycle writes."""
+
+    effect_ids = frozenset({"project.write"})
+    _FILE_RESOURCE = "project_file"
+    _OPERATION_RESOURCE = "project_operation"
+    _OPERATIONS = frozenset({"init", "link", "seed", "demo"})
+    _FORBIDDEN_SEGMENTS = frozenset({".git", ".env", "node_modules", ".venv", "venv", "dist", "release", "__pycache__"})
+    _LOCKS_GUARD = threading.RLock()
+    _LOCKS: dict[str, threading.RLock] = {}
+
+    @staticmethod
+    def _trusted_root(manager: Any) -> Path:
+        raw_root = str(getattr(manager, "project_root", "") or "").strip()
+        if not raw_root:
+            raise ExecutionGatewayError(
+                "Project write requires SessionManager project_root",
+                code="project_write_root_required",
+            )
+        return Path(raw_root).expanduser().resolve()
+
+    @classmethod
+    def _root_lock(cls, root: Path) -> threading.RLock:
+        key = os.path.normcase(str(root))
+        with cls._LOCKS_GUARD:
+            return cls._LOCKS.setdefault(key, threading.RLock())
+
+    @classmethod
+    def _validate_operation_target(cls, trusted_root: Path, raw_path: str, operation: str) -> Path:
+        clean_path = str(raw_path or "").strip()
+        if not clean_path:
+            raise ExecutionGatewayError(
+                "Project operation target path is required",
+                code="project_write_path_required",
+            )
+        candidate = Path(clean_path).expanduser()
+        if not candidate.is_absolute():
+            raise ExecutionGatewayError(
+                "Project operation target must be absolute",
+                code="project_write_path_absolute_required",
+            )
+        lexical = candidate
+        if lexical.is_symlink():
+            raise ExecutionGatewayError(
+                "Project operation target cannot be a symlink",
+                code="project_write_symlink_forbidden",
+            )
+        target = lexical.resolve()
+        try:
+            relative = target.relative_to(trusted_root)
+        except ValueError as exc:
+            raise ExecutionGatewayError(
+                "Project operation target is outside its trusted root",
+                code="project_write_path_out_of_scope",
+            ) from exc
+        if any(part.lower() in cls._FORBIDDEN_SEGMENTS for part in relative.parts):
+            raise ExecutionGatewayError(
+                "Project operation target contains a forbidden segment",
+                code="project_write_forbidden_path",
+            )
+        if operation in {"init", "link", "seed"} and target != trusted_root:
+            raise ExecutionGatewayError(
+                "Project lifecycle operations require the active project root",
+                code="project_write_root_mismatch",
+            )
+        if operation == "demo" and target == trusted_root:
+            raise ExecutionGatewayError(
+                "Demo project requires a dedicated child directory",
+                code="project_write_demo_target_invalid",
+            )
+        return target
+
+    @staticmethod
+    def operation_descriptor(target: Path, operation: str) -> dict[str, Any]:
+        """Return a stable pre-mutation descriptor without reading secret content."""
+
+        clean_operation = str(operation or "").strip().lower()
+        target = Path(target).expanduser().resolve()
+        entries: list[dict[str, Any]] = []
+        if target.exists():
+            if not target.is_dir():
+                raise ExecutionGatewayError(
+                    "Project operation target must be a directory",
+                    code="project_write_target_invalid",
+                )
+            scan_root = target
+            if clean_operation in {"init", "link"}:
+                scan_root = target / ".bago"
+            if scan_root.exists():
+                for path in sorted(scan_root.rglob("*"), key=lambda item: str(item).lower()):
+                    try:
+                        relative = path.relative_to(target).as_posix()
+                        stat = path.lstat()
+                    except OSError as exc:
+                        raise ExecutionGatewayError(
+                            f"Project target cannot be fingerprinted: {exc}",
+                            code="project_write_target_unreadable",
+                        ) from exc
+                    entries.append({
+                        "path": relative,
+                        "kind": "symlink" if path.is_symlink() else "dir" if path.is_dir() else "file",
+                        "size": stat.st_size,
+                        "mtime_ns": stat.st_mtime_ns,
+                        "link": os.readlink(path) if path.is_symlink() else "",
+                    })
+        return {
+            "operation": clean_operation,
+            "path": str(target),
+            "exists": target.exists(),
+            "entries": entries,
+        }
+
+    @classmethod
+    def operation_descriptor_digest(cls, target: Path, operation: str) -> str:
+        return stable_digest(cls.operation_descriptor(target, operation))
+
+    @classmethod
+    def prepare_operation(cls, manager: Any, raw_path: str, operation: str) -> tuple[Path, Path, str]:
+        clean_operation = str(operation or "").strip().lower()
+        if clean_operation not in cls._OPERATIONS:
+            raise ExecutionGatewayError(
+                "Project write operation is not approved",
+                code="project_write_operation_invalid",
+            )
+        trusted_root = cls._trusted_root(manager)
+        target = cls._validate_operation_target(trusted_root, raw_path, clean_operation)
+        return trusted_root, target, cls.operation_descriptor_digest(target, clean_operation)
+
+    @staticmethod
+    def _execute_project_operation(target: Path, operation: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
+        import project_memory
+
+        if operation == "init":
+            return dict(project_memory.init_project(target))
+        if operation == "link":
+            return dict(project_memory.link_project(target))
+        if operation == "seed":
+            depth = max(1, min(int(arguments.get("depth", 3)), 8))
+            ref_value = str(arguments.get("ref") or "").strip()
+            return dict(project_memory.seed_project(target, depth=depth, ref=ref_value or None))
+        if operation == "demo":
+            return dict(project_memory.create_demo_project(target))
+        raise ExecutionGatewayError(
+            "Project write operation is not approved",
+            code="project_write_operation_invalid",
+        )
+
+    def execute(self, request: ExecutionRequest, context: ExecutionContext) -> Any:
+        manager = context.manager
+        if manager is None:
+            raise ExecutionGatewayError(
+                "Project write requires SessionManager context",
+                code="execution_context_manager_required",
+            )
+        authorization = context.services.get("_authorization")
+        if not isinstance(authorization, dict) or authorization.get("state") != "consumed":
+            raise ExecutionGatewayError(
+                "Project write requires consumed gateway authorization",
+                code="project_write_authorization_required",
+            )
+        manager_session = str(getattr(manager, "session_id", "") or "")
+        if not manager_session or manager_session != request.session_id:
+            raise ExecutionGatewayError(
+                "ExecutionContext manager belongs to another session",
+                code="execution_context_session_mismatch",
+            )
+
+        root = self._trusted_root(manager)
+        target_root = Path(str(request.target.get("allowed_root") or "")).expanduser().resolve()
+        if target_root != root:
+            raise ExecutionGatewayError(
+                "Project write trusted root is missing or changed",
+                code="project_write_root_mismatch",
+            )
+        resource = str(request.target.get("resource") or "").strip()
+        if resource not in {self._FILE_RESOURCE, self._OPERATION_RESOURCE}:
+            raise ExecutionGatewayError(
+                "Project write resource is not approved",
+                code="project_write_resource_invalid",
+            )
+
+        raw_path = str(request.target.get("path") or "").strip()
+        if not raw_path:
+            raise ExecutionGatewayError(
+                "Project write target path is required",
+                code="project_write_path_required",
+            )
+        if resource == self._OPERATION_RESOURCE:
+            operation = str(request.target.get("operation") or "").strip().lower()
+            target = self._validate_operation_target(root, raw_path, operation)
+            approved_digest = str(request.target.get("root_digest") or "").strip()
+            if not approved_digest:
+                raise ExecutionGatewayError(
+                    "Project operation request lacks target digest",
+                    code="project_write_digest_required",
+                )
+            arguments = request.arguments if isinstance(request.arguments, dict) else {}
+            with self._root_lock(root):
+                current_digest = self.operation_descriptor_digest(target, operation)
+                if current_digest != approved_digest:
+                    raise ExecutionGatewayError(
+                        "Project target changed after authorization request was constructed",
+                        code="project_write_target_changed",
+                    )
+                try:
+                    result = self._execute_project_operation(target, operation, arguments)
+                except ExecutionGatewayError:
+                    raise
+                except Exception as exc:
+                    raise ExecutionGatewayError(
+                        f"Project operation failed: {exc}",
+                        code="project_write_failed",
+                    ) from exc
+            receipt_digest = hashlib.sha256(request.fingerprint.encode("utf-8")).hexdigest()
+            return {
+                "ok": True,
+                "executed": True,
+                "effect_id": request.effect_id,
+                "resource": resource,
+                "operation": operation,
+                "path": str(target),
+                "project_root": str(root),
+                "target_digest": approved_digest,
+                "result": result,
+                "evidence": [
+                    f"operation:{operation}",
+                    f"path:{target}",
+                    f"target_digest:{approved_digest}",
+                ],
+                "receipt_id": f"project-write:sha256:{receipt_digest}",
+            }
+
+        candidate = Path(raw_path).expanduser()
+        lexical = candidate if candidate.is_absolute() else root / candidate
+        if lexical.is_symlink():
+            raise ExecutionGatewayError(
+                "Project write target cannot be a symlink",
+                code="project_write_symlink_forbidden",
+            )
+        target = lexical.resolve()
+        try:
+            target.relative_to(root)
+        except ValueError as exc:
+            raise ExecutionGatewayError(
+                "Project write target is outside its trusted root",
+                code="project_write_path_out_of_scope",
+            ) from exc
+        if target == root:
+            raise ExecutionGatewayError(
+                "Project write target must be a file",
+                code="project_write_target_invalid",
+            )
+        if any(part.lower() in self._FORBIDDEN_SEGMENTS for part in target.parts):
+            raise ExecutionGatewayError(
+                "Project write target contains a forbidden segment",
+                code="project_write_forbidden_path",
+            )
+        if target.exists() and not target.is_file():
+            raise ExecutionGatewayError(
+                "Project write target must be a file",
+                code="project_write_target_invalid",
+            )
+
+        arguments = request.arguments if isinstance(request.arguments, dict) else {}
+        content = str(arguments.get("content") or "")
+        existed = target.exists()
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
+            try:
+                with temporary.open("w", encoding="utf-8", newline="\n") as handle:
+                    handle.write(content)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                ServerStateEffectAdapter._replace_with_retry(temporary, target)
+            finally:
+                temporary.unlink(missing_ok=True)
+        except OSError as exc:
+            raise ExecutionGatewayError(
+                f"Error escribiendo archivo del proyecto: {exc}",
+                code="project_write_failed",
+            ) from exc
+
+        digest = hashlib.sha256(target.read_bytes()).hexdigest()
+        try:
+            relative = str(target.relative_to(root)).replace("\\", "/")
+        except ValueError:
+            relative = str(target)
+        return {
+            "ok": True,
+            "executed": True,
+            "effect_id": request.effect_id,
+            "resource": self._FILE_RESOURCE,
+            "path": relative,
+            "absolute_path": str(target),
+            "project_root": str(root),
+            "created": not existed,
+            "overwritten": existed,
+            "bytes_written": len(content.encode("utf-8")),
+            "evidence": [f"file_sha256:{digest}", f"path:{target}"],
+            "receipt_id": f"project-write:sha256:{digest}",
+        }
+
+
+class CredentialWriteEffectAdapter:
+    """Gateway-owned adapter for the one bounded ``credential.write`` effect.
+
+    ``credential.write`` is E5/``strong`` and not delegable in the canonical
+    registry: the adapter rejects any authorization that did not originate
+    from a direct, interactive user decision, and never returns the raw
+    secret value in its receipt.
+    """
+
+    effect_ids = frozenset({"credential.write"})
+    _RESOURCE = "provider_credential"
+    _OPERATIONS = frozenset({"set", "delete"})
+
+    def execute(self, request: ExecutionRequest, context: ExecutionContext) -> Any:
+        from provider_catalog import PROVIDER_CATALOG
+        from secret_store import get_secret_store
+
+        manager = context.manager
+        if manager is None:
+            raise ExecutionGatewayError(
+                "Credential write requires SessionManager context",
+                code="execution_context_manager_required",
+            )
+        authorization = context.services.get("_authorization")
+        if not isinstance(authorization, dict) or authorization.get("state") != "consumed":
+            raise ExecutionGatewayError(
+                "Credential write requires consumed gateway authorization",
+                code="credential_write_authorization_required",
+            )
+        proof = authorization.get("proof")
+        provenance = proof.get("provenance") if isinstance(proof, dict) else None
+        if not isinstance(provenance, dict) or str(provenance.get("kind") or "") != "direct_user_interaction":
+            raise ExecutionGatewayError(
+                "Credential write requires strong, direct user authorization",
+                code="credential_write_strong_proof_required",
+            )
+        manager_session = str(getattr(manager, "session_id", "") or "")
+        if not manager_session or manager_session != request.session_id:
+            raise ExecutionGatewayError(
+                "ExecutionContext manager belongs to another session",
+                code="execution_context_session_mismatch",
+            )
+
+        resource = str(request.target.get("resource") or "").strip()
+        if resource != self._RESOURCE:
+            raise ExecutionGatewayError(
+                "Credential write resource is not approved",
+                code="credential_write_resource_invalid",
+            )
+        operation = str(request.target.get("operation") or "").strip().lower()
+        if operation not in self._OPERATIONS:
+            raise ExecutionGatewayError(
+                "Credential write operation is not approved",
+                code="credential_write_operation_invalid",
+            )
+        provider = str(request.target.get("provider") or "").strip()
+        key = str(request.target.get("key") or "").strip()
+        if provider not in PROVIDER_CATALOG:
+            raise ExecutionGatewayError(
+                f"Credential provider is not recognized: {provider}",
+                code="credential_write_provider_unknown",
+            )
+        if key != "api_key":
+            raise ExecutionGatewayError(
+                f"Credential key is not recognized for provider {provider}: {key}",
+                code="credential_write_key_unknown",
+            )
+        authorized_digest = str(request.target.get("configuration_digest") or "").strip()
+        if not authorized_digest:
+            raise ExecutionGatewayError(
+                "Credential write requires a provider configuration digest",
+                code="credential_write_configuration_digest_required",
+            )
+
+        # Fail-closed shape/type validation of the non-secret configuration
+        # patch bound into this request. The patch must never carry api_key
+        # or secret_ref: those fields are SecretStore-owned, never
+        # config-digest-owned.
+        configuration_patch = request.target.get("configuration_patch")
+        if not isinstance(configuration_patch, dict):
+            raise ExecutionGatewayError(
+                "Credential write requires a non-secret configuration patch",
+                code="credential_write_configuration_patch_invalid",
+            )
+        allowed_patch_fields: dict[str, type] = {
+            "enabled": bool,
+            "base_url": str,
+            "default_model": str,
+        }
+        forbidden_patch_fields = frozenset({"api_key", "secret_ref"})
+        for patch_field, patch_value in configuration_patch.items():
+            if patch_field in forbidden_patch_fields:
+                raise ExecutionGatewayError(
+                    f"Credential write configuration patch may not include secret field: {patch_field}",
+                    code="credential_write_configuration_patch_invalid",
+                )
+            expected_type = allowed_patch_fields.get(patch_field)
+            if expected_type is None:
+                raise ExecutionGatewayError(
+                    f"Credential write configuration patch field is not permitted: {patch_field}",
+                    code="credential_write_configuration_patch_invalid",
+                )
+            if not isinstance(patch_value, expected_type):
+                raise ExecutionGatewayError(
+                    f"Credential write configuration patch field has invalid type: {patch_field}",
+                    code="credential_write_configuration_patch_invalid",
+                )
+
+        # Revalidate the authorized configuration digest against the current
+        # backend-authoritative provider config (not the possibly-stale
+        # digest computed at authorization time). This detects backend
+        # config drift that occurred after authorization while still
+        # accepting this same-request's own authorized non-secret patch.
+        # This must happen before any SecretStore access or mutation.
+        config_manager = getattr(manager, "config", None)
+        provider_config_getter = getattr(config_manager, "provider_config", None) if config_manager is not None else None
+        if not callable(provider_config_getter):
+            raise ExecutionGatewayError(
+                "Credential write requires an authoritative provider configuration source",
+                code="credential_write_configuration_source_unavailable",
+            )
+        try:
+            live_config = provider_config_getter(provider)
+        except Exception as exc:
+            raise ExecutionGatewayError(
+                f"Error leyendo configuración autorizada del proveedor: {exc}",
+                code="credential_write_configuration_source_unavailable",
+            ) from exc
+        if not isinstance(live_config, dict):
+            raise ExecutionGatewayError(
+                "Authoritative provider configuration is invalid",
+                code="credential_write_configuration_source_unavailable",
+            )
+        candidate_config = dict(live_config)
+        candidate_config.update(configuration_patch)
+        recomputed_digest = stable_digest(candidate_config)
+        if recomputed_digest != authorized_digest:
+            raise ExecutionGatewayError(
+                "Provider configuration changed since authorization; re-authorize the credential write",
+                code="credential_write_configuration_changed",
+            )
+
+        secret_store = get_secret_store()
+        secret_key = f"providers/{provider}/api_key"
+
+        if operation == "set":
+            arguments = request.arguments if isinstance(request.arguments, dict) else {}
+            value = str(arguments.get("value") or "")
+            if not value:
+                raise ExecutionGatewayError(
+                    "Credential write value is required for set",
+                    code="credential_write_value_required",
+                )
+            try:
+                secret_store.set_secret(secret_key, value)
+            except Exception as exc:
+                raise ExecutionGatewayError(
+                    f"Error guardando credencial: {exc}",
+                    code="credential_write_failed",
+                ) from exc
+            changed = True
+            deleted = False
+        else:
+            try:
+                deleted = bool(secret_store.delete_secret(secret_key))
+            except Exception as exc:
+                raise ExecutionGatewayError(
+                    f"Error eliminando credencial: {exc}",
+                    code="credential_write_failed",
+                ) from exc
+            changed = deleted
+
+        return {
+            "ok": True,
+            "executed": True,
+            "effect_id": request.effect_id,
+            "resource": self._RESOURCE,
+            "operation": operation,
+            "provider": provider,
+            "key": key,
+            "changed": changed,
+            "deleted": deleted,
+            "evidence": [
+                f"provider:{provider}",
+                f"key:{key}",
+                f"operation:{operation}",
+            ],
+            "receipt_id": f"credential-write:sha256:{hashlib.sha256(request.fingerprint.encode('utf-8')).hexdigest()}",
+        }
+
+
 class DelegationGrantEffectAdapter:
     """Persist an E6 DelegationGrant only after its parent Permit is consumed."""
 
@@ -956,6 +1451,8 @@ def build_default_effect_adapter_registry() -> EffectAdapterRegistry:
     registry.register(CapabilityRuntimeEffectAdapter())
     registry.register(PlanRuntimeEffectAdapter())
     registry.register(DelegationGrantEffectAdapter())
+    registry.register(ProjectWriteEffectAdapter())
+    registry.register(CredentialWriteEffectAdapter())
     return registry
 
 
@@ -1223,6 +1720,7 @@ class ExecutionGateway:
 
 __all__ = [
     "CapabilityRuntimeEffectAdapter",
+    "CredentialWriteEffectAdapter",
     "DelegationGrantEffectAdapter",
     "EffectAdapter",
     "EffectAdapterRegistry",
@@ -1231,6 +1729,7 @@ __all__ = [
     "ExecutionGatewayError",
     "FilesystemEffectAdapter",
     "FilesystemReadEffectAdapter",
+    "ProjectWriteEffectAdapter",
     "StateDeleteEffectAdapter",
     "PlanRuntimeEffectAdapter",
     "GatewayHTTPResponse",

@@ -6,9 +6,10 @@ not execute material effects; ExecutionGateway owns dispatch.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
-import secrets
+import os
 import threading
 import uuid
 from dataclasses import asdict, dataclass
@@ -164,6 +165,10 @@ def _write_ledger(data: dict[str, Any]) -> None:
 
 def _token_hash(token: str) -> str:
     return hashlib.sha256(str(token).encode("utf-8")).hexdigest()
+
+
+def _new_permit_token() -> str:
+    return base64.urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode("ascii")
 
 
 class AuthorizationBoundary:
@@ -340,7 +345,7 @@ class AuthorizationBoundary:
                 reason="verified_direct_user_interaction",
                 decided_at=_iso(now),
             )
-            raw_token = secrets.token_urlsafe(32)
+            raw_token = _new_permit_token()
             permit = Permit(
                 permit_id=f"permit-{uuid.uuid4().hex}",
                 token=raw_token,
@@ -431,7 +436,7 @@ class AuthorizationBoundary:
             reason="delegation_grant_child",
             decided_at=_iso(now),
         )
-        raw_token = secrets.token_urlsafe(32)
+        raw_token = _new_permit_token()
         permit = Permit(
             permit_id=f"permit-{uuid.uuid4().hex}",
             token=raw_token,
