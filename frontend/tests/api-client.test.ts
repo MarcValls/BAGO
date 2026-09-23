@@ -151,6 +151,41 @@ describe('BagoClient response parsing', () => {
     expect(bodies[2]).toMatchObject({ authorization_permit: 'permit-router-clear' });
   });
 
+  it('persists a workspace through challenge, approval and one-time permit', async () => {
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+      if (body.authorization_action === 'challenge') {
+        return Promise.resolve(new Response(JSON.stringify({
+          ok: true,
+          authorization: { state: 'challenge', challenge: { challenge_id: 'challenge-workspace-bind' } }
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+      if (body.authorization_action === 'approve') {
+        return Promise.resolve(new Response(JSON.stringify({
+          ok: true,
+          authorization: { state: 'authorized', permit: { token: 'permit-workspace-bind' } }
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({ ok: true, saved: 'C:/work/project' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(createBagoClient('', '').persistWorkspace('C:/work/project')).resolves.toMatchObject({
+      ok: true,
+      saved: 'C:/work/project'
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>);
+    expect(bodies.map((body) => body.authorization_action)).toEqual(['challenge', 'approve', 'execute']);
+    expect(bodies.every((body) => body.path === 'C:/work/project')).toBe(true);
+    expect(bodies[1]).toMatchObject({ challenge_id: 'challenge-workspace-bind', user_decision: 'approve' });
+    expect(bodies[2]).toMatchObject({ authorization_permit: 'permit-workspace-bind' });
+  });
+
   it('attempts the modern bootstrap only once before the legacy fallback', async () => {
     const fetchMock = vi.fn().mockImplementation((url: string) => {
       const status = url === '/api/v1/ui/bootstrap' ? 404 : 200;

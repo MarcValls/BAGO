@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from pathlib import Path
 
 import pytest
 
@@ -10,6 +11,7 @@ from execution_gateway import (
     ExecutionContext,
     ExecutionGateway,
     ExecutionGatewayError,
+    WorkspaceBindEffectAdapter,
     build_default_effect_adapter_registry,
 )
 from execution_request import build_execution_request
@@ -154,7 +156,148 @@ def test_default_registry_owns_governed_plan_and_filesystem_adapters() -> None:
     assert "config.write" in registry.registered_effects()
     assert "memory.write" in registry.registered_effects()
     assert "agent.definition.write" in registry.registered_effects()
+    assert "workspace.bind" in registry.registered_effects()
     assert "state.delete" in registry.registered_effects()
+
+
+def test_workspace_bind_adapter_executes_compound_effect_only_after_permit(tmp_path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "package.json").write_text("{}", encoding="utf-8")
+    current = tmp_path / "current"
+    current.mkdir()
+    (current / "package.json").write_text("{}", encoding="utf-8")
+
+    class Manager:
+        session_id = "workspace-bind-session"
+
+        def __init__(self) -> None:
+            self.project_root = current.resolve()
+            self.rebound_to: Path | None = None
+            self.save_calls = 0
+
+        @staticmethod
+        def _validate_project_root(project_root: Path, *, require_identity: bool = False) -> Path:
+            from session_manager import SessionManager
+
+            return SessionManager._validate_project_root(project_root, require_identity=require_identity)
+
+        def rebind_project_root(self, root: Path) -> None:
+            self.rebound_to = root.resolve()
+            self.project_root = self.rebound_to
+
+        def save(self) -> None:
+            self.save_calls += 1
+
+        def workspace_state(self) -> dict[str, str]:
+            return {"workspace_state_root": str(self.project_root / ".gabo")}
+
+    manager = Manager()
+    adapter = WorkspaceBindEffectAdapter()
+    binding = adapter.binding_descriptor(workspace.resolve())
+    request = build_execution_request(
+        effect_id="workspace.bind",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=manager.session_id,
+        source_surface="test.workspace.bind",
+        target={
+            "path": str(workspace.resolve()),
+            "resource": "session_workspace",
+            "operation": "persist",
+            "workspace_id": binding["workspace_id"],
+            "workspace_scope_root": binding["workspace_scope_root"],
+            "workspace_state_root": binding["workspace_state_root"],
+            "binding_digest": adapter.binding_descriptor_digest(binding),
+        },
+        arguments={},
+        scope="workspace",
+    )
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(
+        WorkspaceBindEffectAdapter,
+        "_persist_last_workspace",
+        staticmethod(lambda _target: None),
+    )
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction="workspace-bind")
+
+    result, authorization = ExecutionGateway(boundary).execute(
+        permit_token=permit["token"],
+        request=request,
+        context=ExecutionContext(manager=manager),
+    )
+
+    assert result["ok"] is True
+    assert result["effect_id"] == "workspace.bind"
+    assert result["rebound"] is True
+    assert manager.rebound_to == workspace.resolve()
+    assert manager.save_calls == 1
+    assert authorization["state"] == "consumed"
+
+
+def test_workspace_bind_revalidates_before_rebind_after_authorization(tmp_path, monkeypatch) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    marker = workspace / "package.json"
+    marker.write_text("{}", encoding="utf-8")
+
+    class Manager:
+        session_id = "workspace-bind-session"
+        project_root = tmp_path.resolve()
+
+        def __init__(self) -> None:
+            self.rebound = False
+            self.save_calls = 0
+
+        @staticmethod
+        def _validate_project_root(project_root: Path, *, require_identity: bool = False) -> Path:
+            from session_manager import SessionManager
+
+            return SessionManager._validate_project_root(project_root, require_identity=require_identity)
+
+        def rebind_project_root(self, _root: Path) -> None:
+            self.rebound = True
+
+        def save(self) -> None:
+            self.save_calls += 1
+
+    manager = Manager()
+    adapter = WorkspaceBindEffectAdapter()
+    binding = adapter.binding_descriptor(workspace.resolve())
+    request = build_execution_request(
+        effect_id="workspace.bind",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=manager.session_id,
+        source_surface="test.workspace.bind",
+        target={
+            "path": str(workspace.resolve()),
+            "resource": "session_workspace",
+            "operation": "persist",
+            "workspace_id": binding["workspace_id"],
+            "workspace_scope_root": binding["workspace_scope_root"],
+            "workspace_state_root": binding["workspace_state_root"],
+            "binding_digest": adapter.binding_descriptor_digest(binding),
+        },
+        arguments={},
+        scope="workspace",
+    )
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction="workspace-bind-stale")
+    marker.unlink()
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway(boundary).execute(
+            permit_token=permit["token"],
+            request=request,
+            context=ExecutionContext(manager=manager),
+        )
+
+    assert blocked.value.code == "workspace_bind_target_invalid"
+    assert manager.rebound is False
+    assert manager.save_calls == 0
 
 
 def test_state_delete_is_materialized_only_after_gateway_permit(tmp_path, monkeypatch) -> None:

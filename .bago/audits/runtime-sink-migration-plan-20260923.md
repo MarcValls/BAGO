@@ -139,3 +139,47 @@ This is `EXECUTED / SCOPED` only. The remaining project/workspace/credential
 effects in Wave B, all later waves, the full final candidate gate and
 independent review remain open. No global `VERIFIED` or `VALIDATED` claim is
 made from this bounded start.
+
+## Wave B2 execution record — workspace.bind / workspace.persist
+
+This cut closes the HTTP `POST /workspace/persist` surface for the canonical
+`workspace.bind` effect. The handler now only performs pure preflight,
+constructs the server-owned `ExecutionRequest`, and exposes the existing
+challenge → approve → one-time Permit → execute lifecycle. It no longer calls
+`rebind_project_root()`, `save()` or writes `last_workspace.json` directly.
+
+`WorkspaceBindEffectAdapter` is registered in the default
+`ExecutionGateway` registry and owns the compound effect. Immediately before
+materialization it checks the live manager/session, absolute project identity,
+workspace resource/operation, binding digest, workspace id and scope. A
+per-session lock prevents concurrent binds from interleaving. A changed or
+invalid root fails before rebind; the current root is idempotent and avoids a
+second mirror rebuild. The adapter emits a receipt that distinguishes rebind,
+session JSON persistence, SQLite indexing and `last_workspace` persistence;
+the nested last-workspace write remains server-policy-owned.
+
+The React client now performs challenge → approve → execute for this route,
+and the visible Workspace “Persistir” action goes through the client instead
+of the dead `/workspace persist` command. The previous snapshot effect that
+silently issued a bind has been removed. `/project` callers and the TTY wizard
+still reach `rebind_project_root()` directly; they are explicitly outside B2
+and remain the next `project.write` tranche rather than being counted as
+closed by this route migration.
+
+Candidate-bound evidence for the implementation tranche:
+
+- BAGO-wrapped B2 gateway/workspace/authorization/persistence/project/safety
+  gate: `47 passed` before the final persistence-receipt refinement; the
+  refined focal gateway/workspace/authorization/atomic gate: `31 passed`.
+- Frontend client/ControlPlane/navigation gate: `35 passed`; typecheck PASS;
+  production build PASS (`123 modules`); Python compile and `git diff --check`
+  PASS.
+- Inventory after the B2 code path: `2104` total findings, `473`
+  `runtime_unbound`, `243` runtime high-confidence, `0` unclassified
+  scope/binding; `--strict-classification` passes and `--strict-runtime`
+  remains intentionally FAIL/OPEN. The total increases because the inventory
+  retains the adapter's material sink findings; no finding is hidden.
+
+This tranche is `EXECUTED / SCOPED`. Full backend evidence, final candidate
+identity and independent verification remain pending; no global `VERIFIED` or
+`VALIDATED` claim is made.
