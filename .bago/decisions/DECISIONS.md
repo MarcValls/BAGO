@@ -2,6 +2,29 @@
 
 Record architectural or product decisions that affect canon here.
 
+## 2026-09-23 — Iniciar Wave B1 con el borrado del override de modelo
+
+- Decisión: abrir Wave B con el corte mínimo y aislable `state.delete` del
+  override de modelo de sesión. El handler conserva challenge → approve →
+  Permit de un solo uso → ejecución, y el borrado material queda únicamente
+  en un adapter server-owned del `ExecutionGateway`.
+- Invariantes: la operación queda limitada a la sesión activa, a su
+  `state_root` autoritativo y al fichero exacto `.bago_session_model.json`;
+  challenge/approve no mutan manager ni disco; el cambio al modelo automático
+  ocurre antes del borrado; un fallo de ese cambio conserva el override; el
+  evento solo se emite después del receipt de borrado.
+- Implementación: `StateDeleteEffectAdapter`, ruta
+  `/router/session-model`, cliente React y confirmación visible de UI. No se
+  toca Scheduler/PlanEngine ni se mezclan todavía project/workspace/credential.
+- Evidencia de ejecución: tests backend focales `30 passed`; frontend focal
+  `34 passed`, typecheck PASS y build PASS. La inventory actual queda en
+  `2098` findings, `473` runtime-unbound (`243` high-confidence runtime),
+  `0` scope/binding unclassified; `--strict-classification` pasa y
+  `--strict-runtime` permanece abierto con exit `1`.
+- Estado: `EXECUTED / SCOPED`; el cierre global sigue sin promoverse a
+  `VERIFIED`/`VALIDATED` hasta obtener gates sobre el commit final y revisión
+  independiente. Wave B1 no cierra las restantes waves B-D.
+
 ## 2026-09-23 — Ejecutar primera oleada de migración de sinks runtime
 
 - Decisión: ejecutar el plan de migración por ondas empezando por la familia

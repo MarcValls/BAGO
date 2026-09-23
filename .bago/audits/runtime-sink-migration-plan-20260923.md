@@ -108,3 +108,34 @@ The plan artifact is intentionally tracked; runtime state and receipts remain
 candidate-bound in `.bago/` and are not inferred from this document. This
 tranche is `EXECUTED`, not globally `VERIFIED` or `VALIDATED`; independent
 final review is still required.
+
+## Wave B1 execution record — session-model state deletion
+
+Wave B was started with the smallest isolated destructive runtime sink:
+`state.delete` for the session model override. The route now constructs one
+canonical `ExecutionRequest`, exposes the existing challenge/approval
+lifecycle, restores the automatic provider/model, and only then consumes the
+one-time Permit through `ExecutionGateway`. `StateDeleteEffectAdapter` owns
+the final unlink and rejects a missing/changed trusted root, another session,
+symlinks, traversal, non-canonical resources and every target other than
+`.bago_session_model.json` under the live session `state_root`.
+
+The React client now performs challenge → approve → execute for clearing the
+override, after a visible confirmation. The receipt and authorization
+metadata are returned to the UI; no compatibility direct-delete fallback
+remains. Negative coverage proves that challenge, missing/invalid Permit and
+automatic-switch failure leave the persisted override intact.
+
+Candidate-bound execution evidence before final commit:
+
+- Backend focused gateway/router/authorization suite: `30 passed`.
+- Frontend focused client/ControlPlane/navigation suite: `34 passed`.
+- Frontend typecheck: PASS; production build: PASS (`123 modules`).
+- Current effect inventory: `2098` findings, `473` runtime-unbound and `243`
+  high-confidence runtime-unbound; `0` unclassified scope/binding.
+- `--strict-classification`: PASS. `--strict-runtime`: FAIL/OPEN, exit `1`.
+
+This is `EXECUTED / SCOPED` only. The remaining project/workspace/credential
+effects in Wave B, all later waves, the full final candidate gate and
+independent review remain open. No global `VERIFIED` or `VALIDATED` claim is
+made from this bounded start.

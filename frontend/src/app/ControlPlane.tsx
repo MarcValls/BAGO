@@ -1350,6 +1350,14 @@ export function ControlPlane() {
 
   const setSessionModelCb = async (modelKey: string | null): Promise<void> => {
     setLastMessage(modelKey ? `modelo sesión: ${modelKey}` : 'modelo sesión: auto');
+    if (modelKey === null) {
+      const confirmed = await requestConfirmation({
+        title: 'Quitar override de sesión',
+        description: 'Se restaurará el modelo automático y se eliminará el override persistido de esta sesión.',
+        confirmLabel: 'Quitar override'
+      });
+      if (!confirmed) return;
+    }
     const previousModel = sessionModel;
     setSessionModelState(modelKey);
     try {

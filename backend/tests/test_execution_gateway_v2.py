@@ -154,6 +154,86 @@ def test_default_registry_owns_governed_plan_and_filesystem_adapters() -> None:
     assert "config.write" in registry.registered_effects()
     assert "memory.write" in registry.registered_effects()
     assert "agent.definition.write" in registry.registered_effects()
+    assert "state.delete" in registry.registered_effects()
+
+
+def test_state_delete_is_materialized_only_after_gateway_permit(tmp_path, monkeypatch) -> None:
+    state_root = tmp_path / "state"
+    state_root.mkdir()
+    override = state_root / ".bago_session_model.json"
+    override.write_text('{"model":"copilot/gpt-5.4-mini"}', encoding="utf-8")
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    manager = type("Manager", (), {
+        "state_root": state_root,
+        "session_id": "state-delete-session",
+    })()
+    boundary = auth.AuthorizationBoundary()
+    request = build_execution_request(
+        effect_id="state.delete",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="state-delete-session",
+        source_surface="test.state.delete",
+        target={
+            "path": str(override),
+            "allowed_root": str(state_root.resolve()),
+            "resource": "session_model_override",
+        },
+        arguments={"operation": "clear"},
+        scope="session",
+    )
+    permit = _permit(boundary, request, interaction="interaction-state-delete")
+
+    result, authorization = ExecutionGateway(boundary).execute(
+        permit_token=permit["token"],
+        request=request,
+        context=ExecutionContext(manager=manager),
+    )
+
+    assert result["ok"] is True
+    assert result["effect_id"] == "state.delete"
+    assert result["deleted"] is True
+    assert result["receipt_id"].startswith("state-delete:sha256:")
+    assert authorization["state"] == "consumed"
+    assert not override.exists()
+
+
+def test_state_delete_rejects_noncanonical_target_before_unlink(tmp_path, monkeypatch) -> None:
+    state_root = tmp_path / "state"
+    state_root.mkdir()
+    other = state_root / "other.json"
+    other.write_text("must-remain", encoding="utf-8")
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    manager = type("Manager", (), {
+        "state_root": state_root,
+        "session_id": "state-delete-session",
+    })()
+    boundary = auth.AuthorizationBoundary()
+    request = build_execution_request(
+        effect_id="state.delete",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="state-delete-session",
+        source_surface="test.state.delete",
+        target={
+            "path": str(other),
+            "allowed_root": str(state_root.resolve()),
+            "resource": "session_model_override",
+        },
+        arguments={"operation": "clear"},
+        scope="session",
+    )
+    permit = _permit(boundary, request, interaction="interaction-state-delete-invalid")
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway(boundary).execute(
+            permit_token=permit["token"],
+            request=request,
+            context=ExecutionContext(manager=manager),
+        )
+
+    assert blocked.value.code == "state_delete_target_invalid"
+    assert other.read_text(encoding="utf-8") == "must-remain"
 
 
 def test_server_policy_state_write_is_materialized_by_the_gateway(tmp_path) -> None:
