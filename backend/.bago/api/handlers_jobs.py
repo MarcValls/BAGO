@@ -185,37 +185,6 @@ def _plan_executor(mgr: Any):
     """
     import hashlib
     import json
-    from pathlib import Path
-
-    base = Path(getattr(mgr, "base_path", Path.cwd())).resolve()
-
-    def _safe_path(rel: str) -> Path:
-        """Resuelve un path relativo al workspace, sin escapar del sandbox.
-
-        Si el path es absoluto (Linux-style /home/... o Windows-style
-        C:\\...), se trata como relativo al workspace: se quita la raiz
-        y se resuelve dentro del sandbox.
-        """
-        # Quitar raiz absoluta (Linux /home/x/foo → foo, Windows C:\x\foo → x\foo)
-        normalized = rel.strip()
-        # Linux absolute: /home/user/foo, /tmp/foo, /etc/foo → foo
-        if normalized.startswith("/"):
-            parts = [p for p in Path(normalized).parts if p and p not in ("/", "home", "tmp", "etc", "var", "usr", "opt", "root", "Users")]
-            normalized = str(Path(*parts)) if parts else Path(normalized).name
-        # Windows absolute: C:\Users\x\foo, D:/x/foo → x\foo
-        if len(normalized) >= 2 and normalized[1] == ":":
-            normalized = normalized[2:].lstrip("/\\")
-        # Quitar prefijos comunes
-        for prefix in ("home/user/", "home/admin/", "Users/user/", "Documents/"):
-            if normalized.startswith(prefix):
-                normalized = normalized[len(prefix):]
-        candidate = (base / normalized).resolve() if normalized else base
-        # Permitir dentro del sandbox; bloquear escapes
-        if base in candidate.parents or candidate == base or normalized == "":
-            return candidate
-        # Fallback seguro: solo el nombre del archivo en el root
-        return (base / Path(rel).name).resolve()
-
     def _resolve_model(step: Any) -> dict:
         """Resuelve qué provider/modelo usar para un step.
 
@@ -302,26 +271,18 @@ def _plan_executor(mgr: Any):
     def _exec(action: str, payload: dict, step: Any = None) -> dict[str, Any]:
         try:
             if action == "write_file":
-                rel = str(payload.get("path", "")).strip()
-                content = str(payload.get("content", ""))
-                if not rel:
-                    return _failure("path vacío")
-                p = _safe_path(rel)
-                p.parent.mkdir(parents=True, exist_ok=True)
-                p.write_text(content, encoding="utf-8")
-                digest = hashlib.sha256(p.read_bytes()).hexdigest()
-                return _success(action, payload, f"escrito: {rel} ({len(content)} bytes)", [f"file_sha256:{digest}", f"path:{p}"])
+                return _failure(
+                    "plan_execution_gateway_unavailable",
+                    blocked=True,
+                    code="plan_execution_gateway_missing",
+                )
 
             if action == "read_file":
-                rel = str(payload.get("path", "")).strip()
-                if not rel:
-                    return _failure("path vacío")
-                p = _safe_path(rel)
-                if not p.exists():
-                    return _failure(f"no existe: {rel}")
-                content = p.read_text(encoding="utf-8", errors="replace")
-                digest = hashlib.sha256(p.read_bytes()).hexdigest()
-                return _success(action, payload, content[:500], [f"file_sha256:{digest}", f"path:{p}"])
+                return _failure(
+                    "plan_execution_gateway_unavailable",
+                    blocked=True,
+                    code="plan_execution_gateway_missing",
+                )
 
             if action == "run_command":
                 cmd = str(payload.get("command", "")).strip()
@@ -379,13 +340,32 @@ def handle_plans_get(handler: "BaseHTTPRequestHandler", plan_id: str) -> None:
     send_json(handler, 200, {"ok": True, "plan": engine.to_dict(plan)})
 
 
-def handle_plans_execute(handler: "BaseHTTPRequestHandler", plan_id: str, body: dict) -> None:
-    """POST /plans/<id>/execute — ejecuta el plan paso a paso.
+def _plan_execution_request(mgr: Any, plan: Any):
+    from execution_request import build_execution_request
+    from governed_work_pipeline import plan_execution_target
+    from effect_registry import REGISTRY
 
-    Body opcional: {"stop_on_failure": bool} (default True)
-    """
+    return build_execution_request(
+        effect_id="plan.execute",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=str(getattr(mgr, "session_id", "") or ""),
+        source_surface="api.plans.execute",
+        target=plan_execution_target(plan),
+        arguments={},
+        scope=REGISTRY.get("plan.execute").default_scope,
+        policy_version=REGISTRY.digest,
+    )
+
+
+def handle_plans_execute(handler: "BaseHTTPRequestHandler", plan_id: str, body: dict) -> None:
+    """POST /plans/<id>/execute — challenge/approve/execute through the gateway."""
     from api_serializers import send_json
-    from event_bus import emit
+    from authorization_boundary import AuthorizationBoundary, AuthorizationError
+    from execution_gateway import ExecutionContext, ExecutionGateway, ExecutionGatewayError
+    from execution_request import ExecutionRequestError
+    from governed_work_pipeline import GovernedWorkError
+
     mgr = _mgr(handler)
     if mgr is None:
         send_json(handler, 503, {"ok": False, "error": "SessionManager no disponible"})
@@ -396,37 +376,90 @@ def handle_plans_execute(handler: "BaseHTTPRequestHandler", plan_id: str, body: 
         send_json(handler, 404, {"ok": False, "error": f"plan {plan_id} no encontrado"})
         return
 
-    # Inyecta el executor (idempotente)
-    engine.set_executor(_plan_executor(mgr))
+    try:
+        request = _plan_execution_request(mgr, plan)
+        boundary = AuthorizationBoundary()
+        payload = dict(body or {})
+        action = str(payload.get("authorization_action") or "").strip().lower()
+        interaction_id = str(payload.get("interaction_id") or "").strip()
 
-    stop_on_failure = True
-    if isinstance(body, dict) and "stop_on_failure" in body:
-        stop_on_failure = bool(body["stop_on_failure"])
+        if action == "challenge":
+            challenge = boundary.create_challenge(request, interaction_id=interaction_id)
+            send_json(handler, 200, {
+                "ok": True,
+                "plan_id": plan_id,
+                "authorization": {"state": "challenge", "challenge": challenge},
+            })
+            return
 
-    emit("plan.execution.started", {"plan_id": plan_id, "task": plan.task})
-    result = engine.execute_plan(plan, stop_on_failure=stop_on_failure)
-    emit("plan.execution.completed", {
-        "plan_id": plan_id,
-        "ok": result["ok"],
-        "completed": result["completed"],
-        "already_completed": result.get("already_completed", 0),
-        "total_completed": result.get("total_completed", result["completed"]),
-        "failed": result["failed"],
-        "executed": result.get("executed", result["completed"]),
-        "informational": result.get("informational", 0),
-        "partial": result.get("partial", False),
-    })
-    send_json(handler, 200, {
-        "ok": result["ok"],
-        "plan_id": plan_id,
-        "completed": result["completed"],
-        "failed": result["failed"],
-        "executed": result.get("executed", result["completed"]),
-        "informational": result.get("informational", 0),
-        "status": result.get("status", plan.status),
-        "error": result.get("error", ""),
-        "results": result["results"]
-    })
+        if action == "approve":
+            if str(payload.get("user_decision") or "").strip().lower() != "approve":
+                raise AuthorizationError(
+                    "La decisión explícita del usuario debe ser approve",
+                    code="authorization_user_decision_required",
+                )
+            headers = getattr(handler, "headers", {}) or {}
+            channel = headers.get("X-Bago-Channel", "") if hasattr(headers, "get") else ""
+            authorization = boundary.approve_challenge(
+                challenge_id=str(payload.get("challenge_id") or ""),
+                interaction_id=interaction_id,
+                session_id=request.session_id,
+                channel=channel,
+            )
+            send_json(handler, 200, {
+                "ok": True,
+                "plan_id": plan_id,
+                "authorization": {"state": "authorized", **authorization},
+            })
+            return
+
+        if action not in {"", "execute"}:
+            raise AuthorizationError(
+                "authorization_action must be challenge, approve or execute",
+                code="authorization_action_invalid",
+            )
+
+        result, authorization = ExecutionGateway(boundary).execute(
+            permit_token=str(payload.get("authorization_permit") or ""),
+            request=request,
+            context=ExecutionContext(manager=mgr),
+        )
+        response = dict(result) if isinstance(result, dict) else {"result": result}
+        response.update({
+            "plan_id": plan_id,
+            "plan": engine.to_dict(plan),
+            "authorization": {
+                "state": "consumed",
+                "permit_id": authorization.get("permit_id"),
+                "decision_id": authorization.get("decision_id"),
+                "proof_id": authorization.get("proof_id"),
+                "operation_fingerprint": authorization.get("operation_fingerprint"),
+            },
+        })
+        send_json(handler, 200 if bool(response.get("ok")) else 409, response)
+    except AuthorizationError as exc:
+        status = 409 if exc.code in {
+            "authorization_challenge_not_pending",
+            "authorization_challenge_expired",
+            "authorization_permit_replay",
+            "authorization_permit_expired",
+            "authorization_operation_mismatch",
+        } else 403
+        send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code, "plan_id": plan_id})
+    except (ExecutionRequestError, GovernedWorkError) as exc:
+        send_json(handler, 400 if isinstance(exc, ExecutionRequestError) else 409, {
+            "ok": False,
+            "error": str(exc),
+            "code": getattr(exc, "code", "plan_contract_invalid"),
+            "plan_id": plan_id,
+        })
+    except ExecutionGatewayError as exc:
+        send_json(handler, 409, {
+            "ok": False,
+            "error": str(exc),
+            "code": exc.code,
+            "plan_id": plan_id,
+        })
 
 
 def handle_plans_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
@@ -464,14 +497,13 @@ def handle_plans_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     emit("plan.created", {"plan_id": plan_id, "task": task})
 
     if bool(body.get("auto_execute")):
-        engine.set_executor(_plan_executor(mgr))
-        exec_result = engine.execute_plan(plan)
-        emit("plan.execution.completed", {"plan_id": plan_id, "ok": exec_result["ok"]})
-        send_json(handler, 200, {
-            "ok": exec_result["ok"],
+        send_json(handler, 409, {
+            "ok": False,
+            "state": "blocked",
+            "error_code": "PLAN_EXECUTION_AUTHORIZATION_REQUIRED",
+            "message": "El plan se ha creado; auto_execute requiere challenge/approve y ejecución por POST /plans/<id>/execute.",
             "plan_id": plan_id,
             "plan": engine.to_dict(plan),
-            "execution": exec_result
         })
         return
 

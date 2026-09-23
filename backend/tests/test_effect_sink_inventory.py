@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import effect_registry
@@ -59,21 +60,74 @@ def test_all_scanner_effect_ids_exist_in_canonical_registry() -> None:
     assert scanner_ids <= declared
 
 
-def test_known_bago_sinks_are_reported_as_unbound_before_migration() -> None:
-    files_handler = inventory.REPO_ROOT / "backend" / ".bago" / "api" / "handlers_files.py"
+def test_gateway_owned_filesystem_findings_are_retained_and_bound(monkeypatch) -> None:
+    filesystem_effects = (
+        inventory.REPO_ROOT
+        / "backend"
+        / ".bago"
+        / "core"
+        / "filesystem_effects.py"
+    )
+    findings = inventory.scan_python(filesystem_effects)
+
+    with monkeypatch.context() as isolated:
+        isolated.setattr(inventory, "GATEWAY_OWNED_PATHS", set())
+        unbound_findings = inventory.scan_python(filesystem_effects)
+
+    assert [
+        (item.line, item.column, item.sink, item.effect_id, item.confidence)
+        for item in findings
+    ] == [
+        (item.line, item.column, item.sink, item.effect_id, item.confidence)
+        for item in unbound_findings
+    ]
+    assert findings
+    assert all(item.binding == "gateway_owned" for item in findings)
+
+
+def test_execution_gateway_adapter_material_sink_is_gateway_owned(tmp_path: Path, monkeypatch) -> None:
+    gateway = tmp_path / "backend" / ".bago" / "core" / "execution_gateway.py"
+    gateway.parent.mkdir(parents=True)
+    gateway.write_text(
+        "from pathlib import Path\n\n"
+        "class ExampleEffectAdapter:\n"
+        "    def execute(self):\n"
+        "        Path('receipt.txt').write_text('ok', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(inventory, "REPO_ROOT", tmp_path)
+
+    findings = inventory.scan_python(gateway)
+
+    assert len(findings) == 1
+    assert findings[0].effect_id == "filesystem.write"
+    assert findings[0].binding == "gateway_owned"
+
+
+def test_handlers_github_remains_unbound() -> None:
     github_handler = inventory.REPO_ROOT / "backend" / ".bago" / "api" / "handlers_github.py"
 
-    file_findings = inventory.scan_python(files_handler)
     github_findings = inventory.scan_python(github_handler)
 
-    assert any(
-        item.effect_id == "filesystem.write" and item.binding == "unbound"
-        for item in file_findings
-    )
     assert any(
         item.effect_id == "process.execute" and item.binding == "unbound"
         for item in github_findings
     )
+
+
+def test_strict_fails_while_legacy_unbound_sinks_exist(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "effect_sink_inventory.py",
+            "--strict",
+            "--root",
+            "backend/.bago/api/handlers_github.py",
+        ],
+    )
+
+    assert inventory.main() == 2
 
 
 def test_authorization_ledger_sink_is_explicitly_authority_internal() -> None:

@@ -202,3 +202,26 @@ def test_job_executor_does_not_treat_model_reply_as_command_execution(tmp_path):
     assert plan.steps[0].status == "blocked"
     assert plan.steps[0].block_code == "command_gateway_missing"
     assert plan.steps[0].receipt_id == ""
+
+
+def test_job_executor_write_is_blocked_until_governed_plan_adapter_exists(tmp_path):
+    from handlers_jobs import _plan_executor
+    from plan_engine import PlanEngine
+
+    class FakeManager:
+        base_path = tmp_path
+
+    engine = PlanEngine()
+    plan = engine.create_plan_with_actions(
+        "Escribir archivo",
+        "1. Crear archivo notes/blocked.txt con contenido: no debe escribirse",
+    )
+    engine.set_executor(_plan_executor(FakeManager()))
+
+    result = engine.execute_plan(plan)
+
+    assert result["ok"] is False
+    assert result["blocked"] == 1
+    assert plan.steps[0].status == "blocked"
+    assert plan.steps[0].block_code == "plan_execution_gateway_missing"
+    assert not (tmp_path / "notes" / "blocked.txt").exists()
