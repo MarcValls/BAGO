@@ -162,7 +162,7 @@ def test_session_manager_rebinds_project_root(tmp_path, monkeypatch):
     assert mgr.store.get_meta()["workspace_state_root"] == str(project / ".gabo")
 
 
-def test_project_command_rebinds_before_action(tmp_path, monkeypatch):
+def test_project_status_is_read_only_and_does_not_rebind(tmp_path, monkeypatch):
     project = tmp_path / "project"
     project.mkdir()
     calls = []
@@ -187,7 +187,7 @@ def test_project_command_rebinds_before_action(tmp_path, monkeypatch):
     result = commands.cmd_project(DummyMgr(), SimpleNamespace(), ["status", str(project)])
 
     assert result["ok"] is True
-    assert calls == [project]
+    assert calls == []
 
 
 def test_project_command_without_path_uses_active_project(tmp_path, monkeypatch):
@@ -217,7 +217,7 @@ def test_project_command_without_path_uses_active_project(tmp_path, monkeypatch)
     result = commands.cmd_project(DummyMgr(), SimpleNamespace(), ["analyze"])
 
     assert result["ok"] is True
-    assert calls == [active, active]
+    assert calls == [active]
 
 
 def test_project_wizard_rebinds_selected_path(tmp_path, monkeypatch):

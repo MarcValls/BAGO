@@ -73,33 +73,193 @@ def test_registered_secret_overrides_legacy_credential(monkeypatch, tmp_path):
     assert config["fallback_api_key"] == "legacy-secret"
 
 
-def test_configure_updates_live_config_without_returning_secret(monkeypatch):
+def test_configure_requires_strong_gateway_authorization_without_disclosing_secret(monkeypatch, tmp_path):
+    auth = importlib.import_module("authorization_boundary")
     handlers = importlib.import_module("handlers_providers")
     serializers = importlib.import_module("api_serializers")
+    secrets_module = importlib.import_module("secret_store")
     config = FakeConfig({"openrouter": {"enabled": False}})
-    manager = SimpleNamespace(config=config, invalidate_providers_cache=lambda: None)
-    captured: dict = {}
-
-    monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
-    monkeypatch.setattr(handlers, "_store_secret", lambda provider, secret: f"bago://secrets/providers/{provider}/api_key")
-    monkeypatch.setattr(handlers, "_has_provider_secret", lambda _provider: True)
-    monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: captured.update(status=status, body=body))
-
-    handlers.handle_configure(object(), {
+    manager = SimpleNamespace(
+        session_id="provider-config-session",
+        config=config,
+        invalidate_providers_cache=lambda: None,
+    )
+    captured: list[tuple[int, dict]] = []
+    stored: dict[str, str] = {}
+    store = SimpleNamespace(
+        set_secret=lambda key, value: stored.__setitem__(key, value),
+        delete_secret=lambda key: stored.pop(key, None) is not None,
+    )
+    handler = SimpleNamespace(headers={"X-Bago-Channel": "ui-react"})
+    secret = "must-not-leak"
+    base_body = {
         "provider": "openrouter",
         "enabled": True,
         "base_url": "https://openrouter.ai/api/v1",
-        "api_key": "must-not-leak",
+        "api_key": secret,
         "model": "openai/gpt-4.1-mini",
+        "interaction_id": "provider-config-interaction",
+    }
+
+    monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
+    monkeypatch.setattr(handlers, "_has_provider_secret", lambda _provider: bool(stored))
+    monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: captured.append((status, body)))
+
+    handlers.handle_configure(handler, {**base_body, "authorization_action": "challenge"})
+    challenge = captured[-1][1]["authorization"]["challenge"]
+    assert captured[-1][0] == 200
+    assert config.saved == []
+    assert stored == {}
+    assert secret not in str(captured[-1][1])
+
+    handlers.handle_configure(handler, {
+        **base_body,
+        "authorization_action": "approve",
+        "challenge_id": challenge["challenge_id"],
+        "user_decision": "approve",
+    })
+    permit = captured[-1][1]["authorization"]["permit"]["token"]
+    assert captured[-1][0] == 200
+    assert config.saved == []
+    assert stored == {}
+    assert secret not in str(captured[-1][1])
+
+    handlers.handle_configure(handler, {
+        **base_body,
+        "authorization_action": "execute",
+        "authorization_permit": permit,
     })
 
     persisted = config.providers["openrouter"]
-    assert captured["status"] == 200
+    assert captured[-1][0] == 200
     assert persisted["enabled"] is True
     assert persisted["default_model"] == "openai/gpt-4.1-mini"
     assert "api_key" not in persisted
-    assert "must-not-leak" not in str(captured["body"])
-    assert captured["body"]["config"]["has_secret"] is True
+    assert stored == {"providers/openrouter/api_key": secret}
+    assert secret not in str(captured[-1][1])
+    assert captured[-1][1]["config"]["has_secret"] is True
+    assert captured[-1][1]["credential_receipt"]["effect_id"] == "credential.write"
+    assert secret not in (tmp_path / "authorization" / "authorization" / "ledger.json").read_text(encoding="utf-8")
+
+
+def test_configure_rejects_tampered_fingerprint_and_noninteractive_approval(monkeypatch, tmp_path):
+    auth = importlib.import_module("authorization_boundary")
+    handlers = importlib.import_module("handlers_providers")
+    serializers = importlib.import_module("api_serializers")
+    secrets_module = importlib.import_module("secret_store")
+    config = FakeConfig({"openrouter": {"enabled": False}})
+    manager = SimpleNamespace(
+        session_id="provider-tamper-session",
+        config=config,
+        invalidate_providers_cache=lambda: None,
+    )
+    responses: list[tuple[int, dict]] = []
+    stored: dict[str, str] = {}
+    store = SimpleNamespace(
+        set_secret=lambda key, value: stored.__setitem__(key, value),
+        delete_secret=lambda key: stored.pop(key, None) is not None,
+    )
+    common = {
+        "provider": "openrouter",
+        "enabled": True,
+        "model": "model-a",
+        "api_key": "provider-secret",
+        "interaction_id": "provider-tamper-interaction",
+    }
+    monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
+    monkeypatch.setattr(handlers, "_has_provider_secret", lambda _provider: bool(stored))
+    monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
+
+    noninteractive = SimpleNamespace(headers={"X-Bago-Channel": "api"})
+    handlers.handle_configure(noninteractive, {**common, "authorization_action": "challenge"})
+    challenge = responses[-1][1]["authorization"]["challenge"]
+    handlers.handle_configure(noninteractive, {
+        **common,
+        "authorization_action": "approve",
+        "challenge_id": challenge["challenge_id"],
+        "user_decision": "approve",
+    })
+    assert responses[-1][0] == 403
+    assert responses[-1][1]["code"] == "authorization_user_origin_unverified"
+    assert stored == {}
+    assert config.saved == []
+
+    interactive = SimpleNamespace(headers={"X-Bago-Channel": "ui-react"})
+    handlers.handle_configure(interactive, {
+        **common,
+        "authorization_action": "approve",
+        "challenge_id": challenge["challenge_id"],
+        "user_decision": "approve",
+    })
+    permit = responses[-1][1]["authorization"]["permit"]["token"]
+    handlers.handle_configure(interactive, {
+        **common,
+        "model": "model-b",
+        "authorization_action": "execute",
+        "authorization_permit": permit,
+    })
+    assert responses[-1][0] == 409
+    assert responses[-1][1]["code"] == "authorization_operation_mismatch"
+    assert stored == {}
+    assert config.saved == []
+
+
+def test_configure_clear_secret_executes_only_after_approval(monkeypatch, tmp_path):
+    auth = importlib.import_module("authorization_boundary")
+    handlers = importlib.import_module("handlers_providers")
+    serializers = importlib.import_module("api_serializers")
+    secrets_module = importlib.import_module("secret_store")
+    config = FakeConfig({"openrouter": {"enabled": True, "secret_ref": "bago://secrets/providers/openrouter/api_key"}})
+    manager = SimpleNamespace(
+        session_id="provider-delete-session",
+        config=config,
+        invalidate_providers_cache=lambda: None,
+    )
+    responses: list[tuple[int, dict]] = []
+    stored = {"providers/openrouter/api_key": "existing-secret"}
+    store = SimpleNamespace(
+        set_secret=lambda key, value: stored.__setitem__(key, value),
+        delete_secret=lambda key: stored.pop(key, None) is not None,
+    )
+    handler = SimpleNamespace(headers={"X-Bago-Channel": "ui-react"})
+    common = {
+        "provider": "openrouter",
+        "clear_secret": True,
+        "interaction_id": "provider-delete-interaction",
+    }
+    monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
+    monkeypatch.setattr(handlers, "_has_provider_secret", lambda _provider: bool(stored))
+    monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
+
+    handlers.handle_configure(handler, {**common, "authorization_action": "challenge"})
+    challenge = responses[-1][1]["authorization"]["challenge"]
+    assert stored
+    assert config.saved == []
+    handlers.handle_configure(handler, {
+        **common,
+        "authorization_action": "approve",
+        "challenge_id": challenge["challenge_id"],
+        "user_decision": "approve",
+    })
+    permit = responses[-1][1]["authorization"]["permit"]["token"]
+    assert stored
+    assert config.saved == []
+    handlers.handle_configure(handler, {
+        **common,
+        "authorization_action": "execute",
+        "authorization_permit": permit,
+    })
+
+    assert responses[-1][0] == 200
+    assert stored == {}
+    assert "secret_ref" not in config.providers["openrouter"]
+    assert "existing-secret" not in str(responses[-1][1])
 
 
 def test_provider_list_uses_only_live_adapter_registry(monkeypatch):
@@ -151,6 +311,159 @@ def test_ollama_cloud_uses_host_url_and_ollama_discovery():
     assert descriptor["model_discovery"] == {"type": "ollama_tags", "path": "/api/tags"}
     assert catalog.normalize_provider_base_url("ollama-cloud", "https://ollama.com/api/") == "https://ollama.com"
     assert catalog.provider_base_url("ollama-cloud", {"providers": {}}) == "https://ollama.com"
+
+
+class DriftingFakeConfig:
+    """FakeConfig variant whose provider_config() return value drifts after
+    a fixed number of reads, modeling a concurrent backend config write that
+    lands between the handler's own digest snapshot and the gateway
+    adapter's later, closer-to-mutation revalidation read.
+    """
+
+    def __init__(self, stable: dict, drifted: dict, drift_after_calls: int) -> None:
+        self.stable = stable
+        self.drifted = drifted
+        self.drift_after_calls = drift_after_calls
+        self.calls = 0
+        self.saved: list[tuple[str, dict]] = []
+
+    def provider_config(self, provider: str) -> dict:
+        self.calls += 1
+        source = self.drifted if self.calls > self.drift_after_calls else self.stable
+        return dict(source.get(provider, {}))
+
+    def get(self, key: str, default=None):
+        return default
+
+    def set(self, key: str, value: dict) -> None:
+        provider = key.split(".", 1)[1]
+        self.saved.append((key, dict(value)))
+
+
+def test_configure_legitimate_nonsecret_update_with_secret_set_succeeds(monkeypatch, tmp_path):
+    """Non-secret field changes bound into the same request as a secret set
+    still succeed: the recomputed candidate (live config + this request's
+    own patch) matches the authorized digest.
+    """
+    auth = importlib.import_module("authorization_boundary")
+    handlers = importlib.import_module("handlers_providers")
+    serializers = importlib.import_module("api_serializers")
+    secrets_module = importlib.import_module("secret_store")
+    config = FakeConfig({"openrouter": {"enabled": False, "base_url": "https://openrouter.ai/api/v1"}})
+    manager = SimpleNamespace(
+        session_id="provider-legit-session",
+        config=config,
+        invalidate_providers_cache=lambda: None,
+    )
+    responses: list[tuple[int, dict]] = []
+    stored: dict[str, str] = {}
+    store = SimpleNamespace(
+        set_secret=lambda key, value: stored.__setitem__(key, value),
+        delete_secret=lambda key: stored.pop(key, None) is not None,
+    )
+    handler = SimpleNamespace(headers={"X-Bago-Channel": "ui-react"})
+    secret = "legit-secret"
+    common = {
+        "provider": "openrouter",
+        "enabled": True,
+        "model": "openai/gpt-4.1-mini",
+        "api_key": secret,
+        "interaction_id": "provider-legit-interaction",
+    }
+    monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
+    monkeypatch.setattr(handlers, "_has_provider_secret", lambda _provider: bool(stored))
+    monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
+
+    handlers.handle_configure(handler, {**common, "authorization_action": "challenge"})
+    challenge = responses[-1][1]["authorization"]["challenge"]
+    handlers.handle_configure(handler, {
+        **common,
+        "authorization_action": "approve",
+        "challenge_id": challenge["challenge_id"],
+        "user_decision": "approve",
+    })
+    permit = responses[-1][1]["authorization"]["permit"]["token"]
+    handlers.handle_configure(handler, {
+        **common,
+        "authorization_action": "execute",
+        "authorization_permit": permit,
+    })
+
+    assert responses[-1][0] == 200
+    persisted = config.providers["openrouter"]
+    assert persisted["enabled"] is True
+    assert persisted["default_model"] == "openai/gpt-4.1-mini"
+    assert "api_key" not in persisted
+    assert stored == {"providers/openrouter/api_key": secret}
+    assert secret not in str(responses[-1][1])
+
+
+def test_configure_blocks_on_live_backend_drift_between_approval_and_execute(monkeypatch, tmp_path):
+    """Backend config that drifts (e.g. a concurrent write) between the
+    handler's digest snapshot and the gateway adapter's own revalidation
+    read must block the credential write with zero secret/config mutation,
+    even though the same-request non-secret patch was itself authorized.
+    """
+    auth = importlib.import_module("authorization_boundary")
+    handlers = importlib.import_module("handlers_providers")
+    serializers = importlib.import_module("api_serializers")
+    secrets_module = importlib.import_module("secret_store")
+
+    stable = {"openrouter": {"enabled": False, "base_url": "https://openrouter.ai/api/v1"}}
+    drifted = {"openrouter": {"enabled": False, "base_url": "https://drifted.example/api"}}
+    # 3 handler-level reads happen before the gateway adapter's own read
+    # (one per challenge/approve/execute handle_configure call); the 4th
+    # read is the adapter's revalidation, immediately before SecretStore
+    # access, and it observes the drifted value.
+    config = DriftingFakeConfig(stable, drifted, drift_after_calls=3)
+    manager = SimpleNamespace(
+        session_id="provider-drift-session",
+        config=config,
+        invalidate_providers_cache=lambda: None,
+    )
+    responses: list[tuple[int, dict]] = []
+    stored: dict[str, str] = {}
+    store = SimpleNamespace(
+        set_secret=lambda key, value: stored.__setitem__(key, value),
+        delete_secret=lambda key: stored.pop(key, None) is not None,
+    )
+    handler = SimpleNamespace(headers={"X-Bago-Channel": "ui-react"})
+    secret = "must-not-be-persisted"
+    common = {
+        "provider": "openrouter",
+        "enabled": True,
+        "api_key": secret,
+        "interaction_id": "provider-drift-interaction",
+    }
+    monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
+    monkeypatch.setattr(handlers, "_has_provider_secret", lambda _provider: bool(stored))
+    monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
+
+    handlers.handle_configure(handler, {**common, "authorization_action": "challenge"})
+    challenge = responses[-1][1]["authorization"]["challenge"]
+    handlers.handle_configure(handler, {
+        **common,
+        "authorization_action": "approve",
+        "challenge_id": challenge["challenge_id"],
+        "user_decision": "approve",
+    })
+    permit = responses[-1][1]["authorization"]["permit"]["token"]
+
+    handlers.handle_configure(handler, {
+        **common,
+        "authorization_action": "execute",
+        "authorization_permit": permit,
+    })
+
+    assert responses[-1][0] == 403
+    assert responses[-1][1]["code"] == "credential_write_configuration_changed"
+    assert stored == {}
+    assert config.saved == []
+    assert secret not in str(responses[-1][1])
 
 
 def test_configure_normalizes_ollama_api_suffix(monkeypatch):

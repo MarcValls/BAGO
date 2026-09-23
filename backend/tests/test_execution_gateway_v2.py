@@ -7,10 +7,12 @@ import pytest
 
 import authorization_boundary as auth
 from execution_gateway import (
+    CredentialWriteEffectAdapter,
     EffectAdapterRegistry,
     ExecutionContext,
     ExecutionGateway,
     ExecutionGatewayError,
+    ProjectWriteEffectAdapter,
     WorkspaceBindEffectAdapter,
     build_default_effect_adapter_registry,
 )
@@ -158,6 +160,346 @@ def test_default_registry_owns_governed_plan_and_filesystem_adapters() -> None:
     assert "agent.definition.write" in registry.registered_effects()
     assert "workspace.bind" in registry.registered_effects()
     assert "state.delete" in registry.registered_effects()
+    assert "project.write" in registry.registered_effects()
+    assert "credential.write" in registry.registered_effects()
+
+
+def test_project_operation_revalidates_target_immediately_before_first_write(tmp_path, monkeypatch) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "README.md").write_text("# project\n", encoding="utf-8")
+    manager = type("Manager", (), {
+        "project_root": project,
+        "session_id": "project-write-session",
+    })()
+    trusted_root, target, target_digest = ProjectWriteEffectAdapter.prepare_operation(
+        manager,
+        str(project),
+        "init",
+    )
+    request = build_execution_request(
+        effect_id="project.write",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=manager.session_id,
+        source_surface="test.project.init",
+        target={
+            "path": str(target),
+            "allowed_root": str(trusted_root),
+            "resource": "project_operation",
+            "operation": "init",
+            "root_digest": target_digest,
+        },
+        arguments={},
+        scope="workspace",
+    )
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction="project-write-target")
+    (project / ".bago").mkdir()
+    tamper = project / ".bago" / "tamper.txt"
+    tamper.write_text("do not overwrite", encoding="utf-8")
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway(boundary).execute(
+            permit_token=permit["token"],
+            request=request,
+            context=ExecutionContext(manager=manager),
+        )
+
+    assert blocked.value.code == "project_write_target_changed"
+    assert tamper.read_text(encoding="utf-8") == "do not overwrite"
+    assert not (project / ".bago" / "pack.json").exists()
+
+
+def test_project_operation_rejects_live_root_change_before_write(tmp_path, monkeypatch) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    other = tmp_path / "other"
+    other.mkdir()
+    manager = type("Manager", (), {
+        "project_root": project,
+        "session_id": "project-root-session",
+    })()
+    trusted_root, target, target_digest = ProjectWriteEffectAdapter.prepare_operation(
+        manager,
+        str(project),
+        "init",
+    )
+    request = build_execution_request(
+        effect_id="project.write",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=manager.session_id,
+        source_surface="test.project.root",
+        target={
+            "path": str(target),
+            "allowed_root": str(trusted_root),
+            "resource": "project_operation",
+            "operation": "init",
+            "root_digest": target_digest,
+        },
+        arguments={},
+        scope="workspace",
+    )
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction="project-write-root")
+    manager.project_root = other
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway(boundary).execute(
+            permit_token=permit["token"],
+            request=request,
+            context=ExecutionContext(manager=manager),
+        )
+
+    assert blocked.value.code == "project_write_root_mismatch"
+    assert not (project / ".bago").exists()
+    assert not (other / ".bago").exists()
+
+
+def test_credential_adapter_rejects_non_direct_strong_proof_before_secret_store_access(tmp_path) -> None:
+    manager = type("Manager", (), {"session_id": "credential-session"})()
+    request = build_execution_request(
+        effect_id="credential.write",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=manager.session_id,
+        source_surface="test.credential",
+        target={
+            "resource": "provider_credential",
+            "operation": "set",
+            "provider": "openrouter",
+            "key": "api_key",
+            "configuration_digest": "config-digest",
+        },
+        arguments={"value": "must-not-be-used"},
+        scope="persistent",
+    )
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        CredentialWriteEffectAdapter().execute(
+            request,
+            ExecutionContext(
+                manager=manager,
+                services={
+                    "_authorization": {
+                        "state": "consumed",
+                        "proof": {"provenance": {"kind": "delegation_grant"}},
+                    }
+                },
+            ),
+        )
+
+    assert blocked.value.code == "credential_write_strong_proof_required"
+
+
+class _FakeProviderConfig:
+    """Stand-in for SessionManager.config exposing provider_config(name)."""
+
+    def __init__(self, providers: dict) -> None:
+        self._providers = providers
+
+    def provider_config(self, provider: str) -> dict:
+        return dict(self._providers.get(provider, {}))
+
+
+class _RecordingSecretStore:
+    def __init__(self) -> None:
+        self.set_calls: list[tuple[str, str]] = []
+        self.delete_calls: list[str] = []
+
+    def set_secret(self, key: str, value: str) -> None:
+        self.set_calls.append((key, value))
+
+    def delete_secret(self, key: str) -> bool:
+        self.delete_calls.append(key)
+        return True
+
+
+def _consumed_authorization() -> dict:
+    return {
+        "state": "consumed",
+        "proof": {"provenance": {"kind": "direct_user_interaction"}},
+    }
+
+
+def _credential_request(*, operation: str, configuration_digest: str, configuration_patch: dict, provider: str = "openrouter"):
+    return build_execution_request(
+        effect_id="credential.write",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="credential-session",
+        source_surface="test.credential",
+        target={
+            "resource": "provider_credential",
+            "operation": operation,
+            "provider": provider,
+            "key": "api_key",
+            "configuration_digest": configuration_digest,
+            "configuration_patch": configuration_patch,
+        },
+        arguments={"value": "fresh-secret"} if operation == "set" else {},
+        scope="persistent",
+    )
+
+
+def test_credential_adapter_matching_digest_succeeds_for_set_and_delete(monkeypatch) -> None:
+    import secret_store as secret_store_module
+    from execution_request import stable_digest
+
+    live_config = {"enabled": False, "base_url": "https://openrouter.ai/api/v1"}
+    patch = {"enabled": True, "default_model": "openai/gpt-4.1-mini"}
+    candidate = {**live_config, **patch}
+    digest = stable_digest(candidate)
+
+    manager = type("Manager", (), {"session_id": "credential-session"})()
+    manager.config = _FakeProviderConfig({"openrouter": live_config})
+
+    for operation in ("set", "delete"):
+        store = _RecordingSecretStore()
+        monkeypatch.setattr(secret_store_module, "get_secret_store", lambda store=store: store)
+        request = _credential_request(operation=operation, configuration_digest=digest, configuration_patch=patch)
+        result = CredentialWriteEffectAdapter().execute(
+            request,
+            ExecutionContext(manager=manager, services={"_authorization": _consumed_authorization()}),
+        )
+        assert result["ok"] is True
+        if operation == "set":
+            assert store.set_calls == [("providers/openrouter/api_key", "fresh-secret")]
+        else:
+            assert store.delete_calls == ["providers/openrouter/api_key"]
+
+
+def test_credential_adapter_rejects_drifted_configuration_before_secret_store_access_set(monkeypatch) -> None:
+    import secret_store as secret_store_module
+    from execution_request import stable_digest
+
+    approved_live_config = {"enabled": False, "base_url": "https://openrouter.ai/api/v1"}
+    patch = {"enabled": True}
+    authorized_digest = stable_digest({**approved_live_config, **patch})
+
+    # Backend config drifted (e.g. concurrent write) after the digest above
+    # was authorized: base_url changed from what the requester approved.
+    drifted_live_config = {"enabled": False, "base_url": "https://drifted.example/api"}
+    manager = type("Manager", (), {"session_id": "credential-session"})()
+    manager.config = _FakeProviderConfig({"openrouter": drifted_live_config})
+
+    store = _RecordingSecretStore()
+    monkeypatch.setattr(secret_store_module, "get_secret_store", lambda: store)
+    request = _credential_request(operation="set", configuration_digest=authorized_digest, configuration_patch=patch)
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        CredentialWriteEffectAdapter().execute(
+            request,
+            ExecutionContext(manager=manager, services={"_authorization": _consumed_authorization()}),
+        )
+
+    assert blocked.value.code == "credential_write_configuration_changed"
+    assert store.set_calls == []
+    assert store.delete_calls == []
+
+
+def test_credential_adapter_rejects_drifted_configuration_before_secret_store_access_delete(monkeypatch) -> None:
+    import secret_store as secret_store_module
+    from execution_request import stable_digest
+
+    approved_live_config = {"enabled": True, "default_model": "openai/gpt-4.1-mini"}
+    patch = {"default_model": "openai/gpt-4.1-nano"}
+    authorized_digest = stable_digest({**approved_live_config, **patch})
+
+    drifted_live_config = {"enabled": False, "default_model": "openai/gpt-4.1-mini"}
+    manager = type("Manager", (), {"session_id": "credential-session"})()
+    manager.config = _FakeProviderConfig({"openrouter": drifted_live_config})
+
+    store = _RecordingSecretStore()
+    monkeypatch.setattr(secret_store_module, "get_secret_store", lambda: store)
+    request = _credential_request(operation="delete", configuration_digest=authorized_digest, configuration_patch=patch)
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        CredentialWriteEffectAdapter().execute(
+            request,
+            ExecutionContext(manager=manager, services={"_authorization": _consumed_authorization()}),
+        )
+
+    assert blocked.value.code == "credential_write_configuration_changed"
+    assert store.set_calls == []
+    assert store.delete_calls == []
+
+
+def test_credential_adapter_requires_authoritative_configuration_source(monkeypatch) -> None:
+    import secret_store as secret_store_module
+    from execution_request import stable_digest
+
+    manager = type("Manager", (), {"session_id": "credential-session"})()
+    # No `.config` attribute at all: fail closed rather than trust anything.
+
+    store = _RecordingSecretStore()
+    monkeypatch.setattr(secret_store_module, "get_secret_store", lambda: store)
+    request = _credential_request(
+        operation="set",
+        configuration_digest=stable_digest({"enabled": True}),
+        configuration_patch={"enabled": True},
+    )
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        CredentialWriteEffectAdapter().execute(
+            request,
+            ExecutionContext(manager=manager, services={"_authorization": _consumed_authorization()}),
+        )
+
+    assert blocked.value.code == "credential_write_configuration_source_unavailable"
+    assert store.set_calls == []
+    assert store.delete_calls == []
+
+
+@pytest.mark.parametrize(
+    "configuration_patch",
+    [
+        {"api_key": "leaked-secret"},
+        {"secret_ref": "bago://secrets/providers/openrouter/api_key"},
+        {"unexpected_field": "value"},
+        {"enabled": "true"},
+        "not-a-dict",
+    ],
+)
+def test_credential_adapter_rejects_invalid_or_secret_bearing_patch(monkeypatch, configuration_patch) -> None:
+    import secret_store as secret_store_module
+    from execution_request import stable_digest
+
+    manager = type("Manager", (), {"session_id": "credential-session"})()
+    manager.config = _FakeProviderConfig({"openrouter": {"enabled": False}})
+
+    store = _RecordingSecretStore()
+    monkeypatch.setattr(secret_store_module, "get_secret_store", lambda: store)
+    request = build_execution_request(
+        effect_id="credential.write",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="credential-session",
+        source_surface="test.credential",
+        target={
+            "resource": "provider_credential",
+            "operation": "set",
+            "provider": "openrouter",
+            "key": "api_key",
+            "configuration_digest": stable_digest({"enabled": False}),
+            "configuration_patch": configuration_patch,
+        },
+        arguments={"value": "fresh-secret"},
+        scope="persistent",
+    )
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        CredentialWriteEffectAdapter().execute(
+            request,
+            ExecutionContext(manager=manager, services={"_authorization": _consumed_authorization()}),
+        )
+
+    assert blocked.value.code == "credential_write_configuration_patch_invalid"
+    assert store.set_calls == []
+    assert store.delete_calls == []
 
 
 def test_workspace_bind_adapter_executes_compound_effect_only_after_permit(tmp_path, monkeypatch) -> None:
