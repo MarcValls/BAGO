@@ -23,6 +23,7 @@ if str(CHAT_DIR) not in sys.path:
     sys.path.insert(0, str(CHAT_DIR))
 
 import renderer as R
+from bago_core.server_effects import gateway_urlopen
 from commands import MENU_SECTIONS, menu_state_for_manager
 from switch_engine import SwitchEngine
 from repl_startup import CONFIG_EDITABLE
@@ -1214,7 +1215,7 @@ class BagoReplMenuMixin:
             for host in ["http://127.0.0.1:11434", "http://localhost:11434"]:
                 try:
                     req = urllib.request.Request(f"{host}/api/tags", method="GET")
-                    with urllib.request.urlopen(req, timeout=3) as resp:
+                    with gateway_urlopen(req, timeout=3, network_class="runtime_probe") as resp:
                         if resp.status == 200:
                             self.mgr.credentials.set("ollama-local", "OLLAMA_HOST", host)
                             detected = True

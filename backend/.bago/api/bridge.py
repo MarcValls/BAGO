@@ -57,6 +57,8 @@ sys.path.insert(0, str(_REPO_ROOT))                            # repo root
 sys.path.insert(0, str(_REPO_ROOT / "bago_core"))             # direct (legacy)
 sys.path.insert(0, str(_REPO_ROOT / ".bago" / "core"))        # session_manager, switch_engine
 sys.path.insert(0, str(_REPO_ROOT / ".bago" / "chat"))        # repl_*, renderer, etc.
+
+from bago_core.server_effects import gateway_urlopen
 # LEGACY[API-L001]: direct legacy imports stay only while un-migrated handlers exist.
 
 _CREATED_VERSION = "4.0.0"
@@ -444,29 +446,29 @@ def _run_tests() -> int:
             base_url = f"http://127.0.0.1:{server.port}"
             headers = {"X-Bago-Token": "test-token", "Content-Type": "application/json", "X-Bago-Channel": "terminal"}
 
-            with urllib.request.urlopen(f"{base_url}/", timeout=5) as resp:
+            with gateway_urlopen(f"{base_url}/", timeout=5, network_class="runtime_probe") as resp:
                 index_html = resp.read().decode("utf-8")
             assert "bago-ui" in index_html
 
-            with urllib.request.urlopen(f"{base_url}/desktop", timeout=5) as resp:
+            with gateway_urlopen(f"{base_url}/desktop", timeout=5, network_class="runtime_probe") as resp:
                 desktop_html = resp.read().decode("utf-8")
             assert "bago-ui" in desktop_html
 
-            with urllib.request.urlopen(f"{base_url}/assets/app.js", timeout=5) as resp:
+            with gateway_urlopen(f"{base_url}/assets/app.js", timeout=5, network_class="runtime_probe") as resp:
                 asset_body = resp.read().decode("utf-8")
             assert "bago-ui" in asset_body
 
-            with urllib.request.urlopen(urllib.request.Request(f"{base_url}/status", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
+            with gateway_urlopen(urllib.request.Request(f"{base_url}/status", headers={"X-Bago-Token": "test-token"}), timeout=5, network_class="runtime_probe") as resp:
                 status = json.loads(resp.read().decode("utf-8"))
             assert status["provider"] == "mock-ui"
 
-            with urllib.request.urlopen(urllib.request.Request(f"{base_url}/catalog/status", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
+            with gateway_urlopen(urllib.request.Request(f"{base_url}/catalog/status", headers={"X-Bago-Token": "test-token"}), timeout=5, network_class="runtime_probe") as resp:
                 catalog_status = json.loads(resp.read().decode("utf-8"))
             # The user's persistent config may override the default; only assert a valid shape.
             assert catalog_status["mode"] in ("all", "available-only")
             assert "production_mode" in catalog_status
 
-            with urllib.request.urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
+            with gateway_urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5, network_class="runtime_probe") as resp:
                 models = json.loads(resp.read().decode("utf-8"))
             # Catalog mode may be user-persistent; assert at least the online model is visible.
             assert "mock-model" in models["models"]
@@ -477,11 +479,11 @@ def _run_tests() -> int:
                 headers=headers,
                 method="POST",
             )
-            with urllib.request.urlopen(catalog_req, timeout=5) as resp:
+            with gateway_urlopen(catalog_req, timeout=5, network_class="runtime_probe") as resp:
                 catalog = json.loads(resp.read().decode("utf-8"))
             assert catalog["mode"] == "all"
 
-            with urllib.request.urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
+            with gateway_urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5, network_class="runtime_probe") as resp:
                 all_models = json.loads(resp.read().decode("utf-8"))
             assert "mock-model" in all_models["models"]
             assert "offline-model" in all_models["models"]
@@ -492,11 +494,11 @@ def _run_tests() -> int:
                 headers=headers,
                 method="POST",
             )
-            with urllib.request.urlopen(catalog_req2, timeout=5) as resp:
+            with gateway_urlopen(catalog_req2, timeout=5, network_class="runtime_probe") as resp:
                 catalog2 = json.loads(resp.read().decode("utf-8"))
             assert catalog2["mode"] == "available-only"
 
-            with urllib.request.urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5) as resp:
+            with gateway_urlopen(urllib.request.Request(f"{base_url}/models/mock-ui", headers={"X-Bago-Token": "test-token"}), timeout=5, network_class="runtime_probe") as resp:
                 filtered_models = json.loads(resp.read().decode("utf-8"))
             assert "mock-model" in filtered_models["models"]
             assert "offline-model" not in filtered_models["models"]
@@ -507,12 +509,12 @@ def _run_tests() -> int:
                 headers=headers,
                 method="POST",
             )
-            with urllib.request.urlopen(chat_req, timeout=5) as resp:
+            with gateway_urlopen(chat_req, timeout=5, network_class="runtime_probe") as resp:
                 chat = json.loads(resp.read().decode("utf-8"))
             assert chat["response"] == "echo::hola"
 
             history_req = urllib.request.Request(f"{base_url}/history", headers={"X-Bago-Token": "test-token"})
-            with urllib.request.urlopen(history_req, timeout=5) as resp:
+            with gateway_urlopen(history_req, timeout=5, network_class="runtime_probe") as resp:
                 history = json.loads(resp.read().decode("utf-8"))
             assert history["count"] == 2
 
@@ -522,7 +524,7 @@ def _run_tests() -> int:
                 headers=headers,
                 method="POST",
             )
-            with urllib.request.urlopen(cmd_req, timeout=5) as resp:
+            with gateway_urlopen(cmd_req, timeout=5, network_class="runtime_probe") as resp:
                 cmd = json.loads(resp.read().decode("utf-8"))
             assert cmd["ok"] is True
             assert cmd["data"]["provider"] == "mock-ui"
@@ -531,12 +533,12 @@ def _run_tests() -> int:
 
 
             sim_req = urllib.request.Request(f"{base_url}/simulation/status", headers={"X-Bago-Token": "test-token"})
-            with urllib.request.urlopen(sim_req, timeout=5) as resp:
+            with gateway_urlopen(sim_req, timeout=5, network_class="runtime_probe") as resp:
                 sim = json.loads(resp.read().decode("utf-8"))
             assert sim["mode"] == "shadow"
 
             rl_req = urllib.request.Request(f"{base_url}/rl/status", headers={"X-Bago-Token": "test-token"})
-            with urllib.request.urlopen(rl_req, timeout=5) as resp:
+            with gateway_urlopen(rl_req, timeout=5, network_class="runtime_probe") as resp:
                 rl_status = json.loads(resp.read().decode("utf-8"))
             assert rl_status["can_execute"] is False
 
@@ -546,7 +548,7 @@ def _run_tests() -> int:
                 headers=headers,
                 method="POST",
             )
-            with urllib.request.urlopen(rl_shadow_req, timeout=5) as resp:
+            with gateway_urlopen(rl_shadow_req, timeout=5, network_class="runtime_probe") as resp:
                 rl_shadow = json.loads(resp.read().decode("utf-8"))
             assert rl_shadow["mode"] == "off"
             assert rl_shadow["can_execute"] is False
@@ -557,7 +559,7 @@ def _run_tests() -> int:
                 headers=headers,
                 method="POST",
             )
-            with urllib.request.urlopen(plan_req, timeout=5) as resp:
+            with gateway_urlopen(plan_req, timeout=5, network_class="runtime_probe") as resp:
                 plan = json.loads(resp.read().decode("utf-8"))
             assert "message" in plan
             assert plan["plan"]["task"] == "demo"

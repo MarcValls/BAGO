@@ -66,7 +66,7 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = [
     id: 'catalog',
     label: 'Catálogo',
     items: [
-      { id: 'capabilities', label: 'Capacidades', icon: 'pack', helper: 'Anatomía de capacidades externas', shortcut: 'Ctrl+-', isPanel: true },
+      { id: 'capabilities', label: 'Capacidades', icon: 'pack', helper: 'Gestor ejecutable de paquetes externos', shortcut: 'Ctrl+-', isPanel: true },
       { id: 'tools', label: 'Herramientas', icon: 'tools', helper: 'Catálogo de herramientas', shortcut: 'Ctrl+=', isPanel: true }
     ]
   }

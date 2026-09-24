@@ -122,6 +122,34 @@ def _knowledge_manifest(root: Path) -> dict[str, Any]:
     }
 
 
+def create_demo_project(root: Path) -> dict[str, Any]:
+    """Materialize the bounded first-run demo. Runtime callers use project.write."""
+
+    root = Path(root).expanduser().resolve()
+    if root == Path(root.anchor) or root == Path.home().resolve():
+        raise ValueError("Elige una subcarpeta dedicada para el proyecto demo")
+    if root.exists() and any(root.iterdir()):
+        raise FileExistsError(f"La carpeta no esta vacia: {root}")
+
+    (root / "src").mkdir(parents=True, exist_ok=True)
+    files = {
+        "README.md": "# BAGO Demo\n\nProyecto inicial creado por el asistente de BAGO.\n",
+        "AGENTS.md": "# BAGO Demo\n\nMantener cambios pequenos, verificables y documentados.\n",
+        "package.json": json.dumps({
+            "name": "bago-demo",
+            "private": True,
+            "version": "0.1.0",
+            "scripts": {"start": "node src/app.js"},
+        }, ensure_ascii=False, indent=2) + "\n",
+        "src/app.js": "console.log('BAGO Demo listo');\n",
+    }
+    for relative, content in files.items():
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    return {"root": str(root), "files": sorted(files), "template": "bago-demo-v1"}
+
+
 def _expected_dirs(root: Path) -> list[Path]:
     bago_dir = root / ".bago"
     dirs = [bago_dir, bago_dir / "state", bago_dir / "knowledge"]
@@ -531,7 +559,7 @@ def cmd_init(root: str | None = None) -> int:
     if project_root is None:
         print("Error: no se detecta un proyecto. Usa --root <ruta>.")
         return 1
-    report = init_project(project_root)
+    report = _execute_cli_project_write(project_root, "init")
     print(f"Initialized project memory at: {report['bago_dir']}")
     print(f"Created directories: {len(report['created_dirs'])}")
     print(f"Created files: {len(report['created_files'])}")
@@ -552,7 +580,7 @@ def cmd_link(root: str | None = None) -> int:
     if project_root is None:
         print("Error: no se detecta un proyecto. Usa --root <ruta>.")
         return 1
-    data = link_project(project_root)
+    data = _execute_cli_project_write(project_root, "link")
     print(f"Linked project memory at: {data['root']}")
     print(f"Link mode: {data['link_mode']}")
     print(f"Marker: {data['marker']}")
@@ -574,13 +602,80 @@ def cmd_seed(root: str | None = None, *, depth: int = 3, ref: str | None = None)
     if project_root is None:
         print("Error: no se detecta un proyecto. Usa --root <ruta>.")
         return 1
-    report = seed_project(project_root, depth=depth, ref=ref)
+    report = _execute_cli_project_write(
+        project_root,
+        "seed",
+        arguments={"depth": depth, "ref": str(ref or "")},
+    )
     print(f"Seeded workspace at: {report['root']}")
     print(f"Tree files: {report['tree']['count']}")
     print(f"Files indexed: {report['meta']['files_indexed']}")
     print(f"Symbols indexed: {report['meta']['symbols_indexed']}")
     print(f"Working set size: {report['meta']['working_set_size']}")
     return 0
+
+
+def _execute_cli_project_write(
+    project_root: Path,
+    operation: str,
+    *,
+    arguments: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Treat one explicit local CLI command as the direct interactive decision."""
+
+    from authorization_boundary import AuthorizationBoundary
+    from execution_gateway import (
+        ExecutionContext,
+        ExecutionGateway,
+        ProjectWriteEffectAdapter,
+    )
+    from execution_request import build_execution_request
+
+    root = Path(project_root).expanduser().resolve()
+    manager = type(
+        "_ProjectCliManager",
+        (),
+        {
+            "project_root": root,
+            "session_id": f"project-cli-{uuid.uuid4().hex}",
+        },
+    )()
+    trusted_root, target, target_digest = ProjectWriteEffectAdapter.prepare_operation(
+        manager,
+        str(root),
+        operation,
+    )
+    request = build_execution_request(
+        effect_id="project.write",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=manager.session_id,
+        source_surface="desktop.project.cli",
+        target={
+            "path": str(target),
+            "allowed_root": str(trusted_root),
+            "resource": "project_operation",
+            "operation": operation,
+            "root_digest": target_digest,
+        },
+        arguments=arguments or {},
+        scope="workspace",
+    )
+    boundary = AuthorizationBoundary()
+    interaction_id = f"project-cli-{uuid.uuid4().hex}"
+    challenge = boundary.create_challenge(request, interaction_id=interaction_id)
+    authorization = boundary.approve_challenge(
+        challenge_id=challenge["challenge_id"],
+        interaction_id=interaction_id,
+        session_id=request.session_id,
+        channel="desktop",
+    )
+    result, _consumed = ExecutionGateway(boundary).execute(
+        permit_token=authorization["permit"]["token"],
+        request=request,
+        context=ExecutionContext(manager=manager),
+    )
+    return dict(result["result"])
 
 
 def _reset_workspace() -> Path:

@@ -27,6 +27,8 @@ jobs:
         run: python -m pip install pytest==9.0.3 pytest-subtests==0.15.0 numpy==2.4.4 tzdata
       - name: Validate canonical version consistency
         run: python scripts/verify_version_consistency.py
+      - name: Validate README truth projection
+        run: python backend/scripts/generate_readme_projection.py --check
       - name: Build frontend
         run: npm run build
       - name: Typecheck frontend

@@ -6,6 +6,8 @@ import uuid
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
+from bago_core.atomic_json import write_json_atomic
+
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
@@ -20,7 +22,6 @@ def _send(handler, code: int, payload: dict) -> None:
 
 
 def _load_agents_registry() -> dict:
-    AGENTS_STATE_DIR.mkdir(parents=True, exist_ok=True)
     registry_path = AGENTS_STATE_DIR / "agents_registry.json"
     if registry_path.exists():
         try:
@@ -31,9 +32,8 @@ def _load_agents_registry() -> dict:
 
 
 def _save_agents_registry(data: dict) -> None:
-    AGENTS_STATE_DIR.mkdir(parents=True, exist_ok=True)
     registry_path = AGENTS_STATE_DIR / "agents_registry.json"
-    registry_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_json_atomic(registry_path, data)
 
 
 def _agent_to_contract(agent_data: dict) -> dict:

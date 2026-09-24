@@ -27,7 +27,6 @@ import { FirstRunWizard } from '@/features/first-run/FirstRunWizard';
 import { markFirstRunComplete, markFirstRunDismissed, shouldShowFirstRun, shouldSkipAutomaticFirstRun } from '@/features/first-run/firstRun';
 import { createShellActions, resolveNavigationShortcut, isPanelDestination, type BagoAction } from '@/navigation/actionRegistry';
 import { WorkspacePickerDialog } from '@/features/workspace/WorkspacePickerDialog';
-import { canPersistWorkspaceAuthority } from '@/shared/workspaceAuthority';
 import { useActiveProviderModels } from '@/shared/useActiveProviderModels';
 import { buildChatModelEntries } from '@/shared/providerStates';
 
@@ -121,12 +120,6 @@ function historyToTurns(history: BackendHistory | undefined): ChatTurn[] {
     };
   });
 }
-
-// CANON[WS-005]: Namespace para el useEffect de persistencia de workspace.
-// Mantiene estado compartido entre renders sin reasignar el ref.
-const persistWorkspace = {
-  everPersistedRef: { current: false } as { current: boolean }
-};
 
 export function ControlPlane() {
   const [uiState, setUiState] = useState<UiState>(() => {
@@ -290,6 +283,15 @@ export function ControlPlane() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [pendingConfirm, resolveConfirmation]);
 
+  useEffect(() => {
+    clientRef.current.setAuthorizationConfirmation(({ label }) => requestConfirmation({
+      title: 'Confirmar acción protegida',
+      description: `El backend solicita autorización para ${label}. ¿Continuar?`,
+      confirmLabel: 'Autorizar y ejecutar',
+    }));
+    return () => clientRef.current.setAuthorizationConfirmation(undefined);
+  }, [requestConfirmation]);
+
   const applyBootData = (
     data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>,
     requestedConversationRevision = conversationRevisionRef.current
@@ -423,29 +425,6 @@ export function ControlPlane() {
   useEffect(() => {
     void bootstrap();
   }, []);
-
-  // CANON[WS-005]: Persiste el workspace activo cada vez que cambia.
-  // El backend lo guarda en ~/.bago/last_workspace.json y lo usa al
-  // próximo boot. Se ejecuta también al primer snapshot válido.
-  useEffect(() => {
-    if (!snapshot) return;
-    const root = String(
-      snapshot.project?.root || snapshot.workspace?.repoRoot || snapshot.workspace?.root || ''
-    ).trim();
-    if (!root) return;
-    // Un snapshot inválido nunca puede reemplazar el último workspace válido.
-    if (!canPersistWorkspaceAuthority(snapshot)) return;
-    persistWorkspace.everPersistedRef.current = true;
-    void clientRef.current.persistWorkspace(root).catch(() => {
-      // Silenciar: la persistencia es best-effort
-    });
-  }, [
-    snapshot?.workspace?.linkedToSession,
-    snapshot?.workspace?.manifestState,
-    snapshot?.workspace?.repoRoot,
-    snapshot?.workspace?.root,
-    snapshot?.project?.root
-  ]);
 
   // Live event stream (SSE). Reconnects on disconnect with exponential
   // backoff (1s, 2s, 4s, 8s, capped at 30s). Maps backend events to
@@ -724,6 +703,33 @@ export function ControlPlane() {
     const requestedConversationRevision = conversationRevisionRef.current;
     const next = await clientRef.current.bootstrapModern().catch(() => clientRef.current.bootstrap());
     return applyBootData(next, requestedConversationRevision);
+  };
+
+  // CANON[WS-005]: Persistir el workspace es una acción explícita de la UI.
+  // El cliente ejecuta challenge -> approve -> Permit -> gateway; no se
+  // dispara desde un efecto de snapshot ni se silencian fallos de autoridad.
+  const persistWorkspaceRoot = async (requestedRoot?: string): Promise<void> => {
+    const root = String(
+      requestedRoot
+      || snapshot?.project.root
+      || snapshot?.workspace.repoRoot
+      || snapshot?.workspace.root
+      || ''
+    ).trim();
+    if (!root) {
+      setLastMessage('no hay workspace válido para persistir');
+      return;
+    }
+    try {
+      const result = await clientRef.current.persistWorkspace(root);
+      if (result.ok === false) {
+        throw new Error(String(result.error || result.message || 'No se pudo persistir el workspace'));
+      }
+      setLastMessage(`workspace persistido: ${String(result.saved || root)}`);
+      await refreshAfterMutation();
+    } catch (error) {
+      setLastMessage(error instanceof Error ? error.message : 'no se pudo persistir el workspace');
+    }
   };
 
   const refreshRouterState = async (): Promise<void> => {
@@ -1350,6 +1356,14 @@ export function ControlPlane() {
 
   const setSessionModelCb = async (modelKey: string | null): Promise<void> => {
     setLastMessage(modelKey ? `modelo sesión: ${modelKey}` : 'modelo sesión: auto');
+    if (modelKey === null) {
+      const confirmed = await requestConfirmation({
+        title: 'Quitar override de sesión',
+        description: 'Se restaurará el modelo automático y se eliminará el override persistido de esta sesión.',
+        confirmLabel: 'Quitar override'
+      });
+      if (!confirmed) return;
+    }
     const previousModel = sessionModel;
     setSessionModelState(modelKey);
     try {
@@ -1570,6 +1584,7 @@ export function ControlPlane() {
                   onRunCommand={runCommand}
                   onRunContextCommand={runContextCommand}
                   onRunAction={runAction}
+                  onPersistWorkspace={persistWorkspaceRoot}
                   onRunPlanTask={runPlanTask}
                   onPreparePlan={preparePipelineTask}
                   onSetSection={navigate}

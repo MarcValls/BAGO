@@ -69,8 +69,18 @@ from tool_approval_commands import (
 )
 
 
-def cmd_project(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
-    return _cmd_project_impl(mgr, engine, args, load_module=_load_tool_module)
+def cmd_project(
+    mgr: SessionManager,
+    engine: SwitchEngine,
+    args: list[str],
+) -> dict:
+    return _cmd_project_impl(
+        mgr,
+        engine,
+        args,
+        load_module=_load_tool_module,
+        direct_user_authorized=False,
+    )
 
 
 def cmd_memory(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
@@ -1205,14 +1215,20 @@ COMMAND_REGISTRY: dict[str, Any] = {
 }
 
 
-def execute(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+def _execute(
+    command_line: str,
+    mgr: SessionManager,
+    engine: SwitchEngine,
+    *,
+    direct_user_authorized: bool,
+) -> dict:
     """Parsea una línea de comando y la ejecuta."""
     command_line = command_line.strip()
     if not command_line.startswith("/"):
         return {"ok": False, "message": "Comando debe empezar con /", "is_chat": True}
 
     try:
-        parts = shlex.split(command_line[1:])
+        parts = shlex.split(command_line[1:], posix=os.name != "nt")
     except ValueError as exc:
         return {"ok": False, "message": f"Comando inválido: {exc}"}
     if not parts:
@@ -1225,9 +1241,43 @@ def execute(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dic
         return {"ok": False, "message": f"Comando desconocido: /{cmd_name}. Usa /help."}
 
     try:
+        if cmd_name == "project":
+            return _cmd_project_impl(
+                mgr,
+                engine,
+                args,
+                load_module=_load_tool_module,
+                direct_user_authorized=direct_user_authorized,
+            )
         return func(mgr, engine, args)
     except Exception as exc:
         return {"ok": False, "message": f"Error ejecutando /{cmd_name}: {exc}"}
+
+
+def execute(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+    """Execute without implicit direct-user authorization.
+
+    Transport surfaces, including HTTP and non-interactive CLI execution, use
+    this fail-closed entry point.
+    """
+
+    return _execute(command_line, mgr, engine, direct_user_authorized=False)
+
+
+def execute_local_cli(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+    """Execute an explicit command from the trusted local CLI entry point."""
+
+    return _execute(command_line, mgr, engine, direct_user_authorized=True)
+
+
+def execute_local_tty(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+    """Execute from the interactive REPL after verifying local TTY provenance."""
+
+    stdin_is_tty = bool(hasattr(sys.stdin, "isatty") and sys.stdin.isatty())
+    stdout_is_tty = bool(hasattr(sys.stdout, "isatty") and sys.stdout.isatty())
+    if not (stdin_is_tty and stdout_is_tty):
+        return execute(command_line, mgr, engine)
+    return execute_local_cli(command_line, mgr, engine)
 
 
 def _run_tests() -> int:

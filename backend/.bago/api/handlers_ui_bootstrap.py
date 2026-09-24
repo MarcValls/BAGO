@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from capability_contract import FEATURE_FLAG
+
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
 
@@ -114,6 +116,7 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
         send_json(handler, 503, {"error": "SessionManager no disponible"})
         return
 
+    cfg = getattr(mgr, "config", None)
     status = mgr.status()
     session_payload = _session_payload(mgr, status)
     status = session_payload.get("status", {})
@@ -155,5 +158,7 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
         "jobs_summary": jobs_summary,
         "router_policy": router_policy,
         "audit": audit,
-        "features": {"capability_anatomy_v02": True},
+        "features": {
+            FEATURE_FLAG: bool(cfg.get(f"features.{FEATURE_FLAG}", True)) if cfg else True,
+        },
     })

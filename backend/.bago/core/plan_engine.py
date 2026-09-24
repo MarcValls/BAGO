@@ -29,6 +29,7 @@ class Step:
     required_evidence: tuple[str, ...] = ()
     evidence: tuple[str, ...] = ()
     receipt_id: str = ""
+    attempt: int = 0
     block_reason: str = ""
     block_code: str = ""
     # Acción ejecutable asociada. Si action es None, el step es solo
@@ -55,6 +56,8 @@ class Plan:
     status: str = "pending"  # pending | running | done | failed | blocked
     id: str = ""  # uuid; lo asigna PlanEngine al crear
     created_at: str = ""  # ISO timestamp
+    governed_work: dict[str, Any] = field(default_factory=dict)
+    _governed_runtime: Any = field(default=None, init=False, repr=False, compare=False)
 
     def to_text(self) -> str:
         lines = [f"📋 Plan: {self.task}", ""]
@@ -527,6 +530,9 @@ class PlanEngine:
             plan.id = str(uuid.uuid4())[:8]
         if not plan.created_at:
             plan.created_at = datetime.now(timezone.utc).isoformat()
+        from governed_work_pipeline import ensure_pipeline_state
+
+        ensure_pipeline_state(plan)
         self.plans[plan.id] = plan
         self.current_plan = plan
         return plan.id
@@ -538,6 +544,7 @@ class PlanEngine:
             "task": plan.task,
             "status": plan.status,
             "created_at": plan.created_at,
+            "governed_work": dict(plan.governed_work),
             "steps": [
                 {
                     "number": s.number,
@@ -550,6 +557,7 @@ class PlanEngine:
                     "action_payload": s.action_payload,
                     "evidence": list(s.evidence),
                     "receipt_id": s.receipt_id,
+                    "attempt": s.attempt,
                     "model_hint": s.model_hint,
                     "model_provider": s.model_provider,
                     "model_name": s.model_name,

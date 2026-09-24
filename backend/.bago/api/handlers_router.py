@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from bago_core.atomic_json import write_json_atomic
+
 _RUNTIME_DIR = Path(__file__).resolve().parents[1] / "chat"
 if str(_RUNTIME_DIR) not in sys.path:
     sys.path.insert(0, str(_RUNTIME_DIR))
@@ -214,7 +216,7 @@ def _read_reasoning(state: "Path") -> str:
 def handle_reasoning_depth(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Persist the session thinking depth and expose its provider effort mapping."""
     from api_serializers import send_json
-    import json, os
+    import json
 
     state = _state_root(handler)
     requested = str(body.get("depth") or "normal").strip().lower()
@@ -222,10 +224,7 @@ def handle_reasoning_depth(handler: "BaseHTTPRequestHandler", body: dict) -> Non
         send_json(handler, 400, {"ok": False, "error": "Profundidad no válida", "allowed": list(_REASONING_DEPTHS)})
         return
     path = _reasoning_path(state)
-    Path(state).mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"depth": requested}, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(str(tmp), str(path))
+    write_json_atomic(path, {"depth": requested})
     mgr = getattr(handler, "session_mgr", None)
     if mgr is not None:
         mgr.reasoning_depth = requested
@@ -289,7 +288,7 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """
     from api_serializers import send_json
     from event_bus import emit
-    import json, os
+    import json
 
     state = _state_root(handler)
     model_key = body.get("model")  # None means clear override
@@ -299,18 +298,85 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     mgr = getattr(handler, "session_mgr", None)
 
     if model_key is None or model_key == "":
-        # Clearing a manual override must restore the effective automatic
-        # adapter before removing persistence. Otherwise the UI says
-        # "Automático" while the previous manual adapter remains live.
-        persisted: dict = {}
-        if override_path.exists():
-            try:
-                persisted = json.loads(override_path.read_text(encoding="utf-8"))
-            except Exception:
-                persisted = {}
-        automatic_provider = str(persisted.get("automatic_provider") or "").strip()
-        automatic_model = str(persisted.get("automatic_model") or "").strip()
-        if mgr is not None:
+        from authorization_boundary import AuthorizationBoundary, AuthorizationError
+        from execution_gateway import ExecutionContext, ExecutionGateway, ExecutionGatewayError
+        from execution_request import ExecutionRequestError, build_execution_request
+
+        if mgr is None:
+            send_json(handler, 503, {"ok": False, "error": "SessionManager no disponible"})
+            return
+
+        trusted_state_root = Path(
+            getattr(mgr, "state_root", state),
+        ).expanduser().resolve()
+        try:
+            request = build_execution_request(
+                effect_id="state.delete",
+                actor_kind="user",
+                principal_id="interactive-local-user",
+                session_id=str(getattr(mgr, "session_id", "") or ""),
+                source_surface="api.router.session_model.clear",
+                target={
+                    "path": str(override_path),
+                    "allowed_root": str(trusted_state_root),
+                    "resource": "session_model_override",
+                },
+                arguments={"operation": "clear"},
+                scope="session",
+            )
+        except ExecutionRequestError as exc:
+            send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})
+            return
+        boundary = AuthorizationBoundary()
+        action = str(body.get("authorization_action") or "").strip().lower()
+        interaction_id = str(body.get("interaction_id") or "").strip()
+
+        try:
+            if action == "challenge":
+                challenge = boundary.create_challenge(request, interaction_id=interaction_id)
+                send_json(handler, 200, {
+                    "ok": True,
+                    "authorization": {"state": "challenge", "challenge": challenge},
+                })
+                return
+
+            if action == "approve":
+                if str(body.get("user_decision") or "").strip().lower() != "approve":
+                    raise AuthorizationError(
+                        "La decisión explícita del usuario debe ser approve",
+                        code="authorization_user_decision_required",
+                    )
+                headers = getattr(handler, "headers", {}) or {}
+                channel = headers.get("X-Bago-Channel", "") if hasattr(headers, "get") else ""
+                authorization = boundary.approve_challenge(
+                    challenge_id=str(body.get("challenge_id") or ""),
+                    interaction_id=interaction_id,
+                    session_id=request.session_id,
+                    channel=channel,
+                )
+                send_json(handler, 200, {
+                    "ok": True,
+                    "authorization": {"state": "authorized", **authorization},
+                })
+                return
+
+            if action != "execute":
+                raise AuthorizationError(
+                    "authorization_action must be challenge, approve or execute",
+                    code="authorization_action_required",
+                )
+
+            # Clearing a manual override must restore the effective automatic
+            # adapter before removing persistence. Otherwise the UI says
+            # "Automático" while the previous manual adapter remains live.
+            persisted: dict = {}
+            if override_path.exists():
+                try:
+                    persisted = json.loads(override_path.read_text(encoding="utf-8"))
+                except Exception:
+                    persisted = {}
+            automatic_provider = str(persisted.get("automatic_provider") or "").strip()
+            automatic_model = str(persisted.get("automatic_model") or "").strip()
             automatic_provider = automatic_provider or str(getattr(getattr(mgr, "config", None), "default_provider", "") or "").strip()
             automatic_model = automatic_model or str(getattr(getattr(mgr, "config", None), "default_model", "") or "").strip()
             if not automatic_provider or not automatic_model:
@@ -324,16 +390,43 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
                         "error": switch_result.get("error") or "No se pudo restaurar el modelo automático",
                     })
                     return
-        if override_path.exists():
-            override_path.unlink()
-        send_json(handler, 200, {
-            "ok": True,
-            "session_model": None,
-            "cleared": True,
-            "effective_provider": getattr(mgr, "provider", None),
-            "effective_model": getattr(mgr, "model", None),
-        })
-        emit("router.session_model_cleared", {})
+            result, authorization = ExecutionGateway(boundary).execute(
+                permit_token=str(body.get("authorization_permit") or ""),
+                request=request,
+                context=ExecutionContext(manager=mgr),
+            )
+            response = {
+                "ok": True,
+                "session_model": None,
+                "cleared": True,
+                "effective_provider": getattr(mgr, "provider", None),
+                "effective_model": getattr(mgr, "model", None),
+                "receipt": result,
+                "authorization": {
+                    "state": "consumed",
+                    "permit_id": authorization.get("permit_id"),
+                    "decision_id": authorization.get("decision_id"),
+                    "proof_id": authorization.get("proof_id"),
+                    "operation_fingerprint": authorization.get("operation_fingerprint"),
+                },
+            }
+            send_json(handler, 200, response)
+            emit("router.session_model_cleared", {})
+        except AuthorizationError as exc:
+            status = 409 if exc.code in {
+                "authorization_challenge_not_pending",
+                "authorization_challenge_expired",
+                "authorization_permit_replay",
+                "authorization_permit_expired",
+                "authorization_operation_mismatch",
+            } else 403
+            send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
+        except ExecutionRequestError as exc:
+            send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})
+        except ExecutionGatewayError as exc:
+            code = str(getattr(exc, "code", "") or "")
+            status = 500 if code == "state_delete_failed" else 403 if code.startswith("state_delete_") else 409
+            send_json(handler, status, {"ok": False, "error": str(exc), "code": code})
         return
 
     # Apply through SessionManager so the adapter is rebuilt. Mutating only
@@ -366,10 +459,7 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         "automatic_provider": automatic_provider,
         "automatic_model": automatic_model,
     }
-    tmp = override_path.with_suffix(".tmp")
-    Path(state).mkdir(parents=True, exist_ok=True)
-    tmp.write_text(json.dumps(override, indent=2), encoding="utf-8")
-    os.replace(str(tmp), str(override_path))
+    write_json_atomic(override_path, override)
 
 
     # Manual selection must turn auto-switch off so the user stays in control.

@@ -44,7 +44,7 @@ from context_budget import AlertLevel
 
 import renderer as R
 import commands
-from commands import execute
+from commands import execute_local_tty
 from repl_menu import BagoReplMenuMixin
 from repl_startup import BagoReplStartupMixin
 from repl_inventory import print_workspace_inventory
@@ -128,7 +128,7 @@ class BagoREPL(BagoReplStartupMixin, BagoReplMenuMixin):
         short = self._WIZARD_COMMANDS.get(low)
         if short:
             return self._run_wizard(short)
-        result = execute(line, self.mgr, self.engine)
+        result = execute_local_tty(line, self.mgr, self.engine)
         if result.get("action") == "quit":
             print(R.ok(result["message"]))
             return False

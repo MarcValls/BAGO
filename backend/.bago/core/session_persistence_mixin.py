@@ -608,8 +608,9 @@ class SessionPersistenceMixin:
             "binding_confirmed": binding["binding_confirmed"],
             "binding_reason": binding["binding_reason"],
         }
-        write_json_atomic(path, data)
+        session_json_receipt = write_json_atomic(path, data)
 
+        session_db_indexed = False
         try:
             from session_db import get_session_db
             db = get_session_db(str(self.state_dir))
@@ -645,7 +646,15 @@ class SessionPersistenceMixin:
                 repo_branch=repo_branch,
             )
         except Exception:
-            pass
+            session_db_indexed = False
+        else:
+            session_db_indexed = True
+
+        return {
+            "session_json_persisted": True,
+            "session_json_receipt": session_json_receipt,
+            "session_db_indexed": session_db_indexed,
+        }
 
     @classmethod
     def load(cls, session_id: str, base_path: str | None = None, state_root: str | None = None) -> "SessionPersistenceMixin":

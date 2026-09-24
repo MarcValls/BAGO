@@ -49,24 +49,14 @@ def _load_config() -> dict:
 
 
 def _save_config(cfg: dict) -> None:
-    import json, os
+    from bago_core.atomic_json import write_json_atomic
     p = _config_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(str(tmp), str(p))
+    write_json_atomic(p, cfg)
 
 
 def _provider_secret_ref(provider_id: str, kind: str = "api_key") -> str:
     """Referencia al secreto en el SecretStore. No contiene el secreto."""
     return f"bago://secrets/providers/{provider_id}/{kind}"
-
-
-def _store_secret(provider_id: str, secret: str) -> str:
-    """Guarda un secreto en el SecretStore y devuelve la referencia."""
-    from secret_store import get_secret_store
-    get_secret_store().set_secret(f"providers/{provider_id}/api_key", secret)
-    return _provider_secret_ref(provider_id)
 
 
 def _provider_state(configured: bool, name: str) -> str:
@@ -173,60 +163,161 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
       - Si llega `clear_secret=true`, se borra del SecretStore.
     """
     from api_serializers import send_json
+    from authorization_boundary import AuthorizationBoundary, AuthorizationError
+    from execution_gateway import ExecutionContext, ExecutionGateway, ExecutionGatewayError
+    from execution_request import ExecutionRequestError, build_execution_request, stable_digest
 
     provider_name = str(body.get("provider", "")).strip()
-    if not provider_name or provider_name.lower() == "none":
+    if not provider_name or provider_name.lower() == "none" or provider_name not in PROVIDER_CATALOG:
         send_json(handler, 400, {"error": "provider requerido"})
         return
 
     mgr = _mgr(handler)
+    if mgr is None:
+        send_json(handler, 503, {"ok": False, "error": "SessionManager no disponible"})
+        return
     p_cfg = _provider_config(mgr, provider_name)
 
+    # `configuration_patch` carries only the normalized non-secret fields this
+    # request intends to change. It is bound into the credential-write
+    # ExecutionRequest so the gateway can recompute the authorized digest
+    # against the *current* backend config plus this same-request patch,
+    # instead of trusting a digest of live config alone. It must never
+    # contain api_key or secret_ref.
+    configuration_patch: dict[str, object] = {}
     if "enabled" in body:
         p_cfg["enabled"] = bool(body["enabled"])
+        configuration_patch["enabled"] = p_cfg["enabled"]
     if "base_url" in body and str(body["base_url"]).strip():
         p_cfg["base_url"] = normalize_provider_base_url(provider_name, body["base_url"])
+        configuration_patch["base_url"] = p_cfg["base_url"]
     if "model" in body and str(body["model"]).strip():
         p_cfg["default_model"] = str(body["model"]).strip()
+        configuration_patch["default_model"] = p_cfg["default_model"]
 
-    # ── Secret handling (NO en config.json) ──────────────────────────
+    secret_operation = ""
+    secret_value = ""
     if bool(body.get("clear_secret")):
-        from secret_store import get_secret_store
-        get_secret_store().delete_secret(f"providers/{provider_name}/api_key")
-        p_cfg.pop("secret_ref", None)
+        secret_operation = "delete"
     elif "api_key" in body and str(body["api_key"]).strip():
-        secret = str(body["api_key"]).strip()
-        ref = _store_secret(provider_name, secret)
-        p_cfg["secret_ref"] = ref
-        # Por compatibilidad legacy, NO se guarda api_key en config.json
-        p_cfg.pop("api_key", None)
-    elif "secret_ref" in body and str(body["secret_ref"]).strip():
-        # Permitir que el cliente apunte a un secreto pre-existente
-        p_cfg["secret_ref"] = str(body["secret_ref"]).strip()
+        secret_operation = "set"
+        secret_value = str(body["api_key"]).strip()
 
-    config_manager = getattr(mgr, "config", None) if mgr is not None else None
-    if config_manager is not None:
-        config_manager.set(f"providers.{provider_name}", p_cfg)
-    else:
-        cfg = _load_config()
-        cfg.setdefault("providers", {})[provider_name] = p_cfg
-        _save_config(cfg)
+    try:
+        credential_receipt: dict | None = None
+        authorization_summary: dict | None = None
+        if secret_operation:
+            request = build_execution_request(
+                effect_id="credential.write",
+                actor_kind="user",
+                principal_id="interactive-local-user",
+                session_id=str(getattr(mgr, "session_id", "") or ""),
+                source_surface="api.providers.configure",
+                target={
+                    "resource": "provider_credential",
+                    "operation": secret_operation,
+                    "provider": provider_name,
+                    "key": "api_key",
+                    "configuration_digest": stable_digest(p_cfg),
+                    "configuration_patch": configuration_patch,
+                },
+                arguments={"value": secret_value} if secret_operation == "set" else {},
+                scope="persistent",
+            )
+            boundary = AuthorizationBoundary()
+            action = str(body.get("authorization_action") or "").strip().lower()
+            interaction_id = str(body.get("interaction_id") or "").strip()
+            if action == "challenge":
+                challenge = boundary.create_challenge(request, interaction_id=interaction_id)
+                send_json(handler, 200, {
+                    "ok": True,
+                    "authorization": {"state": "challenge", "challenge": challenge},
+                })
+                return
+            if action == "approve":
+                if str(body.get("user_decision") or "").strip().lower() != "approve":
+                    raise AuthorizationError(
+                        "La decisión explícita del usuario debe ser approve",
+                        code="authorization_user_decision_required",
+                    )
+                headers = getattr(handler, "headers", {}) or {}
+                channel = headers.get("X-Bago-Channel", "") if hasattr(headers, "get") else ""
+                authorization = boundary.approve_challenge(
+                    challenge_id=str(body.get("challenge_id") or ""),
+                    interaction_id=interaction_id,
+                    session_id=request.session_id,
+                    channel=channel,
+                )
+                send_json(handler, 200, {
+                    "ok": True,
+                    "authorization": {"state": "authorized", **authorization},
+                })
+                return
+            if action != "execute":
+                raise AuthorizationError(
+                    "authorization_action must be challenge, approve or execute",
+                    code="authorization_action_required",
+                )
+            raw_receipt, authorization = ExecutionGateway(boundary).execute(
+                permit_token=str(body.get("authorization_permit") or ""),
+                request=request,
+                context=ExecutionContext(manager=mgr),
+            )
+            credential_receipt = dict(raw_receipt)
+            authorization_summary = {
+                "state": "consumed",
+                "permit_id": authorization.get("permit_id"),
+                "decision_id": authorization.get("decision_id"),
+                "proof_id": authorization.get("proof_id"),
+                "operation_fingerprint": authorization.get("operation_fingerprint"),
+            }
+            if secret_operation == "delete":
+                p_cfg.pop("secret_ref", None)
+            else:
+                p_cfg["secret_ref"] = _provider_secret_ref(provider_name)
+                p_cfg.pop("api_key", None)
+        elif "secret_ref" in body and str(body["secret_ref"]).strip():
+            p_cfg["secret_ref"] = str(body["secret_ref"]).strip()
 
-    # Devolver config SIN secretos (secret_ref sí, valor NO)
-    safe_cfg = {k: v for k, v in p_cfg.items() if k != "api_key"}
-    has_secret = _has_provider_secret(provider_name)
-    safe_cfg["has_secret"] = has_secret
-    if has_secret:
-        safe_cfg.setdefault("secret_ref", _provider_secret_ref(provider_name))
+        config_manager = getattr(mgr, "config", None)
+        if config_manager is not None:
+            config_manager.set(f"providers.{provider_name}", p_cfg)
+        else:
+            cfg = _load_config()
+            cfg.setdefault("providers", {})[provider_name] = p_cfg
+            _save_config(cfg)
 
-    # Invalidate provider cache in session manager if available
-    if mgr is not None:
+        safe_cfg = {k: v for k, v in p_cfg.items() if k != "api_key"}
+        has_secret = _has_provider_secret(provider_name)
+        safe_cfg["has_secret"] = has_secret
+        if has_secret:
+            safe_cfg.setdefault("secret_ref", _provider_secret_ref(provider_name))
+
         try:
             mgr.invalidate_providers_cache()
-        except Exception:
+        except (AttributeError, RuntimeError):
             pass
 
-    send_json(handler, 200, {"ok": True, "provider": provider_name, "config": safe_cfg})
+        response = {"ok": True, "provider": provider_name, "config": safe_cfg}
+        if credential_receipt is not None:
+            response["credential_receipt"] = credential_receipt
+            response["authorization"] = authorization_summary
+        send_json(handler, 200, response)
+    except AuthorizationError as exc:
+        status = 409 if exc.code in {
+            "authorization_challenge_not_found",
+            "authorization_challenge_not_pending",
+            "authorization_challenge_expired",
+            "authorization_permit_replay",
+            "authorization_permit_expired",
+            "authorization_operation_mismatch",
+        } else 403
+        send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
+    except ExecutionRequestError as exc:
+        send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})
+    except ExecutionGatewayError as exc:
+        status = 500 if exc.code == "credential_write_failed" else 403
+        send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
 
 
 def handle_test(handler: "BaseHTTPRequestHandler", body: dict) -> None:
@@ -382,9 +473,10 @@ def _http_get_json(url: str, headers: dict, timeout: float = 8.0):
     import json
     import urllib.request
     import urllib.error
+    from bago_core.server_effects import gateway_urlopen
     req = urllib.request.Request(url, headers=headers, method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with gateway_urlopen(req, timeout=timeout) as resp:
             raw = resp.read()
         return json.loads(raw.decode("utf-8")), None
     except urllib.error.HTTPError as e:
@@ -537,12 +629,9 @@ def _load_active_models(provider_id: str) -> list[str]:
 
 
 def _save_active_models(provider_id: str, models: list[str]) -> None:
-    import json
+    from bago_core.atomic_json import write_json_atomic
     p = _active_models_path(provider_id)
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(sorted(set(models)), indent=2, ensure_ascii=False), encoding="utf-8")
-    import os
-    os.replace(str(tmp), str(p))
+    write_json_atomic(p, sorted(set(models)))
 
 
 def handle_active_models_get(handler: "BaseHTTPRequestHandler", provider_id: str) -> None:

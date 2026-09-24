@@ -44,6 +44,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from bago_core.user_state_paths import state_read_candidates, state_root
+from bago_core.server_effects import gateway_urlopen
 
 
 # ─── Estado global del job ────────────────────────────────────────────
@@ -164,7 +165,7 @@ def _ollama_generate(model: str, prompt: str, *,
         headers={"Content-Type": "application/json"}, method="POST")
     t0 = time.time()
     try:
-        with urllib.request.urlopen(req, timeout=timeout_s) as r:
+        with gateway_urlopen(req, timeout=timeout_s) as r:
             d = json.load(r)
             return (d.get("response") or ""), time.time() - t0, None
     except Exception as exc:
@@ -173,7 +174,7 @@ def _ollama_generate(model: str, prompt: str, *,
 
 def _ollama_list_models(base_url: str = "http://127.0.0.1:11434") -> list[str]:
     try:
-        with urllib.request.urlopen(f"{base_url}/api/tags", timeout=5) as r:
+        with gateway_urlopen(f"{base_url}/api/tags", timeout=5) as r:
             d = json.load(r)
             return [m["name"] for m in d.get("models", [])]
     except Exception:
@@ -406,7 +407,7 @@ def _heuristic_score_reasoning(prompt: str, response: str, latency_s: float) -> 
     req = urllib.request.Request(
         "https://ollama.com/api/generate", data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with gateway_urlopen(req, timeout=30) as r:
             d = json.load(r)
             # Modelos thinking devuelven la respuesta en "response", pero
             # también puede haberla en "thinking". Buscar en ambos.
@@ -454,7 +455,7 @@ def _judge_copilot(prompt: str, response: str) -> float:
         },
         method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:
+        with gateway_urlopen(req, timeout=20) as r:
             d = json.load(r)
             content = d.get("choices", [{}])[0].get("message", {}).get("content", "")
             import re

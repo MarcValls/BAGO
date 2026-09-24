@@ -16,6 +16,8 @@ from pathlib import Path
 
 from _path_helper import ensure_tools_path
 ensure_tools_path()  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from bago_core.server_effects import gateway_urlopen
 from bago_utils import get_scan_root, load_json, print_test_results, save_json, timestamp_iso
 
 
@@ -241,7 +243,7 @@ def load_policy() -> dict:
 def _ollama_server_up(url: str | None = None) -> bool:
     target = f'{(url or _default_ollama_url()).rstrip("/")}/api/tags'
     try:
-        with urllib.request.urlopen(target, timeout=1.5) as response:
+        with gateway_urlopen(target, timeout=1.5, network_class="runtime_probe") as response:
             return 200 <= response.status < 300
     except Exception:
         return False
@@ -282,7 +284,7 @@ def _classify_with_ollama(task: str) -> dict | None:
         headers={'Content-Type': 'application/json'},
     )
     try:
-        with urllib.request.urlopen(request, timeout=3.0) as response:
+        with gateway_urlopen(request, timeout=3.0, network_class="runtime_probe") as response:
             payload = json.loads(response.read().decode('utf-8', errors='replace'))
             raw_text = payload.get('response', '{}')
             parsed = json.loads(raw_text)

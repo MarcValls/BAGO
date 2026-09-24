@@ -130,71 +130,156 @@ def handle(handler: "BaseHTTPRequestHandler") -> None:
     send_json(handler, 200, _workspace_payload(mgr))
 
 
-def _save_last_workspace(path: str) -> None:
-    """Guarda el path del workspace activo en ~/.bago/last_workspace.json"""
-    import json
-    try:
-        target = Path.home() / ".bago" / "last_workspace.json"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(
-            json.dumps({"path": str(path)}, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
-    except OSError:
-        pass
-
-
-def _persist_workspace(mgr: Any, path: str) -> dict[str, Any]:
-    """Persist and activate a workspace path for the current session."""
-    if not path:
-        return {"ok": False, "error": "no se pudo determinar path"}
-
-    workspace_path = Path(path).expanduser().resolve()
-    if not workspace_path.exists():
-        return {"ok": False, "error": f"Ruta no existe: {workspace_path}"}
-
-    rebinding_error = ""
-    rebind = getattr(mgr, "rebind_project_root", None)
-    if callable(rebind):
-        try:
-            rebind(workspace_path)
-        except Exception as exc:
-            return {"ok": False, "error": f"No se pudo activar el workspace {workspace_path}: {exc}"}
-    else:
-        rebinding_error = "SessionManager no expone rebind_project_root()"
-
-    save = getattr(mgr, "save", None)
-    if callable(save):
-        try:
-            save()
-        except Exception as exc:
-            return {"ok": False, "error": f"El workspace se activó, pero no pudo persistirse: {exc}"}
-
-    _save_last_workspace(str(workspace_path))
-    payload: dict[str, Any] = {"ok": True, "saved": str(workspace_path)}
-    if rebinding_error:
-        payload["warning"] = rebinding_error
-    return payload
-
-
 def handle_persist(handler: "BaseHTTPRequestHandler", body: dict) -> None:
-    """POST /workspace/persist — guarda el path actual como último workspace.
+    """POST /workspace/persist — challenge/approve/execute ``workspace.bind``.
 
-    Body: {"path": "..."} (opcional; si no se pasa, usa el base_path del mgr)
+    The handler only constructs the exact request and delegates the compound
+    bind/save/last-workspace effect to the server-owned gateway adapter.
     """
     from api_serializers import send_json
+    from authorization_boundary import AuthorizationBoundary, AuthorizationError
+    from execution_gateway import (
+        ExecutionContext,
+        ExecutionGateway,
+        ExecutionGatewayError,
+        WorkspaceBindEffectAdapter,
+    )
+    from execution_request import ExecutionRequestError, build_execution_request
+
     mgr = _mgr(handler)
     if mgr is None:
-        send_json(handler, 503, {"ok": False, "error": "SessionManager no disponible"})
+        send_json(handler, 503, {
+            "ok": False,
+            "error_code": "SESSION_MANAGER_MISSING",
+            "message": "SessionManager no disponible",
+        })
         return
+
     path = ""
     if isinstance(body, dict):
         path = str(body.get("path", "")).strip()
     if not path:
         # CANON[WS-002]: project_root es el path del workspace del usuario.
-        path = str(getattr(mgr, "project_root", "") or getattr(mgr, "base_path", ""))
-    result = _persist_workspace(mgr, path)
-    send_json(handler, 200 if result.get("ok") else 400, result)
+        path = str(getattr(mgr, "project_root", "") or "").strip()
+    if not path:
+        send_json(handler, 400, {
+            "ok": False,
+            "error_code": "MISSING_WORKSPACE_PATH",
+            "message": "No se pudo determinar el workspace activo",
+        })
+        return
+
+    try:
+        # Pure preflight only.  The adapter repeats this check immediately
+        # before rebind, after the Permit has been consumed.
+        workspace_path = WorkspaceBindEffectAdapter.validate_target(mgr, path)
+        binding = WorkspaceBindEffectAdapter.binding_descriptor(workspace_path)
+        request = build_execution_request(
+            effect_id="workspace.bind",
+            actor_kind="user",
+            principal_id="interactive-local-user",
+            session_id=str(getattr(mgr, "session_id", "") or ""),
+            source_surface="api.workspace.persist",
+            target={
+                "path": str(workspace_path),
+                "resource": "session_workspace",
+                "operation": "persist",
+                "workspace_id": str(binding["workspace_id"]),
+                "workspace_scope_root": str(binding["workspace_scope_root"]),
+                "workspace_state_root": str(binding["workspace_state_root"]),
+                "binding_digest": WorkspaceBindEffectAdapter.binding_descriptor_digest(binding),
+            },
+            arguments={},
+            scope="workspace",
+        )
+        boundary = AuthorizationBoundary()
+        payload = dict(body or {})
+        action = str(payload.get("authorization_action") or "").strip().lower()
+        interaction_id = str(payload.get("interaction_id") or "").strip()
+
+        if action == "challenge":
+            challenge = boundary.create_challenge(request, interaction_id=interaction_id)
+            send_json(handler, 200, {
+                "ok": True,
+                "authorization": {"state": "challenge", "challenge": challenge},
+            })
+            return
+
+        if action == "approve":
+            if str(payload.get("user_decision") or "").strip().lower() != "approve":
+                raise AuthorizationError(
+                    "La decisión explícita del usuario debe ser approve",
+                    code="authorization_user_decision_required",
+                )
+            headers = getattr(handler, "headers", {}) or {}
+            channel = headers.get("X-Bago-Channel", "") if hasattr(headers, "get") else ""
+            authorization = boundary.approve_challenge(
+                challenge_id=str(payload.get("challenge_id") or ""),
+                interaction_id=interaction_id,
+                session_id=request.session_id,
+                channel=channel,
+            )
+            send_json(handler, 200, {
+                "ok": True,
+                "authorization": {"state": "authorized", **authorization},
+            })
+            return
+
+        if action not in {"", "execute"}:
+            raise AuthorizationError(
+                "authorization_action must be challenge, approve or execute",
+                code="authorization_action_invalid",
+            )
+
+        result, authorization = ExecutionGateway(boundary).execute(
+            permit_token=str(payload.get("authorization_permit") or ""),
+            request=request,
+            context=ExecutionContext(manager=mgr),
+        )
+        response = dict(result) if isinstance(result, dict) else {"result": result}
+        response["authorization"] = {
+            "state": "consumed",
+            "permit_id": authorization.get("permit_id"),
+            "decision_id": authorization.get("decision_id"),
+            "proof_id": authorization.get("proof_id"),
+            "operation_fingerprint": authorization.get("operation_fingerprint"),
+        }
+        send_json(handler, 200 if bool(response.get("ok")) else 409, response)
+    except AuthorizationError as exc:
+        status = 409 if exc.code in {
+            "authorization_challenge_not_found",
+            "authorization_challenge_not_pending",
+            "authorization_challenge_expired",
+            "authorization_permit_replay",
+            "authorization_permit_expired",
+            "authorization_operation_mismatch",
+        } else 403
+        send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
+    except ExecutionRequestError as exc:
+        send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})
+    except ExecutionGatewayError as exc:
+        material_failure = {
+            "workspace_bind_rebind_failed",
+            "workspace_bind_save_failed",
+            "workspace_bind_last_path_failed",
+        }
+        target_failure = {
+            "workspace_bind_authorization_required",
+            "workspace_bind_path_required",
+            "workspace_bind_path_absolute_required",
+            "workspace_bind_target_invalid",
+            "workspace_bind_validator_missing",
+            "workspace_bind_resource_invalid",
+            "workspace_bind_operation_invalid",
+            "workspace_bind_rebind_unavailable",
+            "workspace_bind_save_unavailable",
+            "workspace_bind_binding_digest_required",
+            "workspace_bind_binding_changed",
+            "workspace_bind_identity_changed",
+            "workspace_bind_scope_changed",
+        }
+        status = 500 if exc.code in material_failure else 403 if exc.code in target_failure else 409
+        send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
 
 
 def handle_list(handler: "BaseHTTPRequestHandler") -> None:

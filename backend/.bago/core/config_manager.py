@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from state_paths import resolve_state_root
+from bago_core.atomic_json import write_json_atomic
 from bago_core.user_state_paths import state_read_candidates
 
 os.environ.setdefault("PYTHONUTF8", "1")
@@ -71,6 +72,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "auto_evolve_on_start": True,
         "workspace_retrieval": True,
         "directory_context": True,
+        "capability_anatomy_v02": True,
     },
     "model_catalog": {
         "mode": "all",
@@ -147,7 +149,7 @@ class ConfigManager:
                 target.setdefault(key, val)
 
     def _save(self) -> None:
-        self.config_path.write_text(json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8")
+        write_json_atomic(self.config_path, self._data)
 
     def get(self, key: str, default: Any = None) -> Any:
         """Obtiene valor por clave dot-notation, ej: 'providers.ollama-local.enabled'."""

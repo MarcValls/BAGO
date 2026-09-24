@@ -2,8 +2,8 @@
   "contract": "bago.import-migration-inventory.v1",
   "version": "1.0.0",
   "generated_from": "AST scan: executable sys.path.insert/append calls and add_piece_paths usage over versioned backend sources (tests, __pycache__ and git-ignored build/output trees excluded)",
-  "total_files": 65,
-  "total_mutations": 106,
+  "total_files": 69,
+  "total_mutations": 110,
   "files": [
     {
       "path": "backend/.bago/agents/agent_gateway.py",
@@ -57,7 +57,7 @@
       "path": "backend/.bago/api/handlers_router.py",
       "mutations": [
         {
-          "line": 19,
+          "line": 21,
           "call": "sys.path.insert"
         }
       ]
@@ -391,6 +391,33 @@
       ]
     },
     {
+      "path": "backend/.bago/tools/agent_router.py",
+      "mutations": [
+        {
+          "line": 19,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/tools/bago_infra_scan.py",
+      "mutations": [
+        {
+          "line": 37,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/tools/toolsmith.py",
+      "mutations": [
+        {
+          "line": 20,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
       "path": "backend/bago_core/cli.py",
       "mutations": [
         {
@@ -591,6 +618,15 @@
       "mutations": [
         {
           "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/server_effects.py",
+      "mutations": [
+        {
+          "line": 20,
           "call": "sys.path.insert"
         }
       ]

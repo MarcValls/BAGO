@@ -8,7 +8,6 @@ but as first-class HTTP endpoints so the UI does not need to tunnel through
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -24,39 +23,8 @@ sys.modules.setdefault("_bago_project_commands", _mod)
 _spec.loader.exec_module(_mod)
 
 cmd_project = _mod.cmd_project
-
-
-def _create_demo_project(root_value: str) -> dict[str, Any]:
-    """Create the small first-run project without overwriting user content."""
-    root_text = str(root_value or "").strip()
-    if not root_text:
-        raise ValueError("Campo 'root' requerido")
-    root = Path(root_text).expanduser()
-    if not root.is_absolute():
-        raise ValueError("La ruta del proyecto demo debe ser absoluta")
-    root = root.resolve()
-    if root == Path(root.anchor) or root == Path.home().resolve():
-        raise ValueError("Elige una subcarpeta dedicada para el proyecto demo")
-    if root.exists() and any(root.iterdir()):
-        raise FileExistsError(f"La carpeta no esta vacia: {root}")
-
-    (root / "src").mkdir(parents=True, exist_ok=True)
-    files = {
-        "README.md": "# BAGO Demo\n\nProyecto inicial creado por el asistente de BAGO.\n",
-        "AGENTS.md": "# BAGO Demo\n\nMantener cambios pequenos, verificables y documentados.\n",
-        "package.json": json.dumps({
-            "name": "bago-demo",
-            "private": True,
-            "version": "0.1.0",
-            "scripts": {"start": "node src/app.js"},
-        }, ensure_ascii=False, indent=2) + "\n",
-        "src/app.js": "console.log('BAGO Demo listo');\n",
-    }
-    for relative, content in files.items():
-        target = root / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-    return {"root": str(root), "files": sorted(files), "template": "bago-demo-v1"}
+build_project_write_request = _mod.build_project_write_request
+format_project_write = _mod._format_project_write
 
 
 def _mgr(handler):
@@ -87,6 +55,10 @@ def _action_args(action: str, body: dict[str, Any] | None = None) -> list[str]:
 
 
 def _handle(handler: "BaseHTTPRequestHandler", action: str, body: dict[str, Any] | None = None) -> None:
+    if action in {"init", "link", "seed"}:
+        _handle_project_write(handler, action, body or {})
+        return
+
     ctx = _ctx(handler)
     if ctx.session_mgr is None or ctx.switch_engine is None:
         ctx.send_json(503, {"ok": False, "error": "SessionManager/SwitchEngine no disponible"})
@@ -240,14 +212,146 @@ def handle_project_sync(handler: "BaseHTTPRequestHandler", body: dict[str, Any])
 
 
 def handle_project_demo(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
+    _handle_project_write(handler, "demo", body)
+
+
+def _handle_project_write(
+    handler: "BaseHTTPRequestHandler",
+    action: str,
+    body: dict[str, Any],
+) -> None:
     from api_serializers import send_json
+    from authorization_boundary import AuthorizationBoundary, AuthorizationError
+    from execution_gateway import (
+        ExecutionContext,
+        ExecutionGateway,
+        ExecutionGatewayError,
+        ProjectWriteEffectAdapter,
+    )
+    from execution_request import ExecutionRequestError, build_execution_request
+
+    mgr = _mgr(handler)
+    if mgr is None:
+        send_json(handler, 503, {"ok": False, "error": "SessionManager no disponible"})
+        return
 
     try:
-        data = _create_demo_project(str(body.get("root", "") or ""))
-    except (ValueError, FileExistsError) as exc:
-        send_json(handler, 400, {"ok": False, "error": str(exc)})
-        return
-    except OSError as exc:
-        send_json(handler, 500, {"ok": False, "error": f"No se pudo crear el proyecto demo: {exc}"})
-        return
-    send_json(handler, 201, {"ok": True, "message": "Proyecto demo creado", "data": data})
+        if action == "demo":
+            root_text = str(body.get("root") or "").strip()
+            if not root_text:
+                raise ExecutionRequestError(
+                    "Campo 'root' requerido",
+                    code="project_write_path_required",
+                )
+            candidate = Path(root_text).expanduser()
+            if not candidate.is_absolute():
+                raise ExecutionRequestError(
+                    "La ruta del proyecto demo debe ser absoluta",
+                    code="project_write_path_absolute_required",
+                )
+            trusted_root, target, target_digest = ProjectWriteEffectAdapter.prepare_operation(
+                mgr,
+                str(candidate),
+                "demo",
+            )
+            request = build_execution_request(
+                effect_id="project.write",
+                actor_kind="user",
+                principal_id="interactive-local-user",
+                session_id=str(getattr(mgr, "session_id", "") or ""),
+                source_surface="api.project.demo",
+                target={
+                    "path": str(target),
+                    "allowed_root": str(trusted_root),
+                    "resource": "project_operation",
+                    "operation": "demo",
+                    "root_digest": target_digest,
+                },
+                arguments={},
+                scope="workspace",
+            )
+        else:
+            root_text = str(
+                body.get("root")
+                or body.get("path")
+                or body.get("workspace")
+                or body.get("project_root")
+                or getattr(mgr, "project_root", "")
+                or ""
+            ).strip()
+            request = build_project_write_request(mgr, action, Path(root_text).expanduser().resolve())
+
+        boundary = AuthorizationBoundary()
+        authorization_action = str(body.get("authorization_action") or "").strip().lower()
+        interaction_id = str(body.get("interaction_id") or "").strip()
+        if authorization_action == "challenge":
+            challenge = boundary.create_challenge(request, interaction_id=interaction_id)
+            send_json(handler, 200, {
+                "ok": True,
+                "authorization": {"state": "challenge", "challenge": challenge},
+            })
+            return
+        if authorization_action == "approve":
+            if str(body.get("user_decision") or "").strip().lower() != "approve":
+                raise AuthorizationError(
+                    "La decisión explícita del usuario debe ser approve",
+                    code="authorization_user_decision_required",
+                )
+            headers = getattr(handler, "headers", {}) or {}
+            channel = headers.get("X-Bago-Channel", "") if hasattr(headers, "get") else ""
+            authorization = boundary.approve_challenge(
+                challenge_id=str(body.get("challenge_id") or ""),
+                interaction_id=interaction_id,
+                session_id=request.session_id,
+                channel=channel,
+            )
+            send_json(handler, 200, {
+                "ok": True,
+                "authorization": {"state": "authorized", **authorization},
+            })
+            return
+        if authorization_action != "execute":
+            raise AuthorizationError(
+                "authorization_action must be challenge, approve or execute",
+                code="authorization_action_required",
+            )
+
+        receipt, authorization = ExecutionGateway(boundary).execute(
+            permit_token=str(body.get("authorization_permit") or ""),
+            request=request,
+            context=ExecutionContext(manager=mgr),
+        )
+        if action == "demo":
+            result = {
+                "ok": True,
+                "message": "Proyecto demo creado",
+                "data": dict(receipt.get("result") or {}),
+                "receipt": receipt,
+            }
+            status = 201
+        else:
+            result = format_project_write(action, dict(receipt))
+            status = 200
+        result["authorization"] = {
+            "state": "consumed",
+            "permit_id": authorization.get("permit_id"),
+            "decision_id": authorization.get("decision_id"),
+            "proof_id": authorization.get("proof_id"),
+            "operation_fingerprint": authorization.get("operation_fingerprint"),
+        }
+        send_json(handler, status, result)
+    except AuthorizationError as exc:
+        status = 409 if exc.code in {
+            "authorization_challenge_not_found",
+            "authorization_challenge_not_pending",
+            "authorization_challenge_expired",
+            "authorization_permit_replay",
+            "authorization_permit_expired",
+            "authorization_operation_mismatch",
+        } else 403
+        send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
+    except ExecutionRequestError as exc:
+        send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})
+    except ExecutionGatewayError as exc:
+        status = 500 if exc.code == "project_write_failed" else 409 if exc.code == "project_write_target_changed" else 403
+        send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})

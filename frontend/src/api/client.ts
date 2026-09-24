@@ -8,7 +8,10 @@ import type {
   BackendRoutes,
   BackendSession,
   BackendStatus,
-  UiBootData
+  UiBootData,
+  AuthorizationApprovalResponse,
+  AuthorizationChallengeResponse,
+  AuthorizationTerminalResponse,
 } from '@/contracts/backend';
 import type { CapabilityExecutionResponse, CapabilityPackageResponse, PackageInspection } from '@/modules/capability-anatomy/packageContract';
 import type { CapabilityListResponse, CapabilitySnapshot } from '@/modules/capability-anatomy/contract';
@@ -59,6 +62,79 @@ class BagoHttpError extends Error {
     this.provider = String(payload.provider || '');
     this.model = String(payload.model || '');
   }
+}
+
+class BagoAuthorizationError extends Error {
+  code: string;
+
+  constructor(message: string, code = 'authorization_invalid_response') {
+    super(message);
+    this.name = 'BagoAuthorizationError';
+    this.code = code;
+  }
+}
+
+export type AuthorizationConfirmation = (request: {
+  label: string;
+  challenge: AuthorizationChallengeResponse;
+}) => Promise<boolean>;
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readAuthorizationFailure(
+  response: unknown,
+  label: string,
+  fallback: string,
+  secrets: string[],
+): BagoAuthorizationError {
+  const envelope = isObject(response) ? response : {};
+  const code = typeof envelope.error_code === 'string'
+    ? envelope.error_code
+    : typeof envelope.code === 'string'
+      ? envelope.code
+      : 'authorization_invalid_response';
+  const rawMessage = typeof envelope.message === 'string'
+    ? envelope.message
+    : typeof envelope.error === 'string'
+      ? envelope.error
+      : fallback;
+  const message = secrets.reduce(
+    (safeMessage, secret) => secret ? safeMessage.split(secret).join('[redacted]') : safeMessage,
+    rawMessage,
+  );
+  return new BagoAuthorizationError(`${label}: ${message}`, code);
+}
+
+function isChallengeResponse(response: unknown): response is AuthorizationChallengeResponse {
+  if (!isObject(response) || response.ok !== true || !isObject(response.authorization)) return false;
+  const { authorization } = response;
+  return authorization.state === 'challenge'
+    && isObject(authorization.challenge)
+    && typeof authorization.challenge.challenge_id === 'string'
+    && authorization.challenge.challenge_id.trim().length > 0;
+}
+
+function isApprovalResponse(response: unknown): response is AuthorizationApprovalResponse {
+  if (!isObject(response) || response.ok !== true || !isObject(response.authorization)) return false;
+  const { authorization } = response;
+  return authorization.state === 'authorized'
+    && isObject(authorization.permit)
+    && typeof authorization.permit.token === 'string'
+    && authorization.permit.token.trim().length > 0;
+}
+
+function isRejectedTerminalResponse(response: unknown): boolean {
+  if (!isObject(response)) return true;
+  const authorizationState = isObject(response.authorization) ? response.authorization.state : undefined;
+  return response.ok !== true
+    || response.state === 'blocked'
+    || response.state === 'failed'
+    || response.state === 'error'
+    || authorizationState === 'blocked'
+    || authorizationState === 'failed'
+    || authorizationState === 'error';
 }
 
 function shouldFallbackToLegacy(error: unknown): boolean {
@@ -135,6 +211,8 @@ function normalizeInterpretationResponse(
 }
 
 export class BagoClient {
+  private authorizationConfirmation: AuthorizationConfirmation | undefined;
+
   constructor(
     private apiBase: string,
     private apiToken: string
@@ -143,6 +221,10 @@ export class BagoClient {
   setConfig(apiBase: string, apiToken: string): void {
     this.apiBase = apiBase.trim().replace(/\/+$/, '');
     this.apiToken = apiToken.trim();
+  }
+
+  setAuthorizationConfirmation(callback: AuthorizationConfirmation | undefined): void {
+    this.authorizationConfirmation = callback;
   }
 
   private headers(extra?: Record<string, string>): HeadersInit {
@@ -165,6 +247,61 @@ export class BagoClient {
   private modernUrl(path: string): string {
     const clean = path.startsWith('/') ? path : `/${path}`;
     return `${this.apiBase}/api/v1${clean}`;
+  }
+
+  private async authorizedRequest<T = Record<string, unknown>>(
+    route: string,
+    payload: Record<string, unknown>,
+    label: string,
+    timeoutMs?: number,
+    options: { confirmed?: boolean } = {},
+  ): Promise<T> {
+    const interactionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `authorization-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const common = { ...payload, interaction_id: interactionId, channel: 'ui-react', surface: 'ui-react' };
+    const secrets = [typeof payload.api_key === 'string' ? payload.api_key : ''];
+    const challenge = await this.request<unknown>(route, {
+      method: 'POST',
+      body: JSON.stringify({ ...common, authorization_action: 'challenge' }),
+    }, timeoutMs);
+    if (!isChallengeResponse(challenge)) {
+      throw readAuthorizationFailure(challenge, label, 'El backend no emitió un challenge válido.', secrets);
+    }
+    const challengeId = challenge.authorization.challenge.challenge_id.trim();
+    if (!options.confirmed && !this.authorizationConfirmation) {
+      throw new BagoAuthorizationError(
+        `${label}: se requiere confirmación explícita antes de ejecutar esta acción.`,
+        'authorization_confirmation_required',
+      );
+    }
+    if (!options.confirmed) {
+      const confirmed = await this.authorizationConfirmation!({ label, challenge });
+      if (!confirmed) {
+        throw new BagoAuthorizationError(
+          `${label}: acción cancelada por el usuario.`,
+          'authorization_cancelled',
+        );
+      }
+    }
+
+    const approval = await this.request<unknown>(route, {
+      method: 'POST',
+      body: JSON.stringify({ ...common, authorization_action: 'approve', challenge_id: challengeId, user_decision: 'approve' }),
+    }, timeoutMs);
+    if (!isApprovalResponse(approval)) {
+      throw readAuthorizationFailure(approval, label, 'El backend no emitió un permiso válido.', secrets);
+    }
+    const permitToken = approval.authorization.permit.token.trim();
+
+    const execution = await this.request<AuthorizationTerminalResponse>(route, {
+      method: 'POST',
+      body: JSON.stringify({ ...common, authorization_action: 'execute', authorization_permit: permitToken }),
+    }, timeoutMs);
+    if (isRejectedTerminalResponse(execution)) {
+      throw readAuthorizationFailure(execution, label, 'El backend rechazó la ejecución autorizada.', secrets);
+    }
+    return execution as T;
   }
 
   async request<T = unknown>(path: string, init: RequestInit = {}, timeoutMs?: number): Promise<T> {
@@ -381,11 +518,15 @@ export class BagoClient {
     return this.request<Record<string, unknown>>('/router/session-model', { method: 'GET' });
   }
 
-  setSessionModel(modelKey: string | null): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/router/session-model', {
-      method: 'POST',
-      body: JSON.stringify({ model: modelKey, channel: 'ui-react', surface: 'ui-react' })
-    });
+  async setSessionModel(modelKey: string | null): Promise<Record<string, unknown>> {
+    if (modelKey !== null) {
+      return this.request<Record<string, unknown>>('/router/session-model', {
+        method: 'POST',
+        body: JSON.stringify({ model: modelKey, channel: 'ui-react', surface: 'ui-react' })
+      });
+    }
+
+    return this.authorizedRequest('/router/session-model', { model: null }, 'quitar el override');
   }
 
   // CANON[WS-004]: Listar y persistir workspaces desde el frontend.
@@ -462,19 +603,19 @@ export class BagoClient {
     return this.request(`/workspace/browse${query}`, { method: 'GET' });
   }
 
-  persistWorkspace(path?: string): Promise<{ ok: boolean; saved: string }> {
-    const body: Record<string, unknown> = {};
-    if (path) body.path = path;
-    return this.request('/workspace/persist', {
-      method: 'POST',
-      body: JSON.stringify(body)
-    });
+  async persistWorkspace(path?: string): Promise<Record<string, unknown>> {
+    const operation = path?.trim() ? { path: path.trim() } : {};
+    return this.authorizedRequest('/workspace/persist', operation, 'persistir el workspace');
   }
 
-  configureProvider(provider: string, config: { enabled?: boolean; base_url?: string; api_key?: string; model?: string }): Promise<Record<string, unknown>> {
+  configureProvider(provider: string, config: { enabled?: boolean; base_url?: string; api_key?: string; model?: string; clear_secret?: boolean }): Promise<Record<string, unknown>> {
+    const payload = { provider, ...config };
+    if (config.api_key?.trim() || config.clear_secret) {
+      return this.authorizedRequest('/providers/configure', payload, 'configurar la credencial del proveedor');
+    }
     return this.request<Record<string, unknown>>('/providers/configure', {
       method: 'POST',
-      body: JSON.stringify({ provider, ...config, channel: 'ui-react', surface: 'ui-react' })
+      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' }),
     });
   }
 
@@ -628,11 +769,8 @@ export class BagoClient {
     }, 60_000);
   }
 
-  executePlan(planId: string, payload?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/plans/${encodeURIComponent(planId)}/execute`, {
-      method: 'POST',
-      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
-    }, 60_000);
+  executePlan(planId: string, payload?: Record<string, unknown>, options?: { confirmed?: boolean }): Promise<Record<string, unknown>> {
+    return this.authorizedRequest(`/plans/${encodeURIComponent(planId)}/execute`, { ...payload }, 'ejecutar el plan', 60_000, options);
   }
 
   // --- Catalog & Provider Buffer ---
@@ -885,10 +1023,7 @@ export class BagoClient {
   }
 
   writeFile(path: string, content: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/files/write', {
-      method: 'POST',
-      body: JSON.stringify({ path, content }),
-    });
+    return this.authorizedRequest('/files/write', { path, content, createDirs: true }, 'escribir el archivo');
   }
 
   private projectBody(root?: string): string {
@@ -904,10 +1039,7 @@ export class BagoClient {
   }
 
   initProject(root?: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/project/init', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
+    return this.authorizedRequest<BackendCommandResult>('/project/init', root ? { root } : {}, 'inicializar el proyecto');
   }
 
   // Lee el estado REAL del filesystem en `root` sin tocar el session manager.
@@ -921,17 +1053,11 @@ export class BagoClient {
   }
 
   linkProject(root: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/project/link', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
+    return this.authorizedRequest<BackendCommandResult>('/project/link', { root }, 'vincular el proyecto');
   }
 
   seedProject(root: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/project/seed', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
+    return this.authorizedRequest<BackendCommandResult>('/project/seed', { root }, 'sembrar el proyecto');
   }
 
   syncProject(root?: string): Promise<BackendCommandResult> {
@@ -957,10 +1083,7 @@ export class BagoClient {
   }
 
   createDemoProject(root: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/project/demo', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
+    return this.authorizedRequest<BackendCommandResult>('/project/demo', { root }, 'crear el proyecto demo');
   }
 
   async sendInternalChat(message: string): Promise<Record<string, unknown>> {

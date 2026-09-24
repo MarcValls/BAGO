@@ -47,5 +47,9 @@ instructions:
 2. Treat backend-confirmed state, contracts, and candidate-bound receipts as
    authoritative over UI or prose summaries.
 3. Preserve historical reports rather than rewriting their factual record.
-4. Update this index when adding or retiring an operating document.
-5. `README.md` is protected by `scripts/verify_readme_freshness.py` in Canonical CI. Version/runtime drift fails directly, and changes in README-impacting surfaces require an accompanying README update.
+4. Treat the generated block in `README.md` and
+   `backend/contracts/readme_projection.v1.json` as projections, not
+   independent authorities. Regenerate them with `npm run docs:sync`; CI
+   enforces `npm run docs:check` semantics through
+   `generate_readme_projection.py --check`.
+5. Update this index when adding or retiring an operating document.

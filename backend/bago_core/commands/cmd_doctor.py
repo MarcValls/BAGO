@@ -25,6 +25,7 @@ import sys
 from pathlib import Path
 
 from bago_core.resolver import resolve_piece_path
+from bago_core.server_effects import gateway_urlopen
 
 BAGO_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BAGO_ROOT.parent
@@ -236,7 +237,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     try:
         import urllib.request
         req = urllib.request.Request("http://localhost:11434/api/tags")
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with gateway_urlopen(req, timeout=5, network_class="local_discovery") as resp:
             data = json.loads(resp.read().decode())
             model_count = len(data.get("models", []))
             ollama_ok = model_count > 0

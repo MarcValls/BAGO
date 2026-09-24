@@ -43,6 +43,7 @@ interface Props {
   onSendChat: (message: string) => void;
   onCreatePlan: (title: string, summary: string) => Promise<void> | void;
   onRunCommand: (command: string) => Promise<void>;
+  onPersistWorkspace: (root?: string) => Promise<void>;
   onChooseWorkspace: () => void;
 }
 
@@ -372,7 +373,7 @@ export function WorkspaceModule(props: Props) {
         workspaceTitle={workspaceTitle}
         onChooseWorkspace={props.onChooseWorkspace}
         onRunCommand={(cmd) => props.onRunCommand(cmd)}
-        onPersist={() => props.onRunCommand('/workspace persist')}
+        onPersist={() => void props.onPersistWorkspace(workspaceTitle === 'Sin ruta' ? undefined : workspaceTitle)}
         onSync={() => props.onRunCommand('/workspace sync')}
         onCopyPath={() => navigator.clipboard?.writeText(workspaceTitle)}
         onOpenExternal={() => props.onInspect(buildWorkspaceStatusSelection('open-external', workspaceTitle), 'detail')}

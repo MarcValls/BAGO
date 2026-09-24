@@ -201,7 +201,9 @@ class EquivalenceMap:
         return sorted(spec.provider for spec in self._by_model.get(model_id, []))
 
     def save(self, path: Path) -> None:
-        path.write_text(json.dumps(self._data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        from bago_core.atomic_json import write_text_atomic
+
+        write_text_atomic(path, json.dumps(self._data, indent=2, ensure_ascii=False) + "\n")
 
     @classmethod
     def load(cls, path: Path | None = None) -> "EquivalenceMap":

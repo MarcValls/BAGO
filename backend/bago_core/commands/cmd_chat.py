@@ -332,7 +332,7 @@ def cmd_exec(args: argparse.Namespace) -> int:
     from system_prompt import get_system_prompt
 
     module = load_piece_module("chat.package", "bago_repl_commands_exec", "commands.py")
-    execute = module.execute
+    execute = module.execute_local_cli
 
     raw_command = getattr(args, "slash_command", None) or getattr(args, "command", None) or []
     command_line = " ".join(str(part) for part in raw_command).strip()

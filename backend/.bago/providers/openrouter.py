@@ -26,6 +26,7 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
+from bago_core.server_effects import gateway_urlopen
 from bago_core.providers import ProviderAdapter, ModelInfo, HealthStatus, ProviderResponse, TokenUsage
 
 
@@ -51,12 +52,12 @@ class OpenRouterAdapter(ProviderAdapter):
     def _post(self, url: str, payload: dict, timeout: float = 60.0) -> dict:
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(url, data=data, headers=self._headers(), method="POST")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with gateway_urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
     def _get(self, url: str, timeout: float = 5.0) -> dict:
         req = urllib.request.Request(url, headers=self._headers(), method="GET")
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with gateway_urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
     def chat(
@@ -157,7 +158,7 @@ class OpenRouterAdapter(ProviderAdapter):
             f"{self.base_url}/chat/completions", data=data, headers=self._headers(), method="POST"
         )
         try:
-            with urllib.request.urlopen(req, timeout=60.0) as resp:
+            with gateway_urlopen(req, timeout=60.0) as resp:
                 for line in resp:
                     line = line.decode("utf-8").strip()
                     if line.startswith("data: "):

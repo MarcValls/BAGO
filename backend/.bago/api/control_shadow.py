@@ -75,8 +75,6 @@ class ControlShadow:
             _root = resolve_state_root(None)  # type: ignore[arg-type]
             self.state_dir = _root / "ui_control_shadow"
             self.logs_dir = _root / "logs"
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.state_path = self.state_dir / "ui_control_shadow.json"
         self.log_path = self.logs_dir / "ui_control_shadow.jsonl"
         self.state = self._load_state()
@@ -99,9 +97,11 @@ class ControlShadow:
         return state
 
     def _save_state(self, state: dict[str, Any] | None = None) -> None:
+        from bago_core.atomic_json import write_json_atomic
+
         self.state = state or self.state
         self.state["updated_at"] = time.time()
-        self.state_path.write_text(json.dumps(self.state, indent=2, ensure_ascii=False), encoding="utf-8")
+        write_json_atomic(self.state_path, self.state)
 
     def status(self) -> dict[str, Any]:
         mode = self.state.get("mode", "shadow")
@@ -213,8 +213,9 @@ class ControlShadow:
             },
             "result_ok": bool(result.get("ok", True)),
         }
-        with self.log_path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(event, ensure_ascii=False) + "\n")
+        from bago_core.atomic_json import append_text_durable
+
+        append_text_durable(self.log_path, json.dumps(event, ensure_ascii=False) + "\n")
         self.state["events_logged"] = int(self.state.get("events_logged", 0)) + 1
         self._save_state()
         return event

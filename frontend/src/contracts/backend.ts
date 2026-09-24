@@ -52,6 +52,50 @@ export interface BackendErrorEnvelope {
   [key: string]: unknown;
 }
 
+export type AuthorizationState = 'challenge' | 'authorized' | 'consumed' | 'blocked' | 'failed' | 'error';
+
+export interface AuthorizationChallenge {
+  challenge_id: string;
+}
+
+export interface AuthorizationPermit {
+  token: string;
+}
+
+export interface AuthorizationChallengeResponse {
+  ok: true;
+  authorization: {
+    state: 'challenge';
+    challenge: AuthorizationChallenge;
+  };
+  error_code?: string;
+  message?: string;
+  error?: string;
+}
+
+export interface AuthorizationApprovalResponse {
+  ok: true;
+  authorization: {
+    state: 'authorized';
+    permit: AuthorizationPermit;
+  };
+  error_code?: string;
+  message?: string;
+  error?: string;
+}
+
+export interface AuthorizationTerminalResponse {
+  ok?: boolean;
+  state?: string;
+  authorization?: {
+    state?: string;
+  };
+  error_code?: string;
+  code?: string;
+  message?: string;
+  error?: string;
+}
+
 export interface ContextEnvelope {
   envelope_id?: string;
   session_id?: string;
@@ -422,6 +466,7 @@ export interface UiBootstrapSnapshot {
     canStopPipeline: boolean;
     canRetryPipeline: boolean;
   };
+  features?: Record<string, boolean>;
   capabilities?: CapabilityMap;
   error?: BackendErrorEnvelope | null;
   evidence?: EvidenceItem[];
@@ -656,6 +701,7 @@ export interface UiBootData {
   sources?: Record<string, unknown>;
   router_list?: BackendRouterList;
   router_policy?: BackendRouterPolicy;
+  features?: Record<string, boolean>;
 }
 
 export type PanelId = 'capabilities' | 'tools' | 'agents' | 'interpreter' | 'github-auth';

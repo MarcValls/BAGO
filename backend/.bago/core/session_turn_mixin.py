@@ -745,13 +745,14 @@ class SessionTurnMixin:
                     continue
 
                 tool_start = time.time()
-                result = self.tool_registry.execute_call(call)
+                result = self.tool_registry.execute_model_call(call)
                 tool_elapsed = (time.time() - tool_start) * 1000
 
                 tools_executed.append({
                     "call_id": result.call_id,
                     "name": result.name,
                     "ok": result.ok,
+                    "blocked": result.blocked,
                     "returncode": result.returncode,
                     "latency_ms": round(tool_elapsed, 3),
                 })
@@ -763,6 +764,8 @@ class SessionTurnMixin:
                     returncode=result.returncode,
                     latency_ms=tool_elapsed,
                     content=result.content,
+                    blocked=result.blocked,
+                    block_reason=result.block_reason,
                 )
 
                 tool_msg = {
@@ -774,7 +777,12 @@ class SessionTurnMixin:
                 self.store.append_message(ContextMessage(
                     role="tool",
                     content=result.content,
-                    metadata={"tool_call_id": result.call_id, "name": result.name},
+                    metadata={
+                        "tool_call_id": result.call_id,
+                        "name": result.name,
+                        "blocked": result.blocked,
+                        "reason": result.block_reason,
+                    },
                 ))
 
             resp = adapter.chat(

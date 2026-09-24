@@ -16,7 +16,7 @@ describe('PipelineGuidedBuilder quick creation', () => {
         hasSteps={false}
         onTaskChange={vi.fn()}
         onCreatePlan={onCreatePlan}
-        onOpenCapabilities={vi.fn()}
+        onOpenPackages={vi.fn()}
         onCreated={vi.fn()}
       />)
     };

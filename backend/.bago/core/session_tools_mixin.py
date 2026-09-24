@@ -68,7 +68,7 @@ class SessionToolsMixin:
 
         for tc in self._pending_tools:
             call = self.tool_registry.parse_tool_calls({"tool_calls": [tc]})[0]
-            result = self.tool_registry.execute_call(call)
+            result = self.tool_registry.execute_model_call(call)
             tool_msg = {
                 "role": "tool",
                 "tool_call_id": result.call_id,
