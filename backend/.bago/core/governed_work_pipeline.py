@@ -515,6 +515,16 @@ def execute_plan_through_gateway(
                 context=context,
             )
         except Exception as exc:
+            error_code = str(getattr(exc, "code", "") or "")
+            if error_code.startswith("authorization_") or error_code.startswith("delegation_"):
+                evidence = [
+                    "blocked",
+                    "authority_revalidation_failed",
+                    f"code:{error_code}",
+                    f"step_idempotency_key:{key}",
+                ]
+                state.fail(key, result={}, evidence=evidence, error=str(exc))
+                return _blocked(str(exc), error_code)
             evidence = ["blocked", "outcome_status:OUTCOME_UNKNOWN", f"step_idempotency_key:{key}"]
             state.unknown(key, error=str(exc), evidence=evidence)
             return _blocked("plan_child_outcome_unknown", "pipeline_outcome_unknown")
