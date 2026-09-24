@@ -47,7 +47,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
     pre_state = ctx.session_mgr.status()
 
     def _do_command() -> dict[str, Any]:
-        return dict(execute_command(command_line, ctx.session_mgr, ctx.switch_engine))
+        return dict(execute_command(command_line, ctx.session_mgr, ctx.switch_engine, invocation_source="http"))
 
     try:
         result, elapsed_ms = ctx.timed_call(_do_command)
