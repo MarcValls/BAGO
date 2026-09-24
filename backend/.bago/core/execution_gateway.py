@@ -742,22 +742,28 @@ class ServerStateEffectAdapter:
 
 
 class GatewayHTTPResponse:
-    """Small buffered response compatible with the existing urllib callers."""
+    """urllib-compatible response proxy that preserves incremental reads."""
 
-    def __init__(self, body: bytes, *, status: int, headers: Mapping[str, Any], url: str) -> None:
-        self._body = bytes(body)
-        self._offset = 0
+    def __init__(self, response: Any, *, status: int, headers: Mapping[str, Any], url: str) -> None:
+        self._response = response
         self.status = int(status)
         self.code = self.status
-        self.headers = dict(headers)
+        self.headers = headers
         self.url = str(url)
 
     def read(self, amount: int = -1) -> bytes:
-        if amount is None or amount < 0:
-            amount = len(self._body) - self._offset
-        start = self._offset
-        self._offset = min(len(self._body), self._offset + int(amount))
-        return self._body[start:self._offset]
+        try:
+            return self._response.read(amount)
+        except TypeError:
+            return self._response.read()
+
+    def readinto(self, buffer: Any) -> int:
+        reader = getattr(self._response, "readinto", None)
+        if callable(reader):
+            return int(reader(buffer))
+        data = self.read(len(buffer))
+        buffer[:len(data)] = data
+        return len(data)
 
     def getcode(self) -> int:
         return self.status
@@ -766,6 +772,9 @@ class GatewayHTTPResponse:
         return self.url
 
     def close(self) -> None:
+        close = getattr(self._response, "close", None)
+        if callable(close):
+            return close()
         return None
 
     def __enter__(self) -> "GatewayHTTPResponse":
@@ -775,7 +784,7 @@ class GatewayHTTPResponse:
         self.close()
 
     def __iter__(self):
-        return iter(self._body.splitlines(keepends=True))
+        return iter(self._response)
 
 
 class NetworkReadEffectAdapter:
@@ -823,17 +832,13 @@ class NetworkReadEffectAdapter:
                 method=method,
             )
             timeout = float(request.target.get("timeout") or 30.0)
-            with urllib.request.urlopen(outbound, timeout=timeout) as response:
-                if hasattr(response, "read"):
-                    body = response.read()
-                else:
-                    body = b"".join(response)
-                raw_headers = getattr(response, "headers", {})
-                response_headers = dict(raw_headers.items()) if hasattr(raw_headers, "items") else dict(raw_headers)
-                getcode = getattr(response, "getcode", None)
-                status = int(getattr(response, "status", getcode() if callable(getcode) else 200))
-                geturl = getattr(response, "geturl", None)
-                final_url = str(geturl() if callable(geturl) else url)
+            response = urllib.request.urlopen(outbound, timeout=timeout)
+            raw_headers = getattr(response, "headers", {})
+            response_headers = raw_headers if hasattr(raw_headers, "items") else dict(raw_headers)
+            getcode = getattr(response, "getcode", None)
+            status = int(getattr(response, "status", getcode() if callable(getcode) else 200))
+            geturl = getattr(response, "geturl", None)
+            final_url = str(geturl() if callable(geturl) else url)
         except ExecutionGatewayError:
             raise
         except (urllib.error.HTTPError, urllib.error.URLError):
@@ -852,7 +857,7 @@ class NetworkReadEffectAdapter:
                 code="network_read_failed",
             ) from exc
         return GatewayHTTPResponse(
-            body,
+            response,
             status=status,
             headers=response_headers,
             url=final_url,
@@ -1078,13 +1083,17 @@ class ProjectWriteEffectAdapter:
                 code="execution_context_session_mismatch",
             )
 
-        root = self._trusted_root(manager)
-        target_root = Path(str(request.target.get("allowed_root") or "")).expanduser().resolve()
-        if target_root != root:
+        # The authorized request binds the selected root and target digest.
+        # Do not compare it to the manager's current root: a separately
+        # authorized workspace switch is valid, while target revalidation below
+        # still rejects tampering between approval and execution.
+        root_text = str(request.target.get("allowed_root") or "").strip()
+        if not root_text:
             raise ExecutionGatewayError(
-                "Project write trusted root is missing or changed",
+                "Project write trusted root is missing",
                 code="project_write_root_mismatch",
             )
+        root = Path(root_text).expanduser().resolve()
         resource = str(request.target.get("resource") or "").strip()
         if resource not in {self._FILE_RESOURCE, self._OPERATION_RESOURCE}:
             raise ExecutionGatewayError(

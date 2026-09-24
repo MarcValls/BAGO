@@ -167,6 +167,38 @@ export class BagoClient {
     return `${this.apiBase}/api/v1${clean}`;
   }
 
+  private async authorizedRequest<T = Record<string, unknown>>(
+    route: string,
+    payload: Record<string, unknown>,
+    label: string,
+    timeoutMs?: number,
+  ): Promise<T> {
+    const interactionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `authorization-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const common = { ...payload, interaction_id: interactionId, channel: 'ui-react', surface: 'ui-react' };
+    const challenge = await this.request<Record<string, unknown>>(route, {
+      method: 'POST',
+      body: JSON.stringify({ ...common, authorization_action: 'challenge' }),
+    }, timeoutMs);
+    const challengeRecord = (challenge.authorization as Record<string, unknown> | undefined)?.challenge as Record<string, unknown> | undefined;
+    const challengeId = String(challengeRecord?.challenge_id || '').trim();
+    if (!challengeId) throw new Error(`El backend no emitió un challenge válido para ${label}.`);
+
+    const approval = await this.request<Record<string, unknown>>(route, {
+      method: 'POST',
+      body: JSON.stringify({ ...common, authorization_action: 'approve', challenge_id: challengeId, user_decision: 'approve' }),
+    }, timeoutMs);
+    const permit = ((approval.authorization as Record<string, unknown> | undefined)?.permit) as Record<string, unknown> | undefined;
+    const permitToken = String(permit?.token || '').trim();
+    if (!permitToken) throw new Error(`El backend no emitió un permiso válido para ${label}.`);
+
+    return this.request<T>(route, {
+      method: 'POST',
+      body: JSON.stringify({ ...common, authorization_action: 'execute', authorization_permit: permitToken }),
+    }, timeoutMs);
+  }
+
   async request<T = unknown>(path: string, init: RequestInit = {}, timeoutMs?: number): Promise<T> {
     const headers = new Headers(init.headers || {});
     for (const [key, value] of Object.entries(this.headers() as Record<string, string>)) {
@@ -572,10 +604,14 @@ export class BagoClient {
     });
   }
 
-  configureProvider(provider: string, config: { enabled?: boolean; base_url?: string; api_key?: string; model?: string }): Promise<Record<string, unknown>> {
+  configureProvider(provider: string, config: { enabled?: boolean; base_url?: string; api_key?: string; model?: string; clear_secret?: boolean }): Promise<Record<string, unknown>> {
+    const payload = { provider, ...config };
+    if (config.api_key?.trim() || config.clear_secret) {
+      return this.authorizedRequest('/providers/configure', payload, 'configurar la credencial del proveedor');
+    }
     return this.request<Record<string, unknown>>('/providers/configure', {
       method: 'POST',
-      body: JSON.stringify({ provider, ...config, channel: 'ui-react', surface: 'ui-react' })
+      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' }),
     });
   }
 
@@ -730,10 +766,7 @@ export class BagoClient {
   }
 
   executePlan(planId: string, payload?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/plans/${encodeURIComponent(planId)}/execute`, {
-      method: 'POST',
-      body: JSON.stringify({ ...payload, channel: 'ui-react', surface: 'ui-react' })
-    }, 60_000);
+    return this.authorizedRequest(`/plans/${encodeURIComponent(planId)}/execute`, { ...payload }, 'ejecutar el plan', 60_000);
   }
 
   // --- Catalog & Provider Buffer ---
@@ -986,10 +1019,7 @@ export class BagoClient {
   }
 
   writeFile(path: string, content: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/files/write', {
-      method: 'POST',
-      body: JSON.stringify({ path, content }),
-    });
+    return this.authorizedRequest('/files/write', { path, content, createDirs: true }, 'escribir el archivo');
   }
 
   private projectBody(root?: string): string {
@@ -1005,10 +1035,7 @@ export class BagoClient {
   }
 
   initProject(root?: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/project/init', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
+    return this.authorizedRequest<BackendCommandResult>('/project/init', root ? { root } : {}, 'inicializar el proyecto');
   }
 
   // Lee el estado REAL del filesystem en `root` sin tocar el session manager.
@@ -1022,17 +1049,11 @@ export class BagoClient {
   }
 
   linkProject(root: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/project/link', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
+    return this.authorizedRequest<BackendCommandResult>('/project/link', { root }, 'vincular el proyecto');
   }
 
   seedProject(root: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/project/seed', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
+    return this.authorizedRequest<BackendCommandResult>('/project/seed', { root }, 'sembrar el proyecto');
   }
 
   syncProject(root?: string): Promise<BackendCommandResult> {
@@ -1058,10 +1079,7 @@ export class BagoClient {
   }
 
   createDemoProject(root: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/project/demo', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
+    return this.authorizedRequest<BackendCommandResult>('/project/demo', { root }, 'crear el proyecto demo');
   }
 
   async sendInternalChat(message: string): Promise<Record<string, unknown>> {

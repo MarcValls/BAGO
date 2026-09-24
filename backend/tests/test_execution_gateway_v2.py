@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import threading
 from pathlib import Path
 
 import pytest
@@ -212,7 +213,7 @@ def test_project_operation_revalidates_target_immediately_before_first_write(tmp
     assert not (project / ".bago" / "pack.json").exists()
 
 
-def test_project_operation_rejects_live_root_change_before_write(tmp_path, monkeypatch) -> None:
+def test_project_operation_allows_authorized_root_switch(tmp_path, monkeypatch) -> None:
     project = tmp_path / "project"
     project.mkdir()
     other = tmp_path / "other"
@@ -222,41 +223,47 @@ def test_project_operation_rejects_live_root_change_before_write(tmp_path, monke
         "session_id": "project-root-session",
     })()
     trusted_root, target, target_digest = ProjectWriteEffectAdapter.prepare_operation(
-        manager,
-        str(project),
-        "init",
+        manager, str(project), "init",
     )
     request = build_execution_request(
-        effect_id="project.write",
-        actor_kind="user",
-        principal_id="interactive-local-user",
-        session_id=manager.session_id,
+        effect_id="project.write", actor_kind="user",
+        principal_id="interactive-local-user", session_id=manager.session_id,
         source_surface="test.project.root",
-        target={
-            "path": str(target),
-            "allowed_root": str(trusted_root),
-            "resource": "project_operation",
-            "operation": "init",
-            "root_digest": target_digest,
-        },
-        arguments={},
-        scope="workspace",
+        target={"path": str(target), "allowed_root": str(trusted_root),
+                "resource": "project_operation", "operation": "init",
+                "root_digest": target_digest}, arguments={}, scope="workspace",
     )
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     boundary = auth.AuthorizationBoundary()
     permit = _permit(boundary, request, interaction="project-write-root")
     manager.project_root = other
 
-    with pytest.raises(ExecutionGatewayError) as blocked:
-        ExecutionGateway(boundary).execute(
-            permit_token=permit["token"],
-            request=request,
-            context=ExecutionContext(manager=manager),
-        )
-
-    assert blocked.value.code == "project_write_root_mismatch"
-    assert not (project / ".bago").exists()
+    result, _ = ExecutionGateway(boundary).execute(
+        permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager),
+    )
+    assert result["ok"] is True
+    assert (project / ".bago").exists()
     assert not (other / ".bago").exists()
+
+
+def test_project_operation_rejects_tampered_authorized_target(tmp_path, monkeypatch) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    manager = type("Manager", (), {"project_root": project, "session_id": "project-root-session"})()
+    trusted_root, target, target_digest = ProjectWriteEffectAdapter.prepare_operation(manager, str(project), "init")
+    request = build_execution_request(
+        effect_id="project.write", actor_kind="user", principal_id="interactive-local-user",
+        session_id=manager.session_id, source_surface="test.project.root",
+        target={"path": str(target), "allowed_root": str(trusted_root), "resource": "project_operation",
+                "operation": "init", "root_digest": target_digest}, arguments={}, scope="workspace",
+    )
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction="project-write-tamper")
+    request.target["path"] = str(tmp_path / "tampered")
+    with pytest.raises(auth.AuthorizationError) as blocked:
+        ExecutionGateway(boundary).execute(permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager))
+    assert blocked.value.code == "authorization_operation_mismatch"
 
 
 def test_credential_adapter_rejects_non_direct_strong_proof_before_secret_store_access(tmp_path) -> None:
@@ -836,7 +843,47 @@ def test_server_policy_network_adapter_blocks_unclassified_surface(monkeypatch) 
     assert called is False
 
 
-def test_server_policy_network_adapter_returns_buffered_response(monkeypatch) -> None:
+def test_gateway_urlopen_exposes_first_chunk_before_eof(monkeypatch) -> None:
+    import urllib.request
+
+    second_chunk_allowed = threading.Event()
+
+    class _SlowResponse:
+        status = 200
+        headers = {"Content-Type": "text/event-stream"}
+
+        def __init__(self):
+            self.calls = 0
+
+        def read(self, amount=-1):
+            self.calls += 1
+            if self.calls == 1:
+                return b"data: first\n\n"
+            if not second_chunk_allowed.wait(1.0):
+                raise TimeoutError("EOF was requested before the delayed chunk")
+            return b"data: second\n\n"
+
+        def close(self):
+            second_chunk_allowed.set()
+
+        def getcode(self):
+            return 200
+
+        def geturl(self):
+            return "https://example.test/stream"
+
+    response = _SlowResponse()
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *_args, **_kwargs: response)
+    from bago_core.server_effects import gateway_urlopen
+
+    streamed = gateway_urlopen("https://example.test/stream", timeout=1.0)
+    assert response.calls == 0
+    assert streamed.read() == b"data: first\n\n"
+    assert response.calls == 1
+    streamed.close()
+
+
+def test_server_policy_network_adapter_returns_streaming_response(monkeypatch) -> None:
     import urllib.request
 
     class _Response:

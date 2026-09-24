@@ -186,6 +186,26 @@ describe('BagoClient response parsing', () => {
     expect(bodies[2]).toMatchObject({ authorization_permit: 'permit-workspace-bind' });
   });
 
+  it('uses the shared authorization helper for credential provider configuration', async () => {
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+      const response = body.authorization_action === 'challenge'
+        ? { ok: true, authorization: { state: 'challenge', challenge: { challenge_id: 'provider-challenge' } } }
+        : body.authorization_action === 'approve'
+          ? { ok: true, authorization: { state: 'authorized', permit: { token: 'provider-permit' } } }
+          : { ok: true, provider: 'openai', config: { has_secret: true } };
+      return Promise.resolve(new Response(JSON.stringify(response), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(createBagoClient('', '').configureProvider('openai', { api_key: 'transient-secret' }))
+      .resolves.toMatchObject({ ok: true });
+    const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>);
+    expect(bodies.map((body) => body.authorization_action)).toEqual(['challenge', 'approve', 'execute']);
+    expect(bodies[1]).toMatchObject({ challenge_id: 'provider-challenge', user_decision: 'approve' });
+    expect(bodies[2]).toMatchObject({ authorization_permit: 'provider-permit' });
+  });
+
   it('attempts the modern bootstrap only once before the legacy fallback', async () => {
     const fetchMock = vi.fn().mockImplementation((url: string) => {
       const status = url === '/api/v1/ui/bootstrap' ? 404 : 200;

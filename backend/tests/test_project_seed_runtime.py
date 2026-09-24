@@ -79,6 +79,18 @@ class ProjectSeedRuntimeTests(unittest.TestCase):
             self.assertIn("Seeded workspace", result["message"])
             self.assertTrue((root / ".gabo" / "seed.meta.json").is_file())
 
+    def test_http_project_command_cannot_mint_direct_user_authorization(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+
+            class DummyMgr:
+                project_root = root
+                session_id = "project-http-session"
+
+            result = commands.execute("/project init", DummyMgr(), SimpleNamespace(), invocation_source="http")
+            self.assertFalse(result["ok"])
+            self.assertTrue(result.get("authorization_required"))
+
     def test_project_command_seed_skips_rebind_when_root_is_already_active(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

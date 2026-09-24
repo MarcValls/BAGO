@@ -69,13 +69,19 @@ from tool_approval_commands import (
 )
 
 
-def cmd_project(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
+def cmd_project(
+    mgr: SessionManager,
+    engine: SwitchEngine,
+    args: list[str],
+    *,
+    invocation_source: str = "interactive_tty",
+) -> dict:
     return _cmd_project_impl(
         mgr,
         engine,
         args,
         load_module=_load_tool_module,
-        direct_user_authorized=True,
+        direct_user_authorized=invocation_source == "interactive_tty",
     )
 
 
@@ -1211,7 +1217,13 @@ COMMAND_REGISTRY: dict[str, Any] = {
 }
 
 
-def execute(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+def execute(
+    command_line: str,
+    mgr: SessionManager,
+    engine: SwitchEngine,
+    *,
+    invocation_source: str = "interactive_tty",
+) -> dict:
     """Parsea una línea de comando y la ejecuta."""
     command_line = command_line.strip()
     if not command_line.startswith("/"):
@@ -1231,6 +1243,8 @@ def execute(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dic
         return {"ok": False, "message": f"Comando desconocido: /{cmd_name}. Usa /help."}
 
     try:
+        if cmd_name == "project":
+            return func(mgr, engine, args, invocation_source=invocation_source)
         return func(mgr, engine, args)
     except Exception as exc:
         return {"ok": False, "message": f"Error ejecutando /{cmd_name}: {exc}"}
