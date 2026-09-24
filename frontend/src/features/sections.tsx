@@ -86,6 +86,7 @@ interface Props {
   onRunPlanTask: (task: string) => Promise<void>;
   onPreparePlan?: (task: string) => Promise<void>;
   onSetSection: (section: Props['section']) => void;
+  onPersistWorkspace: (root?: string) => Promise<void>;
   onSetChatMode: (mode: ChatMode) => void;
   onSetGlobalMode: (mode: GlobalMode) => void;
   onRefreshRouter: () => Promise<void>;
@@ -1382,6 +1383,7 @@ export function ControlSections(props: Props) {
         onSendChat={props.onSendChat}
         onCreatePlan={props.onRunPlanTask}
         onRunCommand={async (command) => { await props.onRunCommand(command); }}
+        onPersistWorkspace={props.onPersistWorkspace}
         onChooseWorkspace={props.onChooseWorkspace}
       />
     );

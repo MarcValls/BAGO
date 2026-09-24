@@ -381,10 +381,64 @@ export class BagoClient {
     return this.request<Record<string, unknown>>('/router/session-model', { method: 'GET' });
   }
 
-  setSessionModel(modelKey: string | null): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/router/session-model', {
+  async setSessionModel(modelKey: string | null): Promise<Record<string, unknown>> {
+    if (modelKey !== null) {
+      return this.request<Record<string, unknown>>('/router/session-model', {
+        method: 'POST',
+        body: JSON.stringify({ model: modelKey, channel: 'ui-react', surface: 'ui-react' })
+      });
+    }
+
+    const interactionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `router-clear-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const route = '/router/session-model';
+    const challenge = await this.request<Record<string, unknown>>(route, {
       method: 'POST',
-      body: JSON.stringify({ model: modelKey, channel: 'ui-react', surface: 'ui-react' })
+      body: JSON.stringify({
+        model: null,
+        authorization_action: 'challenge',
+        interaction_id: interactionId,
+        channel: 'ui-react',
+        surface: 'ui-react'
+      })
+    });
+    const challengeAuth = challenge.authorization as Record<string, unknown> | undefined;
+    const challengeRecord = challengeAuth?.challenge as Record<string, unknown> | undefined;
+    const challengeId = String(challengeRecord?.challenge_id || '').trim();
+    if (!challengeId) {
+      throw new Error('El backend no emitió un AuthorizationChallenge válido para quitar el override.');
+    }
+
+    const approval = await this.request<Record<string, unknown>>(route, {
+      method: 'POST',
+      body: JSON.stringify({
+        model: null,
+        authorization_action: 'approve',
+        challenge_id: challengeId,
+        interaction_id: interactionId,
+        user_decision: 'approve',
+        channel: 'ui-react',
+        surface: 'ui-react'
+      })
+    });
+    const approvalAuth = approval.authorization as Record<string, unknown> | undefined;
+    const permit = approvalAuth?.permit as Record<string, unknown> | undefined;
+    const permitToken = String(permit?.token || '').trim();
+    if (!permitToken) {
+      throw new Error('El backend no emitió un Permit verificable para quitar el override.');
+    }
+
+    return this.request<Record<string, unknown>>(route, {
+      method: 'POST',
+      body: JSON.stringify({
+        model: null,
+        authorization_action: 'execute',
+        interaction_id: interactionId,
+        authorization_permit: permitToken,
+        channel: 'ui-react',
+        surface: 'ui-react'
+      })
     });
   }
 
@@ -462,12 +516,59 @@ export class BagoClient {
     return this.request(`/workspace/browse${query}`, { method: 'GET' });
   }
 
-  persistWorkspace(path?: string): Promise<{ ok: boolean; saved: string }> {
-    const body: Record<string, unknown> = {};
-    if (path) body.path = path;
-    return this.request('/workspace/persist', {
+  async persistWorkspace(path?: string): Promise<Record<string, unknown>> {
+    const route = '/workspace/persist';
+    const interactionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `workspace-bind-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const operation = path?.trim() ? { path: path.trim() } : {};
+
+    const challenge = await this.request<Record<string, unknown>>(route, {
       method: 'POST',
-      body: JSON.stringify(body)
+      body: JSON.stringify({
+        ...operation,
+        authorization_action: 'challenge',
+        interaction_id: interactionId,
+        channel: 'ui-react',
+        surface: 'ui-react'
+      })
+    });
+    const challengeAuth = challenge.authorization as Record<string, unknown> | undefined;
+    const challengeRecord = challengeAuth?.challenge as Record<string, unknown> | undefined;
+    const challengeId = String(challengeRecord?.challenge_id || '').trim();
+    if (!challengeId) {
+      throw new Error('El backend no emitió un AuthorizationChallenge válido para persistir el workspace.');
+    }
+
+    const approval = await this.request<Record<string, unknown>>(route, {
+      method: 'POST',
+      body: JSON.stringify({
+        ...operation,
+        authorization_action: 'approve',
+        challenge_id: challengeId,
+        interaction_id: interactionId,
+        user_decision: 'approve',
+        channel: 'ui-react',
+        surface: 'ui-react'
+      })
+    });
+    const approvalAuth = approval.authorization as Record<string, unknown> | undefined;
+    const permit = approvalAuth?.permit as Record<string, unknown> | undefined;
+    const permitToken = String(permit?.token || '').trim();
+    if (!permitToken) {
+      throw new Error('El backend no emitió un Permit verificable para persistir el workspace.');
+    }
+
+    return this.request<Record<string, unknown>>(route, {
+      method: 'POST',
+      body: JSON.stringify({
+        ...operation,
+        authorization_action: 'execute',
+        interaction_id: interactionId,
+        authorization_permit: permitToken,
+        channel: 'ui-react',
+        surface: 'ui-react'
+      })
     });
   }
 

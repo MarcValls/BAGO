@@ -6,9 +6,10 @@ not execute material effects; ExecutionGateway owns dispatch.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
-import secrets
+import os
 import threading
 import uuid
 from dataclasses import asdict, dataclass
@@ -17,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from bago_core.user_state_paths import state_root
+from effect_registry import REGISTRY
 from execution_request import ExecutionRequest, build_execution_request
 
 
@@ -151,6 +153,10 @@ def _read_ledger() -> dict[str, Any]:
 
 def _write_ledger(data: dict[str, Any]) -> None:
     path = _ledger_path()
+    # This ledger is authority-internal state: the AuthorizationBoundary owns
+    # its materialization and is intentionally not a runtime effect adapter.
+    # Keep the sink explicit so the inventory can distinguish authority-owned
+    # persistence from an ExecutionGateway bypass.
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -161,8 +167,69 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(str(token).encode("utf-8")).hexdigest()
 
 
+def _new_permit_token() -> str:
+    return base64.urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode("ascii")
+
+
 class AuthorizationBoundary:
     """Owns challenge, user-origin verification, decision and Permit issuance."""
+
+    def authorize_server_policy(self, request: ExecutionRequest) -> dict[str, Any]:
+        """Authorize a registered policy effect before server-owned dispatch.
+
+        Policy effects are not user-approved material mutations. They still
+        need an explicit authority decision before an adapter can run. The
+        caller must identify a server-owned surface and the effect must be
+        marked ``policy`` in the canonical registry; explicit/strong effects
+        can never use this path.
+        """
+
+        if str(request.actor_kind or "").strip().lower() not in {"server", "system"}:
+            raise AuthorizationError(
+                "Los efectos de política requieren actor server/system",
+                code="authorization_server_actor_required",
+            )
+        if not str(request.principal_id or "").strip().startswith("bago-"):
+            raise AuthorizationError(
+                "La política server-owned requiere un principal BAGO",
+                code="authorization_server_principal_required",
+            )
+        if not str(request.source_surface or "").strip().startswith("server."):
+            raise AuthorizationError(
+                "La superficie no está registrada como server-owned",
+                code="authorization_server_surface_required",
+            )
+        effect = REGISTRY.get(request.effect_id)
+        if effect.authorization_mode != "policy":
+            raise AuthorizationError(
+                f"{request.effect_id} requiere autorización explícita",
+                code="authorization_policy_effect_required",
+            )
+        if request.policy_version != REGISTRY.digest:
+            raise AuthorizationError(
+                "La política de ejecución está obsoleta",
+                code="authorization_policy_stale",
+            )
+        now = _now()
+        decision_id = f"authdec-policy-{uuid.uuid4().hex}"
+        proof_id = f"authproof-policy-{uuid.uuid4().hex}"
+        return {
+            "state": "authorized",
+            "kind": "server_policy",
+            "decision_id": decision_id,
+            "proof_id": proof_id,
+            "operation_fingerprint": request.fingerprint,
+            "effect_id": request.effect_id,
+            "session_id": request.session_id,
+            "issued_at": _iso(now),
+            "provenance": {
+                "kind": "server_policy",
+                "principal_id": request.principal_id,
+                "source_surface": request.source_surface,
+                "policy_version": request.policy_version,
+                "contract": AUTHORIZATION_CONTRACT_VERSION,
+            },
+        }
 
     def create_challenge(
         self,
@@ -278,7 +345,7 @@ class AuthorizationBoundary:
                 reason="verified_direct_user_interaction",
                 decided_at=_iso(now),
             )
-            raw_token = secrets.token_urlsafe(32)
+            raw_token = _new_permit_token()
             permit = Permit(
                 permit_id=f"permit-{uuid.uuid4().hex}",
                 token=raw_token,
@@ -369,7 +436,7 @@ class AuthorizationBoundary:
             reason="delegation_grant_child",
             decided_at=_iso(now),
         )
-        raw_token = secrets.token_urlsafe(32)
+        raw_token = _new_permit_token()
         permit = Permit(
             permit_id=f"permit-{uuid.uuid4().hex}",
             token=raw_token,

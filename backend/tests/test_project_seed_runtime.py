@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,7 @@ REPO = Path(__file__).resolve().parents[1]
 
 import project_memory  # noqa: E402
 import commands  # noqa: E402
+import authorization_boundary as auth  # noqa: E402
 
 
 class ProjectSeedRuntimeTests(unittest.TestCase):
@@ -57,15 +59,21 @@ class ProjectSeedRuntimeTests(unittest.TestCase):
                 )
 
             class DummyMgr:
+                project_root = root
+                session_id = "project-seed-session"
+
                 def rebind_project_root(self, _root):
-                    return None
+                    raise AssertionError("project.write must not rebind before authorization")
 
             original = commands._load_tool_module
+            original_state_root = auth.state_root
             commands._load_tool_module = fake_load_tool_module
+            auth.state_root = lambda: root.parent / f".{root.name}-authorization"
             try:
                 result = commands.cmd_project(DummyMgr(), SimpleNamespace(), ["seed", str(root)])
             finally:
                 commands._load_tool_module = original
+                auth.state_root = original_state_root
 
             self.assertTrue(result["ok"], msg=result["message"])
             self.assertIn("Seeded workspace", result["message"])
@@ -81,6 +89,7 @@ class ProjectSeedRuntimeTests(unittest.TestCase):
             class DummyMgr:
                 project_root = root
                 base_path = root
+                session_id = "project-seed-active-session"
 
                 def rebind_project_root(self, _root):
                     raise AssertionError("rebind_project_root should not run for the active root")
@@ -92,35 +101,42 @@ class ProjectSeedRuntimeTests(unittest.TestCase):
                 )
 
             original = commands._load_tool_module
+            original_state_root = auth.state_root
             commands._load_tool_module = fake_load_tool_module
+            auth.state_root = lambda: root.parent / f".{root.name}-authorization"
             try:
                 result = commands.cmd_project(DummyMgr(), SimpleNamespace(), ["seed", str(root)])
             finally:
                 commands._load_tool_module = original
+                auth.state_root = original_state_root
 
             self.assertTrue(result["ok"], msg=result["message"])
             self.assertTrue((root / ".gabo" / "workspace.json").is_file())
 
     def test_terminal_bago_exec_can_seed_project(self) -> None:
-        proc = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "bago_core.launcher",
-                "--base-path",
-                str(REPO),
-                "exec",
-                "/project",
-                "seed",
-            ],
-            cwd=REPO,
-            check=False,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=120,
-        )
+        env = dict(os.environ)
+        with tempfile.TemporaryDirectory() as auth_td:
+            env["BAGO_STATE_ROOT"] = str(Path(auth_td) / "authorization")
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "bago_core.launcher",
+                    "--base-path",
+                    str(REPO),
+                    "exec",
+                    "/project",
+                    "seed",
+                ],
+                cwd=REPO,
+                check=False,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=120,
+                env=env,
+            )
 
         self.assertEqual(proc.returncode, 0, msg=proc.stdout + "\n" + proc.stderr)
         self.assertIn("Seeded workspace at:", proc.stdout)

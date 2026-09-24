@@ -44,9 +44,11 @@ _STATE_DIR   = _BAGO_DIR / "state"
 _TOOLS_DIR   = _BAGO_DIR / "tools"
 _DYN_AGENTS  = _STATE_DIR / "agents"                             # agentes dinámicos
 
-for _p in [str(_TOOLS_DIR), str(_AGENTS_DIR), str(_DYN_AGENTS)]:
+for _p in [str(_BAGO_ROOT), str(_TOOLS_DIR), str(_AGENTS_DIR), str(_DYN_AGENTS), str(_BAGO_DIR / "core")]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
+
+from bago_core.server_effects import gateway_urlopen
 
 # ── Static Guard — separación motor / dinámica ───────────────────────────────
 import importlib.util as _ilu
@@ -267,7 +269,7 @@ class OllamaAdapter(BaseAgentAdapter):
     def health(self) -> bool:
         try:
             import urllib.request
-            with urllib.request.urlopen(f"{self._ollama_url}/api/tags", timeout=2) as r:
+            with gateway_urlopen(f"{self._ollama_url}/api/tags", timeout=2) as r:
                 return r.status == 200
         except Exception:
             return False
@@ -285,7 +287,7 @@ class OllamaAdapter(BaseAgentAdapter):
             headers={"Content-Type": "application/json"},
         )
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
+            with gateway_urlopen(req, timeout=timeout) as r:
                 data = json.loads(r.read())
                 return data.get("response", "")
         except Exception as exc:
@@ -425,7 +427,7 @@ class CloudAdapter(BaseAgentAdapter):
                 f"{self.url}/health",
                 headers={"Authorization": f"Bearer {self.api_key}"} if self.api_key else {},
             )
-            with urllib.request.urlopen(req, timeout=3) as r:
+            with gateway_urlopen(req, timeout=3, network_class="runtime_probe") as r:
                 return r.status == 200
         except Exception:
             return False
@@ -446,7 +448,7 @@ class CloudAdapter(BaseAgentAdapter):
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=request.timeout) as r:
+            with gateway_urlopen(req, timeout=request.timeout, network_class="runtime_probe") as r:
                 data = json.loads(r.read())
                 return AgentResult(
                     success=data.get("success", False),

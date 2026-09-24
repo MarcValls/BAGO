@@ -34,6 +34,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Literal
 
+from bago_core.server_effects import gateway_urlopen
+
 
 PolicyName = Literal["KEEP_ACTIVE", "LRU", "SAFE", "HARD"]
 
@@ -91,7 +93,7 @@ class ModelBuffer:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.request_timeout_s) as resp:
+            with gateway_urlopen(req, timeout=self.request_timeout_s) as resp:
                 return json.loads(resp.read().decode("utf-8") or "{}")
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
             return {"__error__": str(exc)}
@@ -99,7 +101,7 @@ class ModelBuffer:
     def _http_get(self, path: str) -> dict | None:
         url = f"{self.ollama_url}{path}"
         try:
-            with urllib.request.urlopen(url, timeout=self.request_timeout_s) as resp:
+            with gateway_urlopen(url, timeout=self.request_timeout_s) as resp:
                 return json.loads(resp.read().decode("utf-8") or "{}")
         except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
             return {"__error__": str(exc)}

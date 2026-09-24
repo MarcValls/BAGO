@@ -17,6 +17,8 @@ from pathlib import Path
 
 from _path_helper import ensure_tools_path
 ensure_tools_path()  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from bago_core.server_effects import gateway_urlopen
 from bago_utils import get_scan_root, load_json, print_test_results, save_json, timestamp_iso
 
 TOOLS_DIR = Path(__file__).resolve().parent
@@ -255,7 +257,7 @@ def listen_neural_bus(limit: int = 1) -> int:
     count = 0
     while count < max(1, limit):
         try:
-            with urllib.request.urlopen(f'{NEURAL_URL}/toolsmith/events', timeout=1.0) as response:
+            with gateway_urlopen(f'{NEURAL_URL}/toolsmith/events', timeout=1.0, network_class="runtime_probe") as response:
                 payload = response.read().decode('utf-8', errors='replace').strip()
                 if payload:
                     # ── Orchestrator gate (opt-in: BAGO_ORCHESTRATE=1) ───────

@@ -398,69 +398,95 @@ def _resolve_write_root(mgr) -> "Path":
 
 
 def handle_write(handler, body: dict):
-    """POST /files/write - write a file to the active project root."""
+    """POST /files/write - authorize and execute one workspace write.
+
+    The HTTP handler never writes directly.  It only constructs the exact
+    request, exposes the challenge/approval lifecycle, and delegates the
+    material effect to the server-owned filesystem adapter.
+    """
     from api_serializers import send_json
+    from authorization_boundary import AuthorizationBoundary, AuthorizationError
+    from execution_gateway import ExecutionContext, ExecutionGateway, ExecutionGatewayError
+    from execution_request import ExecutionRequestError, build_execution_request
 
     mgr = _mgr(handler)
     if mgr is None:
         send_json(handler, 503, {"ok": False, "error_code": "SESSION_MANAGER_MISSING", "message": "SessionManager no disponible"})
         return
 
-    raw_path = str(body.get("path") or "").strip()
-    content = body.get("content") or ""
-
+    payload = dict(body or {})
+    raw_path = str(payload.get("path") or "").strip()
     if not raw_path:
         send_json(handler, 400, {"ok": False, "error_code": "MISSING_PATH", "message": "Campo 'path' requerido"})
         return
 
-    # Sandbox check
-    normalized = raw_path.replace("\\", "/").lower()
-    for seg in _WRITE_FORBIDDEN:
-        if seg.lower() in normalized.split("/"):
-            send_json(handler, 403, {"ok": False, "error_code": "FORBIDDEN_PATH", "message": f"Ruta no permitida: {raw_path}"})
+    request = build_execution_request(
+        effect_id="filesystem.write",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=str(getattr(mgr, "session_id", "") or ""),
+        source_surface="api.files.write",
+        target={"path": raw_path},
+        arguments={"content": str(payload.get("content") or "")},
+        scope="workspace",
+    )
+    boundary = AuthorizationBoundary()
+    action = str(payload.get("authorization_action") or "").strip().lower()
+    interaction_id = str(payload.get("interaction_id") or "").strip()
+    try:
+        if action == "challenge":
+            challenge = boundary.create_challenge(request, interaction_id=interaction_id)
+            send_json(handler, 200, {"ok": True, "authorization": {"state": "challenge", "challenge": challenge}})
             return
 
-    base = _resolve_write_root(mgr)
-    if raw_path.split("/", 1)[0].lower() in {"workspace", "source"}:
-        target_root, relative = _resolve_namespaced_target(mgr, raw_path)
-        if target_root != _workspace_root(mgr):
-            send_json(handler, 403, {"ok": False, "error_code": "FORBIDDEN_SOURCE_WRITE", "message": "Solo se puede escribir en el workspace principal."})
+        if action == "approve":
+            if str(payload.get("user_decision") or "").strip().lower() != "approve":
+                raise AuthorizationError(
+                    "La decisión explícita del usuario debe ser approve",
+                    code="authorization_user_decision_required",
+                )
+            headers = getattr(handler, "headers", {}) or {}
+            channel = headers.get("X-Bago-Channel", "") if hasattr(headers, "get") else ""
+            authorization = boundary.approve_challenge(
+                challenge_id=str(payload.get("challenge_id") or ""),
+                interaction_id=interaction_id,
+                session_id=request.session_id,
+                channel=channel,
+            )
+            send_json(handler, 200, {"ok": True, "authorization": {"state": "authorized", **authorization}})
             return
-        target = (target_root / relative).resolve()
-        scope_root = target_root
-    else:
-        target_raw = Path(raw_path)
-        if not target_raw.is_absolute():
-            target = (base / target_raw).resolve()
-        else:
-            target = target_raw.resolve()
-        scope_root = base
 
-    try:
-        target.relative_to(scope_root)
-    except ValueError:
-        send_json(handler, 403, {"ok": False, "error_code": "PATH_OUT_OF_SCOPE", "message": "La ruta está fuera del proyecto activo.", "path": raw_path, "project_root": str(scope_root)})
-        return
+        if action not in {"", "execute"}:
+            raise AuthorizationError(
+                "authorization_action must be challenge, approve or execute",
+                code="authorization_action_invalid",
+            )
 
-    existed = target.exists()
-    try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(str(content), encoding="utf-8")
-    except OSError as exc:
-        send_json(handler, 500, {"ok": False, "error_code": "WRITE_FAILED", "message": f"Error escribiendo archivo: {exc}", "path": raw_path})
-        return
-
-    try:
-        rel = str(target.relative_to(base))
-    except ValueError:
-        rel = str(target)
-
-    send_json(handler, 200, {
-        "ok": True,
-        "path": rel,
-        "absolute_path": str(target),
-        "project_root": str(scope_root),
-        "created": not existed,
-        "overwritten": existed,
-        "bytes_written": len(str(content).encode("utf-8")),
-    })
+        result, authorization = ExecutionGateway(boundary).execute(
+            permit_token=str(payload.get("authorization_permit") or ""),
+            request=request,
+            context=ExecutionContext(manager=mgr),
+        )
+        response = dict(result) if isinstance(result, dict) else {"result": result}
+        response["authorization"] = {
+            "state": "consumed",
+            "permit_id": authorization.get("permit_id"),
+            "decision_id": authorization.get("decision_id"),
+            "proof_id": authorization.get("proof_id"),
+            "operation_fingerprint": authorization.get("operation_fingerprint"),
+        }
+        send_json(handler, 200, response)
+    except AuthorizationError as exc:
+        status = 409 if exc.code in {
+            "authorization_challenge_not_pending",
+            "authorization_challenge_expired",
+            "authorization_permit_replay",
+            "authorization_permit_expired",
+            "authorization_operation_mismatch",
+        } else 403
+        send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
+    except ExecutionRequestError as exc:
+        send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})
+    except ExecutionGatewayError as exc:
+        status = 500 if getattr(exc, "code", "") == "filesystem_write_failed" else 403 if str(getattr(exc, "code", "")).startswith("filesystem_") else 409
+        send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
