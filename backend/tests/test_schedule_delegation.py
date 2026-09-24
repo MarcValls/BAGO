@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import inspect
 import sys
-import threading
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
