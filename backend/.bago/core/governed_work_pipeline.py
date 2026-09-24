@@ -516,7 +516,7 @@ def execute_plan_through_gateway(
             )
         except Exception as exc:
             error_code = str(getattr(exc, "code", "") or "")
-            if error_code.startswith("authorization_") or error_code.startswith("delegation_"):
+            if bool(getattr(exc, "pre_dispatch", False)):
                 evidence = [
                     "blocked",
                     "authority_revalidation_failed",
