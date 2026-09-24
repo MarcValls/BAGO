@@ -1803,7 +1803,28 @@ class ExecutionGateway:
         trusted_services = dict(context.services)
         trusted_services["_parent_request"] = parent_request
         nested_context = ExecutionContext(manager=context.manager, services=trusted_services)
-        return adapter.execute(child_request, nested_context), authorization
+
+        delegation_state_dir = trusted_services.get("state_dir")
+        if child_request.delegation_id and delegation_state_dir is None:
+            manager = context.manager
+            if manager is None:
+                raise ExecutionGatewayError(
+                    "Delegated nested execution requires SessionManager context",
+                    code="authorization_delegation_state_required",
+                )
+            base_path = Path(getattr(manager, "base_path", Path.cwd()))
+            delegation_state_dir = base_path / ".bago" / "state"
+
+        try:
+            with self.boundary.consumed_authority_lease(
+                authorization=authorization,
+                request=parent_request,
+                delegation_state_dir=delegation_state_dir,
+            ):
+                result = adapter.execute(child_request, nested_context)
+        except AuthorizationError as exc:
+            raise ExecutionGatewayError(str(exc), code=exc.code) from exc
+        return result, authorization
 
 
 __all__ = [
