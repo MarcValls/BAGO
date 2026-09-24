@@ -127,6 +127,8 @@ direct user decision
 
 El grant liga principal, schedule, efectos admitidos, target, digest de argumentos, scope, policy version, expiración, cardinalidad y revocación. Los schedules legacy habilitados sin grant migran a fail-closed. Contrato: [`backend/docs/contracts/scheduler_delegation.v1.md`](backend/docs/contracts/scheduler_delegation.v1.md).
 
+Los planes gobernados con varios efectos materiales no reutilizan ciegamente el estado de un `Permit` padre consumido: antes de cada child, `ExecutionGateway` exige una revalidación de frescura propiedad de `AuthorizationBoundary`. La revocación o expiración que gane antes del siguiente child bloquea ese efecto con cero materialización; si el child ya posee el lease de autoridad, la revocación se lineariza después de completar ese commit. Para ejecuciones delegadas, la misma admisión revalida también el `DelegationGrant` vivo.
+
 ### Sinks de estado persistente server-owned
 
 `state.delete`, `workspace.bind`, `project.write` y `credential.write` se migraron a adapters de `ExecutionGateway` (`backend/.bago/core/execution_gateway.py`) en vez de escrituras directas del proceso servidor. Cada adapter valida el `Permit` autorizado antes de tocar disco y rechaza fail-closed si falta autorizacion, el root no coincide, el path esta fuera de scope o el digest previo no calza. Esto cierra la autoridad de esos sinks concretos dentro de P4-P10; no declara la frontera unica de ejecucion (`ExecutionGateway` sigue P2_P3_IMPLEMENTED_SLICE) ni sustituye el resto del plan de unificacion.
