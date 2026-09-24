@@ -283,6 +283,15 @@ export function ControlPlane() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [pendingConfirm, resolveConfirmation]);
 
+  useEffect(() => {
+    clientRef.current.setAuthorizationConfirmation(({ label }) => requestConfirmation({
+      title: 'Confirmar acción protegida',
+      description: `El backend solicita autorización para ${label}. ¿Continuar?`,
+      confirmLabel: 'Autorizar y ejecutar',
+    }));
+    return () => clientRef.current.setAuthorizationConfirmation(undefined);
+  }, [requestConfirmation]);
+
   const applyBootData = (
     data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>,
     requestedConversationRevision = conversationRevisionRef.current
@@ -711,13 +720,6 @@ export function ControlPlane() {
       setLastMessage('no hay workspace válido para persistir');
       return;
     }
-    const confirmed = await requestConfirmation({
-      title: 'Persistir workspace',
-      description: `Se fijará ${root} como workspace activo y se guardará tras la autorización del backend.`,
-      confirmLabel: 'Persistir workspace'
-    });
-    if (!confirmed) return;
-
     try {
       const result = await clientRef.current.persistWorkspace(root);
       if (result.ok === false) {

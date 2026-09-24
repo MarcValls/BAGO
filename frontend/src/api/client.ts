@@ -74,6 +74,11 @@ class BagoAuthorizationError extends Error {
   }
 }
 
+export type AuthorizationConfirmation = (request: {
+  label: string;
+  challenge: AuthorizationChallengeResponse;
+}) => Promise<boolean>;
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -206,6 +211,8 @@ function normalizeInterpretationResponse(
 }
 
 export class BagoClient {
+  private authorizationConfirmation: AuthorizationConfirmation | undefined;
+
   constructor(
     private apiBase: string,
     private apiToken: string
@@ -214,6 +221,10 @@ export class BagoClient {
   setConfig(apiBase: string, apiToken: string): void {
     this.apiBase = apiBase.trim().replace(/\/+$/, '');
     this.apiToken = apiToken.trim();
+  }
+
+  setAuthorizationConfirmation(callback: AuthorizationConfirmation | undefined): void {
+    this.authorizationConfirmation = callback;
   }
 
   private headers(extra?: Record<string, string>): HeadersInit {
@@ -243,6 +254,7 @@ export class BagoClient {
     payload: Record<string, unknown>,
     label: string,
     timeoutMs?: number,
+    options: { confirmed?: boolean } = {},
   ): Promise<T> {
     const interactionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
@@ -257,6 +269,21 @@ export class BagoClient {
       throw readAuthorizationFailure(challenge, label, 'El backend no emitió un challenge válido.', secrets);
     }
     const challengeId = challenge.authorization.challenge.challenge_id.trim();
+    if (!options.confirmed && !this.authorizationConfirmation) {
+      throw new BagoAuthorizationError(
+        `${label}: se requiere confirmación explícita antes de ejecutar esta acción.`,
+        'authorization_confirmation_required',
+      );
+    }
+    if (!options.confirmed) {
+      const confirmed = await this.authorizationConfirmation!({ label, challenge });
+      if (!confirmed) {
+        throw new BagoAuthorizationError(
+          `${label}: acción cancelada por el usuario.`,
+          'authorization_cancelled',
+        );
+      }
+    }
 
     const approval = await this.request<unknown>(route, {
       method: 'POST',
@@ -742,8 +769,8 @@ export class BagoClient {
     }, 60_000);
   }
 
-  executePlan(planId: string, payload?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.authorizedRequest(`/plans/${encodeURIComponent(planId)}/execute`, { ...payload }, 'ejecutar el plan', 60_000);
+  executePlan(planId: string, payload?: Record<string, unknown>, options?: { confirmed?: boolean }): Promise<Record<string, unknown>> {
+    return this.authorizedRequest(`/plans/${encodeURIComponent(planId)}/execute`, { ...payload }, 'ejecutar el plan', 60_000, options);
   }
 
   // --- Catalog & Provider Buffer ---

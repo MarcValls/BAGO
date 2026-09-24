@@ -10,6 +10,7 @@ vi.mock('@/api/client', async (importOriginal) => {
     ...original,
     createBagoClient: vi.fn((_apiBase: string, _apiToken: string) => ({
       setConfig: vi.fn(),
+      setAuthorizationConfirmation: vi.fn(),
       bootstrap: vi.fn().mockResolvedValue({
         status: {
           framework_root: 'C:\\\\test\\\\bago',

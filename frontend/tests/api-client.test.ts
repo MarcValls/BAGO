@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBagoClient } from '../src/api/client';
 
+function authorizedClient(apiBase = '', apiToken = '') {
+  const client = createBagoClient(apiBase, apiToken);
+  client.setAuthorizationConfirmation(async () => true);
+  return client;
+}
+
 describe('BagoClient response parsing', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -142,7 +148,7 @@ describe('BagoClient response parsing', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(createBagoClient('', '').setSessionModel(null)).resolves.toMatchObject({ ok: true, cleared: true });
+    await expect(authorizedClient().setSessionModel(null)).resolves.toMatchObject({ ok: true, cleared: true });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>);
@@ -174,7 +180,7 @@ describe('BagoClient response parsing', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(createBagoClient('', '').persistWorkspace('C:/work/project')).resolves.toMatchObject({
+    await expect(authorizedClient().persistWorkspace('C:/work/project')).resolves.toMatchObject({
       ok: true,
       saved: 'C:/work/project'
     });
@@ -200,7 +206,7 @@ describe('BagoClient response parsing', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(createBagoClient('', '').configureProvider('openai', { api_key: 'transient-secret' }))
+    await expect(authorizedClient().configureProvider('openai', { api_key: 'transient-secret' }))
       .resolves.toMatchObject({ ok: true });
     const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>);
     expect(bodies.map((body) => body.authorization_action)).toEqual(['challenge', 'approve', 'execute']);
@@ -223,7 +229,7 @@ describe('BagoClient response parsing', () => {
     const storageSetItem = vi.fn();
     vi.stubGlobal('localStorage', { setItem: storageSetItem });
     vi.stubGlobal('fetch', fetchMock);
-    const client = createBagoClient('', '');
+    const client = authorizedClient();
 
     await client.initProject('C:/work/project');
     await client.writeFile('src/example.ts', 'export const value = 1;');
@@ -259,7 +265,7 @@ describe('BagoClient response parsing', () => {
     }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(createBagoClient('', '').configureProvider('openai', { api_key: secret }))
+    await expect(authorizedClient().configureProvider('openai', { api_key: secret }))
       .rejects.toMatchObject({
         name: 'BagoAuthorizationError',
         code: 'authorization_denied',
@@ -280,11 +286,29 @@ describe('BagoClient response parsing', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(createBagoClient('', '').executePlan('plan-1')).rejects.toMatchObject({
+    await expect(authorizedClient().executePlan('plan-1')).rejects.toMatchObject({
       name: 'BagoAuthorizationError',
       code: `execution_${state}`,
       message: `ejecutar el plan: Execution ${state}`,
     });
+  });
+
+  it('cancels after a challenge without approving or executing', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ok: true,
+      authorization: { state: 'challenge', challenge: { challenge_id: 'challenge-cancelled' } }
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createBagoClient('', '');
+    client.setAuthorizationConfirmation(async () => false);
+
+    await expect(client.executePlan('plan-1')).rejects.toMatchObject({
+      name: 'BagoAuthorizationError',
+      code: 'authorization_cancelled',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body));
+    expect(body.authorization_action).toBe('challenge');
   });
 
   it('attempts the modern bootstrap only once before the legacy fallback', async () => {

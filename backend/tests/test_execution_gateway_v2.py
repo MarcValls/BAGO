@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -213,6 +214,24 @@ def test_project_operation_revalidates_target_immediately_before_first_write(tmp
     assert not (project / ".bago" / "pack.json").exists()
 
 
+@pytest.mark.parametrize("invalid_root", [Path.home(), Path(Path.home().anchor)])
+def test_project_operation_rejects_unsafe_selected_root_before_fingerprint(tmp_path, invalid_root) -> None:
+    manager = type("Manager", (), {
+        "project_root": tmp_path / "project",
+        "session_id": "unsafe-root-session",
+    })()
+    manager.project_root.mkdir()
+    before = {(invalid_root / name).exists() for name in (".bago", ".gabo")}
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ProjectWriteEffectAdapter.prepare_operation(manager, str(invalid_root), "init")
+
+    assert blocked.value.code == "project_write_root_invalid"
+    assert {(invalid_root / name).exists() for name in (".bago", ".gabo")} == before
+    assert not (manager.project_root / ".bago").exists()
+    assert not (manager.project_root / ".gabo").exists()
+
+
 def test_project_operation_allows_authorized_root_switch(tmp_path, monkeypatch) -> None:
     project = tmp_path / "project"
     project.mkdir()
@@ -247,6 +266,98 @@ def test_project_operation_allows_authorized_root_switch(tmp_path, monkeypatch) 
     assert manager.project_root == other.resolve()
     assert (other / ".bago").exists()
     assert not (project / ".bago").exists()
+
+
+def test_project_root_switches_on_one_manager_are_serialized(tmp_path, monkeypatch) -> None:
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+
+    class Manager:
+        project_root = first
+        session_id = "serialized-root-session"
+
+        def __init__(self) -> None:
+            self.active = 0
+            self.maximum_active = 0
+            self.rebound: list[Path] = []
+
+        def rebind_project_root(self, target):
+            self.project_root = Path(target).resolve()
+            self.rebound.append(self.project_root)
+
+    manager = Manager()
+    requests = []
+    for root, interaction in ((first, "serialized-first"), (second, "serialized-second")):
+        trusted_root, target, digest = ProjectWriteEffectAdapter.prepare_operation(manager, str(root), "init")
+        requests.append(build_execution_request(
+            effect_id="project.write",
+            actor_kind="user",
+            principal_id="interactive-local-user",
+            session_id=manager.session_id,
+            source_surface="test.project.concurrent",
+            target={
+                "path": str(target),
+                "allowed_root": str(trusted_root),
+                "resource": "project_operation",
+                "operation": "init",
+                "root_digest": digest,
+            },
+            arguments={},
+            scope="workspace",
+        ))
+
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    boundary = auth.AuthorizationBoundary()
+    permits = [_permit(boundary, request, interaction) for request, interaction in zip(
+        requests, ("serialized-first", "serialized-second")
+    )]
+    entered = threading.Event()
+    release = threading.Event()
+    entered_count = 0
+    entered_guard = threading.Lock()
+
+    def execute_operation(target, operation, arguments):
+        nonlocal entered_count
+        with entered_guard:
+            entered_count += 1
+            manager.active += 1
+            manager.maximum_active = max(manager.maximum_active, manager.active)
+            if entered_count == 1:
+                entered.set()
+        if entered_count == 1:
+            assert release.wait(2)
+        time.sleep(0.01)
+        with entered_guard:
+            manager.active -= 1
+        return {"ok": True, "path": str(target)}
+
+    monkeypatch.setattr(ProjectWriteEffectAdapter, "_execute_project_operation", staticmethod(execute_operation))
+    results: list[tuple[dict, dict]] = []
+
+    def run(index: int) -> None:
+        results.append(ExecutionGateway(boundary).execute(
+            permit_token=permits[index]["token"],
+            request=requests[index],
+            context=ExecutionContext(manager=manager),
+        ))
+
+    first_thread = threading.Thread(target=run, args=(0,))
+    second_thread = threading.Thread(target=run, args=(1,))
+    first_thread.start()
+    assert entered.wait(2)
+    second_thread.start()
+    time.sleep(0.05)
+    assert manager.maximum_active == 1
+    release.set()
+    first_thread.join(2)
+    second_thread.join(2)
+
+    assert len(results) == 2
+    assert manager.maximum_active == 1
+    assert manager.project_root in {first.resolve(), second.resolve()}
+    assert len(manager.rebound) == 1
 
 
 def test_project_operation_rejects_tampered_authorized_target(tmp_path, monkeypatch) -> None:

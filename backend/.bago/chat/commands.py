@@ -1228,7 +1228,7 @@ def _execute(
         return {"ok": False, "message": "Comando debe empezar con /", "is_chat": True}
 
     try:
-        parts = shlex.split(command_line[1:])
+        parts = shlex.split(command_line[1:], posix=os.name != "nt")
     except ValueError as exc:
         return {"ok": False, "message": f"Comando inválido: {exc}"}
     if not parts:

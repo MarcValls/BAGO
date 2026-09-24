@@ -13,6 +13,7 @@ import os
 import threading
 import time
 import uuid
+import weakref
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -926,6 +927,8 @@ class ProjectWriteEffectAdapter:
     _FORBIDDEN_SEGMENTS = frozenset({".git", ".env", "node_modules", ".venv", "venv", "dist", "release", "__pycache__"})
     _LOCKS_GUARD = threading.RLock()
     _LOCKS: dict[str, threading.RLock] = {}
+    _MANAGER_LOCKS_GUARD = threading.RLock()
+    _MANAGER_LOCKS: weakref.WeakKeyDictionary[Any, threading.RLock] = weakref.WeakKeyDictionary()
 
     @staticmethod
     def _trusted_root(manager: Any) -> Path:
@@ -942,6 +945,46 @@ class ProjectWriteEffectAdapter:
         key = os.path.normcase(str(root))
         with cls._LOCKS_GUARD:
             return cls._LOCKS.setdefault(key, threading.RLock())
+
+    @classmethod
+    def _manager_lock(cls, manager: Any) -> threading.RLock:
+        with cls._MANAGER_LOCKS_GUARD:
+            try:
+                lock = cls._MANAGER_LOCKS.get(manager)
+                if lock is None:
+                    lock = threading.RLock()
+                    cls._MANAGER_LOCKS[manager] = lock
+                return lock
+            except TypeError:
+                # Test doubles or integrations may be unhashable; keep the
+                # lifecycle lock local to that manager without a process-wide
+                # lock or a permanent registry entry.
+                lock = getattr(manager, "_project_write_lock", None)
+                if lock is None:
+                    lock = threading.RLock()
+                    setattr(manager, "_project_write_lock", lock)
+                return lock
+
+    @staticmethod
+    def _validate_safe_root(manager: Any, root: Path) -> Path:
+        validator = getattr(manager, "_validate_project_root", None)
+        if not callable(validator):
+            try:
+                from session_manager import SessionManager
+
+                validator = SessionManager._validate_project_root
+            except (ImportError, AttributeError) as exc:
+                raise ExecutionGatewayError(
+                    "Project write validator is unavailable",
+                    code="project_write_validator_missing",
+                ) from exc
+        try:
+            return Path(validator(root, require_identity=False)).expanduser().resolve()
+        except Exception as exc:
+            raise ExecutionGatewayError(
+                f"Project write trusted root is not valid: {exc}",
+                code="project_write_root_invalid",
+            ) from exc
 
     @classmethod
     def _validate_operation_target(cls, trusted_root: Path, raw_path: str, operation: str) -> Path:
@@ -1048,11 +1091,12 @@ class ProjectWriteEffectAdapter:
                 code="project_write_operation_invalid",
             )
         raw_target = Path(str(raw_path or "").strip()).expanduser()
-        trusted_root = (
-            raw_target.resolve()
+        selected_root = (
+            raw_target
             if clean_operation in {"init", "link", "seed"} and raw_target.is_absolute()
             else cls._trusted_root(manager)
         )
+        trusted_root = cls._validate_safe_root(manager, selected_root)
         target = cls._validate_operation_target(trusted_root, raw_path, clean_operation)
         return trusted_root, target, cls.operation_descriptor_digest(target, clean_operation)
 
@@ -1105,7 +1149,7 @@ class ProjectWriteEffectAdapter:
                 "Project write trusted root is missing",
                 code="project_write_root_mismatch",
             )
-        root = Path(root_text).expanduser().resolve()
+        root = self._validate_safe_root(manager, Path(root_text).expanduser())
         resource = str(request.target.get("resource") or "").strip()
         if resource not in {self._FILE_RESOURCE, self._OPERATION_RESOURCE}:
             raise ExecutionGatewayError(
@@ -1139,32 +1183,35 @@ class ProjectWriteEffectAdapter:
                     code="project_write_digest_required",
                 )
             arguments = request.arguments if isinstance(request.arguments, dict) else {}
-            current_root = self._trusted_root(manager)
-            should_activate = operation in {"init", "link", "seed"} and target != current_root
             rebind = getattr(manager, "rebind_project_root", None)
-            if should_activate and not callable(rebind):
-                raise ExecutionGatewayError(
-                    "SessionManager does not expose rebind_project_root()",
-                    code="project_write_rebind_unavailable",
-                )
-            with self._root_lock(root):
-                current_digest = self.operation_descriptor_digest(target, operation)
-                if current_digest != approved_digest:
+            with self._manager_lock(manager):
+                root = self._validate_safe_root(manager, Path(root_text).expanduser())
+                target = self._validate_operation_target(root, raw_path, operation)
+                current_root = self._trusted_root(manager)
+                should_activate = operation in {"init", "link", "seed"} and target != current_root
+                if should_activate and not callable(rebind):
                     raise ExecutionGatewayError(
-                        "Project target changed after authorization request was constructed",
-                        code="project_write_target_changed",
+                        "SessionManager does not expose rebind_project_root()",
+                        code="project_write_rebind_unavailable",
                     )
-                try:
-                    result = self._execute_project_operation(target, operation, arguments)
-                    if should_activate:
-                        rebind(target)
-                except ExecutionGatewayError:
-                    raise
-                except Exception as exc:
-                    raise ExecutionGatewayError(
-                        f"Project operation failed: {exc}",
-                        code="project_write_failed",
-                    ) from exc
+                with self._root_lock(root):
+                    current_digest = self.operation_descriptor_digest(target, operation)
+                    if current_digest != approved_digest:
+                        raise ExecutionGatewayError(
+                            "Project target changed after authorization request was constructed",
+                            code="project_write_target_changed",
+                        )
+                    try:
+                        result = self._execute_project_operation(target, operation, arguments)
+                        if should_activate:
+                            rebind(target)
+                    except ExecutionGatewayError:
+                        raise
+                    except Exception as exc:
+                        raise ExecutionGatewayError(
+                            f"Project operation failed: {exc}",
+                            code="project_write_failed",
+                        ) from exc
             receipt_digest = hashlib.sha256(request.fingerprint.encode("utf-8")).hexdigest()
             return {
                 "ok": True,
