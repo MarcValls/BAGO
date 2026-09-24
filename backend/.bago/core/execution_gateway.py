@@ -964,6 +964,18 @@ class ProjectWriteEffectAdapter:
                 code="project_write_symlink_forbidden",
             )
         target = lexical.resolve()
+        if operation in {"init", "link", "seed"}:
+            if target != trusted_root:
+                raise ExecutionGatewayError(
+                    "Project lifecycle target does not match its authorized root",
+                    code="project_write_root_mismatch",
+                )
+            if target.name.lower() in cls._FORBIDDEN_SEGMENTS:
+                raise ExecutionGatewayError(
+                    "Project operation target contains a forbidden segment",
+                    code="project_write_forbidden_path",
+                )
+            return target
         try:
             relative = target.relative_to(trusted_root)
         except ValueError as exc:
@@ -975,11 +987,6 @@ class ProjectWriteEffectAdapter:
             raise ExecutionGatewayError(
                 "Project operation target contains a forbidden segment",
                 code="project_write_forbidden_path",
-            )
-        if operation in {"init", "link", "seed"} and target != trusted_root:
-            raise ExecutionGatewayError(
-                "Project lifecycle operations require the active project root",
-                code="project_write_root_mismatch",
             )
         if operation == "demo" and target == trusted_root:
             raise ExecutionGatewayError(
@@ -1040,7 +1047,12 @@ class ProjectWriteEffectAdapter:
                 "Project write operation is not approved",
                 code="project_write_operation_invalid",
             )
-        trusted_root = cls._trusted_root(manager)
+        raw_target = Path(str(raw_path or "").strip()).expanduser()
+        trusted_root = (
+            raw_target.resolve()
+            if clean_operation in {"init", "link", "seed"} and raw_target.is_absolute()
+            else cls._trusted_root(manager)
+        )
         target = cls._validate_operation_target(trusted_root, raw_path, clean_operation)
         return trusted_root, target, cls.operation_descriptor_digest(target, clean_operation)
 
@@ -1109,6 +1121,16 @@ class ProjectWriteEffectAdapter:
             )
         if resource == self._OPERATION_RESOURCE:
             operation = str(request.target.get("operation") or "").strip().lower()
+            if operation not in self._OPERATIONS:
+                raise ExecutionGatewayError(
+                    "Project write operation is not approved",
+                    code="project_write_operation_invalid",
+                )
+            if request.scope != "workspace":
+                raise ExecutionGatewayError(
+                    "Project operation scope is not approved",
+                    code="project_write_scope_invalid",
+                )
             target = self._validate_operation_target(root, raw_path, operation)
             approved_digest = str(request.target.get("root_digest") or "").strip()
             if not approved_digest:
@@ -1117,6 +1139,14 @@ class ProjectWriteEffectAdapter:
                     code="project_write_digest_required",
                 )
             arguments = request.arguments if isinstance(request.arguments, dict) else {}
+            current_root = self._trusted_root(manager)
+            should_activate = operation in {"init", "link", "seed"} and target != current_root
+            rebind = getattr(manager, "rebind_project_root", None)
+            if should_activate and not callable(rebind):
+                raise ExecutionGatewayError(
+                    "SessionManager does not expose rebind_project_root()",
+                    code="project_write_rebind_unavailable",
+                )
             with self._root_lock(root):
                 current_digest = self.operation_descriptor_digest(target, operation)
                 if current_digest != approved_digest:
@@ -1126,6 +1156,8 @@ class ProjectWriteEffectAdapter:
                     )
                 try:
                     result = self._execute_project_operation(target, operation, arguments)
+                    if should_activate:
+                        rebind(target)
                 except ExecutionGatewayError:
                     raise
                 except Exception as exc:

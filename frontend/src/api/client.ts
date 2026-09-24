@@ -8,7 +8,10 @@ import type {
   BackendRoutes,
   BackendSession,
   BackendStatus,
-  UiBootData
+  UiBootData,
+  AuthorizationApprovalResponse,
+  AuthorizationChallengeResponse,
+  AuthorizationTerminalResponse,
 } from '@/contracts/backend';
 import type { CapabilityExecutionResponse, CapabilityPackageResponse, PackageInspection } from '@/modules/capability-anatomy/packageContract';
 import type { CapabilityListResponse, CapabilitySnapshot } from '@/modules/capability-anatomy/contract';
@@ -59,6 +62,74 @@ class BagoHttpError extends Error {
     this.provider = String(payload.provider || '');
     this.model = String(payload.model || '');
   }
+}
+
+class BagoAuthorizationError extends Error {
+  code: string;
+
+  constructor(message: string, code = 'authorization_invalid_response') {
+    super(message);
+    this.name = 'BagoAuthorizationError';
+    this.code = code;
+  }
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readAuthorizationFailure(
+  response: unknown,
+  label: string,
+  fallback: string,
+  secrets: string[],
+): BagoAuthorizationError {
+  const envelope = isObject(response) ? response : {};
+  const code = typeof envelope.error_code === 'string'
+    ? envelope.error_code
+    : typeof envelope.code === 'string'
+      ? envelope.code
+      : 'authorization_invalid_response';
+  const rawMessage = typeof envelope.message === 'string'
+    ? envelope.message
+    : typeof envelope.error === 'string'
+      ? envelope.error
+      : fallback;
+  const message = secrets.reduce(
+    (safeMessage, secret) => secret ? safeMessage.split(secret).join('[redacted]') : safeMessage,
+    rawMessage,
+  );
+  return new BagoAuthorizationError(`${label}: ${message}`, code);
+}
+
+function isChallengeResponse(response: unknown): response is AuthorizationChallengeResponse {
+  if (!isObject(response) || response.ok !== true || !isObject(response.authorization)) return false;
+  const { authorization } = response;
+  return authorization.state === 'challenge'
+    && isObject(authorization.challenge)
+    && typeof authorization.challenge.challenge_id === 'string'
+    && authorization.challenge.challenge_id.trim().length > 0;
+}
+
+function isApprovalResponse(response: unknown): response is AuthorizationApprovalResponse {
+  if (!isObject(response) || response.ok !== true || !isObject(response.authorization)) return false;
+  const { authorization } = response;
+  return authorization.state === 'authorized'
+    && isObject(authorization.permit)
+    && typeof authorization.permit.token === 'string'
+    && authorization.permit.token.trim().length > 0;
+}
+
+function isRejectedTerminalResponse(response: unknown): boolean {
+  if (!isObject(response)) return true;
+  const authorizationState = isObject(response.authorization) ? response.authorization.state : undefined;
+  return response.ok !== true
+    || response.state === 'blocked'
+    || response.state === 'failed'
+    || response.state === 'error'
+    || authorizationState === 'blocked'
+    || authorizationState === 'failed'
+    || authorizationState === 'error';
 }
 
 function shouldFallbackToLegacy(error: unknown): boolean {
@@ -177,26 +248,33 @@ export class BagoClient {
       ? crypto.randomUUID()
       : `authorization-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const common = { ...payload, interaction_id: interactionId, channel: 'ui-react', surface: 'ui-react' };
-    const challenge = await this.request<Record<string, unknown>>(route, {
+    const secrets = [typeof payload.api_key === 'string' ? payload.api_key : ''];
+    const challenge = await this.request<unknown>(route, {
       method: 'POST',
       body: JSON.stringify({ ...common, authorization_action: 'challenge' }),
     }, timeoutMs);
-    const challengeRecord = (challenge.authorization as Record<string, unknown> | undefined)?.challenge as Record<string, unknown> | undefined;
-    const challengeId = String(challengeRecord?.challenge_id || '').trim();
-    if (!challengeId) throw new Error(`El backend no emitió un challenge válido para ${label}.`);
+    if (!isChallengeResponse(challenge)) {
+      throw readAuthorizationFailure(challenge, label, 'El backend no emitió un challenge válido.', secrets);
+    }
+    const challengeId = challenge.authorization.challenge.challenge_id.trim();
 
-    const approval = await this.request<Record<string, unknown>>(route, {
+    const approval = await this.request<unknown>(route, {
       method: 'POST',
       body: JSON.stringify({ ...common, authorization_action: 'approve', challenge_id: challengeId, user_decision: 'approve' }),
     }, timeoutMs);
-    const permit = ((approval.authorization as Record<string, unknown> | undefined)?.permit) as Record<string, unknown> | undefined;
-    const permitToken = String(permit?.token || '').trim();
-    if (!permitToken) throw new Error(`El backend no emitió un permiso válido para ${label}.`);
+    if (!isApprovalResponse(approval)) {
+      throw readAuthorizationFailure(approval, label, 'El backend no emitió un permiso válido.', secrets);
+    }
+    const permitToken = approval.authorization.permit.token.trim();
 
-    return this.request<T>(route, {
+    const execution = await this.request<AuthorizationTerminalResponse>(route, {
       method: 'POST',
       body: JSON.stringify({ ...common, authorization_action: 'execute', authorization_permit: permitToken }),
     }, timeoutMs);
+    if (isRejectedTerminalResponse(execution)) {
+      throw readAuthorizationFailure(execution, label, 'El backend rechazó la ejecución autorizada.', secrets);
+    }
+    return execution as T;
   }
 
   async request<T = unknown>(path: string, init: RequestInit = {}, timeoutMs?: number): Promise<T> {
@@ -421,57 +499,7 @@ export class BagoClient {
       });
     }
 
-    const interactionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `router-clear-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const route = '/router/session-model';
-    const challenge = await this.request<Record<string, unknown>>(route, {
-      method: 'POST',
-      body: JSON.stringify({
-        model: null,
-        authorization_action: 'challenge',
-        interaction_id: interactionId,
-        channel: 'ui-react',
-        surface: 'ui-react'
-      })
-    });
-    const challengeAuth = challenge.authorization as Record<string, unknown> | undefined;
-    const challengeRecord = challengeAuth?.challenge as Record<string, unknown> | undefined;
-    const challengeId = String(challengeRecord?.challenge_id || '').trim();
-    if (!challengeId) {
-      throw new Error('El backend no emitió un AuthorizationChallenge válido para quitar el override.');
-    }
-
-    const approval = await this.request<Record<string, unknown>>(route, {
-      method: 'POST',
-      body: JSON.stringify({
-        model: null,
-        authorization_action: 'approve',
-        challenge_id: challengeId,
-        interaction_id: interactionId,
-        user_decision: 'approve',
-        channel: 'ui-react',
-        surface: 'ui-react'
-      })
-    });
-    const approvalAuth = approval.authorization as Record<string, unknown> | undefined;
-    const permit = approvalAuth?.permit as Record<string, unknown> | undefined;
-    const permitToken = String(permit?.token || '').trim();
-    if (!permitToken) {
-      throw new Error('El backend no emitió un Permit verificable para quitar el override.');
-    }
-
-    return this.request<Record<string, unknown>>(route, {
-      method: 'POST',
-      body: JSON.stringify({
-        model: null,
-        authorization_action: 'execute',
-        interaction_id: interactionId,
-        authorization_permit: permitToken,
-        channel: 'ui-react',
-        surface: 'ui-react'
-      })
-    });
+    return this.authorizedRequest('/router/session-model', { model: null }, 'quitar el override');
   }
 
   // CANON[WS-004]: Listar y persistir workspaces desde el frontend.
@@ -549,59 +577,8 @@ export class BagoClient {
   }
 
   async persistWorkspace(path?: string): Promise<Record<string, unknown>> {
-    const route = '/workspace/persist';
-    const interactionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `workspace-bind-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const operation = path?.trim() ? { path: path.trim() } : {};
-
-    const challenge = await this.request<Record<string, unknown>>(route, {
-      method: 'POST',
-      body: JSON.stringify({
-        ...operation,
-        authorization_action: 'challenge',
-        interaction_id: interactionId,
-        channel: 'ui-react',
-        surface: 'ui-react'
-      })
-    });
-    const challengeAuth = challenge.authorization as Record<string, unknown> | undefined;
-    const challengeRecord = challengeAuth?.challenge as Record<string, unknown> | undefined;
-    const challengeId = String(challengeRecord?.challenge_id || '').trim();
-    if (!challengeId) {
-      throw new Error('El backend no emitió un AuthorizationChallenge válido para persistir el workspace.');
-    }
-
-    const approval = await this.request<Record<string, unknown>>(route, {
-      method: 'POST',
-      body: JSON.stringify({
-        ...operation,
-        authorization_action: 'approve',
-        challenge_id: challengeId,
-        interaction_id: interactionId,
-        user_decision: 'approve',
-        channel: 'ui-react',
-        surface: 'ui-react'
-      })
-    });
-    const approvalAuth = approval.authorization as Record<string, unknown> | undefined;
-    const permit = approvalAuth?.permit as Record<string, unknown> | undefined;
-    const permitToken = String(permit?.token || '').trim();
-    if (!permitToken) {
-      throw new Error('El backend no emitió un Permit verificable para persistir el workspace.');
-    }
-
-    return this.request<Record<string, unknown>>(route, {
-      method: 'POST',
-      body: JSON.stringify({
-        ...operation,
-        authorization_action: 'execute',
-        interaction_id: interactionId,
-        authorization_permit: permitToken,
-        channel: 'ui-react',
-        surface: 'ui-react'
-      })
-    });
+    return this.authorizedRequest('/workspace/persist', operation, 'persistir el workspace');
   }
 
   configureProvider(provider: string, config: { enabled?: boolean; base_url?: string; api_key?: string; model?: string; clear_secret?: boolean }): Promise<Record<string, unknown>> {

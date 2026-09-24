@@ -218,12 +218,16 @@ def test_project_operation_allows_authorized_root_switch(tmp_path, monkeypatch) 
     project.mkdir()
     other = tmp_path / "other"
     other.mkdir()
-    manager = type("Manager", (), {
-        "project_root": project,
-        "session_id": "project-root-session",
-    })()
+    class Manager:
+        project_root = project
+        session_id = "project-root-session"
+
+        def rebind_project_root(self, target):
+            self.project_root = Path(target).resolve()
+
+    manager = Manager()
     trusted_root, target, target_digest = ProjectWriteEffectAdapter.prepare_operation(
-        manager, str(project), "init",
+        manager, str(other), "init",
     )
     request = build_execution_request(
         effect_id="project.write", actor_kind="user",
@@ -236,14 +240,13 @@ def test_project_operation_allows_authorized_root_switch(tmp_path, monkeypatch) 
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     boundary = auth.AuthorizationBoundary()
     permit = _permit(boundary, request, interaction="project-write-root")
-    manager.project_root = other
-
     result, _ = ExecutionGateway(boundary).execute(
         permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager),
     )
     assert result["ok"] is True
-    assert (project / ".bago").exists()
-    assert not (other / ".bago").exists()
+    assert manager.project_root == other.resolve()
+    assert (other / ".bago").exists()
+    assert not (project / ".bago").exists()
 
 
 def test_project_operation_rejects_tampered_authorized_target(tmp_path, monkeypatch) -> None:
@@ -264,6 +267,59 @@ def test_project_operation_rejects_tampered_authorized_target(tmp_path, monkeypa
     with pytest.raises(auth.AuthorizationError) as blocked:
         ExecutionGateway(boundary).execute(permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager))
     assert blocked.value.code == "authorization_operation_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("path", "tampered"),
+        ("allowed_root", "tampered"),
+        ("root_digest", "tampered-digest"),
+        ("scope", "persistent"),
+    ],
+)
+def test_project_root_switch_rejects_post_authorization_tampering_without_mutation(
+    tmp_path, monkeypatch, field, replacement,
+) -> None:
+    active = tmp_path / "active"
+    selected = tmp_path / "selected"
+    active.mkdir()
+    selected.mkdir()
+
+    class Manager:
+        project_root = active
+        session_id = "project-root-tamper-session"
+
+        def rebind_project_root(self, target):
+            self.project_root = Path(target).resolve()
+
+    manager = Manager()
+    trusted_root, target, target_digest = ProjectWriteEffectAdapter.prepare_operation(
+        manager, str(selected), "init",
+    )
+    request = build_execution_request(
+        effect_id="project.write", actor_kind="user", principal_id="interactive-local-user",
+        session_id=manager.session_id, source_surface="test.project.root-switch",
+        target={"path": str(target), "allowed_root": str(trusted_root), "resource": "project_operation",
+                "operation": "init", "root_digest": target_digest}, arguments={}, scope="workspace",
+    )
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction=f"project-root-tamper-{field}")
+    if field == "scope":
+        object.__setattr__(request, "scope", replacement)
+    else:
+        request.target[field] = str(tmp_path / replacement) if field != "root_digest" else replacement
+
+    with pytest.raises(auth.AuthorizationError) as blocked:
+        ExecutionGateway(boundary).execute(
+            permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager),
+        )
+
+    assert blocked.value.code == "authorization_operation_mismatch"
+    assert manager.project_root == active.resolve()
+    assert not (active / ".bago").exists()
+    assert not (selected / ".bago").exists()
 
 
 def test_credential_adapter_rejects_non_direct_strong_proof_before_secret_store_access(tmp_path) -> None:
