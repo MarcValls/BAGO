@@ -2,8 +2,8 @@
   "contract": "bago.import-migration-inventory.v1",
   "version": "1.0.0",
   "generated_from": "AST scan: executable sys.path.insert/append calls and add_piece_paths usage over versioned backend sources (tests, __pycache__ and git-ignored build/output trees excluded)",
-  "total_files": 69,
-  "total_mutations": 110,
+  "total_files": 70,
+  "total_mutations": 111,
   "files": [
     {
       "path": "backend/.bago/agents/agent_gateway.py",
@@ -527,19 +527,19 @@
           "call": "add_piece_paths"
         },
         {
-          "line": 166,
+          "line": 229,
           "call": "add_piece_paths"
         },
         {
-          "line": 359,
+          "line": 422,
           "call": "add_piece_paths"
         },
         {
-          "line": 373,
+          "line": 436,
           "call": "add_piece_paths"
         },
         {
-          "line": 389,
+          "line": 452,
           "call": "add_piece_paths"
         }
       ]
@@ -786,6 +786,15 @@
       "mutations": [
         {
           "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/tools/agent_kit_cli.py",
+      "mutations": [
+        {
+          "line": 13,
           "call": "sys.path.insert"
         }
       ]
