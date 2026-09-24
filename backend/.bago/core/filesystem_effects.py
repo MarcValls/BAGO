@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -116,9 +117,32 @@ def write_file_effect(manager: Any, raw_path: str, content: str) -> dict[str, An
 
     target, scope_root, write_root = _resolve_target(manager, raw_path)
     existed = target.exists()
+    payload = str(content).encode("utf-8")
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(str(content), encoding="utf-8")
+        if not (target.is_file() and target.read_bytes() == payload):
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{target.name}.bago-{uuid.uuid4().hex}.",
+                suffix=".tmp",
+                dir=target.parent,
+            )
+            try:
+                with os.fdopen(descriptor, "wb") as temporary:
+                    temporary.write(payload)
+                    temporary.flush()
+                    os.fsync(temporary.fileno())
+                os.replace(temporary_name, target)
+                if os.name != "nt":
+                    directory_fd = os.open(target.parent, os.O_RDONLY)
+                    try:
+                        os.fsync(directory_fd)
+                    finally:
+                        os.close(directory_fd)
+            finally:
+                try:
+                    os.unlink(temporary_name)
+                except FileNotFoundError:
+                    pass
     except OSError as exc:
         raise FilesystemEffectError(
             f"Error escribiendo archivo: {exc}",
@@ -142,7 +166,7 @@ def write_file_effect(manager: Any, raw_path: str, content: str) -> dict[str, An
         "project_root": str(scope_root),
         "created": not existed,
         "overwritten": existed,
-        "bytes_written": len(str(content).encode("utf-8")),
+        "bytes_written": len(payload),
         "evidence": [f"file_sha256:{digest}", f"path:{target}"],
         "receipt_id": receipt_id,
     }

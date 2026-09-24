@@ -104,6 +104,25 @@ def test_execution_gateway_adapter_material_sink_is_gateway_owned(tmp_path: Path
     assert findings[0].binding == "gateway_owned"
 
 
+def test_execution_adapter_module_material_sink_is_gateway_owned(tmp_path: Path, monkeypatch) -> None:
+    adapter = tmp_path / "backend" / ".bago" / "core" / "execution_adapters" / "project.py"
+    adapter.parent.mkdir(parents=True)
+    adapter.write_text(
+        "from pathlib import Path\n\n"
+        "class ExampleEffectAdapter:\n"
+        "    def execute(self):\n"
+        "        Path('receipt.txt').write_text('ok', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(inventory, "REPO_ROOT", tmp_path)
+
+    findings = inventory.scan_python(adapter)
+
+    assert len(findings) == 1
+    assert findings[0].effect_id == "filesystem.write"
+    assert findings[0].binding == "gateway_owned"
+
+
 def test_handlers_github_remains_unbound() -> None:
     github_handler = inventory.REPO_ROOT / "backend" / ".bago" / "api" / "handlers_github.py"
 

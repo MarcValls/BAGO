@@ -272,8 +272,10 @@ def _line_excerpt(lines: list[str], line: int) -> str:
 
 
 def _gateway_owned_adapter_ranges(path: Path, tree: ast.AST) -> tuple[tuple[int, int], ...]:
-    """Return concrete adapter class spans in the server-owned gateway module."""
-    if _relative(path) != EXECUTION_GATEWAY_PATH:
+    """Return concrete adapter spans in gateway dispatch or implementation modules."""
+    relative = _relative(path)
+    adapter_module = relative.startswith("backend/.bago/core/execution_adapters/")
+    if relative != EXECUTION_GATEWAY_PATH and not adapter_module:
         return ()
     return tuple(
         (

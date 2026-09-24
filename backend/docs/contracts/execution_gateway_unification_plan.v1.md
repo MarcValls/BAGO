@@ -74,6 +74,13 @@ Nueva forma:
 
 `ExecutionRequest → ExecutionGateway → EffectAdapterRegistry → EffectAdapter`
 
+The gateway dispatch and adapter implementations are separate modules. The
+registered adapter implementation modules live under
+`backend/.bago/core/execution_adapters/`; this is code organization only. The
+registry remains server-owned by `ExecutionGateway`, and the effect-sink
+inventory classifies concrete adapter sinks there as `gateway_owned` without
+excluding those sinks from the inventory.
+
 Adapters iniciales:
 
 - `FilesystemEffectAdapter`

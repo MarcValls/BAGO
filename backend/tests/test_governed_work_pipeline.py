@@ -220,6 +220,58 @@ def test_unknown_outcome_blocks_automatic_retry_without_refilling_budget(tmp_pat
     assert len(plan.governed_work["outcomes"]) == 1
 
 
+def test_durable_pending_write_is_reapplied_idempotently_and_reconciled(tmp_path, monkeypatch):
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    engine, plan, manager = _registered_plan(
+        tmp_path,
+        "1. Crear archivo notes/reconcile.txt con contenido: desired-state",
+    )
+    manager.state_root = tmp_path / "session-state"
+    boundary = AuthorizationBoundary()
+    gateway = ExecutionGateway(boundary)
+    request = _request(plan)
+    permit = _permit(boundary, request, "interaction-reconcile-first")
+    import filesystem_effects
+    original_write = filesystem_effects.write_file_effect
+
+    def write_then_disconnect(*args, **kwargs):
+        original_write(*args, **kwargs)
+        raise RuntimeError("caller lost the receipt after file replacement")
+
+    monkeypatch.setattr(filesystem_effects, "write_file_effect", write_then_disconnect)
+    first, _ = gateway.execute(
+        permit_token=permit["token"], request=request,
+        context=ExecutionContext(manager=manager),
+    )
+    target = tmp_path / "notes" / "reconcile.txt"
+    assert first["block_code"] == "pipeline_outcome_unknown"
+    assert target.exists()
+    assert target.read_text(encoding="utf-8") == "desired-state"
+
+    plan.steps[0].status = "pending"
+    plan.steps[0].block_reason = ""
+    plan.steps[0].block_code = ""
+    retry_request = _request(plan)
+    retry_permit = _permit(boundary, retry_request, "interaction-reconcile-retry")
+    monkeypatch.setattr(filesystem_effects, "write_file_effect", original_write)
+    second, _ = gateway.execute(
+        permit_token=retry_permit["token"], request=retry_request,
+        context=ExecutionContext(manager=manager),
+    )
+
+    outcome = next(iter(plan.governed_work["outcomes"].values()))
+    from execution_operations import SQLiteExecutionOperationStore
+
+    operation = SQLiteExecutionOperationStore(
+        manager.state_root / "execution_claims.sqlite3"
+    ).get(outcome["step_idempotency_key"])
+    assert second["ok"] is True
+    assert target.read_text(encoding="utf-8") == "desired-state"
+    assert outcome["outcome_status"] == "COMMITTED"
+    assert operation["status"] == "COMMITTED"
+    assert operation["receipt"]["receipt_id"] == outcome["outcome_receipt_ref"]
+
+
 def test_concurrent_duplicate_parent_authorizations_materialize_one_child(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
     engine, plan, manager = _registered_plan(

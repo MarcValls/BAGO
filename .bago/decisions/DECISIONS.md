@@ -2,6 +2,127 @@
 
 Record architectural or product decisions that affect canon here.
 
+## 2026-09-25 — Unificar proyecciones de workspace y selección de claims
+
+- Decisión: el snapshot estable de identidad para `workspace.bind` lo define
+  `WorkspaceBinding.execution_descriptor()` en `workspace_binding.py`; el
+  adapter del gateway consume esa proyección para crear y revalidar el digest.
+  `to_dict()` conserva la proyección completa del estado observado.
+- Decisión: `execution_claims.py` resuelve y cachea el store SQLite por el
+  `state_root` confiable; `ExecutionGateway` conserva solo el override inyectado
+  y delega allí la selección por defecto. El ledger de operaciones sigue en su
+  artefacto y las autoridades de binding/Permit siguen separadas.
+- Decisión: separar el contrato compartido de adapters en
+  `execution_adapter_contract.py` y sus implementaciones por dominio en
+  `execution_adapters/` (filesystem, workspace, session state, network, plan,
+  project, credentials, capability y delegation). El gateway mantiene el único
+  registro, consumo de Permit y despacho; los exports existentes se conservan.
+- Inventario: el scanner reconoce las clases `*EffectAdapter` en esos módulos
+  como `gateway_owned`; los sinks permanecen contados y no se crea una segunda
+  vía de ejecución.
+- Límite: este refactor no certifica unicidad global de todos los sinks ni
+  `VALIDATED`.
+- Evidencia focal: `python -m pytest backend/tests/test_execution_claims.py
+  backend/tests/test_execution_gateway_v2.py
+  backend/tests/test_workspace_persist_activation.py
+  backend/tests/test_effect_sink_inventory.py -q` -> `64 passed, 1 skipped`;
+  suite completa `python -m pytest backend/tests -q` -> `1342 passed, 3
+  skipped, 198 subtests passed`. `py_compile` y `git diff --check` pasan.
+- Inventory `--strict-classification`: PASS, `0` scope/binding sin clasificar;
+  `478` runtime-unbound permanecen y mantienen abierta la unicidad global.
+- Estado: `EXECUTED`; la proyección y la selección de store quedan verificadas
+  dentro del gate focal, sin afirmar unicidad global ni `VALIDATED`.
+
+## 2026-09-24 — Registrar y reconciliar escrituras gobernadas ambiguas
+
+- Decisión: cerrar la brecha local con `execution_operations` en la misma base
+  SQLite canónica de claims. Cada `filesystem.write` durable prepara una fila
+  `PENDING` ligada a operation key, recurso canónico y digest del contenido;
+  tras el receipt del sink se marca `COMMITTED` con el payload del receipt.
+- Recuperación: solo una nueva autorización puede reanudar un outcome sin
+  resolver (`PENDING` o `OUTCOME_UNKNOWN`) cuando existe una fila durable con
+  la misma key, recurso y digest. Si el ledger está `PENDING`, reaplica el
+  desired state idempotente y guarda el receipt; si está `COMMITTED`, repara
+  el outcome sin repetir el efecto. Si falta o no coincide el registro,
+  permanece fail-closed.
+- Límite: el ledger y el replace filesystem no son una transacción atómica;
+  se soporta recuperación at-least-once por contenido, no exactly-once. El
+  adapter filesystem no tiene fencing distribuido atómico: PostgreSQL sigue
+  bloqueando el efecto material; sus pruebas de integración continúan
+  `NOT_RUN` sin DSN/driver.
+- Implementación: `SQLiteExecutionOperationStore` mantiene el ledger durable
+  desde `execution_operations.py`; `SQLiteExecutionClaimStore` conserva la
+  autoridad sobre claims y fencing. `ExecutionGateway` delega la normalización
+  de claims entre imports a `execution_claims.py`; el store seleccionado
+  revalida su identidad canónica antes del efecto.
+- Evidencia focal candidate-bound: `python .bago/bin/bago.py verify -- python
+  -m pytest backend/tests/test_execution_claims.py
+  backend/tests/test_execution_operations.py
+  backend/tests/test_governed_work_pipeline.py
+  backend/tests/test_execution_gateway_v2.py
+  backend/tests/test_claim_ledger_split.py
+  backend/tests/test_evidence_claim_authority.py
+  backend/tests/test_claims_docs_sync.py -q` -> `76 passed, 1 skipped, 9
+  subtests passed`.
+- Estado: `EXECUTED / SQLITE_LOCAL_SLICE_WITH_WRITE_RECONCILIATION`; PostgreSQL
+  integration remains `NOT_RUN`, distributed filesystem execution remains
+  fail-closed, and global `VERIFIED`/`VALIDATED` are not claimed.
+
+## 2026-09-24 — Introducir contrato acotado de Execution Claims para 04
+
+- Decisión: desacoplar la coordinación de recursos de 04 mediante
+  `ExecutionClaimStore`, con `SQLiteExecutionClaimStore` en el runtime de un
+  `SessionManager` y `InMemoryExecutionClaimStore` para harnesses sin estado
+  canónico o stores inyectados. SQLite persiste owner, lease, status y
+  generación fencing por recurso para los hijos gobernados de
+  `filesystem.read` y `filesystem.write`.
+- Frontera: el gateway valida identidad, recurso, operación, claim y token
+  antes del adapter y mantiene una guarda por recurso durante el efecto local.
+  El lock por plan sigue existiendo para proteger el estado mutable de
+  PlanEngine; el claim no sustituye autorización 03A, Permit, DelegationGrant
+  ni receipt.
+- Frontera: SQLite coordina procesos de una máquina que comparten el mismo
+  archivo de estado. `execute_if_valid` conserva una transacción de escritura
+  durante el callback para no transferir el lease durante el efecto; por el
+  escritor único de SQLite esto serializa los callbacks de ese DB incluso con
+  recursos distintos. No es coordinación multimáquina ni atomicidad entre DB
+  y efecto de filesystem; no se afirma exactly-once ni idempotencia durable.
+- Evolución: la etapa SQLite sustituye el rechazo previo de persistencia local,
+  pero conserva como futuro el store servidor, el fencing validado por cada
+  sink distribuido y la recuperación idempotente.
+- Distinción: `backend/bago_core/claim_storage.py` permanece como ledger de
+  afirmaciones/evidencias y no implementa coordinación de ejecución.
+- Implementación: `backend/.bago/core/execution_claims.py`, integración en
+  `governed_work_pipeline.py` y `ExecutionGateway`, y contrato
+  `backend/docs/contracts/execution_claims.v1.md`.
+- Evidencia focal candidate-bound: gate por `python .bago/bin/bago.py verify --`
+  sobre claims SQLite, pipeline, gateway y el ledger de evidencia existente:
+  `73 passed, 9 subtests passed`; `py_compile` y `git diff --check` pasan.
+- Estado: `EXECUTED / SQLITE_LOCAL_SLICE`; no equivale a coordinación
+  multimáquina, idempotencia exactly-once, `VERIFIED` global ni `VALIDATED`.
+
+## 2026-09-24 — Preparar coordinación PostgreSQL sin abrir sinks sin fencing
+
+- Decisión: añadir `PostgresExecutionClaimStore` como adapter explícito y
+  opcional de claims compartidos, usando reloj PostgreSQL, adquisición atómica
+  por recurso y row lock durante el callback. No se convierte en el default;
+  el runtime sigue en SQLite local.
+- Seguridad: el pipeline bloquea el efecto material si el store exige fencing
+  distribuido y el adapter no declara soporte atómico de fencing en el sink.
+  El filesystem actual no declara ese soporte, así que PostgreSQL no habilita
+  todavía ejecución filesystem entre máquinas.
+- Recuperación: `filesystem.write` usa temporal + flush + replace atómico y
+  repetir el mismo contenido no vuelve a escribirlo. PostgreSQL y filesystem
+  siguen siendo transacciones separadas; no se afirma exactly-once. La
+  recuperación durable requiere operation ledger/reconciliación e idempotencia
+  del sink.
+- Evidencia: el test PostgreSQL requiere `BAGO_TEST_POSTGRES_DSN` y `psycopg`;
+  ambos están ausentes en este entorno, por tanto ese gate queda `NOT_RUN`.
+  SQLite/fencing local se vuelve a cubrir en el gate focal de esta tarea.
+- Estado: `EXECUTED / POSTGRES_ADAPTER_NOT_RUN`; no implica coordinación
+  multimáquina validada, efecto filesystem distribuido, `VERIFIED` global ni
+  `VALIDATED`.
+
 ## 2026-09-23 — Wave B2: cerrar workspace.bind en /workspace/persist
 
 - Decisión: cerrar primero la superficie `POST /workspace/persist` como el
@@ -83,8 +204,9 @@ Record architectural or product decisions that affect canon here.
 - Resultado: `effect_sink_inventory.py` conserva todos los findings y reconoce
   los sinks materializados dentro de adapters server-owned del
   `ExecutionGateway` como `gateway_owned`.
-- Alcance: `filesystem_effects.py` y clases concretas `*EffectAdapter` del
-  gateway; el ledger de autorización continúa siendo `authority_internal`.
+- Alcance: `filesystem_effects.py`, las clases concretas `*EffectAdapter` del
+  gateway y los módulos de implementación `execution_adapters/`; el ledger de
+  autorización continúa siendo `authority_internal`.
 - No se excluyen tests, tooling, release trees ni sinks legacy para maquillar
   el contador. `handlers_github` y las demás superficies no migradas siguen
   `unbound` y hacen fallar `--strict`.
