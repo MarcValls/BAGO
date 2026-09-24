@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -298,3 +300,154 @@ def test_nested_dispatch_cannot_be_called_without_gateway_owned_context(tmp_path
         )
 
     assert bypass.value.code == "execution_nested_gateway_context_missing"
+
+
+def test_revocation_between_children_blocks_next_material_effect(tmp_path, monkeypatch):
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    engine, plan, manager = _registered_plan(
+        tmp_path,
+        "1. Crear archivo notes/revoke-first.txt con contenido: first\n"
+        "2. Crear archivo notes/revoke-second.txt con contenido: second",
+    )
+    boundary = AuthorizationBoundary()
+    gateway = ExecutionGateway(boundary)
+    request = _request(plan)
+    permit = _permit(boundary, request, "interaction-revoke-between-children")
+
+    original_nested = ExecutionGateway.execute_nested
+    first_done = threading.Event()
+    revoked = threading.Event()
+    calls = {"count": 0}
+
+    def coordinated_nested(self, **kwargs):
+        calls["count"] += 1
+        current = calls["count"]
+        if current == 2:
+            assert revoked.wait(timeout=5)
+        result = original_nested(self, **kwargs)
+        if current == 1:
+            first_done.set()
+        return result
+
+    monkeypatch.setattr(ExecutionGateway, "execute_nested", coordinated_nested)
+
+    def revoke_after_first():
+        assert first_done.wait(timeout=5)
+        boundary.revoke_permit(permit["permit_id"], reason="test_between_children")
+        revoked.set()
+
+    revoker = threading.Thread(target=revoke_after_first)
+    revoker.start()
+    result, _ = gateway.execute(
+        permit_token=permit["token"],
+        request=request,
+        context=ExecutionContext(manager=manager),
+    )
+    revoker.join(timeout=5)
+
+    assert not revoker.is_alive()
+    assert result["ok"] is False
+    assert result["block_code"] == "authorization_permit_revoked"
+    assert plan.steps[0].status == "done"
+    assert plan.steps[1].status == "blocked"
+    assert plan.steps[1].block_code == "authorization_permit_revoked"
+    assert (tmp_path / "notes" / "revoke-first.txt").read_text(encoding="utf-8") == "first"
+    assert not (tmp_path / "notes" / "revoke-second.txt").exists()
+    assert plan.governed_work["budget_consumed"] == 2
+    statuses = [item["outcome_status"] for item in plan.governed_work["outcomes"].values()]
+    assert statuses == ["COMMITTED", "FAILED"]
+
+
+def test_parent_permit_expiry_between_children_blocks_next_material_effect(tmp_path, monkeypatch):
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    engine, plan, manager = _registered_plan(
+        tmp_path,
+        "1. Crear archivo notes/expiry-first.txt con contenido: first\n"
+        "2. Crear archivo notes/expiry-second.txt con contenido: second",
+    )
+    boundary = AuthorizationBoundary()
+    gateway = ExecutionGateway(boundary)
+    request = _request(plan)
+    permit = _permit(boundary, request, "interaction-expiry-between-children")
+    expires_at = datetime.fromisoformat(permit["expires_at"])
+
+    original_nested = ExecutionGateway.execute_nested
+    calls = {"count": 0}
+
+    def expire_after_first(self, **kwargs):
+        calls["count"] += 1
+        result = original_nested(self, **kwargs)
+        if calls["count"] == 1:
+            monkeypatch.setattr(auth, "_now", lambda: expires_at + timedelta(seconds=1))
+        return result
+
+    monkeypatch.setattr(ExecutionGateway, "execute_nested", expire_after_first)
+    result, _ = gateway.execute(
+        permit_token=permit["token"],
+        request=request,
+        context=ExecutionContext(manager=manager),
+    )
+
+    assert result["ok"] is False
+    assert result["block_code"] == "authorization_permit_expired"
+    assert plan.steps[0].status == "done"
+    assert plan.steps[1].status == "blocked"
+    assert plan.steps[1].block_code == "authorization_permit_expired"
+    assert (tmp_path / "notes" / "expiry-first.txt").read_text(encoding="utf-8") == "first"
+    assert not (tmp_path / "notes" / "expiry-second.txt").exists()
+
+
+def test_child_authority_lease_linearizes_concurrent_revocation_after_commit(tmp_path, monkeypatch):
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    engine, plan, manager = _registered_plan(
+        tmp_path,
+        "1. Crear archivo notes/lease-winner.txt con contenido: committed",
+    )
+    boundary = AuthorizationBoundary()
+    gateway = ExecutionGateway(boundary)
+    request = _request(plan)
+    permit = _permit(boundary, request, "interaction-authority-lease-race")
+
+    adapter = gateway.adapters.resolve("filesystem.write")
+    original_execute = adapter.execute
+    entered_materializer = threading.Event()
+    release_materializer = threading.Event()
+    revocation_done = threading.Event()
+    execution_box = {}
+
+    def slow_execute(child_request, context):
+        entered_materializer.set()
+        assert release_materializer.wait(timeout=5)
+        return original_execute(child_request, context)
+
+    monkeypatch.setattr(adapter, "execute", slow_execute)
+
+    def execute_plan():
+        execution_box["result"] = gateway.execute(
+            permit_token=permit["token"],
+            request=request,
+            context=ExecutionContext(manager=manager),
+        )
+
+    execution_thread = threading.Thread(target=execute_plan)
+    execution_thread.start()
+    assert entered_materializer.wait(timeout=5)
+
+    def revoke_while_child_holds_lease():
+        boundary.revoke_permit(permit["permit_id"], reason="concurrent_revocation")
+        revocation_done.set()
+
+    revoker = threading.Thread(target=revoke_while_child_holds_lease)
+    revoker.start()
+    assert not revocation_done.wait(timeout=0.1)
+
+    release_materializer.set()
+    execution_thread.join(timeout=5)
+    revoker.join(timeout=5)
+
+    assert not execution_thread.is_alive()
+    assert not revoker.is_alive()
+    assert revocation_done.is_set()
+    result, _ = execution_box["result"]
+    assert result["ok"] is True
+    assert (tmp_path / "notes" / "lease-winner.txt").read_text(encoding="utf-8") == "committed"

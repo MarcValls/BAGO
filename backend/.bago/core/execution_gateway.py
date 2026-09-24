@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import base64
+from contextlib import ExitStack
 import os
 import threading
 import time
@@ -26,9 +27,16 @@ from execution_request import ExecutionRequest, stable_digest
 
 
 class ExecutionGatewayError(RuntimeError):
-    def __init__(self, message: str, *, code: str = "execution_gateway_error") -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "execution_gateway_error",
+        pre_dispatch: bool = False,
+    ) -> None:
         super().__init__(message)
         self.code = code
+        self.pre_dispatch = bool(pre_dispatch)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1803,7 +1811,35 @@ class ExecutionGateway:
         trusted_services = dict(context.services)
         trusted_services["_parent_request"] = parent_request
         nested_context = ExecutionContext(manager=context.manager, services=trusted_services)
-        return adapter.execute(child_request, nested_context), authorization
+
+        delegation_state_dir = trusted_services.get("state_dir")
+        if child_request.delegation_id and delegation_state_dir is None:
+            manager = context.manager
+            if manager is None:
+                raise ExecutionGatewayError(
+                    "Delegated nested execution requires SessionManager context",
+                    code="authorization_delegation_state_required",
+                )
+            base_path = Path(getattr(manager, "base_path", Path.cwd()))
+            delegation_state_dir = base_path / ".bago" / "state"
+
+        with ExitStack() as authority_stack:
+            try:
+                authority_stack.enter_context(
+                    self.boundary.consumed_authority_lease(
+                        authorization=authorization,
+                        request=parent_request,
+                        delegation_state_dir=delegation_state_dir,
+                    )
+                )
+            except AuthorizationError as exc:
+                raise ExecutionGatewayError(
+                    str(exc),
+                    code=exc.code,
+                    pre_dispatch=True,
+                ) from exc
+            result = adapter.execute(child_request, nested_context)
+        return result, authorization
 
 
 __all__ = [
