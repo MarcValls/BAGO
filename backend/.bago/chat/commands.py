@@ -73,15 +73,13 @@ def cmd_project(
     mgr: SessionManager,
     engine: SwitchEngine,
     args: list[str],
-    *,
-    invocation_source: str = "interactive_tty",
 ) -> dict:
     return _cmd_project_impl(
         mgr,
         engine,
         args,
         load_module=_load_tool_module,
-        direct_user_authorized=invocation_source == "interactive_tty",
+        direct_user_authorized=False,
     )
 
 
@@ -1217,12 +1215,12 @@ COMMAND_REGISTRY: dict[str, Any] = {
 }
 
 
-def execute(
+def _execute(
     command_line: str,
     mgr: SessionManager,
     engine: SwitchEngine,
     *,
-    invocation_source: str = "interactive_tty",
+    direct_user_authorized: bool,
 ) -> dict:
     """Parsea una línea de comando y la ejecuta."""
     command_line = command_line.strip()
@@ -1244,10 +1242,42 @@ def execute(
 
     try:
         if cmd_name == "project":
-            return func(mgr, engine, args, invocation_source=invocation_source)
+            return _cmd_project_impl(
+                mgr,
+                engine,
+                args,
+                load_module=_load_tool_module,
+                direct_user_authorized=direct_user_authorized,
+            )
         return func(mgr, engine, args)
     except Exception as exc:
         return {"ok": False, "message": f"Error ejecutando /{cmd_name}: {exc}"}
+
+
+def execute(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+    """Execute without implicit direct-user authorization.
+
+    Transport surfaces, including HTTP and non-interactive CLI execution, use
+    this fail-closed entry point.
+    """
+
+    return _execute(command_line, mgr, engine, direct_user_authorized=False)
+
+
+def execute_local_cli(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+    """Execute an explicit command from the trusted local CLI entry point."""
+
+    return _execute(command_line, mgr, engine, direct_user_authorized=True)
+
+
+def execute_local_tty(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+    """Execute from the interactive REPL after verifying local TTY provenance."""
+
+    stdin_is_tty = bool(hasattr(sys.stdin, "isatty") and sys.stdin.isatty())
+    stdout_is_tty = bool(hasattr(sys.stdout, "isatty") and sys.stdout.isatty())
+    if not (stdin_is_tty and stdout_is_tty):
+        return execute(command_line, mgr, engine)
+    return execute_local_cli(command_line, mgr, engine)
 
 
 def _run_tests() -> int:
