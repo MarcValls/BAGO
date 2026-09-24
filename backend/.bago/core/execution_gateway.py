@@ -13,6 +13,7 @@ import os
 import threading
 import time
 import uuid
+import weakref
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
@@ -742,22 +743,28 @@ class ServerStateEffectAdapter:
 
 
 class GatewayHTTPResponse:
-    """Small buffered response compatible with the existing urllib callers."""
+    """urllib-compatible response proxy that preserves incremental reads."""
 
-    def __init__(self, body: bytes, *, status: int, headers: Mapping[str, Any], url: str) -> None:
-        self._body = bytes(body)
-        self._offset = 0
+    def __init__(self, response: Any, *, status: int, headers: Mapping[str, Any], url: str) -> None:
+        self._response = response
         self.status = int(status)
         self.code = self.status
-        self.headers = dict(headers)
+        self.headers = headers
         self.url = str(url)
 
     def read(self, amount: int = -1) -> bytes:
-        if amount is None or amount < 0:
-            amount = len(self._body) - self._offset
-        start = self._offset
-        self._offset = min(len(self._body), self._offset + int(amount))
-        return self._body[start:self._offset]
+        try:
+            return self._response.read(amount)
+        except TypeError:
+            return self._response.read()
+
+    def readinto(self, buffer: Any) -> int:
+        reader = getattr(self._response, "readinto", None)
+        if callable(reader):
+            return int(reader(buffer))
+        data = self.read(len(buffer))
+        buffer[:len(data)] = data
+        return len(data)
 
     def getcode(self) -> int:
         return self.status
@@ -766,6 +773,9 @@ class GatewayHTTPResponse:
         return self.url
 
     def close(self) -> None:
+        close = getattr(self._response, "close", None)
+        if callable(close):
+            return close()
         return None
 
     def __enter__(self) -> "GatewayHTTPResponse":
@@ -775,7 +785,7 @@ class GatewayHTTPResponse:
         self.close()
 
     def __iter__(self):
-        return iter(self._body.splitlines(keepends=True))
+        return iter(self._response)
 
 
 class NetworkReadEffectAdapter:
@@ -823,17 +833,13 @@ class NetworkReadEffectAdapter:
                 method=method,
             )
             timeout = float(request.target.get("timeout") or 30.0)
-            with urllib.request.urlopen(outbound, timeout=timeout) as response:
-                if hasattr(response, "read"):
-                    body = response.read()
-                else:
-                    body = b"".join(response)
-                raw_headers = getattr(response, "headers", {})
-                response_headers = dict(raw_headers.items()) if hasattr(raw_headers, "items") else dict(raw_headers)
-                getcode = getattr(response, "getcode", None)
-                status = int(getattr(response, "status", getcode() if callable(getcode) else 200))
-                geturl = getattr(response, "geturl", None)
-                final_url = str(geturl() if callable(geturl) else url)
+            response = urllib.request.urlopen(outbound, timeout=timeout)
+            raw_headers = getattr(response, "headers", {})
+            response_headers = raw_headers if hasattr(raw_headers, "items") else dict(raw_headers)
+            getcode = getattr(response, "getcode", None)
+            status = int(getattr(response, "status", getcode() if callable(getcode) else 200))
+            geturl = getattr(response, "geturl", None)
+            final_url = str(geturl() if callable(geturl) else url)
         except ExecutionGatewayError:
             raise
         except (urllib.error.HTTPError, urllib.error.URLError):
@@ -852,7 +858,7 @@ class NetworkReadEffectAdapter:
                 code="network_read_failed",
             ) from exc
         return GatewayHTTPResponse(
-            body,
+            response,
             status=status,
             headers=response_headers,
             url=final_url,
@@ -921,6 +927,8 @@ class ProjectWriteEffectAdapter:
     _FORBIDDEN_SEGMENTS = frozenset({".git", ".env", "node_modules", ".venv", "venv", "dist", "release", "__pycache__"})
     _LOCKS_GUARD = threading.RLock()
     _LOCKS: dict[str, threading.RLock] = {}
+    _MANAGER_LOCKS_GUARD = threading.RLock()
+    _MANAGER_LOCKS: weakref.WeakKeyDictionary[Any, threading.RLock] = weakref.WeakKeyDictionary()
 
     @staticmethod
     def _trusted_root(manager: Any) -> Path:
@@ -937,6 +945,46 @@ class ProjectWriteEffectAdapter:
         key = os.path.normcase(str(root))
         with cls._LOCKS_GUARD:
             return cls._LOCKS.setdefault(key, threading.RLock())
+
+    @classmethod
+    def _manager_lock(cls, manager: Any) -> threading.RLock:
+        with cls._MANAGER_LOCKS_GUARD:
+            try:
+                lock = cls._MANAGER_LOCKS.get(manager)
+                if lock is None:
+                    lock = threading.RLock()
+                    cls._MANAGER_LOCKS[manager] = lock
+                return lock
+            except TypeError:
+                # Test doubles or integrations may be unhashable; keep the
+                # lifecycle lock local to that manager without a process-wide
+                # lock or a permanent registry entry.
+                lock = getattr(manager, "_project_write_lock", None)
+                if lock is None:
+                    lock = threading.RLock()
+                    setattr(manager, "_project_write_lock", lock)
+                return lock
+
+    @staticmethod
+    def _validate_safe_root(manager: Any, root: Path) -> Path:
+        validator = getattr(manager, "_validate_project_root", None)
+        if not callable(validator):
+            try:
+                from session_manager import SessionManager
+
+                validator = SessionManager._validate_project_root
+            except (ImportError, AttributeError) as exc:
+                raise ExecutionGatewayError(
+                    "Project write validator is unavailable",
+                    code="project_write_validator_missing",
+                ) from exc
+        try:
+            return Path(validator(root, require_identity=False)).expanduser().resolve()
+        except Exception as exc:
+            raise ExecutionGatewayError(
+                f"Project write trusted root is not valid: {exc}",
+                code="project_write_root_invalid",
+            ) from exc
 
     @classmethod
     def _validate_operation_target(cls, trusted_root: Path, raw_path: str, operation: str) -> Path:
@@ -959,6 +1007,18 @@ class ProjectWriteEffectAdapter:
                 code="project_write_symlink_forbidden",
             )
         target = lexical.resolve()
+        if operation in {"init", "link", "seed"}:
+            if target != trusted_root:
+                raise ExecutionGatewayError(
+                    "Project lifecycle target does not match its authorized root",
+                    code="project_write_root_mismatch",
+                )
+            if target.name.lower() in cls._FORBIDDEN_SEGMENTS:
+                raise ExecutionGatewayError(
+                    "Project operation target contains a forbidden segment",
+                    code="project_write_forbidden_path",
+                )
+            return target
         try:
             relative = target.relative_to(trusted_root)
         except ValueError as exc:
@@ -970,11 +1030,6 @@ class ProjectWriteEffectAdapter:
             raise ExecutionGatewayError(
                 "Project operation target contains a forbidden segment",
                 code="project_write_forbidden_path",
-            )
-        if operation in {"init", "link", "seed"} and target != trusted_root:
-            raise ExecutionGatewayError(
-                "Project lifecycle operations require the active project root",
-                code="project_write_root_mismatch",
             )
         if operation == "demo" and target == trusted_root:
             raise ExecutionGatewayError(
@@ -1035,7 +1090,13 @@ class ProjectWriteEffectAdapter:
                 "Project write operation is not approved",
                 code="project_write_operation_invalid",
             )
-        trusted_root = cls._trusted_root(manager)
+        raw_target = Path(str(raw_path or "").strip()).expanduser()
+        selected_root = (
+            raw_target
+            if clean_operation in {"init", "link", "seed"} and raw_target.is_absolute()
+            else cls._trusted_root(manager)
+        )
+        trusted_root = cls._validate_safe_root(manager, selected_root)
         target = cls._validate_operation_target(trusted_root, raw_path, clean_operation)
         return trusted_root, target, cls.operation_descriptor_digest(target, clean_operation)
 
@@ -1078,13 +1139,17 @@ class ProjectWriteEffectAdapter:
                 code="execution_context_session_mismatch",
             )
 
-        root = self._trusted_root(manager)
-        target_root = Path(str(request.target.get("allowed_root") or "")).expanduser().resolve()
-        if target_root != root:
+        # The authorized request binds the selected root and target digest.
+        # Do not compare it to the manager's current root: a separately
+        # authorized workspace switch is valid, while target revalidation below
+        # still rejects tampering between approval and execution.
+        root_text = str(request.target.get("allowed_root") or "").strip()
+        if not root_text:
             raise ExecutionGatewayError(
-                "Project write trusted root is missing or changed",
+                "Project write trusted root is missing",
                 code="project_write_root_mismatch",
             )
+        root = self._validate_safe_root(manager, Path(root_text).expanduser())
         resource = str(request.target.get("resource") or "").strip()
         if resource not in {self._FILE_RESOURCE, self._OPERATION_RESOURCE}:
             raise ExecutionGatewayError(
@@ -1100,6 +1165,16 @@ class ProjectWriteEffectAdapter:
             )
         if resource == self._OPERATION_RESOURCE:
             operation = str(request.target.get("operation") or "").strip().lower()
+            if operation not in self._OPERATIONS:
+                raise ExecutionGatewayError(
+                    "Project write operation is not approved",
+                    code="project_write_operation_invalid",
+                )
+            if request.scope != "workspace":
+                raise ExecutionGatewayError(
+                    "Project operation scope is not approved",
+                    code="project_write_scope_invalid",
+                )
             target = self._validate_operation_target(root, raw_path, operation)
             approved_digest = str(request.target.get("root_digest") or "").strip()
             if not approved_digest:
@@ -1108,22 +1183,35 @@ class ProjectWriteEffectAdapter:
                     code="project_write_digest_required",
                 )
             arguments = request.arguments if isinstance(request.arguments, dict) else {}
-            with self._root_lock(root):
-                current_digest = self.operation_descriptor_digest(target, operation)
-                if current_digest != approved_digest:
+            rebind = getattr(manager, "rebind_project_root", None)
+            with self._manager_lock(manager):
+                root = self._validate_safe_root(manager, Path(root_text).expanduser())
+                target = self._validate_operation_target(root, raw_path, operation)
+                current_root = self._trusted_root(manager)
+                should_activate = operation in {"init", "link", "seed"} and target != current_root
+                if should_activate and not callable(rebind):
                     raise ExecutionGatewayError(
-                        "Project target changed after authorization request was constructed",
-                        code="project_write_target_changed",
+                        "SessionManager does not expose rebind_project_root()",
+                        code="project_write_rebind_unavailable",
                     )
-                try:
-                    result = self._execute_project_operation(target, operation, arguments)
-                except ExecutionGatewayError:
-                    raise
-                except Exception as exc:
-                    raise ExecutionGatewayError(
-                        f"Project operation failed: {exc}",
-                        code="project_write_failed",
-                    ) from exc
+                with self._root_lock(root):
+                    current_digest = self.operation_descriptor_digest(target, operation)
+                    if current_digest != approved_digest:
+                        raise ExecutionGatewayError(
+                            "Project target changed after authorization request was constructed",
+                            code="project_write_target_changed",
+                        )
+                    try:
+                        result = self._execute_project_operation(target, operation, arguments)
+                        if should_activate:
+                            rebind(target)
+                    except ExecutionGatewayError:
+                        raise
+                    except Exception as exc:
+                        raise ExecutionGatewayError(
+                            f"Project operation failed: {exc}",
+                            code="project_write_failed",
+                        ) from exc
             receipt_digest = hashlib.sha256(request.fingerprint.encode("utf-8")).hexdigest()
             return {
                 "ok": True,

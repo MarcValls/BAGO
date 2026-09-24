@@ -131,6 +131,8 @@ El grant liga principal, schedule, efectos admitidos, target, digest de argument
 
 `state.delete`, `workspace.bind`, `project.write` y `credential.write` se migraron a adapters de `ExecutionGateway` (`backend/.bago/core/execution_gateway.py`) en vez de escrituras directas del proceso servidor. Cada adapter valida el `Permit` autorizado antes de tocar disco y rechaza fail-closed si falta autorizacion, el root no coincide, el path esta fuera de scope o el digest previo no calza. Esto cierra la autoridad de esos sinks concretos dentro de P4-P10; no declara la frontera unica de ejecucion (`ExecutionGateway` sigue P2_P3_IMPLEMENTED_SLICE) ni sustituye el resto del plan de unificacion.
 
+Los clientes HTTP realizan `challenge -> approve -> execute` para cada mutacion protegida y conservan el mismo payload, scope e identificador de interaccion durante las tres fases. El endpoint HTTP de comandos no puede atribuirse procedencia de TTY ni autoaprobar escrituras; esa via queda limitada a entradas CLI locales verificadas. Los cambios de workspace autorizados ligan el root seleccionado y vuelven a validar target, scope y digest justo antes del efecto. Las lecturas de red de proveedores siguen siendo server-owned, pero la respuesta gobernada se entrega de forma incremental para no bloquear streams hasta EOF.
+
 ---
 
 ## Fuente de verdad del README

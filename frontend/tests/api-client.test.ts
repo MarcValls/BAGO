@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBagoClient } from '../src/api/client';
 
+function authorizedClient(apiBase = '', apiToken = '') {
+  const client = createBagoClient(apiBase, apiToken);
+  client.setAuthorizationConfirmation(async () => true);
+  return client;
+}
+
 describe('BagoClient response parsing', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -142,11 +148,12 @@ describe('BagoClient response parsing', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(createBagoClient('', '').setSessionModel(null)).resolves.toMatchObject({ ok: true, cleared: true });
+    await expect(authorizedClient().setSessionModel(null)).resolves.toMatchObject({ ok: true, cleared: true });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>);
     expect(bodies.map((body) => body.authorization_action)).toEqual(['challenge', 'approve', 'execute']);
+    expect(new Set(bodies.map((body) => body.interaction_id)).size).toBe(1);
     expect(bodies[1]).toMatchObject({ challenge_id: 'challenge-router-clear', user_decision: 'approve' });
     expect(bodies[2]).toMatchObject({ authorization_permit: 'permit-router-clear' });
   });
@@ -173,7 +180,7 @@ describe('BagoClient response parsing', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(createBagoClient('', '').persistWorkspace('C:/work/project')).resolves.toMatchObject({
+    await expect(authorizedClient().persistWorkspace('C:/work/project')).resolves.toMatchObject({
       ok: true,
       saved: 'C:/work/project'
     });
@@ -181,9 +188,127 @@ describe('BagoClient response parsing', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>);
     expect(bodies.map((body) => body.authorization_action)).toEqual(['challenge', 'approve', 'execute']);
+    expect(new Set(bodies.map((body) => body.interaction_id)).size).toBe(1);
     expect(bodies.every((body) => body.path === 'C:/work/project')).toBe(true);
     expect(bodies[1]).toMatchObject({ challenge_id: 'challenge-workspace-bind', user_decision: 'approve' });
     expect(bodies[2]).toMatchObject({ authorization_permit: 'permit-workspace-bind' });
+  });
+
+  it('uses the shared authorization helper for credential provider configuration', async () => {
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+      const response = body.authorization_action === 'challenge'
+        ? { ok: true, authorization: { state: 'challenge', challenge: { challenge_id: 'provider-challenge' } } }
+        : body.authorization_action === 'approve'
+          ? { ok: true, authorization: { state: 'authorized', permit: { token: 'provider-permit' } } }
+          : { ok: true, provider: 'openai', config: { has_secret: true } };
+      return Promise.resolve(new Response(JSON.stringify(response), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(authorizedClient().configureProvider('openai', { api_key: 'transient-secret' }))
+      .resolves.toMatchObject({ ok: true });
+    const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>);
+    expect(bodies.map((body) => body.authorization_action)).toEqual(['challenge', 'approve', 'execute']);
+    expect(bodies[1]).toMatchObject({ challenge_id: 'provider-challenge', user_decision: 'approve' });
+    expect(bodies[2]).toMatchObject({ authorization_permit: 'provider-permit' });
+  });
+
+  it('preserves project, file, plan, and provider operation payloads across their authorized lifecycle', async () => {
+    const secret = 'transient-secret';
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+      const response = body.authorization_action === 'challenge'
+        ? { ok: true, authorization: { state: 'challenge', challenge: { challenge_id: 'challenge-1' } } }
+        : body.authorization_action === 'approve'
+          ? { ok: true, authorization: { state: 'authorized', permit: { token: 'permit-1' } } }
+          : { ok: true, state: 'done' };
+      return Promise.resolve(new Response(JSON.stringify(response), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
+    const logSpy = vi.spyOn(console, 'log');
+    const storageSetItem = vi.fn();
+    vi.stubGlobal('localStorage', { setItem: storageSetItem });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = authorizedClient();
+
+    await client.initProject('C:/work/project');
+    await client.writeFile('src/example.ts', 'export const value = 1;');
+    await client.executePlan('plan-1', { mode: 'safe' });
+    await client.configureProvider('openai', { api_key: secret, model: 'gpt-test' });
+    await client.configureProvider('openai', { clear_secret: true });
+
+    const calls = fetchMock.mock.calls.map(([url, init]) => ({
+      url,
+      body: JSON.parse(String((init as RequestInit).body)) as Record<string, unknown>,
+    }));
+    for (let index = 0; index < calls.length; index += 3) {
+      const lifecycle = calls.slice(index, index + 3).map((call) => call.body);
+      expect(lifecycle.map((body) => body.authorization_action)).toEqual(['challenge', 'approve', 'execute']);
+      expect(new Set(lifecycle.map((body) => body.interaction_id)).size).toBe(1);
+    }
+    expect(calls[0]).toMatchObject({ url: '/project/init', body: { root: 'C:/work/project' } });
+    expect(calls[3]).toMatchObject({ url: '/files/write', body: { path: 'src/example.ts', content: 'export const value = 1;' } });
+    expect(calls[6]).toMatchObject({ url: '/plans/plan-1/execute', body: { mode: 'safe' } });
+    expect(calls[9].body).toMatchObject({ provider: 'openai', api_key: secret, model: 'gpt-test' });
+    expect(calls[12].body).toMatchObject({ provider: 'openai', clear_secret: true });
+    expect(storageSetItem).not.toHaveBeenCalled();
+    expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed or rejected authorization challenges with safe backend details', async () => {
+    const secret = 'transient-secret';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ok: false,
+      state: 'blocked',
+      error_code: 'authorization_denied',
+      message: `Credential ${secret} was rejected`,
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(authorizedClient().configureProvider('openai', { api_key: secret }))
+      .rejects.toMatchObject({
+        name: 'BagoAuthorizationError',
+        code: 'authorization_denied',
+        message: expect.not.stringContaining(secret),
+      });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['blocked', 'failed', 'error'])('rejects %s execution states from an authorized request', async (state) => {
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+      const response = body.authorization_action === 'challenge'
+        ? { ok: true, authorization: { state: 'challenge', challenge: { challenge_id: 'challenge-terminal' } } }
+        : body.authorization_action === 'approve'
+          ? { ok: true, authorization: { state: 'authorized', permit: { token: 'permit-terminal' } } }
+          : { ok: true, state, error_code: `execution_${state}`, message: `Execution ${state}` };
+      return Promise.resolve(new Response(JSON.stringify(response), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(authorizedClient().executePlan('plan-1')).rejects.toMatchObject({
+      name: 'BagoAuthorizationError',
+      code: `execution_${state}`,
+      message: `ejecutar el plan: Execution ${state}`,
+    });
+  });
+
+  it('cancels after a challenge without approving or executing', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ok: true,
+      authorization: { state: 'challenge', challenge: { challenge_id: 'challenge-cancelled' } }
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createBagoClient('', '');
+    client.setAuthorizationConfirmation(async () => false);
+
+    await expect(client.executePlan('plan-1')).rejects.toMatchObject({
+      name: 'BagoAuthorizationError',
+      code: 'authorization_cancelled',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String((fetchMock.mock.calls[0]?.[1] as RequestInit).body));
+    expect(body.authorization_action).toBe('challenge');
   });
 
   it('attempts the modern bootstrap only once before the legacy fallback', async () => {

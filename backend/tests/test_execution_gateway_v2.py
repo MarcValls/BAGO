@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import inspect
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -212,51 +214,223 @@ def test_project_operation_revalidates_target_immediately_before_first_write(tmp
     assert not (project / ".bago" / "pack.json").exists()
 
 
-def test_project_operation_rejects_live_root_change_before_write(tmp_path, monkeypatch) -> None:
+@pytest.mark.parametrize("invalid_root", [Path.home(), Path(Path.home().anchor)])
+def test_project_operation_rejects_unsafe_selected_root_before_fingerprint(tmp_path, invalid_root) -> None:
+    manager = type("Manager", (), {
+        "project_root": tmp_path / "project",
+        "session_id": "unsafe-root-session",
+    })()
+    manager.project_root.mkdir()
+    before = {(invalid_root / name).exists() for name in (".bago", ".gabo")}
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ProjectWriteEffectAdapter.prepare_operation(manager, str(invalid_root), "init")
+
+    assert blocked.value.code == "project_write_root_invalid"
+    assert {(invalid_root / name).exists() for name in (".bago", ".gabo")} == before
+    assert not (manager.project_root / ".bago").exists()
+    assert not (manager.project_root / ".gabo").exists()
+
+
+def test_project_operation_allows_authorized_root_switch(tmp_path, monkeypatch) -> None:
     project = tmp_path / "project"
     project.mkdir()
     other = tmp_path / "other"
     other.mkdir()
-    manager = type("Manager", (), {
-        "project_root": project,
-        "session_id": "project-root-session",
-    })()
+    class Manager:
+        project_root = project
+        session_id = "project-root-session"
+
+        def rebind_project_root(self, target):
+            self.project_root = Path(target).resolve()
+
+    manager = Manager()
     trusted_root, target, target_digest = ProjectWriteEffectAdapter.prepare_operation(
-        manager,
-        str(project),
-        "init",
+        manager, str(other), "init",
     )
     request = build_execution_request(
-        effect_id="project.write",
-        actor_kind="user",
-        principal_id="interactive-local-user",
-        session_id=manager.session_id,
+        effect_id="project.write", actor_kind="user",
+        principal_id="interactive-local-user", session_id=manager.session_id,
         source_surface="test.project.root",
-        target={
-            "path": str(target),
-            "allowed_root": str(trusted_root),
-            "resource": "project_operation",
-            "operation": "init",
-            "root_digest": target_digest,
-        },
-        arguments={},
-        scope="workspace",
+        target={"path": str(target), "allowed_root": str(trusted_root),
+                "resource": "project_operation", "operation": "init",
+                "root_digest": target_digest}, arguments={}, scope="workspace",
     )
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     boundary = auth.AuthorizationBoundary()
     permit = _permit(boundary, request, interaction="project-write-root")
-    manager.project_root = other
+    result, _ = ExecutionGateway(boundary).execute(
+        permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager),
+    )
+    assert result["ok"] is True
+    assert manager.project_root == other.resolve()
+    assert (other / ".bago").exists()
+    assert not (project / ".bago").exists()
 
-    with pytest.raises(ExecutionGatewayError) as blocked:
-        ExecutionGateway(boundary).execute(
-            permit_token=permit["token"],
-            request=request,
+
+def test_project_root_switches_on_one_manager_are_serialized(tmp_path, monkeypatch) -> None:
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+
+    class Manager:
+        project_root = first
+        session_id = "serialized-root-session"
+
+        def __init__(self) -> None:
+            self.active = 0
+            self.maximum_active = 0
+            self.rebound: list[Path] = []
+
+        def rebind_project_root(self, target):
+            self.project_root = Path(target).resolve()
+            self.rebound.append(self.project_root)
+
+    manager = Manager()
+    requests = []
+    for root, interaction in ((first, "serialized-first"), (second, "serialized-second")):
+        trusted_root, target, digest = ProjectWriteEffectAdapter.prepare_operation(manager, str(root), "init")
+        requests.append(build_execution_request(
+            effect_id="project.write",
+            actor_kind="user",
+            principal_id="interactive-local-user",
+            session_id=manager.session_id,
+            source_surface="test.project.concurrent",
+            target={
+                "path": str(target),
+                "allowed_root": str(trusted_root),
+                "resource": "project_operation",
+                "operation": "init",
+                "root_digest": digest,
+            },
+            arguments={},
+            scope="workspace",
+        ))
+
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    boundary = auth.AuthorizationBoundary()
+    permits = [_permit(boundary, request, interaction) for request, interaction in zip(
+        requests, ("serialized-first", "serialized-second")
+    )]
+    entered = threading.Event()
+    release = threading.Event()
+    entered_count = 0
+    entered_guard = threading.Lock()
+
+    def execute_operation(target, operation, arguments):
+        nonlocal entered_count
+        with entered_guard:
+            entered_count += 1
+            manager.active += 1
+            manager.maximum_active = max(manager.maximum_active, manager.active)
+            if entered_count == 1:
+                entered.set()
+        if entered_count == 1:
+            assert release.wait(2)
+        time.sleep(0.01)
+        with entered_guard:
+            manager.active -= 1
+        return {"ok": True, "path": str(target)}
+
+    monkeypatch.setattr(ProjectWriteEffectAdapter, "_execute_project_operation", staticmethod(execute_operation))
+    results: list[tuple[dict, dict]] = []
+
+    def run(index: int) -> None:
+        results.append(ExecutionGateway(boundary).execute(
+            permit_token=permits[index]["token"],
+            request=requests[index],
             context=ExecutionContext(manager=manager),
+        ))
+
+    first_thread = threading.Thread(target=run, args=(0,))
+    second_thread = threading.Thread(target=run, args=(1,))
+    first_thread.start()
+    assert entered.wait(2)
+    second_thread.start()
+    time.sleep(0.05)
+    assert manager.maximum_active == 1
+    release.set()
+    first_thread.join(2)
+    second_thread.join(2)
+
+    assert len(results) == 2
+    assert manager.maximum_active == 1
+    assert manager.project_root in {first.resolve(), second.resolve()}
+    assert len(manager.rebound) == 1
+
+
+def test_project_operation_rejects_tampered_authorized_target(tmp_path, monkeypatch) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    manager = type("Manager", (), {"project_root": project, "session_id": "project-root-session"})()
+    trusted_root, target, target_digest = ProjectWriteEffectAdapter.prepare_operation(manager, str(project), "init")
+    request = build_execution_request(
+        effect_id="project.write", actor_kind="user", principal_id="interactive-local-user",
+        session_id=manager.session_id, source_surface="test.project.root",
+        target={"path": str(target), "allowed_root": str(trusted_root), "resource": "project_operation",
+                "operation": "init", "root_digest": target_digest}, arguments={}, scope="workspace",
+    )
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction="project-write-tamper")
+    request.target["path"] = str(tmp_path / "tampered")
+    with pytest.raises(auth.AuthorizationError) as blocked:
+        ExecutionGateway(boundary).execute(permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager))
+    assert blocked.value.code == "authorization_operation_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    [
+        ("path", "tampered"),
+        ("allowed_root", "tampered"),
+        ("root_digest", "tampered-digest"),
+        ("scope", "persistent"),
+    ],
+)
+def test_project_root_switch_rejects_post_authorization_tampering_without_mutation(
+    tmp_path, monkeypatch, field, replacement,
+) -> None:
+    active = tmp_path / "active"
+    selected = tmp_path / "selected"
+    active.mkdir()
+    selected.mkdir()
+
+    class Manager:
+        project_root = active
+        session_id = "project-root-tamper-session"
+
+        def rebind_project_root(self, target):
+            self.project_root = Path(target).resolve()
+
+    manager = Manager()
+    trusted_root, target, target_digest = ProjectWriteEffectAdapter.prepare_operation(
+        manager, str(selected), "init",
+    )
+    request = build_execution_request(
+        effect_id="project.write", actor_kind="user", principal_id="interactive-local-user",
+        session_id=manager.session_id, source_surface="test.project.root-switch",
+        target={"path": str(target), "allowed_root": str(trusted_root), "resource": "project_operation",
+                "operation": "init", "root_digest": target_digest}, arguments={}, scope="workspace",
+    )
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction=f"project-root-tamper-{field}")
+    if field == "scope":
+        object.__setattr__(request, "scope", replacement)
+    else:
+        request.target[field] = str(tmp_path / replacement) if field != "root_digest" else replacement
+
+    with pytest.raises(auth.AuthorizationError) as blocked:
+        ExecutionGateway(boundary).execute(
+            permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager),
         )
 
-    assert blocked.value.code == "project_write_root_mismatch"
-    assert not (project / ".bago").exists()
-    assert not (other / ".bago").exists()
+    assert blocked.value.code == "authorization_operation_mismatch"
+    assert manager.project_root == active.resolve()
+    assert not (active / ".bago").exists()
+    assert not (selected / ".bago").exists()
 
 
 def test_credential_adapter_rejects_non_direct_strong_proof_before_secret_store_access(tmp_path) -> None:
@@ -836,7 +1010,47 @@ def test_server_policy_network_adapter_blocks_unclassified_surface(monkeypatch) 
     assert called is False
 
 
-def test_server_policy_network_adapter_returns_buffered_response(monkeypatch) -> None:
+def test_gateway_urlopen_exposes_first_chunk_before_eof(monkeypatch) -> None:
+    import urllib.request
+
+    second_chunk_allowed = threading.Event()
+
+    class _SlowResponse:
+        status = 200
+        headers = {"Content-Type": "text/event-stream"}
+
+        def __init__(self):
+            self.calls = 0
+
+        def read(self, amount=-1):
+            self.calls += 1
+            if self.calls == 1:
+                return b"data: first\n\n"
+            if not second_chunk_allowed.wait(1.0):
+                raise TimeoutError("EOF was requested before the delayed chunk")
+            return b"data: second\n\n"
+
+        def close(self):
+            second_chunk_allowed.set()
+
+        def getcode(self):
+            return 200
+
+        def geturl(self):
+            return "https://example.test/stream"
+
+    response = _SlowResponse()
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *_args, **_kwargs: response)
+    from bago_core.server_effects import gateway_urlopen
+
+    streamed = gateway_urlopen("https://example.test/stream", timeout=1.0)
+    assert response.calls == 0
+    assert streamed.read() == b"data: first\n\n"
+    assert response.calls == 1
+    streamed.close()
+
+
+def test_server_policy_network_adapter_returns_streaming_response(monkeypatch) -> None:
     import urllib.request
 
     class _Response:
