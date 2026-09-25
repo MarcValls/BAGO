@@ -208,11 +208,12 @@ def check_debug_prints(path: Path, root: Path) -> list[dict[str, object]]:
 
 def check_new_todos(diff_text: str) -> list[dict[str, object]]:
     findings: list[dict[str, object]] = []
-    for match in TODO_ADDED_RE.finditer(diff_text):
-        snippet = match.group(0)[1:].strip()[:120]
+    for _match in TODO_ADDED_RE.finditer(diff_text):
         findings.append({
             "code": "CR-W002", "severity": "warning", "path": "git-diff", "line": 0,
-            "message": f"new todo in staged diff: {snippet}",
+            # Staged source lines may contain credentials or other secrets.
+            # Report the marker without copying source text into CLI/JSON output.
+            "message": "new task marker in staged diff",
         })
     return findings
 

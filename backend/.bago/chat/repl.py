@@ -27,16 +27,21 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-# CANON[CHAT-003]: the REPL is the interactive surface, not a second source of truth.
-# LEGACY[CHAT-L003]: load peer chat modules from the local directory when imported by path.
-CHAT_DIR = Path(__file__).resolve().parent
-if str(CHAT_DIR) not in sys.path:
-    sys.path.insert(0, str(CHAT_DIR))
-
-# Ensure core path
+# Ensure package paths first. The chat directory must be placed after these
+# inserts so its legacy `commands` module takes precedence over
+# `bago_core/commands` when the REPL imports its peer modules below.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root → bago_core package
+
+# CANON[CHAT-003]: the REPL is the interactive surface, not a second source of truth.
+# LEGACY[CHAT-L003]: load peer chat modules from the local directory when imported by path.
+CHAT_DIR = Path(__file__).resolve().parent
+chat_dir_text = str(CHAT_DIR)
+if chat_dir_text in sys.path:
+    sys.path.remove(chat_dir_text)
+sys.path.insert(0, chat_dir_text)
+
 from session_manager import SessionManager
 from switch_engine import SwitchEngine
 from state_paths import resolve_state_root

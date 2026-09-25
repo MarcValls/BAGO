@@ -45,6 +45,16 @@ def test_check_new_todos_flags_added_todo() -> None:
     assert commit_readiness.check_new_todos("+ # TODO: fix me\n")[0]["code"] == "CR-W002"
 
 
+def test_new_task_marker_does_not_copy_staged_source_into_report() -> None:
+    secret = "sk-" + "A" * 24
+    marker = "TO" + "DO"
+    findings = commit_readiness.check_new_todos(f"+ # {marker}: rotate credential {secret}\n")
+
+    assert findings[0]["code"] == "CR-W002"
+    assert "task marker" in findings[0]["message"]
+    assert secret not in findings[0]["message"]
+
+
 def test_check_docstrings_strict_and_clean_evaluation(tmp_path: Path) -> None:
     source = tmp_path / "sample.py"
     source.write_text("def public():\n    return 1\n", encoding="utf-8")
