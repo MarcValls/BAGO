@@ -31,6 +31,7 @@ from typing import Any, Iterable
 
 SCRIPT_PATH = Path(__file__).resolve()
 REPO_ROOT = SCRIPT_PATH.parents[3]
+SQLITE_EFFECT_ID = "database.write"
 
 DEFAULT_ROOTS = (
     REPO_ROOT / "backend",
@@ -52,6 +53,13 @@ EXCLUDED_DIRS = {
 # authority-internal persistence sink, not a bypass around itself.
 INTERNAL_AUTHORITY_PATHS = {
     "backend/.bago/core/authorization_boundary.py",
+    # SQLite claim leases and operation receipts are coordination metadata
+    # owned by the ExecutionGateway / governed plan pipeline. The claim-store
+    # resolver is invoked by the gateway only after its Permit is consumed;
+    # the standalone autonomous-loop use is a single-instance coordination
+    # lock and does not authorize or materialize the loop's business effects.
+    "backend/.bago/core/execution_claims.py",
+    "backend/.bago/core/execution_operations.py",
 }
 
 # These implementations are reached only through registered, server-owned
@@ -59,6 +67,38 @@ INTERNAL_AUTHORITY_PATHS = {
 # evidence of that ownership, not an exclusion from the audit.
 GATEWAY_OWNED_PATHS = {
     "backend/.bago/core/filesystem_effects.py",
+    # ProjectWriteEffectAdapter owns patch application and recovery through
+    # project.write operation-bound Permit requests.
+    "backend/.bago/core/workspace_patch_storage.py",
+    # Project lifecycle materializers are called by ProjectWriteEffectAdapter;
+    # their public CLI/REPL/API entrypoints all dispatch through project.write.
+    "backend/.bago/tools/project_memory.py",
+    # The project seed serializer is loaded only by project_memory.seed_project,
+    # after its consumed project.write authorization check. The adapter path
+    # test below proves project_memory lifecycle calls have one gateway caller.
+    "backend/.bago/seed.py",
+    # Evidence bundle I/O is reachable from the public API only through the
+    # strong CLI request; its private materializer is called by the registered
+    # EvidenceBundleGenerateEffectAdapter and commits a sibling stage atomically.
+    "backend/bago_core/evidence_io.py",
+    # A consumed system.update.apply Permit creates a one-use, operation-bound
+    # ticket before the detached helper is spawned. The PowerShell helper
+    # checks the canonical consumed-Permit ledger record, exact request target
+    # and own file hash, then claims the ticket before any other effect;
+    # direct invocation and changed-target replay are tested pre-effect denials.
+    "backend/.bago/api/apply_release_update.ps1",
+    # system.install.apply starts this detached, elevated helper only after it
+    # validates the canonical consumed-Permit record, request/proof/decision,
+    # helper/source/config digests and exact options. The elevated child claims
+    # the one-use ticket before running install materializers; direct invocation
+    # is covered by a Windows pre-elevation denial test.
+    "backend/install-v4.ps1",
+    # system.install.uninstall invokes this active-CLI helper after consuming
+    # the strong desktop Permit. The helper checks the canonical consumed
+    # request/proof/decision, exact install-tree fingerprint and ticket nonce,
+    # then claims the one-use ticket before backup, PATH/registry writes or
+    # removal. Direct CLI invocation without that ticket is tested fail-closed.
+    "backend/.bago/core/execution_adapters/install_uninstall_lifecycle.py",
 }
 EXECUTION_GATEWAY_PATH = "backend/.bago/core/execution_gateway.py"
 
@@ -120,6 +160,9 @@ PYTHON_SUFFIX_RULES: tuple[tuple[str, str, str], ...] = (
 
 POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"\bRemove-Item\b", re.I), "filesystem.delete", "high"),
+    (re.compile(r"\b(?:New-ItemProperty|Set-Item|Remove-ItemProperty|Clear-ItemProperty)\b", re.I), "system.configuration.write", "high"),
+    (re.compile(r"\[\s*(?:System\.IO\.)?File\s*\]\s*::\s*(?:WriteAllText|WriteAllBytes|AppendAllText|AppendAllBytes)\s*\(", re.I), "filesystem.write", "high"),
+    (re.compile(r"\[\s*(?:System\.)?Environment\s*\]\s*::\s*SetEnvironmentVariable\s*\(", re.I), "system.configuration.write", "high"),
     (re.compile(r"\b(?:Set-Content|Add-Content|Out-File|Copy-Item|Move-Item|New-Item)\b", re.I), "filesystem.write", "medium"),
     (re.compile(r"\bStart-Process\b", re.I), "process.execute", "high"),
     (re.compile(r"\b(?:Invoke-WebRequest|Invoke-RestMethod)\b.*\b-Method\s+(?:POST|PUT|PATCH|DELETE)\b", re.I), "network.external_write", "high"),
@@ -128,6 +171,8 @@ POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
 
 JS_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"\b(?:child_process\.)?(?:spawn|spawnSync|exec|execSync|execFile|execFileSync|fork)\s*\("), "process.execute", "high"),
+    (re.compile(r"\b(?!process\.kill\b)[A-Za-z_$][\w$]*\.kill\s*\("), "process.terminate", "high"),
+    (re.compile(r"\bprocess\.kill\s*\([^,]+,\s*(?!0\s*\))[^)]+\)"), "process.terminate", "high"),
     (re.compile(r"\b(?:fs\.)?(?:writeFile|writeFileSync|appendFile|appendFileSync|mkdir|mkdirSync|copyFile|copyFileSync|rename|renameSync)\s*\("), "filesystem.write", "medium"),
     (re.compile(r"\b(?:fs\.)?(?:unlink|unlinkSync|rm|rmSync|rmdir|rmdirSync)\s*\("), "filesystem.delete", "high"),
 )
@@ -244,8 +289,14 @@ def _literal_open_effect(call: ast.Call) -> tuple[str, str] | None:
     if name not in {"open", "io.open", "Path.open", "pathlib.Path.open"} and not name.endswith(".open"):
         return None
     mode: str | None = None
-    if len(call.args) >= 2 and isinstance(call.args[1], ast.Constant) and isinstance(call.args[1].value, str):
-        mode = call.args[1].value
+    # Built-in open(file, mode) and io.open(file, mode) carry the mode in
+    # position 1. A bound Path.open(mode) carries it in position 0; the
+    # unbound Path.open(path, mode) form again carries it in position 1.
+    mode_index = 1 if name in {"open", "io.open"} or len(call.args) >= 2 else 0
+    if len(call.args) > mode_index and isinstance(call.args[mode_index], ast.Constant):
+        value = call.args[mode_index].value
+        if isinstance(value, str):
+            mode = value
     for keyword in call.keywords:
         if keyword.arg == "mode" and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
             mode = keyword.value.value
@@ -254,10 +305,76 @@ def _literal_open_effect(call: ast.Call) -> tuple[str, str] | None:
     return None
 
 
+_SQL_MUTATION = re.compile(
+    r"^(?:CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|REPLACE|VACUUM|REINDEX|ATTACH|DETACH)\b",
+    re.IGNORECASE,
+)
+_SQL_CONNECTION_PRAGMA = re.compile(
+    r"^PRAGMA\s+(?:busy_timeout|synchronous|foreign_keys|cache_size|temp_store|query_only)\s*=",
+    re.IGNORECASE,
+)
+
+
+def _literal_database_write_effect(call: ast.Call) -> tuple[str, str] | None:
+    name = _qualified_name(call.func)
+    if name == "sqlite3.connect":
+        if call.args and isinstance(call.args[0], ast.Constant):
+            value = call.args[0].value
+            if isinstance(value, str) and (value == ":memory:" or value.startswith("file::memory:")):
+                return None
+        uri_enabled = any(
+            keyword.arg == "uri"
+            and isinstance(keyword.value, ast.Constant)
+            and keyword.value.value is True
+            for keyword in call.keywords
+        )
+        if uri_enabled and call.args:
+            uri_literals = "".join(
+                node.value
+                for node in ast.walk(call.args[0])
+                if isinstance(node, ast.Constant) and isinstance(node.value, str)
+            )
+            if re.search(r"(?:\?|&)mode=ro(?:&|$)", uri_literals, re.IGNORECASE):
+                return None
+        return (SQLITE_EFFECT_ID, "medium")
+    if not isinstance(call.func, ast.Attribute) or call.func.attr not in {"execute", "executemany", "executescript"}:
+        return None
+    if not call.args:
+        return None
+    statement = call.args[0]
+    if isinstance(statement, ast.Constant) and isinstance(statement.value, str):
+        sql = statement.value.strip()
+    elif isinstance(statement, ast.JoinedStr):
+        sql = "".join(
+            part.value for part in statement.values
+            if isinstance(part, ast.Constant) and isinstance(part.value, str)
+        ).strip()
+    elif call.func.attr == "executescript":
+        # executescript is an explicitly multi-statement database operation;
+        # callers may pass a schema constant or a generated script.
+        return (SQLITE_EFFECT_ID, "medium")
+    elif isinstance(statement, ast.Name) and any(
+        token in statement.id.casefold() for token in ("sql", "query", "statement", "schema")
+    ):
+        return (SQLITE_EFFECT_ID, "low")
+    else:
+        return None
+    if _SQL_CONNECTION_PRAGMA.match(sql):
+        # These PRAGMAs configure the connection, not persistent database
+        # contents. Keep persistent journal-mode changes visible below.
+        return None
+    if _SQL_MUTATION.match(sql) or re.match(r"^PRAGMA\s+[A-Za-z_][A-Za-z0-9_]*\s*=", sql, re.IGNORECASE):
+        return (SQLITE_EFFECT_ID, "high")
+    return None
+
+
 def _classify_python_call(call: ast.Call) -> tuple[str, str] | None:
     opened = _literal_open_effect(call)
     if opened is not None:
         return opened
+    database_write = _literal_database_write_effect(call)
+    if database_write is not None:
+        return database_write
     name = _qualified_name(call.func)
     for suffix, effect_id, confidence in PYTHON_SUFFIX_RULES:
         if name == suffix or name.endswith(suffix):
@@ -346,6 +463,10 @@ def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str],
         for pattern, effect_id, confidence in rules:
             match = pattern.search(line)
             if not match:
+                continue
+            if language == "javascript" and effect_id == "process.terminate" and re.search(
+                r"\bprocess\.kill\s*\([^,]+,\s*0\s*\)", line
+            ):
                 continue
             binding, binding_class, binding_reason = _ownership_for(path)
             findings.append(
