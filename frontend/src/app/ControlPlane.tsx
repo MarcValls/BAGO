@@ -711,13 +711,6 @@ export function ControlPlane() {
       setLastMessage('no hay workspace válido para persistir');
       return;
     }
-    const confirmed = await requestConfirmation({
-      title: 'Persistir workspace',
-      description: `Se fijará ${root} como workspace activo y se guardará tras la autorización del backend.`,
-      confirmLabel: 'Persistir workspace'
-    });
-    if (!confirmed) return;
-
     try {
       const result = await clientRef.current.persistWorkspace(root);
       if (result.ok === false) {
@@ -780,7 +773,7 @@ export function ControlPlane() {
       if (nextSnapshot && !nextSnapshot.permissions.canChat && nextSnapshot.workspace.manifestState !== 'valid') {
         const confirmed = window.confirm('Sincronizará los archivos del espejo de sesión hacia el workspace seleccionado. ¿Continuar?');
         if (!confirmed) return false;
-        await clientRef.current.syncProject();
+        await clientRef.current.syncProject(cleanRoot);
         nextSnapshot = await refreshAfterMutation();
       }
 
@@ -1220,6 +1213,14 @@ export function ControlPlane() {
   const setDraft = (key: string, text: string) => {
     setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, [key]: text } }));
   };
+
+  useEffect(() => {
+    clientRef.current.setAuthorizationConfirmation(async ({ label }) => requestConfirmation({
+      title: 'Confirmar acción protegida',
+      description: `El backend ha emitido un challenge para ${label}. ¿Quieres continuar?`,
+      confirmLabel: 'Continuar',
+    }));
+  }, [requestConfirmation]);
 
   const navigate = (section: ActiveSection) => {
     const destination = section === 'chat' ? 'home' : section;

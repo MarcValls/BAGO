@@ -1,6 +1,6 @@
 # Execution Gateway Unification Plan v1
 
-Estado: P1_IMPLEMENTED · MIGRATION_OPEN  
+Estado: P4_MERGED · RETEST_READY · P5_OPEN
 Base requerida: User Authorization Provenance Boundary (PR #217)
 
 ## Objetivo
@@ -11,6 +11,28 @@ persistentes, externos o privilegiados de BAGO.
 La identidad humana fuerte se implementa **después** de cerrar los bypasses de
 ejecución. Una prueba WebAuthn/Windows Hello no protege una ruta que nunca pasa
 por la frontera de autorización.
+
+## Estado lineal actual
+
+| Fase | Estado | Evidencia principal |
+|---|---|---|
+| P1 · Effect Registry + Effect-Sink Inventory | IMPLEMENTED | PR #218 |
+| P2 · ExecutionRequest v2 | IMPLEMENTED | PR #220 |
+| P3 · ExecutionGateway v2 | IMPLEMENTED_SLICE | PR #220 |
+| P4 · Scheduler + DelegationGrant | MERGED · RETEST_READY | PR #221; Canonical CI / Validate Expected / njsscan PASS sobre el head del PR |
+| P5 · LLM Tool Calls | OPEN | siguiente migración |
+| P6–P12 · cierre de frontera única | PENDING | no puede declararse `UNIQUE_EXECUTION_BOUNDARY` |
+| P13–P14 · Strong Human Identity Proof | FUTURE | solo después de P12 |
+
+Estado global:
+
+`LEGACY_SCHEDULE_CONFIRMATION_AUTHORITY = REMOVED`
+
+`SCHEDULED_RUN_CHILD_PERMIT = REQUIRED`
+
+`UNIQUE_EXECUTION_BOUNDARY = NOT_YET`
+
+`STRONG_HUMAN_IDENTITY_VERIFIED = NO`
 
 ## Invariantes de cierre
 

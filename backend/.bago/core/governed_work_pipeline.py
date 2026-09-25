@@ -669,7 +669,18 @@ def execute_plan_through_gateway(
                 context=claim_context,
             )
         except Exception as exc:
+            from execution_adapter_contract import ExecutionGatewayError
+
             claim_store.release(claim)
+            if isinstance(exc, ExecutionGatewayError):
+                evidence = [
+                    "blocked",
+                    "outcome_status:FAILED",
+                    f"step_idempotency_key:{key}",
+                    f"block_code:{exc.code}",
+                ]
+                state.fail(key, result={"ok": False, "error": str(exc)}, evidence=evidence, error=str(exc))
+                return _blocked(str(exc), exc.code)
             evidence = ["blocked", "outcome_status:OUTCOME_UNKNOWN", f"step_idempotency_key:{key}"]
             state.unknown(key, error=str(exc), evidence=evidence)
             return _blocked("plan_child_outcome_unknown", "pipeline_outcome_unknown")

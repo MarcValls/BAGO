@@ -64,6 +64,11 @@ class BagoHttpError extends Error {
   }
 }
 
+export type AuthorizationConfirmation = (request: {
+  label: string;
+  challenge: AuthorizationChallengeResponse;
+}) => Promise<boolean>;
+
 class BagoAuthorizationError extends Error {
   code: string;
 
@@ -208,12 +213,17 @@ function normalizeInterpretationResponse(
 export class BagoClient {
   constructor(
     private apiBase: string,
-    private apiToken: string
+    private apiToken: string,
+    private authorizationConfirmation?: AuthorizationConfirmation,
   ) {}
 
   setConfig(apiBase: string, apiToken: string): void {
     this.apiBase = apiBase.trim().replace(/\/+$/, '');
     this.apiToken = apiToken.trim();
+  }
+
+  setAuthorizationConfirmation(handler?: AuthorizationConfirmation): void {
+    this.authorizationConfirmation = handler;
   }
 
   private headers(extra?: Record<string, string>): HeadersInit {
@@ -243,6 +253,7 @@ export class BagoClient {
     payload: Record<string, unknown>,
     label: string,
     timeoutMs?: number,
+    options: { confirmed?: boolean } = {},
   ): Promise<T> {
     const interactionId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
@@ -257,6 +268,21 @@ export class BagoClient {
       throw readAuthorizationFailure(challenge, label, 'El backend no emitió un challenge válido.', secrets);
     }
     const challengeId = challenge.authorization.challenge.challenge_id.trim();
+    if (!options.confirmed && !this.authorizationConfirmation) {
+      throw new BagoAuthorizationError(
+        `${label}: se requiere confirmación explícita antes de ejecutar esta acción.`,
+        'authorization_confirmation_required',
+      );
+    }
+    if (!options.confirmed) {
+      const confirmed = await this.authorizationConfirmation!({ label, challenge });
+      if (!confirmed) {
+        throw new BagoAuthorizationError(
+          `${label}: acción cancelada por el usuario.`,
+          'authorization_cancelled',
+        );
+      }
+    }
 
     const approval = await this.request<unknown>(route, {
       method: 'POST',
@@ -725,8 +751,8 @@ export class BagoClient {
     }, 60_000);
   }
 
-  executePlan(planId: string, payload?: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.authorizedRequest(`/plans/${encodeURIComponent(planId)}/execute`, { ...payload }, 'ejecutar el plan', 60_000);
+  executePlan(planId: string, payload?: Record<string, unknown>, options?: { confirmed?: boolean }): Promise<Record<string, unknown>> {
+    return this.authorizedRequest(`/plans/${encodeURIComponent(planId)}/execute`, { ...payload }, 'ejecutar el plan', 60_000, options);
   }
 
   // --- Catalog & Provider Buffer ---
@@ -1013,8 +1039,9 @@ export class BagoClient {
     return this.authorizedRequest<BackendCommandResult>('/project/seed', { root }, 'sembrar el proyecto');
   }
 
-  syncProject(): Promise<BackendCommandResult> {
-    return this.authorizedRequest<BackendCommandResult>('/project/sync', {}, 'sincronizar el espejo del workspace');
+  syncProject(root?: string): Promise<BackendCommandResult> {
+    const payload = root?.trim() ? { root: root.trim() } : {};
+    return this.authorizedRequest<BackendCommandResult>('/project/sync', payload, 'sincronizar el espejo del workspace');
   }
 
   runCommand(command: string): Promise<BackendCommandResult> {

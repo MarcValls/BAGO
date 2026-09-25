@@ -604,10 +604,50 @@ class SessionPersistenceMixin:
             "binding_reason": binding["binding_reason"],
         }
         session_json_receipt = write_json_atomic(path, data)
+        session_db_indexed = False
+        try:
+            from session_db import get_session_db
+            db = get_session_db(str(self.state_dir))
+            db.upsert(
+                self.session_id,
+                created_at=datetime.fromtimestamp(self.created_at, tz=timezone.utc).isoformat(),
+                last_provider=self.provider,
+                last_model=self.model,
+                switch_count=len(self.switch_log),
+                bago_mode=self.bago_mode,
+                active_agent=self.agent_gateway.active.name,
+                total_tokens=self.total_tokens,
+                total_calls=self.total_calls,
+                last_switch_at=self.last_switch_at.isoformat() if isinstance(self.last_switch_at, float) else self.last_switch_at,
+                authorized_root=str(getattr(self, "project_root", self.base_path)),
+                context_revision=context_revision,
+                context_benchmark=context_benchmark,
+                cognitive_benchmark=cognitive_benchmark,
+                context_certification=context_certification,
+                context_classification=context_classification,
+                context_plan=context_plan,
+                context_route=context_route,
+                context_retrieval=context_retrieval,
+                last_global_review=global_review,
+                binding_confirmed=binding["binding_confirmed"],
+                project_root=str(getattr(self, "project_root", self.base_path)),
+                framework_root=str(getattr(self, "framework_root", resolve_framework_root())),
+                workspace_state_root=str(getattr(self, "workspace_state_root", Path(self.base_path) / ".gabo")),
+                workspace_scope_root=str(getattr(self, "workspace_scope_root", self.base_path)),
+                workspace_mirror_root=str(getattr(self, "workspace_mirror_root", self.base_path)),
+                workspace_id=str(getattr(self, "workspace_id", "")),
+                repo_root=repo_root,
+                repo_branch=repo_branch,
+            )
+        except Exception:
+            session_db_indexed = False
+        else:
+            session_db_indexed = True
 
         return {
             "session_json_persisted": True,
             "session_json_receipt": session_json_receipt,
+            "session_db_indexed": session_db_indexed,
         }
 
     @classmethod

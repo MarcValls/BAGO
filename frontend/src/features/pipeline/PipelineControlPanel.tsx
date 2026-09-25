@@ -132,7 +132,7 @@ export function PipelineControlPanel({ client, onRefreshSnapshot, onSetSection, 
                   <span><strong>{String(plan.task || plan.objective || planId)}</strong><small>{planStatus} · {stepCount} pasos · {planId}</small></span>
                   {pendingPlan === planId ? (
                     <span className="pipeline-inline-confirm">
-                      <button className="primary-button compact" type="button" disabled={Boolean(busy)} onClick={() => { setPendingPlan(''); void run(`execute:${planId}`, () => client.executePlan(planId)); }}>Confirmar</button>
+                      <button className="primary-button compact" type="button" disabled={Boolean(busy)} onClick={() => { setPendingPlan(''); void run(`execute:${planId}`, () => client.executePlan(planId, undefined, { confirmed: true })); }}>Confirmar</button>
                       <button className="text-button" type="button" onClick={() => setPendingPlan('')}>Cancelar</button>
                     </span>
                   ) : (

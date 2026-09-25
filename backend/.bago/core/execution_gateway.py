@@ -493,12 +493,29 @@ class ExecutionGateway:
         adapter = self.adapters.resolve(child_request.effect_id)
         trusted_services = dict(context.services)
         trusted_services["_parent_request"] = parent_request
+        delegation_state_dir = trusted_services.get("state_dir")
+        if delegation_state_dir is None and context.manager is not None:
+            from pathlib import Path
+
+            base_path = Path(getattr(context.manager, "base_path", Path.cwd()))
+            delegation_state_dir = base_path / ".bago" / "state"
         nested_context = ExecutionContext(manager=context.manager, services=trusted_services)
         try:
-            result = claim_store.execute_if_valid(
-                claim,
-                lambda: adapter.execute(child_request, nested_context),
-            )
+            with self.boundary.consumed_authority_lease(
+                authorization=authorization,
+                request=parent_request,
+                delegation_state_dir=delegation_state_dir,
+            ):
+                result = claim_store.execute_if_valid(
+                    claim,
+                    lambda: adapter.execute(child_request, nested_context),
+                )
+        except AuthorizationError as exc:
+            raise ExecutionGatewayError(
+                str(exc),
+                code=exc.code,
+                pre_dispatch=True,
+            ) from exc
         except ExecutionClaimError as exc:
             raise ExecutionGatewayError(str(exc), code=exc.code) from exc
         return result, authorization

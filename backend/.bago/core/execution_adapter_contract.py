@@ -4,9 +4,16 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol
 from execution_request import ExecutionRequest
 class ExecutionGatewayError(RuntimeError):
-    def __init__(self, message: str, *, code: str = "execution_gateway_error") -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "execution_gateway_error",
+        pre_dispatch: bool = False,
+    ) -> None:
         super().__init__(message)
         self.code = code
+        self.pre_dispatch = bool(pre_dispatch)
 @dataclass(frozen=True, slots=True)
 class ExecutionContext:
     """Trusted runtime dependencies, never part of user authority."""

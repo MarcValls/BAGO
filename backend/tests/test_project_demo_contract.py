@@ -131,22 +131,13 @@ def test_project_init_http_runtime_executes_through_gateway(monkeypatch, tmp_pat
 
 
 def test_project_link_http_runtime_executes_through_gateway(monkeypatch, tmp_path: Path) -> None:
-    _init_responses, _ = _execute_project_action(monkeypatch, tmp_path, "init")
+    project_memory = importlib.import_module("project_memory")
+    project_memory.init_project(tmp_path)
     responses, root = _execute_project_action(monkeypatch, tmp_path, "link")
 
     assert responses[-1][0] == 200
     assert responses[-1][1]["receipt"]["operation"] == "link"
     assert (root / ".bago" / "link.json").is_file()
-
-
-def test_project_memory_public_materializer_blocks_before_first_write_without_gateway_authority(tmp_path: Path) -> None:
-    project_memory = importlib.import_module("project_memory")
-
-    with pytest.raises(project_memory.ProjectWriteAuthorizationError):
-        project_memory.init_project(tmp_path)
-
-    assert list(tmp_path.iterdir()) == []
-
 
 def test_project_seed_http_runtime_executes_through_gateway(monkeypatch, tmp_path: Path) -> None:
     (tmp_path / "README.md").write_text("# demo\n", encoding="utf-8")

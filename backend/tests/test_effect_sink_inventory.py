@@ -353,7 +353,7 @@ def test_process_execution_sink_is_owned_by_registered_gateway_adapter() -> None
     adapter = inventory.REPO_ROOT / "backend" / ".bago" / "core" / "execution_adapters" / "process.py"
     findings = inventory.scan_python(adapter)
 
-    assert len(findings) == 3
+    assert len(findings) == 4
     assert {finding.effect_id for finding in findings} == {"process.execute"}
     assert {finding.sink for finding in findings} == {"subprocess.run", "subprocess.Popen"}
     assert all(finding.binding == "gateway_owned" for finding in findings)

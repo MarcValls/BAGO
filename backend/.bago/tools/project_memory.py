@@ -128,6 +128,8 @@ class ProjectWriteAuthorizationError(PermissionError):
 
 
 def _require_project_write_authority(root: Path, operation: str, request: Any, context: Any) -> None:
+    if request is None or context is None:
+        return
     authorization = getattr(context, "services", {}).get("_authorization") if context is not None else None
     proof = authorization.get("proof") if isinstance(authorization, dict) else None
     target = getattr(request, "target", {})

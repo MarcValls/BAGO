@@ -97,7 +97,6 @@ exact `diff --name-only` argv. DirectoryContext + Gateway tests: 65 passed in
 5.11s; compile, strict classification and diff-check PASS. Inventory: 2313 /
 65 runtime-unbound / 0 unclassified; strict-runtime remains OPEN. Duration
 reconstructed at ~1m net, excluding tests and gates.
-
 Wave A was executed as `A1-persistent-authority` and extended with the
 server-owned transport seam needed by the already-running providers and
 runtime probes:
