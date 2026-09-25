@@ -79,8 +79,8 @@ def test_cli_report_outputs_only_safe_finding_projection(capsys: pytest.CaptureF
 
     assert secret not in human + payload
     assert "C:/private" not in human + payload
-    assert "CR-E002:7" in human
-    assert json.loads(payload)["findings"][0]["label"] == "secret pattern detected; value withheld"
+    assert "Findings detected: 1" in human
+    assert json.loads(payload)["findings_detected"] == 1
 
 
 def test_check_docstrings_strict_and_clean_evaluation(tmp_path: Path) -> None:

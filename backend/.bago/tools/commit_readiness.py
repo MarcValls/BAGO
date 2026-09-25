@@ -275,33 +275,17 @@ def evaluate(files: list[Path], scan_root: Path, git_root: Path | None, strict: 
 
 
 def print_report(result: dict[str, object]) -> None:
-    # Findings can contain data derived from source text or filesystem paths.
-    # Keep CLI output useful while emitting only controlled, non-content fields.
+    # Finding details can include data derived from repository source. Keep the
+    # report aggregate-only; the exit status remains the machine-readable gate.
     print("Commit readiness root: .")
     print(f"Mode: {result['mode']}")
-    for item in result["findings"]:
-        sev = item["severity"].upper()
-        line = f":{item['line']}" if item["line"] else ""
-        print(f"[{sev}] {item['code']}{line} - {_safe_finding_label(str(item['code']))}")
+    print(f"Findings detected: {len(result['findings'])}")
     print(
         f"Summary: total={result['total']} errors={result['errors']} warnings={result['warnings']}"
     )
 
 
-def _safe_finding_label(code: str) -> str:
-    return {
-        "CR-E001": "syntax or file read error",
-        "CR-E002": "secret pattern detected; value withheld",
-        "CR-E003": "merge conflict markers found",
-        "CR-W001": "debug print found",
-        "CR-W002": "new task marker in staged diff",
-        "CR-W003": "file size threshold exceeded",
-        "CR-W004": "documentation check failed",
-    }.get(code, "finding detected")
-
-
 def _safe_json_result(result: dict[str, object]) -> dict[str, object]:
-    findings = result["findings"]
     return {
         "root": ".",
         "mode": result["mode"],
@@ -309,15 +293,7 @@ def _safe_json_result(result: dict[str, object]) -> dict[str, object]:
         "total": result["total"],
         "errors": result["errors"],
         "warnings": result["warnings"],
-        "findings": [
-            {
-                "code": item["code"],
-                "severity": item["severity"],
-                "line": item["line"],
-                "label": _safe_finding_label(str(item["code"])),
-            }
-            for item in findings
-        ],
+        "findings_detected": len(result["findings"]),
     }
 
 
