@@ -93,6 +93,11 @@ Reglas de autoridad:
 
 El trabajo actual sigue `backend/docs/contracts/execution_gateway_unification_plan.v1.md`:
 
+### Seguridad de distribución
+- La release pública v4.11.1 incluye `bago-4.11.1-setup.exe` firmado con Authenticode SHA-256.
+- El SHA-256 publicado del instalador es `5066db72146e3231afd18312f44948bccb2116dc23e107e4a24a721005d50e92`.
+- Las proyecciones de rutas, migración y versión se verifican contra drift en CI.
+- Los cambios posteriores de `main` no se consideran parte del instalador v4.11.1 hasta que exista una nueva release/tag y sus gates correspondientes.
 | Fase | Estado actual | Objetivo |
 |---|---|---|
 | P1 | Implementada | Effect Registry + inventario de effect sinks |
@@ -234,6 +239,11 @@ Los valores exactos de Python CI, Node y npm se muestran en el bloque canónico 
 
 ### Windows — release publicada
 
+La última release pública es [v4.11.1](https://github.com/MarcValls/BAGO/releases/tag/v4.11.1). Descarga `bago-4.11.1-setup.exe`; el artefacto publicado está firmado con Authenticode SHA-256 y acompañado por su sidecar `.sha256`.
+- Instala backend (Python), frontend compilado y Electron viewer
+- Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
+- El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
+- La instalación queda fijada a una referencia Git inmutable (`InstallRef`) en lugar de `main`
 Usa la release correspondiente en [GitHub Releases](https://github.com/MarcValls/BAGO/releases). La identidad del artefacto, su firma y su SHA-256 son propiedades de esa release concreta y deben verificarse allí; no se infieren del estado de `main`.
 
 La línea 4.11.1 incorporó el fix del rollback del instalador: el NSIS finaliza una instalación sana con `-Finalize`, limpia el backup `.BAGO-rollback` solo tras éxito completo y falla cerrado si esa limpieza no puede completarse.
@@ -309,6 +319,34 @@ bago llm start --provider openrouter --model openai/gpt-4o-mini --dry-run
 bago android layers --json
 ```
 
+### Proyección y gate de frescura del README
+
+La cabecera y el bloque de estado de `README.md` son una **truth projection** derivada de `release_version.txt`, `package.json` y `backend/docs/contracts/execution_gateway_unification_plan.v1.md`.
+
+Para regenerarla:
+
+```powershell
+python scripts/generate_readme_projection.py
+```
+
+`Canonical CI` ejecuta después:
+
+```powershell
+python scripts/generate_readme_projection.py --check
+python scripts/verify_readme_freshness.py
+```
+
+El CI falla si:
+
+- la proyección generada no coincide exactamente con sus fuentes canónicas;
+- la versión del README no coincide con `release_version.txt`;
+- el requisito de Node no coincide con `package.json`;
+- desaparecen estados arquitectónicos obligatorios;
+- reaparecen claims obsoletos de firma/distribución;
+- un PR/push cambia superficies que afectan al README —versión, contratos, arquitectura, seguridad, release/instalación o fronteras de ejecución— sin modificar también `README.md`.
+
+El CI **no auto-commitea** documentación. El generador produce el cambio determinista y el gate obliga a que código/contrato y documentación viajen juntos en el mismo diff.
+
 ---
 
 ## Verificación
@@ -319,6 +357,27 @@ Comprobaciones de verdad y build:
 # Coherencia de versión
 python scripts/verify_version_consistency.py
 
+| Área | Estado | Notas |
+|---|---|---|
+| Runtime core | Verificable | Canonical CI y suites backend/frontend ligadas al SHA |
+| Release Windows v4.11.1 | ✅ Publicada | Instalador Authenticode SHA-256 firmado + sidecar SHA-256 |
+| `main` post-release | En desarrollo gobernado | Contiene P1–P4; requiere nueva release para distribuirse como artefacto publicado |
+| Ciclo de vida Electron | Verificable en CI | Packaged Electron smoke forma parte de Canonical CI |
+| UI React | Verificable | Build, typecheck y tests en CI |
+| Seguridad y postura API | ✅ Estable | `backend/docs/SECURITY.md` |
+| Effect Registry / sink inventory | ✅ Implementado | P1 |
+| ExecutionRequest v2 | ✅ Implementado | P2 |
+| ExecutionGateway v2 | 🔶 Slice implementado | P3; no es todavía frontera única |
+| Scheduler + DelegationGrant | ✅ MERGED · RETEST_READY | P4; child Permit obligatorio; authority legacy eliminada |
+| Strong Human Identity Proof | ⏳ Pendiente | P13–P14; WebAuthn/Windows Hello/FIDO2 todavía no verificados |
+| Soporte de plataforma | ✅ Windows | macOS/Linux: experimental |
+| Sistema de capacidades | ✅ Funcional | `capability-anatomy`, provider center |
+| Conversaciones multi-turno | ✅ Funcional | `active_conversation_id`, session registry |
+| Módulo Vision | 🔶 Integrado | Requiere proveedor compatible |
+| Capa RL policy | 🧪 Experimental | Shadow mode, sin autoridad de ejecución |
+| Agentes y autopilot | 🧪 Experimental | En desarrollo |
+| Runtime C++ | 🧪 Experimental | Gates de plataforma pendientes |
+| Store embeddings avanzado | 🔶 Parcial | `backend/docs/MODULES.md` |
 # Proyecciones machine-readable
 python backend/scripts/generate_api_routes_contract.py --check
 python backend/scripts/generate_import_migration_inventory.py --check
@@ -333,6 +392,21 @@ npm run typecheck
 npm run test:frontend
 ```
 
+| Versión | Fecha | Artefactos |
+|---|---|---|
+| [v4.11.1](https://github.com/MarcValls/BAGO/releases/tag/v4.11.1) | 2026-09-10 | `bago-4.11.1-setup.exe` + `.sha256` — Authenticode SHA-256 firmado; fix de rollback |
+| [v4.11.0](https://github.com/MarcValls/BAGO/releases/tag/v4.11.0) | 2026-09-10 | `bago-4.11.0-setup.exe` (pre-release, sin firmar) |
+| [v4.10.0](https://github.com/MarcValls/BAGO/releases/tag/v4.10.0) | 2026-09-05 | `bago-4.10.0-setup.exe` · `bago-4.10.0-distribution.zip` (pre-release, sin firmar) |
+| [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3) | 2026-09-01 | `bago-4.9.3-setup.exe` |
+| [v4.9.2](https://github.com/MarcValls/BAGO/releases/tag/v4.9.2) | 2026-08-29 | `bago-4.9.2-setup.exe` |
+| [v4.9.1](https://github.com/MarcValls/BAGO/releases/tag/v4.9.1) | 2026-08-25 | `BAGO-Installation-Manager-4.9.1-win-x64.exe` · `bago-v4.9.1.zip` |
+| [v4.9.0](https://github.com/MarcValls/BAGO/releases/tag/v4.9.0) | 2026-08-18 | `BAGO-Installation-Manager-4.9.0-win-x64.exe` · `bago-v4.9.0.zip` |
+| [v4.8.7](https://github.com/MarcValls/BAGO/releases/tag/v4.8.7) | 2026-08-16 | `BAGO-Installation-Manager-4.8.7-win-x64.exe` · `bago-v4.8.7.zip` |
+| [v4.8.6](https://github.com/MarcValls/BAGO/releases/tag/v4.8.6) | 2026-08-16 | `BAGO-Installation-Manager-4.8.6-win-x64.exe` · `bago-v4.8.6.zip` |
+| [v4.8.4](https://github.com/MarcValls/BAGO/releases/tag/v4.8.4) | 2026-08-10 | `bago-4.8.4-setup.exe` · `bago-4.8.4-distribution.zip` |
+| [v4.8.2](https://github.com/MarcValls/BAGO/releases/tag/v4.8.2) | 2026-08-06 | `bago-4.8.2-setup.exe` · `backend.zip` · `frontend.zip` · `electron-viewer.zip` |
+
+Los artefactos oficiales (`BAGO-Installation-Manager-{version}-win-x64.exe` y `bago-v{version}.zip`) se generan en CI desde una referencia etiquetada/inmutable, no desde `main`. El flujo local de referencia es:
 `Canonical CI` ejecuta además el smoke del Electron empaquetado. Los tags `v*` habilitan el E2E del instalador real con identidad de tag/SHA y ciclo install → health → uninstall.
 
 ---
@@ -383,6 +457,10 @@ Empieza por [`DOCUMENTATION.md`](DOCUMENTATION.md), que separa documentación op
 | Documento | Función |
 |---|---|
 | [`backend/docs/ARCHITECTURE.md`](backend/docs/ARCHITECTURE.md) | Arquitectura del sistema |
+| [`backend/docs/contracts/execution_gateway_unification_plan.v1.md`](backend/docs/contracts/execution_gateway_unification_plan.v1.md) | Plan lineal P1–P14 para frontera única de ejecución |
+| [`backend/docs/contracts/execution_gateway.v2.md`](backend/docs/contracts/execution_gateway.v2.md) | ExecutionRequest v2 + ExecutionGateway v2 |
+| [`backend/docs/contracts/scheduler_delegation.v1.md`](backend/docs/contracts/scheduler_delegation.v1.md) | P4 · Scheduler + DelegationGrant |
+| [`backend/docs/contracts/user_authorization_provenance.v1.md`](backend/docs/contracts/user_authorization_provenance.v1.md) | Procedencia de autorización de usuario |
 | [`backend/docs/SECURITY.md`](backend/docs/SECURITY.md) | Postura de seguridad y hard stops |
 | [`backend/docs/CLAIMS.md`](backend/docs/CLAIMS.md) | Claims y evidencia |
 | [`backend/docs/TESTING.md`](backend/docs/TESTING.md) | Validación reproducible |
