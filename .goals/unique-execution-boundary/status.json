@@ -1,7 +1,10 @@
 {
   "goal": "unique-execution-boundary",
   "status": "EXECUTED",
-  "candidate_sha": "c95b516d9110979b01826ffc9a64e145d23aec05",
+  "candidate_sha": null,
+  "last_scoped_code_commit": "664bb854",
+  "worktree_dirty_path_count": 260,
+  "candidate_note": "No existe aún candidato final comprometido: el gate global sigue abierto y el worktree conserva cambios de otras tranches.",
   "baseline_runtime_unbound": 478,
   "current_worktree_inventory": "2342 total / 133 runtime-unbound / 0 unclassified; 121 database.write findings (including low-confidence dynamic SQL); strict classification PASS; strict runtime OPEN",
   "previous_tranche": {
