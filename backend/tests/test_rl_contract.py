@@ -97,3 +97,41 @@ def test_rl_policy_status_reports_samples_and_policy_without_execution(tmp_path,
     after = rl_policies.bc_policy_status(tmp_path)
     assert after["policy_exists"] is True
     assert after["can_execute"] is False
+
+
+def test_history_transition_ingestion_uses_state_write_owner(tmp_path, monkeypatch):
+    import sqlite3
+    from pathlib import Path
+    from bago_core import rl_policies
+
+    state_root = tmp_path / "state"
+    monkeypatch.setattr(rl_policies, "state_root", lambda: state_root)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    source_dir = tmp_path / ".copilot"
+    source_dir.mkdir()
+    db = sqlite3.connect(source_dir / "session-store.db")
+    db.execute("CREATE TABLE turns (user_message TEXT)")
+    db.execute("INSERT INTO turns (user_message) VALUES (?)", ("trabaja sobre la ruta elegida",))
+    db.commit()
+    db.close()
+
+    real_connect = sqlite3.connect
+    observed_readonly_connections = []
+
+    def observe_connect(database, *args, **kwargs):
+        if "session-store.db" in str(database):
+            observed_readonly_connections.append((str(database), kwargs.get("uri")))
+        return real_connect(database, *args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", observe_connect)
+
+    count = rl_policies.synthesize_transitions_from_history(tmp_path)
+
+    target = state_root / "rl_transitions.jsonl"
+    rows = [json.loads(line) for line in target.read_text(encoding="utf-8").splitlines()]
+    assert count == 1
+    assert len(observed_readonly_connections) == 1
+    assert observed_readonly_connections[0][0].endswith("?mode=ro")
+    assert observed_readonly_connections[0][1] is True
+    assert rows[0]["source"] == "history"
+    assert rows[0]["intent"] == "work"
