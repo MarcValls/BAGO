@@ -145,6 +145,7 @@ def test_memory_http_contract_supports_status_hybrid_search_and_upsert(tmp_path,
     class Manager:
         base_path = tmp_path
         state_root = tmp_path
+        session_id = "active-session-001"
 
     class Handler:
         session_mgr = Manager()
@@ -160,6 +161,7 @@ def test_memory_http_contract_supports_status_hybrid_search_and_upsert(tmp_path,
         "memory_id": "m-advanced",
         "content": "BAGO conserva conocimiento avanzado",
         "vector": [1.0, 0.0, 0.0],
+        "source_session": "forged-session-from-request",
         "provider": "local",
         "model": "deterministic-test",
     })
@@ -171,6 +173,32 @@ def test_memory_http_contract_supports_status_hybrid_search_and_upsert(tmp_path,
     assert captured[1][1]["mode"] == "hybrid"
     assert len(captured[1][1]["lexical"]) == 1
     assert captured[1][1]["semantic"][0]["memory_id"] == "m-advanced"
+    assert captured[1][1]["semantic"][0]["source_session"] == "active-session-001"
     assert captured[2][1]["knowledge"]["active"] == 1
     assert captured[2][1]["embeddings"]["total"] == 1
     assert captured[2][1]["embeddings"]["vectors_generated_by_server"] is False
+
+
+def test_embedding_upsert_without_active_session_fails_before_store_creation(tmp_path, monkeypatch):
+    import api_serializers
+    from handlers_memory import handle_embedding_upsert
+
+    class Manager:
+        base_path = tmp_path
+        state_root = tmp_path
+
+    class Handler:
+        session_mgr = Manager()
+
+    captured = []
+    monkeypatch.setattr(api_serializers, "send_json", lambda _h, status, payload: captured.append((status, payload)))
+
+    handle_embedding_upsert(Handler(), {
+        "memory_id": "m-no-session",
+        "content": "must not persist",
+        "vector": [1.0, 0.0],
+        "source_session": "caller-chosen-session",
+    })
+
+    assert captured == [(409, {"error": "active_session_required"})]
+    assert list(tmp_path.iterdir()) == []

@@ -14,9 +14,9 @@
   ],
   "governance": {
     "authorization_boundary_status": "IMPLEMENTED_SLICE · CRIT_READY",
-    "effect_count": 27,
+    "effect_count": 58,
     "effect_registry_status": "active",
-    "effect_registry_version": "1.0.0",
+    "effect_registry_version": "1.23.0",
     "execution_gateway_status": "P2_P3_IMPLEMENTED_SLICE · CRIT_READY",
     "next_gateway_phase": "P5 — LLM Tool Calls",
     "schedule_delegate": {

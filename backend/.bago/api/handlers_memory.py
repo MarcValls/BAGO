@@ -123,7 +123,7 @@ def handle_search(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 
 
 def handle_embedding_upsert(handler: "BaseHTTPRequestHandler", body: dict) -> None:
-    """POST /memory/embeddings/upsert — persist a validated embedding."""
+    """POST /memory/embeddings/upsert — persist a validated embedding for the active session."""
     from api_serializers import send_json
     embeddings = None
     try:
@@ -133,13 +133,18 @@ def handle_embedding_upsert(handler: "BaseHTTPRequestHandler", body: dict) -> No
         if not memory_id or not content or not isinstance(vector, list):
             send_json(handler, 400, {"error": "memory_id, content y vector son requeridos"})
             return
+        manager = getattr(handler, "session_mgr", None)
+        source_session = str(getattr(manager, "session_id", "") or "").strip()
+        if not source_session:
+            send_json(handler, 409, {"error": "active_session_required"})
+            return
         _kb, embeddings = _stores(handler)
         _kb.close()
         row_id = embeddings.add(
             memory_id=memory_id,
             content=content,
             vector=vector,
-            source_session=str(body.get("source_session", "")),
+            source_session=source_session,
             provider=str(body.get("provider", "")),
             model=str(body.get("model", "")),
         )
