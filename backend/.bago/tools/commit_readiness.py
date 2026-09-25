@@ -275,15 +275,50 @@ def evaluate(files: list[Path], scan_root: Path, git_root: Path | None, strict: 
 
 
 def print_report(result: dict[str, object]) -> None:
-    print(f"Commit readiness root: {result['root']}")
+    # Findings can contain data derived from source text or filesystem paths.
+    # Keep CLI output useful while emitting only controlled, non-content fields.
+    print("Commit readiness root: .")
     print(f"Mode: {result['mode']}")
     for item in result["findings"]:
         sev = item["severity"].upper()
         line = f":{item['line']}" if item["line"] else ""
-        print(f"[{sev}] {item['code']} {item['path']}{line} - {item['message']}")
+        print(f"[{sev}] {item['code']}{line} - {_safe_finding_label(str(item['code']))}")
     print(
         f"Summary: total={result['total']} errors={result['errors']} warnings={result['warnings']}"
     )
+
+
+def _safe_finding_label(code: str) -> str:
+    return {
+        "CR-E001": "syntax or file read error",
+        "CR-E002": "secret pattern detected; value withheld",
+        "CR-E003": "merge conflict markers found",
+        "CR-W001": "debug print found",
+        "CR-W002": "new task marker in staged diff",
+        "CR-W003": "file size threshold exceeded",
+        "CR-W004": "documentation check failed",
+    }.get(code, "finding detected")
+
+
+def _safe_json_result(result: dict[str, object]) -> dict[str, object]:
+    findings = result["findings"]
+    return {
+        "root": ".",
+        "mode": result["mode"],
+        "file_count": len(result["files"]),
+        "total": result["total"],
+        "errors": result["errors"],
+        "warnings": result["warnings"],
+        "findings": [
+            {
+                "code": item["code"],
+                "severity": item["severity"],
+                "line": item["line"],
+                "label": _safe_finding_label(str(item["code"])),
+            }
+            for item in findings
+        ],
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -321,7 +356,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if args.as_json:
-        print(json.dumps(result, indent=2, ensure_ascii=True))
+        print(json.dumps(_safe_json_result(result), indent=2, ensure_ascii=True))
     else:
         print_report(result)
     return 1 if result["findings"] else 0

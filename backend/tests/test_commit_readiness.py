@@ -55,6 +55,34 @@ def test_new_task_marker_does_not_copy_staged_source_into_report() -> None:
     assert secret not in findings[0]["message"]
 
 
+def test_cli_report_outputs_only_safe_finding_projection(capsys: pytest.CaptureFixture[str]) -> None:
+    secret = "sk-" + "A" * 24
+    result = {
+        "root": "C:/private/" + secret,
+        "mode": "standard",
+        "files": ["C:/private/" + secret + "/module.py"],
+        "total": 1,
+        "errors": 1,
+        "warnings": 0,
+        "findings": [{
+            "code": "CR-E002",
+            "severity": "error",
+            "path": "C:/private/" + secret + "/module.py",
+            "line": 7,
+            "message": "secret found: " + secret,
+        }],
+    }
+
+    commit_readiness.print_report(result)
+    human = capsys.readouterr().out
+    payload = json.dumps(commit_readiness._safe_json_result(result))
+
+    assert secret not in human + payload
+    assert "C:/private" not in human + payload
+    assert "CR-E002:7" in human
+    assert json.loads(payload)["findings"][0]["label"] == "secret pattern detected; value withheld"
+
+
 def test_check_docstrings_strict_and_clean_evaluation(tmp_path: Path) -> None:
     source = tmp_path / "sample.py"
     source.write_text("def public():\n    return 1\n", encoding="utf-8")
