@@ -17,8 +17,8 @@ from execution_claims import (
     ExecutionClaimError,
     ExecutionClaimStore,
     coerce_execution_claim,
+    execution_resource_key,
     execution_claim_store_for,
-    file_resource_key,
 )
 
 
@@ -70,29 +70,86 @@ class EffectAdapterRegistry:
 
 
 from execution_adapters.capability import CapabilityRuntimeEffectAdapter
+from execution_adapters.context import ContextAttachEffectAdapter
 from execution_adapters.filesystem import FilesystemEffectAdapter, FilesystemReadEffectAdapter
-from execution_adapters.workspace import WorkspaceBindEffectAdapter
+from execution_adapters.workspace import SessionWorkspaceMirrorEffectAdapter, WorkspaceBindEffectAdapter, WorkspaceMirrorSyncEffectAdapter
 from execution_adapters.session_state import StateDeleteEffectAdapter, ServerStateEffectAdapter
 from execution_adapters.network import GatewayHTTPResponse, NetworkReadEffectAdapter
+from execution_adapters.process import ProcessExecutionEffectAdapter
+from execution_adapters.pi_sidecar import PiSidecarProcessEffectAdapter
 from execution_adapters.plan import PlanRuntimeEffectAdapter
 from execution_adapters.project import ProjectWriteEffectAdapter
 from execution_adapters.credentials import CredentialWriteEffectAdapter
 from execution_adapters.delegation import DelegationGrantEffectAdapter
+from execution_adapters.release import ReleaseDownloadEffectAdapter
+from execution_adapters.release_signature import ReleaseSignatureEffectAdapter
+from execution_adapters.release_stage import ReleaseBundleStageEffectAdapter
+from execution_adapters.release_job_state import ReleaseJobStateEffectAdapter
+from execution_adapters.release_job_log import ReleaseJobLogEffectAdapter
+from execution_adapters.structured_logging import StructuredLoggingEffectAdapter
+from execution_adapters.validation_staging import ValidationStagingEffectAdapter
+from execution_adapters.release_job_archive import ReleaseJobArchiveEffectAdapter
+from execution_adapters.system_update import SystemUpdateApplyEffectAdapter
+from execution_adapters.system_install import SystemInstallEffectAdapter
+from execution_adapters.system_install_rollback import SystemInstallRollbackEffectAdapter
+from execution_adapters.source_update import SystemSourceUpdateEffectAdapter
+from execution_adapters.system_install_uninstall import SystemInstallUninstallEffectAdapter
+from execution_adapters.manager_settings import ManagerSettingsWriteEffectAdapter
+from execution_adapters.capability_import import CapabilityPackageImportEffectAdapter
+from execution_adapters.autonomous import AutonomousObservationEffectAdapter, AutonomousRepairEffectAdapter
+from execution_adapters.monitor import ProcessMonitorGenerateEffectAdapter
+from execution_adapters.canary import SecurityCanaryEffectAdapter
+from execution_adapters.repository_inspection import RepositoryInspectionEffectAdapter
+from execution_adapters.repository_guard import RepositoryGuardEffectAdapter
+from execution_adapters.evidence_bundle import EvidenceBundleGenerateEffectAdapter
+from execution_adapters.archive_rollback import SystemInstallArchiveRollbackEffectAdapter
+from execution_adapters.runtime_state import RuntimeStateBootstrapEffectAdapter
+from execution_adapters.database_write import DatabaseWriteEffectAdapter
 
 
 def build_default_effect_adapter_registry() -> EffectAdapterRegistry:
     registry = EffectAdapterRegistry()
     registry.register(FilesystemEffectAdapter())
     registry.register(FilesystemReadEffectAdapter())
+    registry.register(ContextAttachEffectAdapter())
     registry.register(WorkspaceBindEffectAdapter())
+    registry.register(SessionWorkspaceMirrorEffectAdapter())
+    registry.register(WorkspaceMirrorSyncEffectAdapter())
     registry.register(StateDeleteEffectAdapter())
     registry.register(ServerStateEffectAdapter())
     registry.register(NetworkReadEffectAdapter())
+    registry.register(ProcessExecutionEffectAdapter())
+    registry.register(PiSidecarProcessEffectAdapter())
     registry.register(CapabilityRuntimeEffectAdapter())
     registry.register(PlanRuntimeEffectAdapter())
     registry.register(DelegationGrantEffectAdapter())
     registry.register(ProjectWriteEffectAdapter())
     registry.register(CredentialWriteEffectAdapter())
+    registry.register(ReleaseDownloadEffectAdapter())
+    registry.register(ReleaseSignatureEffectAdapter())
+    registry.register(ReleaseBundleStageEffectAdapter())
+    registry.register(ReleaseJobStateEffectAdapter())
+    registry.register(ReleaseJobLogEffectAdapter())
+    registry.register(StructuredLoggingEffectAdapter())
+    registry.register(ValidationStagingEffectAdapter())
+    registry.register(ReleaseJobArchiveEffectAdapter())
+    registry.register(SystemUpdateApplyEffectAdapter())
+    registry.register(SystemInstallEffectAdapter())
+    registry.register(SystemInstallRollbackEffectAdapter())
+    registry.register(SystemSourceUpdateEffectAdapter())
+    registry.register(SystemInstallUninstallEffectAdapter())
+    registry.register(ManagerSettingsWriteEffectAdapter())
+    registry.register(CapabilityPackageImportEffectAdapter())
+    registry.register(AutonomousObservationEffectAdapter())
+    registry.register(AutonomousRepairEffectAdapter())
+    registry.register(ProcessMonitorGenerateEffectAdapter())
+    registry.register(SecurityCanaryEffectAdapter())
+    registry.register(RepositoryInspectionEffectAdapter())
+    registry.register(RepositoryGuardEffectAdapter())
+    registry.register(EvidenceBundleGenerateEffectAdapter())
+    registry.register(SystemInstallArchiveRollbackEffectAdapter())
+    registry.register(RuntimeStateBootstrapEffectAdapter())
+    registry.register(DatabaseWriteEffectAdapter())
     return registry
 
 
@@ -124,20 +181,23 @@ class ExecutionGateway:
     ) -> tuple[Any, dict[str, Any]]:
         # Resolve first so a configuration error does not consume a valid Permit.
         adapter = self.adapters.resolve(request.effect_id)
-        if bool(getattr(adapter, "server_policy_only", False)):
+        if self._is_server_policy_only(adapter, request.effect_id):
             raise ExecutionGatewayError(
                 f"{request.effect_id} is server-policy-only",
                 code="execution_server_policy_only",
             )
         caller_context = context or ExecutionContext()
+        authorization = self.boundary.consume_permit(
+            permit_token=permit_token,
+            request=request,
+        )
+        # Durable claim storage can create its SQLite database and parent
+        # directory. Resolve it only after the parent Permit has been consumed
+        # so an invalid/replayed request has no filesystem effect.
         claim_store = (
             self.claim_store_for(caller_context.manager)
             if request.effect_id == "plan.execute"
             else None
-        )
-        authorization = self.boundary.consume_permit(
-            permit_token=permit_token,
-            request=request,
         )
         trusted_context = caller_context
         trusted_services = dict(trusted_context.services)
@@ -172,7 +232,7 @@ class ExecutionGateway:
         """
 
         adapter = self.adapters.resolve(request.effect_id)
-        if not bool(getattr(adapter, "server_policy_only", False)):
+        if not self._is_server_policy_only(adapter, request.effect_id):
             raise ExecutionGatewayError(
                 f"{request.effect_id} is not a server-policy adapter",
                 code="execution_server_adapter_required",
@@ -191,6 +251,13 @@ class ExecutionGateway:
         )
         result = adapter.execute(request, trusted_context)
         return result, authorization
+
+    @staticmethod
+    def _is_server_policy_only(adapter: Any, effect_id: str) -> bool:
+        effects = getattr(adapter, "server_policy_effects", None)
+        if effects is not None:
+            return str(effect_id) in effects
+        return bool(getattr(adapter, "server_policy_only", False))
 
     def execute_nested(
         self,
@@ -324,10 +391,12 @@ class ExecutionGateway:
                 str(exc), code="execution_nested_claim_missing"
             ) from exc
         try:
-            expected_resource = file_resource_key(
-                str(child_request.target.get("path") or ""),
+            expected_resource = execution_resource_key(
+                child_request.effect_id,
+                child_request.target,
+                child_request.arguments,
                 context.manager,
-                effect_id=child_request.effect_id,
+                session_id=child_request.session_id,
             )
         except (OSError, ValueError) as exc:
             raise ExecutionGatewayError(
@@ -394,7 +463,23 @@ class ExecutionGateway:
 
         parent_effect = REGISTRY.get(parent_request.effect_id)
         child_effect = REGISTRY.get(child_request.effect_id)
-        if child_effect.risk_rank > parent_effect.risk_rank:
+        allowed_risk_rank = parent_effect.risk_rank
+        if parent_effect.authorization_mode == "inherit_max_child":
+            try:
+                allowed_risk_rank = max(
+                    [allowed_risk_rank]
+                    + [
+                        REGISTRY.get(str(item.get("effect_id") or "")).risk_rank
+                        for item in child_effects
+                        if isinstance(item, dict)
+                    ]
+                )
+            except Exception as exc:
+                raise ExecutionGatewayError(
+                    "Parent compound request declares an unknown child effect",
+                    code="execution_nested_child_effect_invalid",
+                ) from exc
+        if child_effect.risk_rank > allowed_risk_rank:
             raise ExecutionGatewayError(
                 "Nested child effect exceeds the parent plan risk boundary",
                 code="execution_nested_risk_exceeded",
@@ -421,6 +506,7 @@ class ExecutionGateway:
 
 __all__ = [
     "CapabilityRuntimeEffectAdapter",
+    "ContextAttachEffectAdapter",
     "CredentialWriteEffectAdapter",
     "DelegationGrantEffectAdapter",
     "EffectAdapter",
@@ -433,8 +519,12 @@ __all__ = [
     "ProjectWriteEffectAdapter",
     "StateDeleteEffectAdapter",
     "PlanRuntimeEffectAdapter",
+    "ProcessExecutionEffectAdapter",
     "GatewayHTTPResponse",
     "NetworkReadEffectAdapter",
     "ServerStateEffectAdapter",
+    "SessionWorkspaceMirrorEffectAdapter",
+    "WorkspaceBindEffectAdapter",
+    "WorkspaceMirrorSyncEffectAdapter",
     "build_default_effect_adapter_registry",
 ]

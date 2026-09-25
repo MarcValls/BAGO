@@ -17,6 +17,7 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,15 +31,15 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-from _path_helper import ensure_core_path
+from _path_helper import ensure_core_path, ensure_path
 ensure_core_path()  # noqa: E402
+ensure_path(Path(__file__).resolve().parents[2])  # noqa: E402
 from bago_utils import get_scan_root
 from directory_context import DirectoryContextEngine
 from workspace_binding import resolve_framework_root, resolve_workspace_binding
 
 KNOWLEDGE_SUBDIRS = ("topics", "examples", "schemas", "assets")
 STATE_SUBDIRS = ("sessions",)
-TEST_WORKSPACE = Path(__file__).parent / "_selftest_project_memory"
 
 
 def _now_iso() -> str:
@@ -122,10 +123,38 @@ def _knowledge_manifest(root: Path) -> dict[str, Any]:
     }
 
 
-def create_demo_project(root: Path) -> dict[str, Any]:
+class ProjectWriteAuthorizationError(PermissionError):
+    code = "project_write_gateway_authorization_required"
+
+
+def _require_project_write_authority(root: Path, operation: str, request: Any, context: Any) -> None:
+    authorization = getattr(context, "services", {}).get("_authorization") if context is not None else None
+    proof = authorization.get("proof") if isinstance(authorization, dict) else None
+    target = getattr(request, "target", {})
+    if (
+        not isinstance(authorization, dict)
+        or authorization.get("state") != "consumed"
+        or not isinstance(proof, dict)
+        or proof.get("effect_id") != "project.write"
+        or proof.get("operation_fingerprint") != getattr(request, "fingerprint", None)
+        or getattr(request, "effect_id", None) != "project.write"
+        or not isinstance(target, dict)
+        or target.get("resource") != "project_operation"
+        or target.get("operation") != operation
+        or Path(str(target.get("path") or "")).expanduser().resolve() != root
+    ):
+        raise ProjectWriteAuthorizationError(
+            f"La operación project.write/{operation} requiere un Permit consumido para su target exacto."
+        )
+
+
+def create_demo_project(
+    root: Path, *, request: Any = None, context: Any = None,
+) -> dict[str, Any]:
     """Materialize the bounded first-run demo. Runtime callers use project.write."""
 
     root = Path(root).expanduser().resolve()
+    _require_project_write_authority(root, "demo", request, context)
     if root == Path(root.anchor) or root == Path.home().resolve():
         raise ValueError("Elige una subcarpeta dedicada para el proyecto demo")
     if root.exists() and any(root.iterdir()):
@@ -171,7 +200,7 @@ def _expected_files(root: Path) -> dict[str, Path]:
     }
 
 
-def init_project(root: Path) -> dict[str, Any]:
+def _init_project_materialize(root: Path) -> dict[str, Any]:
     root = Path(root).resolve()
     root.mkdir(parents=True, exist_ok=True)
     created_dirs: list[str] = []
@@ -215,6 +244,14 @@ def init_project(root: Path) -> dict[str, Any]:
     }
 
 
+def init_project(
+    root: Path, *, request: Any = None, context: Any = None,
+) -> dict[str, Any]:
+    root = Path(root).expanduser().resolve()
+    _require_project_write_authority(root, "init", request, context)
+    return _init_project_materialize(root)
+
+
 def _update_context_link_flag(root: Path, linked: bool) -> None:
     context_path = root / ".bago" / "state" / "context.json"
     data: dict[str, Any] = {}
@@ -230,9 +267,12 @@ def _update_context_link_flag(root: Path, linked: bool) -> None:
     context_path.write_text(_json_text(data), encoding="utf-8")
 
 
-def link_project(root: Path) -> dict[str, Any]:
+def link_project(
+    root: Path, *, request: Any = None, context: Any = None,
+) -> dict[str, Any]:
     root = Path(root).resolve()
-    init_project(root)
+    _require_project_write_authority(root, "link", request, context)
+    _init_project_materialize(root)
     bago_dir = root / ".bago"
     marker_path = bago_dir / "link.json"
     marker: dict[str, Any] = {
@@ -373,8 +413,12 @@ def analyze_data(root: Path) -> dict[str, Any]:
     }
 
 
-def seed_project(root: Path, *, depth: int = 3, ref: str | Path | None = None) -> dict[str, Any]:
+def seed_project(
+    root: Path, *, depth: int = 3, ref: str | Path | None = None,
+    request: Any = None, context: Any = None,
+) -> dict[str, Any]:
     root = Path(root).resolve()
+    _require_project_write_authority(root, "seed", request, context)
     root.mkdir(parents=True, exist_ok=True)
     seed_mod = _load_seed_module()
     if seed_mod is None:
@@ -678,13 +722,6 @@ def _execute_cli_project_write(
     return dict(result["result"])
 
 
-def _reset_workspace() -> Path:
-    if TEST_WORKSPACE.exists():
-        shutil.rmtree(TEST_WORKSPACE)
-    TEST_WORKSPACE.mkdir(parents=True, exist_ok=True)
-    return TEST_WORKSPACE
-
-
 def _capture_output(func, *args):
     buffer = io.StringIO()
     with contextlib.redirect_stdout(buffer):
@@ -701,43 +738,44 @@ def _snapshot(root: Path) -> dict[str, str]:
 
 
 def run_self_tests() -> int:
-    workspace = _reset_workspace()
+    with tempfile.TemporaryDirectory(prefix="bago-project-memory-") as temporary_root:
+        return _run_self_tests(Path(temporary_root))
+
+
+def _run_self_tests(workspace: Path) -> int:
     results: list[tuple[str, bool, str]] = []
 
     def check(name: str, condition: bool, detail: str) -> None:
         results.append((name, condition, detail))
 
     project_root = workspace / "sample_project"
-    init_project(project_root)
+    _, init_output = _capture_output(cmd_init, str(project_root))
     check("init_dirs", (project_root / ".bago" / "state" / "sessions").is_dir(), "init creates state/sessions")
     check("init_files", (project_root / ".bago" / "pack.json").exists(), "init creates pack.json")
 
     _, status_output = _capture_output(cmd_status, str(project_root))
     check("status_output", "Project root:" in status_output and "Configured: yes" in status_output, "status prints summary")
 
-    link_project(project_root)
+    _, link_output = _capture_output(cmd_link, str(project_root))
     check("link_marker", (project_root / ".bago" / "link.json").exists(), "link creates marker")
 
     before = _snapshot(project_root)
-    second = init_project(project_root)
+    _, second_output = _capture_output(cmd_init, str(project_root))
     after = _snapshot(project_root)
-    check("init_idempotent", before == after and not second["created_files"], "init is idempotent")
+    check("init_idempotent", before == after and "Created files: 0" in second_output, "init is idempotent")
 
-    _, link_output = _capture_output(cmd_link, str(project_root))
     check("link_output", "Link mode:" in link_output, "link command prints mode")
 
     (_, analyze_output) = _capture_output(cmd_analyze, str(project_root))
     check("analyze_output", "Suggested next checks:" in analyze_output, "analyze prints suggestions")
 
-    env_root = workspace / "env_project"
-    os.environ["BAGO_SCAN_ROOT"] = str(env_root)
-    try:
-        rc, env_output = _capture_output(main, ["init"])
-    finally:
-        os.environ.pop("BAGO_SCAN_ROOT", None)
-    check("env_root", rc == 0 and (env_root / ".bago").exists(), "env root fallback works")
+    explicit_root = workspace / "explicit_project"
+    rc, _explicit_output = _capture_output(main, ["--root", str(explicit_root), "init"])
+    check(
+        "explicit_root", rc == 0 and (explicit_root / ".bago").exists(),
+        "explicit CLI root is honored before project detection",
+    )
 
-    shutil.rmtree(workspace, ignore_errors=True)
     passed = sum(1 for _, ok, _ in results if ok)
     for name, ok, detail in results:
         print(f"[{'OK' if ok else 'FAIL'}] {name}: {detail}")

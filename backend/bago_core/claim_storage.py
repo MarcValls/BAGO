@@ -38,7 +38,6 @@ class ClaimLedger:
     def __init__(self, base_path: str | Path = ".") -> None:
         self.base_path = Path(base_path)
         self.evidence_dir = self.base_path / "evidence"
-        self.evidence_dir.mkdir(parents=True, exist_ok=True)
         self.claims_file = self.evidence_dir / "claims.jsonl"
         self.receipts_file = self.evidence_dir / "claim_receipts.jsonl"
         self.receipts = ClaimReceiptStore(self.receipts_file)
@@ -105,8 +104,9 @@ class ClaimLedger:
 
     def _append(self, claim: Claim) -> None:
         """Anade una linea al ledger (append-only)."""
-        with self.claims_file.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(claim.to_dict(), ensure_ascii=False) + "\n")
+        from bago_core.atomic_json import append_text_durable
+
+        append_text_durable(self.claims_file, json.dumps(claim.to_dict(), ensure_ascii=False) + "\n")
 
     def add(
         self,

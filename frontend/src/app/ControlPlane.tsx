@@ -778,7 +778,9 @@ export function ControlPlane() {
       }
 
       if (nextSnapshot && !nextSnapshot.permissions.canChat && nextSnapshot.workspace.manifestState !== 'valid') {
-        await clientRef.current.syncProject(cleanRoot);
+        const confirmed = window.confirm('Sincronizará los archivos del espejo de sesión hacia el workspace seleccionado. ¿Continuar?');
+        if (!confirmed) return false;
+        await clientRef.current.syncProject();
         nextSnapshot = await refreshAfterMutation();
       }
 
@@ -877,7 +879,25 @@ export function ControlPlane() {
     setLastMessage(`ejecutando ${clean}`);
     setBusyCount((count) => count + 1);
     try {
-      const result = await clientRef.current.runCommand(clean);
+      const contextAttach = clean.match(/^\/context attach(?:\s+([\s\S]+))?$/);
+      let result: BackendCommandResult;
+      if (contextAttach) {
+        const rawPath = String(contextAttach[1] || '').trim();
+        const selectedPath = rawPath.length >= 2
+          && ((rawPath.startsWith('"') && rawPath.endsWith('"')) || (rawPath.startsWith("'") && rawPath.endsWith("'")))
+          ? rawPath.slice(1, -1)
+          : rawPath;
+        const confirmation = selectedPath
+          ? 'Copiar "' + selectedPath + '" al bundle de contexto de esta sesión. ¿Continuar?'
+          : 'Copiar al contexto las rutas recientes seleccionadas por BAGO. ¿Continuar?';
+        if (!window.confirm(confirmation)) {
+          result = { ok: false, message: 'Adjuntar contexto cancelado.' };
+        } else {
+          result = await clientRef.current.attachContext(selectedPath ? [selectedPath] : []);
+        }
+      } else {
+        result = await clientRef.current.runCommand(clean);
+      }
       const key = commandKey(clean);
       setCommandResults((current) => ({ ...current, [key]: result }));
       setTurns((current) => current.map((turn) => turn.id === turnId ? {

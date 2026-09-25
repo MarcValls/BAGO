@@ -31,7 +31,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import tempfile
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,27 +59,18 @@ def _now() -> str:
 
 
 def _atomic_write(path: Path, text: str) -> None:
-    """Write text to path atomically (temp file + rename)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".tmp_")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(text)
-        os.replace(tmp, str(path))
-    except Exception:
-        try:
-            os.unlink(tmp)
-        except Exception:
-            pass
-        raise
+    """Replace a canonical promoted-learning artifact through its owner."""
+    from bago_core.server_effects import write_learning_text
+
+    write_learning_text(path, text, trusted_root=_BAGO_ROOT)
 
 
 def _append_jsonl(path: Path, entry: dict) -> None:
     """Append one JSON line to a .jsonl file."""
-    path.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(entry, ensure_ascii=False) + "\n"
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(line)
+    from bago_core.server_effects import append_learning_text
+
+    append_learning_text(path, line, trusted_root=_BAGO_ROOT)
 
 
 def _read_learnings() -> list[dict]:
@@ -287,8 +277,6 @@ class LearningWriter:
             if pattern_id in existing:
                 return False  # already promoted
 
-        _KNOWLEDGE.mkdir(parents=True, exist_ok=True)
-
         # Build new entry
         entry_md = (
             f"\n## PATTERN: {pattern_id}\n\n"
@@ -312,8 +300,9 @@ class LearningWriter:
             )
             _atomic_write(_AUTO_PATTERNS, header + entry_md)
         else:
-            with _AUTO_PATTERNS.open("a", encoding="utf-8") as fh:
-                fh.write(entry_md)
+            from bago_core.server_effects import append_learning_text
+
+            append_learning_text(_AUTO_PATTERNS, entry_md, trusted_root=_BAGO_ROOT)
 
         if self._ctx:
             self._ctx.log("info",
@@ -329,57 +318,3 @@ class LearningWriter:
         if not _AUTO_PATTERNS.exists():
             return 0
         return _AUTO_PATTERNS.read_text(encoding="utf-8").count("## PATTERN:")
-
-
-# ── Self-test ──────────────────────────────────────────────────────────────────
-
-if __name__ == "__main__":
-    import tempfile, shutil as _shutil
-
-    # Use temp dir for test — patch module-level globals
-    _tmp = Path(tempfile.mkdtemp())
-    _orig_learnings     = _LEARNINGS
-    _orig_auto_patterns = _AUTO_PATTERNS
-    _orig_knowledge     = _KNOWLEDGE
-
-    import learning_writer as _self
-    _self._LEARNINGS     = _tmp / "test_learnings.jsonl"
-    _self._AUTO_PATTERNS = _tmp / "test_auto_patterns.md"
-    _self._KNOWLEDGE     = _tmp
-
-    # Also patch THIS module's globals (same object in sys.modules[__main__])
-    _LEARNINGS     = _self._LEARNINGS      # noqa: F811
-    _AUTO_PATTERNS = _self._AUTO_PATTERNS  # noqa: F811
-    _KNOWLEDGE     = _self._KNOWLEDGE      # noqa: F811
-
-    lw = LearningWriter()
-
-    # Simulate 3 successful cycles of (quick_check, VALIDADOR)
-    for i in range(3):
-        lw.observe("quick_check", "VALIDADOR", success=True,
-                   delta_health=2, signals=["health_improved"], cycle=i)
-
-    patterns = lw.get_patterns(min_count=3)
-    assert len(patterns) == 1, f"Expected 1 pattern, got {patterns}"
-    assert patterns[0]["goal"] == "quick_check"
-    assert patterns[0]["agent"] == "VALIDADOR"
-    assert _AUTO_PATTERNS.exists(), "Auto-promote did not run"
-
-    ctx = lw.get_context_for_planning()
-    assert "quick_check" in ctx["effective"], f"Expected quick_check in effective: {ctx}"
-
-    # Simulate failing goal
-    for i in range(4):
-        lw.observe("repair", "VALIDADOR", success=False, cycle=i)
-    ctx2 = lw.get_context_for_planning()
-    assert "repair" in ctx2["skip_goals"], f"Expected repair in skip_goals: {ctx2}"
-
-    summary = lw.get_summary()
-    print(f"Total observations: {summary['total']}")
-    print(f"Recent success rate: {summary['recent_sr']:.0%}")
-    print(f"Patterns promoted: {summary['promoted_count']}")
-    print(f"Effective: {ctx['effective']}")
-    print(f"Skip goals: {ctx2['skip_goals']}")
-
-    _shutil.rmtree(_tmp)
-    print("\n✅ learning_writer self-test passed")

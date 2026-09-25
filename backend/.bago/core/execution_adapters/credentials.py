@@ -3,6 +3,10 @@ from __future__ import annotations
 
 from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
 import hashlib
+import os
+import threading
+import uuid
+from pathlib import Path
 from typing import Any
 from execution_request import ExecutionRequest, stable_digest
 
@@ -19,6 +23,27 @@ class CredentialWriteEffectAdapter:
     effect_ids = frozenset({"credential.write"})
     _RESOURCE = "provider_credential"
     _OPERATIONS = frozenset({"set", "delete"})
+    _LOCK = threading.RLock()
+
+    @staticmethod
+    def _is_link(path: Path) -> bool:
+        metadata = None
+        try:
+            metadata = path.lstat()
+        except FileNotFoundError:
+            return False
+        is_junction = getattr(path, "is_junction", None)
+        return path.is_symlink() or bool(is_junction and is_junction()) or bool(getattr(metadata, "st_file_attributes", 0) & 0x400)
+
+    @classmethod
+    def _validate_secret_path(cls, path: Path, root: Path) -> None:
+        if path.parent != root or path.suffix != ".bin":
+            raise ExecutionGatewayError("Credential target is outside the canonical SecretStore", code="credential_write_path_invalid")
+        for component in (path, *path.parents):
+            if component == root.parent.parent:
+                break
+            if cls._is_link(component):
+                raise ExecutionGatewayError("Credential target cannot traverse a link or reparse point", code="credential_write_link_forbidden")
 
     def execute(self, request: ExecutionRequest, context: ExecutionContext) -> Any:
         from provider_catalog import PROVIDER_CATALOG
@@ -69,7 +94,8 @@ class CredentialWriteEffectAdapter:
                 f"Credential provider is not recognized: {provider}",
                 code="credential_write_provider_unknown",
             )
-        if key != "api_key":
+        from credential_manager import CREDENTIAL_SCHEMA
+        if key != "api_key" and key not in CREDENTIAL_SCHEMA.get(provider, {}):
             raise ExecutionGatewayError(
                 f"Credential key is not recognized for provider {provider}: {key}",
                 code="credential_write_key_unknown",
@@ -150,7 +176,14 @@ class CredentialWriteEffectAdapter:
             )
 
         secret_store = get_secret_store()
-        secret_key = f"providers/{provider}/api_key"
+        secret_key = f"providers/{provider}/{key}"
+        path = secret_store.path_for_key(secret_key)
+        from bago_core.user_state_paths import secrets_root
+
+        root = secrets_root().expanduser().resolve()
+        if path.parent.expanduser().resolve() != root:
+            raise ExecutionGatewayError("Credential target is not under the canonical SecretStore root", code="credential_write_path_invalid")
+        self._validate_secret_path(path, root)
 
         if operation == "set":
             arguments = request.arguments if isinstance(request.arguments, dict) else {}
@@ -161,7 +194,24 @@ class CredentialWriteEffectAdapter:
                     code="credential_write_value_required",
                 )
             try:
-                secret_store.set_secret(secret_key, value)
+                ciphertext = secret_store.protect_secret(value)
+                with self._LOCK:
+                    root.mkdir(parents=True, exist_ok=True)
+                    self._validate_secret_path(path, root)
+                    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+                    try:
+                        with temporary.open("xb") as handle:
+                            handle.write(ciphertext)
+                            handle.flush()
+                            os.fsync(handle.fileno())
+                        self._validate_secret_path(path, root)
+                        os.replace(str(temporary), str(path))
+                        try:
+                            os.chmod(str(path), 0o600)
+                        except (OSError, NotImplementedError):
+                            pass
+                    finally:
+                        temporary.unlink(missing_ok=True)
             except Exception as exc:
                 raise ExecutionGatewayError(
                     f"Error guardando credencial: {exc}",
@@ -171,7 +221,11 @@ class CredentialWriteEffectAdapter:
             deleted = False
         else:
             try:
-                deleted = bool(secret_store.delete_secret(secret_key))
+                with self._LOCK:
+                    self._validate_secret_path(path, root)
+                    deleted = path.exists()
+                    if deleted:
+                        path.unlink()
             except Exception as exc:
                 raise ExecutionGatewayError(
                     f"Error eliminando credencial: {exc}",

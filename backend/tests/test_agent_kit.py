@@ -172,6 +172,47 @@ class TestLLMAdapter:
         with pytest.raises(LLMAdapterError, match="model is required"):
             call_llm("openai", "", messages=[{"role": "user", "content": "hi"}])
 
+    def test_http_post_uses_the_shared_gateway_transport(self, monkeypatch):
+        from bago_core.agent_kit import llm_adapter
+
+        captured = {}
+
+        class _Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return None
+
+            def read(self):
+                return b'{"choices":[]}'
+
+        def fake_gateway_urlopen(request, *, timeout, network_class):
+            captured.update({
+                "url": request.full_url,
+                "method": request.get_method(),
+                "headers": dict(request.header_items()),
+                "body": json.loads(request.data.decode("utf-8")),
+                "timeout": timeout,
+                "network_class": network_class,
+            })
+            return _Response()
+
+        monkeypatch.setattr(llm_adapter, "gateway_urlopen", fake_gateway_urlopen)
+
+        result = llm_adapter._http_post(
+            "https://provider.example/v1/chat",
+            {"Authorization": "Bearer test"},
+            {"model": "fixture", "messages": []},
+            timeout=12.0,
+        )
+
+        assert result == {"choices": []}
+        assert captured["method"] == "POST"
+        assert captured["body"] == {"model": "fixture", "messages": []}
+        assert captured["timeout"] == 12.0
+        assert captured["network_class"] == "provider_transport"
+
     def test_call_agent_prompt_dry_run_returns_prompt(self):
         from bago_core.agent_kit.llm_adapter import call_agent_prompt
         from bago_core.agent_kit.models import AgentDefinition, AgentRequest
@@ -314,6 +355,31 @@ class TestOrchestratorValidationAndPersistence:
         assert record["dry_run"] is True
         assert record["plan"] == plan
         assert "timestamp" in record
+
+    def test_save_orchestrator_plan_uses_registered_state_writer(self, tmp_path, monkeypatch):
+        from bago_core import atomic_json
+        from bago_core.agent_kit.orchestrator import save_orchestrator_plan
+
+        calls = []
+        original = atomic_json.append_text_durable
+
+        def capture(path, content):
+            assert not path.parent.exists()
+            calls.append((path, content))
+            return original(path, content)
+
+        monkeypatch.setattr(atomic_json, "append_text_durable", capture)
+        state_root = tmp_path / "not-created-yet"
+        path = save_orchestrator_plan(
+            {"reasoning": "test", "audit": [], "execute": [], "verify": ""},
+            state_root=state_root,
+        )
+
+        assert len(calls) == 1
+        assert calls[0][0] == path
+        assert state_root.exists()
+        assert len(json.loads(calls[0][1])) > 0
+        assert len(path.read_text(encoding="utf-8").splitlines()) == 1
 
     def test_dry_run_persists_plan(self, tmp_path):
         from bago_core.agent_kit.orchestrator import AgentOrchestrator, _plan_store_path

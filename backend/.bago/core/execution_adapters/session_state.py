@@ -4,6 +4,7 @@ from __future__ import annotations
 from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
 import hashlib
 import os
+import re
 import threading
 import time
 import uuid
@@ -12,10 +13,12 @@ from typing import Any
 from execution_request import ExecutionRequest
 
 _SERVER_STATE_EFFECTS = frozenset({
+    "state.directory.ensure",
     "state.write",
     "config.write",
     "memory.write",
     "agent.definition.write",
+    "learning.write",
 })
 _SERVER_STATE_WRITE_LOCK = threading.RLock()
 
@@ -163,6 +166,54 @@ class ServerStateEffectAdapter:
 
     _FORBIDDEN_SEGMENTS = frozenset({".git", ".env", "node_modules", ".venv", "venv"})
 
+    _LEARNING_TARGETS = frozenset({
+        ".bago/state/auto_learnings.jsonl",
+        ".bago/knowledge/auto_patterns.md",
+    })
+    @classmethod
+    def _ensure_directory(cls, raw_path: str, raw_root: str) -> tuple[Path, Path]:
+        root = Path(str(raw_root or "")).expanduser().resolve()
+        candidate = Path(str(raw_path or "")).expanduser()
+        lexical = candidate if candidate.is_absolute() else root / candidate
+        if root.is_symlink() or lexical.is_symlink():
+            raise ExecutionGatewayError(
+                "Persistent directory cannot be a symlink",
+                code="server_state_directory_symlink_forbidden",
+            )
+        target = lexical.resolve()
+        from bago_core.user_state_paths import (
+            backups_root,
+            cache_root,
+            runtime_root,
+            state_root,
+            user_root,
+        )
+
+        canonical_root = user_root().resolve()
+        allowed_targets = {
+            canonical_root,
+            runtime_root().resolve(),
+            state_root().resolve(),
+            cache_root().resolve(),
+            backups_root().resolve(),
+        }
+        if root != canonical_root or target not in allowed_targets:
+            raise ExecutionGatewayError(
+                "Persistent directory is outside the canonical user-root set",
+                code="server_state_directory_invalid",
+            )
+        if target != root and not root.exists():
+            raise ExecutionGatewayError(
+                "Persistent directory parent must already exist",
+                code="server_state_directory_parent_missing",
+            )
+        if target == root and not root.parent.exists():
+            raise ExecutionGatewayError(
+                "Persistent user-root parent must already exist",
+                code="server_state_directory_parent_missing",
+            )
+        return target, root
+
     @staticmethod
     def _resolved_target(raw_path: str, raw_root: str) -> tuple[Path, Path]:
         root = Path(str(raw_root or "")).expanduser().resolve()
@@ -222,10 +273,57 @@ class ServerStateEffectAdapter:
                 "Persistent state trusted root is missing or changed",
                 code="server_state_root_mismatch",
             )
-        target, root = self._resolved_target(str(request.target.get("path") or ""), expected_root)
         arguments = request.arguments if isinstance(request.arguments, dict) else {}
         operation = str(request.target.get("operation") or "replace_text").strip().lower()
+        if request.effect_id == "state.directory.ensure":
+            if operation != "ensure_directory" or arguments:
+                raise ExecutionGatewayError(
+                    "Persistent directory request is invalid",
+                    code="server_state_directory_request_invalid",
+                )
+            target, root = self._ensure_directory(str(request.target.get("path") or ""), expected_root)
+            try:
+                with _SERVER_STATE_WRITE_LOCK:
+                    target.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                raise ExecutionGatewayError(
+                    f"Error materializing persistent directory: {exc}",
+                    code="server_state_directory_create_failed",
+                ) from exc
+            receipt_path = (
+                target.relative_to(root).as_posix()
+                if target.is_relative_to(root)
+                else str(target)
+            )
+            return {
+                "ok": True,
+                "executed": True,
+                "effect_id": request.effect_id,
+                "path": receipt_path,
+                "absolute_path": str(target),
+                "receipt_id": f"state-directory-ensure:{request.fingerprint}",
+            }
+        target, root = self._resolved_target(str(request.target.get("path") or ""), expected_root)
         content = str(arguments.get("content") or "")
+
+        if request.effect_id == "agent.definition.write":
+            relative = target.relative_to(root).as_posix()
+            valid_target = relative == "agents/manifest.json" or bool(
+                re.fullmatch(r"agents/[A-Za-z0-9_]{1,80}\.py", relative)
+            )
+            if operation != "replace_text" or not valid_target:
+                raise ExecutionGatewayError(
+                    "Agent definition target or operation is not approved",
+                    code="agent_definition_target_invalid",
+                )
+
+        if request.effect_id == "learning.write":
+            relative = target.relative_to(root).as_posix()
+            if relative not in self._LEARNING_TARGETS or operation not in {"append_text", "replace_text"}:
+                raise ExecutionGatewayError(
+                    "Learning state target or operation is not approved",
+                    code="server_learning_target_invalid",
+                )
 
         try:
             with _SERVER_STATE_WRITE_LOCK:

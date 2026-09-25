@@ -10,6 +10,13 @@ a named resource. It is separate from `bago_core.claim_storage.ClaimLedger`,
 which stores evidence-backed assertions. The evidence ledger is not a lock or
 execution coordinator.
 
+The evidence ledger remains a separate assertion/evidence authority. Its
+append-only claim and receipt files persist through the registered `state.write`
+adapter; this storage route does not make an evidence claim an execution claim,
+grant authorization, or issue a Gateway Permit. `ExecutionClaimStore` continues
+to coordinate same-resource execution only, and `AuthorizationBoundary` plus
+the Gateway adapter remain the authorization/effect authority.
+
 The current contract is implemented in the hidden runtime module
 `backend/.bago/core/execution_claims.py`. It defines:
 
@@ -67,17 +74,75 @@ while a gateway callback runs. `psycopg` 3 is loaded lazily; hosts must provide
 the driver and DSN or inject a DB-API connector. It is never selected by the
 local runtime automatically.
 
-The 04 governed pipeline currently claims canonical file resources for
-`filesystem.read` and `filesystem.write`. The claim is acquired before budget
+The 04 governed pipeline claims canonical resources for `filesystem.read`,
+`filesystem.write`, and `process.execute`. The claim is acquired before budget
 reservation. Its `operation_id` binds pipeline operation, step, attempt, and
-step fingerprint; the pipeline separately carries its idempotency key. The nested
-gateway verifies the claim owner, resource, operation, claim id, and fencing
-token immediately before invoking the server-owned adapter. Claim identity and
+step fingerprint; the pipeline separately carries its idempotency key. File
+resources use their canonical target path. Process resources use the normalized
+working directory, argv operation, and active session identity; pipeline-only
+metadata is excluded from the process operation key. The nested gateway
+verifies the claim owner, resource, operation, claim id, and fencing token
+immediately before invoking the server-owned adapter. Claim identity and
 fencing generation are retained in the step outcome and evidence.
+
+An execution claim coordinates competing operations; it does not authorize an
+effect. The parent `plan.execute` Permit authorizes the governed plan, and each
+child effect is dispatched through its registered server-owned adapter. The
+process adapter independently checks the consumed Permit or verified nested
+plan context, then validates argv and confines cwd to the active workspace
+before spawning. Direct process callers outside this governed pipeline are not
+covered by this claim integration and remain visible to the global runtime
+sink inventory.
 
 The existing per-plan `RLock` remains for mutable PlanEngine and plan state.
 This implementation does not coordinate project/workspace/credential sinks or
 other unclaimed effects.
+
+## Evidence bundle generation
+
+Public evidence-bundle generation is an explicit `evidence.bundle.generate`
+effect. The CLI request binds the absolute output directory, its current
+content fingerprint, generation mode/objective/provider/model, base path, and
+overwrite choice. Generation requires a strong, direct TTY Permit and the
+adapter rechecks the output tree immediately before replacing it. It builds a
+sibling staging directory, atomically swaps the completed bundle into place,
+and preserves/restores the old tree if that swap fails. The lower-level
+materializer is only called by the registered adapter; runtime `--test`
+materialization was removed in favor of pytest.
+
+## Archived install rollback
+
+Restoring a Program Files backup ZIP uses the distinct
+`system.install.archive.rollback` effect with a strong, non-delegable direct
+CLI Permit. The request binds the exact install path and current tree digest,
+backup root, archive path and digest, state-preservation choice, and a unique
+safety-archive destination. The adapter validates ZIP paths and entry types,
+rejects links and expansion beyond its limit, stages extraction beside the
+install target, and rechecks the archive and current tree before replacement.
+Unless the user explicitly chooses archived state, current `.bago/state`,
+`.bago/logs`, `state`, and `logs` are preserved. The retired PowerShell script
+does not restore files; it directs users to `bago rollback-archive`.
+
+## GitHub CLI process execution
+
+GitHub CLI reads use the registered `process.inspect` owner and a fixed argv
+allowlist for `gh auth status` and GET-only `gh api repos/...` endpoints. The
+request is bound to the active SessionManager session and workspace cwd. Repo
+creation and auth login/logout use `process.execute` through the Electron
+process-execution client: the challenge binds the exact executable, cwd, argv,
+and timeout, and the consumed Permit is required before spawn. A login token,
+when supplied, stays in the Permit-bound request and is redacted from the
+native confirmation dialog. The API handler no longer spawns `gh`/`git`; the
+duplicate MCP repository-creation tool and legacy mutating HTTP routes are
+retired. GitHub setup routes that remain return 410 until a governed Desktop
+caller is provided.
+
+The continuity CLI reads Git HEAD through the same `process.inspect` owner with
+the exact read-only argv `git rev-parse HEAD`. Its `verify` subcommand accepts
+only `pytest` or `python -m pytest`; it normalizes the interpreter to the
+active BAGO runtime, binds cwd and argv in a `process.execute` request, and
+requires a direct TTY Permit before the process starts. Arbitrary commands
+and inline Python are rejected before authorization or spawn.
 
 ## Explicit limits
 
@@ -96,8 +161,10 @@ same-content no-op), then commits the returned receipt. A `COMMITTED` ledger
 receipt repairs a stale pipeline outcome without repeating the effect. Without
 a matching durable record, the unresolved outcome remains blocked. This is
 at-least-once idempotent desired-state recovery, not exactly-once execution or a
-transaction spanning the filesystem and ledger. The current pipeline claims
-only canonical file resources for `filesystem.read` and `filesystem.write`.
+transaction spanning the filesystem and ledger. The governed pipeline claims
+canonical file resources for `filesystem.read` and `filesystem.write`, and
+normalized process operations for `process.execute`. Other unclaimed effects
+and direct process callers remain outside this pipeline integration.
 
 Nested gateway dispatch normalizes the internal claim record before passing it
 to the selected store. This handles duplicate Python module identities from
@@ -116,6 +183,15 @@ replaces the target. Replaying the same desired content is a no-op with the
 same content receipt. This avoids torn visible files and makes that file write
 idempotent by content. The local durable ledger supports this recovery model;
 it does not span a separate PostgreSQL transaction.
+
+Release-job archival is the explicit `release.job.archive` effect. Its request
+fingerprint binds the job ID, persisted-state SHA-256, and archive timestamp.
+`AuthorizationBoundary` issues and consumes the Permit; the adapter rechecks
+the digest, identity, and terminal state before creating an archive or moving
+the active state, log, and staging tree. A changed job or existing archive is
+blocked before the first material write. If a move fails and rollback also
+fails, the adapter preserves the partial archive and reports its recovery path
+instead of deleting moved data. The archive remains recoverable.
 
 The adapter selection is visible in outcome metadata as `durable-local` or
 `process-local`. The latter remains for test/fake managers without a trusted

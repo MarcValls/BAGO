@@ -188,6 +188,54 @@ describe('BagoClient response parsing', () => {
     expect(bodies[2]).toMatchObject({ authorization_permit: 'permit-workspace-bind' });
   });
 
+  it('syncs the session mirror through challenge, approval and one-time permit', async () => {
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+      const payload = body.authorization_action === 'challenge'
+        ? { ok: true, authorization: { state: 'challenge', challenge: { challenge_id: 'challenge-mirror-sync' } } }
+        : body.authorization_action === 'approve'
+          ? { ok: true, authorization: { state: 'authorized', permit: { token: 'permit-mirror-sync' } } }
+          : { ok: true, effect_id: 'workspace.mirror.sync' };
+      return Promise.resolve(new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(createBagoClient('', '').syncProject())
+      .resolves.toMatchObject({ ok: true, effect_id: 'workspace.mirror.sync' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.every(([url]) => url === '/project/sync')).toBe(true);
+    const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>);
+    expect(bodies.map((body) => body.authorization_action)).toEqual(['challenge', 'approve', 'execute']);
+    expect(bodies.every((body) => !('root' in body) && !('path' in body))).toBe(true);
+    expect(new Set(bodies.map((body) => body.interaction_id)).size).toBe(1);
+    expect(bodies[2]).toMatchObject({ authorization_permit: 'permit-mirror-sync' });
+  });
+
+  it('attaches context through challenge, approval and one-time permit', async () => {
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
+      const payload = body.authorization_action === 'challenge'
+        ? { ok: true, authorization: { state: 'challenge', challenge: { challenge_id: 'context-challenge' } } }
+        : body.authorization_action === 'approve'
+          ? { ok: true, authorization: { state: 'authorized', permit: { token: 'context-permit' } } }
+          : { ok: true, effect_id: 'workspace.context.attach', data: { file_count: 1 } };
+      return Promise.resolve(new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(createBagoClient('', '').attachContext(['folder with spaces/note.txt']))
+      .resolves.toMatchObject({ ok: true, effect_id: 'workspace.context.attach' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.every(([url]) => url === '/context/attach')).toBe(true);
+    const bodies = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)) as Record<string, unknown>);
+    expect(bodies.map((body) => body.authorization_action)).toEqual(['challenge', 'approve', 'execute']);
+    expect(bodies.every((body) => JSON.stringify(body.paths) === JSON.stringify(['folder with spaces/note.txt']))).toBe(true);
+    expect(new Set(bodies.map((body) => body.interaction_id)).size).toBe(1);
+    expect(bodies[2]).toMatchObject({ authorization_permit: 'context-permit' });
+  });
+
   it('uses the shared authorization helper for credential provider configuration', async () => {
     const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
       const body = JSON.parse(String(init.body || '{}')) as Record<string, unknown>;
@@ -303,17 +351,24 @@ describe('BagoClient response parsing', () => {
   });
 
   it('applies a verified release through the dedicated endpoint', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true, status: 'applying' }), {
-      status: 202,
+    const response = (payload: unknown, status = 200) => new Response(JSON.stringify(payload), {
+      status,
       headers: { 'Content-Type': 'application/json' }
-    }));
+    });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ ok: true, authorization: { state: 'challenge', challenge: { challenge_id: 'challenge-1' } } }))
+      .mockResolvedValueOnce(response({ ok: true, authorization: { state: 'authorized', permit: { token: 'permit-1' } } }))
+      .mockResolvedValueOnce(response({ ok: true, status: 'applying', authorization: { state: 'consumed' } }, 202));
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(createBagoClient('', '').applyReleaseUpdate()).resolves.toMatchObject({ status: 'applying' });
-    expect(fetchMock).toHaveBeenCalledWith('/release/apply', expect.objectContaining({
-      method: 'POST',
-      body: '{}'
-    }));
+    const calls = fetchMock.mock.calls.filter(([url]) => url === '/release/apply');
+    expect(calls).toHaveLength(3);
+    const payloads = calls.map(([, init]) => JSON.parse(String(init?.body)));
+    expect(payloads.map((payload) => payload.authorization_action)).toEqual(['challenge', 'approve', 'execute']);
+    expect(payloads[1]).toMatchObject({ challenge_id: 'challenge-1', user_decision: 'approve' });
+    expect(payloads[2]).toMatchObject({ authorization_permit: 'permit-1' });
+    expect(payloads[0].interaction_id).toBe(payloads[2].interaction_id);
   });
 
   it('creates a persistent empty conversation through the conversation contract', async () => {
@@ -337,7 +392,13 @@ describe('BagoClient response parsing', () => {
   });
 
   it('uses the canonical inspect and import package routes', async () => {
-    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ok: true }), {
+    const responses = [
+      { ok: true },
+      { ok: true, authorization: { state: 'challenge', challenge: { challenge_id: 'challenge-1' } } },
+      { ok: true, authorization: { state: 'authorized', permit: { token: 'permit-1' } } },
+      { ok: true, package: { id: 'local.example' }, authorization: { state: 'consumed' } },
+    ];
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify(responses.shift()), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     })));
@@ -358,13 +419,21 @@ describe('BagoClient response parsing', () => {
       '/api/v1/capability-packages/import',
       expect.objectContaining({
         method: 'POST',
-        body: expect.stringContaining('"confirm_trust":false')
+        body: expect.stringContaining('"authorization_action":"challenge"')
       })
     ]);
+    expect(fetchMock.mock.calls[2][1]).toEqual(expect.objectContaining({ body: expect.stringContaining('"authorization_action":"approve"') }));
+    expect(fetchMock.mock.calls[3][1]).toEqual(expect.objectContaining({ body: expect.stringContaining('"authorization_action":"execute"') }));
   });
 
   it('lists and installs bundled capability examples through canonical routes', async () => {
-    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ok: true, examples: [] }), {
+    const responses = [
+      { ok: true, examples: [] },
+      { ok: true, authorization: { state: 'challenge', challenge: { challenge_id: 'example-challenge' } } },
+      { ok: true, authorization: { state: 'authorized', permit: { token: 'example-permit' } } },
+      { ok: true, package: { id: 'local.scheduled-report' }, authorization: { state: 'consumed' } },
+    ];
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify(responses.shift()), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     })));
@@ -382,6 +451,8 @@ describe('BagoClient response parsing', () => {
       '/api/v1/capability-packages/local.scheduled-report/install-example',
       expect.objectContaining({ method: 'POST' })
     ]);
+    expect(fetchMock.mock.calls[2][1]).toEqual(expect.objectContaining({ body: expect.stringContaining('"authorization_action":"approve"') }));
+    expect(fetchMock.mock.calls[3][1]).toEqual(expect.objectContaining({ body: expect.stringContaining('"authorization_action":"execute"') }));
   });
 
 

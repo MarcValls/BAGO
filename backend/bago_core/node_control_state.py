@@ -9,7 +9,7 @@ sibling; this module only returns dicts (R8).
 from __future__ import annotations
 
 import json
-import subprocess
+import importlib.util
 from pathlib import Path
 from typing import Any
 
@@ -40,8 +40,6 @@ from bago_core.node_control_policy import (
 def _load_state(base_path: str | Path) -> tuple[RegistryPaths, dict[str, Any]]:
     """Load (or first-bootstrap) the Node Control registry for *base_path*."""
     paths = registry_paths(base_path)
-    paths.root.mkdir(parents=True, exist_ok=True)
-
     installations = json_read(paths.installations, [])
     pieces = json_read(paths.pieces, [])
     if not pieces:
@@ -328,34 +326,28 @@ def run_modular_guard() -> list[dict[str, Any]]:
     R6 warning is returned instead of raising. R6 says this guard is part
     of the release gate; we never want it to break the node CLI entirely.
     """
-    repo_root = Path(__file__).resolve().parent.parent.parent
-    script = repo_root / "tools" / "check_modular.py"
+    backend_root = Path(__file__).resolve().parents[1]
+    script = backend_root / "tools" / "check_modular.py"
     if not script.exists():
         return [{
             "rule": "R6", "severity": "WARN",
-            "message": f"tools/check_modular.py no encontrado en {repo_root}",
+            "message": f"tools/check_modular.py no encontrado en {backend_root}",
         }]
     try:
-        result = subprocess.run(
-            ["python", str(script), "--json"],
-            cwd=str(repo_root),
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        spec = importlib.util.spec_from_file_location("bago_check_modular", script)
+        if spec is None or spec.loader is None:
+            raise ImportError("No se pudo cargar check_modular.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        report = module.run_all()
     except Exception as exc:  # noqa: BLE001
         return [{
             "rule": "R6", "severity": "WARN",
-            "message": f"No se pudo ejecutar check_modular.py: {exc!r}",
+            "message": f"No se pudo cargar check_modular.py: {exc!r}",
         }]
-    try:
-        report = json.loads(result.stdout or "{}")
-        # `check_modular.py --json` ya emite ERROR/WARN/INFO dentro de
-        # `findings`. INFO se considera un warning soft de cara al guard
-        # del Node Control, pero no bloquea el release.
-        return list(report.get("findings", []))
-    except Exception:  # noqa: BLE001
-        return []
+    # run_all() returns ERROR/WARN/INFO findings directly; INFO remains a
+    # soft warning for release validation.
+    return list(report.get("findings", []))
 
 
 def validate(base_path: str | Path) -> tuple[bool, dict[str, Any]]:

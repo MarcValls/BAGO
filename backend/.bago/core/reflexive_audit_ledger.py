@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+from bago_core.server_effects import append_text_durable
+
 
 class ReflexiveAuditLedger:
     """Persist Reflexive Interpreter analyses as evidence records."""
@@ -16,7 +18,6 @@ class ReflexiveAuditLedger:
     def __init__(self, state_root: str | Path) -> None:
         self.state_root = Path(state_root)
         self.evidence_dir = self.state_root / "evidence"
-        self.evidence_dir.mkdir(parents=True, exist_ok=True)
         self.path = self.evidence_dir / "reflexive_interpretations.jsonl"
 
     def append(
@@ -46,8 +47,13 @@ class ReflexiveAuditLedger:
             "response_excerpt": response_text[:1000],
             "metadata": dict(metadata or {}),
         }
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+        append_text_durable(
+            self.path,
+            json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n",
+            trusted_root=self.state_root,
+            source_surface="reflexive.audit",
+            session_id=f"reflexive-audit:{self.state_root.resolve()}:{session_id}",
+        )
         return {
             "audit_id": record["audit_id"],
             "path": str(self.path),

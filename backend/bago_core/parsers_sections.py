@@ -60,6 +60,12 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     install_parser.add_argument("--no-path-update", action="store_true", help="No modifica PATH")
     install_parser.add_argument("--dry-run", action="store_true", help="Muestra lo que haria sin ejecutar")
 
+    rollback_parser = sub.add_parser("rollback-archive", help="Restaura un ZIP de backup BAGO con autorización directa")
+    rollback_parser.add_argument("--backup-zip", default="", help="ZIP de backup exacto (por defecto, el más reciente)")
+    rollback_parser.add_argument("--backup-root", default="", help="Raíz autorizada de backups BAGO")
+    rollback_parser.add_argument("--install-dir", default="", help="Destino de instalación a restaurar")
+    rollback_parser.add_argument("--restore-backed-up-state", action="store_true", help="Restaura también el estado incluido en el ZIP")
+
     uninstall_parser = sub.add_parser("uninstall", help="Desinstala BAGO de la ruta indicada")
     uninstall_parser.add_argument("--profile", default="", choices=("stable", "des", "ign"), help="Perfil a desinstalar")
     uninstall_parser.add_argument("--install-dir", default="", help="Destino a desinstalar")
@@ -69,6 +75,10 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     uninstall_parser.add_argument("--dry-run", action="store_true", help="Muestra lo que haria sin ejecutar")
     uninstall_parser.add_argument("--no-elevate", action="store_true", help=argparse.SUPPRESS)
     uninstall_parser.add_argument("--elevated-child", action="store_true", help=argparse.SUPPRESS)
+    uninstall_parser.add_argument("--authorization-ticket-path", default="", help=argparse.SUPPRESS)
+    uninstall_parser.add_argument("--authorization-ticket-nonce", default="", help=argparse.SUPPRESS)
+    uninstall_parser.add_argument("--authorization-permit-id", default="", help=argparse.SUPPRESS)
+    uninstall_parser.add_argument("--authorization-ledger-path", default="", help=argparse.SUPPRESS)
 
     claim_parser = sub.add_parser("claim", help="Claim Evidence Ledger -- afirmaciones trazables")
     claim_sub = claim_parser.add_subparsers(dest="claim_action")
@@ -186,7 +196,6 @@ def add_session_parsers(sub: argparse._SubParsersAction) -> None:
     evidence_parser.add_argument("--objective", default="community-knowledge", help="Objetivo demostrable")
     evidence_parser.add_argument("--output", help="Directorio de salida del bundle")
     evidence_parser.add_argument("--overwrite", action="store_true", help="Sobrescribe el directorio de salida")
-    evidence_parser.add_argument("--test", action="store_true", help="Ejecuta la prueba interna del generador")
 
     monitor_parser = sub.add_parser("monitor", help="Monitor HTML en tiempo real de procesos BAGO")
     monitor_parser.add_argument("--root", default="", help="Raiz del proyecto a monitorizar (default: cwd)")

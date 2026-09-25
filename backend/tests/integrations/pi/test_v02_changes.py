@@ -240,6 +240,13 @@ def test_A2_wal_module_basic_operations(tmp_path: Path) -> None:
     wal.close_all()
 
 
+def test_wal_store_defers_directory_creation_to_gateway(tmp_path: Path) -> None:
+    from integrations.pi.wal import WALStore
+
+    wal = WALStore(str(tmp_path))
+    assert not wal._base_dir.exists()
+
+
 def test_A2_wal_rejects_unknown_execution_id_safely(tmp_path: Path) -> None:
     """A2: pedir eventos de un execution_id que no existe devuelve []."""
     from integrations.pi.wal import WALStore

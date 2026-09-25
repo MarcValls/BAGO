@@ -20,6 +20,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from bago_core.server_effects import ensure_runtime_state_dirs, seed_runtime_state_examples
+
 
 def get_root() -> Path:
     """Return BAGO repo root (parent of .bago/).
@@ -68,8 +70,7 @@ def state_path(*parts: str) -> Path:
 def ensure_state_dir() -> Path:
     """Ensure the state directory exists (with required subdirs). Returns it."""
     state = get_state_dir()
-    for subdir in ("sessions", "changes", "evidences"):
-        (state / subdir).mkdir(parents=True, exist_ok=True)
+    ensure_runtime_state_dirs(state)
     return state
 
 
@@ -82,20 +83,5 @@ def init_state_from_example() -> bool:
     state = get_state_dir()
     example = root / ".bago" / "state.example"
 
-    if not example.exists():
-        return False
-
-    global_state = state / "global_state.json"
-    if global_state.exists():
-        return False  # already initialized
-
-    state.mkdir(parents=True, exist_ok=True)
-    import shutil
-    for src in example.rglob("*"):
-        if src.is_file() and src.name != ".gitkeep":
-            dst = state / src.relative_to(example)
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            if not dst.exists():
-                shutil.copy2(src, dst)
-
-    return True
+    result = seed_runtime_state_examples(state, example)
+    return bool(result.get("copied"))

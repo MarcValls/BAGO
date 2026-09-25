@@ -392,10 +392,9 @@ export class BagoClient {
   }
 
   applyReleaseUpdate(): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/release/apply', {
-      method: 'POST',
-      body: JSON.stringify({})
-    }, 30_000);
+    return this.authorizedRequest<Record<string, unknown>>(
+      '/release/apply', {}, 'instalar y reiniciar BAGO', 30_000,
+    );
   }
 
   verifyProviderContracts(): Promise<Record<string, unknown>> {
@@ -530,14 +529,6 @@ export class BagoClient {
     return this.request<Record<string, unknown>>(`/github/contents?path=${encodeURIComponent(path)}`, { method: 'GET' });
   }
 
-  createGitHubRepository(name: string, options: { private?: boolean; description?: string } = {}): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/github/create', { method: 'POST', body: JSON.stringify({ name, ...options }) });
-  }
-
-  createGitHubRepositoryViaMcp(name: string, options: { private?: boolean; description?: string; confirm: boolean }): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/github/mcp-create', { method: 'POST', body: JSON.stringify({ name, ...options }) });
-  }
-
   scopeWorkspaceConversation(root: string, conversationId?: string): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/workspace/conversation', { method: 'POST', body: JSON.stringify({ root, conversation_id: conversationId }) });
   }
@@ -579,6 +570,10 @@ export class BagoClient {
   async persistWorkspace(path?: string): Promise<Record<string, unknown>> {
     const operation = path?.trim() ? { path: path.trim() } : {};
     return this.authorizedRequest('/workspace/persist', operation, 'persistir el workspace');
+  }
+
+  async attachContext(paths: string[] = []): Promise<Record<string, unknown>> {
+    return this.authorizedRequest('/context/attach', { paths }, 'adjuntar contexto');
   }
 
   configureProvider(provider: string, config: { enabled?: boolean; base_url?: string; api_key?: string; model?: string; clear_secret?: boolean }): Promise<Record<string, unknown>> {
@@ -714,20 +709,8 @@ export class BagoClient {
     return this.request('/github/status', { method: 'GET' });
   }
 
-  startGitHubAuth(): Promise<import('@/contracts/backend').GitHubAuthStartResult> {
-    return this.request('/github/auth/start', { method: 'POST', body: JSON.stringify({}) });
-  }
-
   refreshGitHubAuth(): Promise<import('@/contracts/backend').GitHubAuthState> {
     return this.request('/github/auth/refresh', { method: 'POST', body: JSON.stringify({}) });
-  }
-
-  logoutGitHub(): Promise<void> {
-    return this.request('/github/auth/logout', { method: 'POST', body: JSON.stringify({}) });
-  }
-
-  setupGitHub(options: { hostname?: string; token?: string }): Promise<import('@/contracts/backend').GitHubAuthState> {
-    return this.request('/github/setup', { method: 'POST', body: JSON.stringify(options) });
   }
 
   // --- Pipeline ---
@@ -796,10 +779,10 @@ export class BagoClient {
   }
 
   installCapabilityExample(packageId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/api/v1/capability-packages/${encodeURIComponent(packageId)}/install-example`, {
-      method: 'POST',
-      body: JSON.stringify({ channel: 'ui-react', surface: 'ui-react' })
-    });
+    return this.authorizedRequest<Record<string, unknown>>(
+      `/api/v1/capability-packages/${encodeURIComponent(packageId)}/install-example`, {},
+      'Instalación del ejemplo de Capability Package', 60_000,
+    );
   }
 
   inspectCapabilityPackage(fileName: string, contentBase64: string): Promise<PackageInspection> {
@@ -810,16 +793,13 @@ export class BagoClient {
   }
 
   importCapabilityPackage(payload: { fileName: string; contentBase64: string; confirmTrust?: boolean }): Promise<CapabilityPackageResponse> {
-    return this.request<CapabilityPackageResponse>('/api/v1/capability-packages/import', {
-      method: 'POST',
-      body: JSON.stringify({
+    return this.authorizedRequest<CapabilityPackageResponse>('/api/v1/capability-packages/import', {
         file_name: payload.fileName,
         content_base64: payload.contentBase64,
         confirm_trust: payload.confirmTrust === true,
         channel: 'ui-react',
         surface: 'ui-react'
-      })
-    }, 60_000);
+      }, 'Importación de Capability Package', 60_000);
   }
 
   exportCapabilityPackage(packageId: string): Promise<Record<string, unknown>> {
@@ -856,7 +836,7 @@ export class BagoClient {
     return this.request<Record<string, unknown>>('/memory/search', { method: 'POST', body: JSON.stringify(payload) });
   }
   upsertEmbedding(payload: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>('/memory/embeddings/upsert', { method: 'POST', body: JSON.stringify(payload) });
+    return this.authorizedRequest<Record<string, unknown>>('/memory/embeddings/upsert', payload, 'guardar un embedding');
   }
   getSubagentsCatalogue(): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>('/subagents/catalogue', { method: 'GET' });
@@ -1033,11 +1013,8 @@ export class BagoClient {
     return this.authorizedRequest<BackendCommandResult>('/project/seed', { root }, 'sembrar el proyecto');
   }
 
-  syncProject(root?: string): Promise<BackendCommandResult> {
-    return this.request<BackendCommandResult>('/project/sync', {
-      method: 'POST',
-      body: this.projectBody(root)
-    });
+  syncProject(): Promise<BackendCommandResult> {
+    return this.authorizedRequest<BackendCommandResult>('/project/sync', {}, 'sincronizar el espejo del workspace');
   }
 
   runCommand(command: string): Promise<BackendCommandResult> {

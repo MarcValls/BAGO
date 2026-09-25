@@ -529,3 +529,53 @@ def test_execution_claim_and_operation_stores_are_authority_internal() -> None:
     assert any(item.effect_id == "database.write" for item in findings)
     assert all(item.binding == "authority_internal" for item in findings)
     assert all(item.binding_class == "authority_internal" for item in findings)
+
+
+def test_database_write_sink_is_owned_by_the_registered_adapter() -> None:
+    adapter_path = (
+        inventory.REPO_ROOT
+        / "backend"
+        / ".bago"
+        / "core"
+        / "execution_adapters"
+        / "database_write.py"
+    )
+    findings = inventory.scan_python(adapter_path)
+    assert findings
+    assert all(item.binding_class == "gateway_adapter" for item in findings)
+    assert any(item.effect_id == "database.write" for item in findings)
+    assert {item.effect_id for item in findings} <= {
+        "database.write",
+        "filesystem.write",  # state-root creation is covered by the same Permit.
+    }
+
+    source = adapter_path.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    adapter_class = next(
+        node for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "DatabaseWriteEffectAdapter"
+    )
+    private_schema_helpers = {
+        "_ensure_knowledge_schema",
+        "_ensure_embedding_schema",
+        "_insert_embedding",
+    }
+    helper_calls = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in private_schema_helpers
+    ]
+    assert helper_calls
+    assert all(
+        adapter_class.lineno <= node.lineno <= adapter_class.end_lineno
+        for node in helper_calls
+    )
+
+    from execution_gateway import build_default_effect_adapter_registry
+    from execution_adapters.database_write import DatabaseWriteEffectAdapter
+
+    assert isinstance(
+        build_default_effect_adapter_registry().resolve("database.write"),
+        DatabaseWriteEffectAdapter,
+    )

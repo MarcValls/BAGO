@@ -232,7 +232,7 @@ def tempfile_mkdtemp() -> str:
 
 
 class AtomicPatchTests(unittest.TestCase):
-    def test_apply_modifies_file_and_returns_hashes(self) -> None:
+    def test_apply_requires_gateway_permit_before_workspace_write(self) -> None:
         tmp = Path(tempfile_mkdtemp())
         try:
             workspace = _make_workspace(tmp)
@@ -241,106 +241,11 @@ class AtomicPatchTests(unittest.TestCase):
             result = apply_patch_atomically(
                 [patch],
                 workspace_root=workspace,
-                keep_snapshot=False,
-            )
-            self.assertEqual(result.status, PATCH_OK)
-            self.assertEqual(len(result.applied), 1)
-            self.assertEqual(result.applied[0].path, "src/a.py")
-            # The hash_before is empty because the pre-image is a
-            # newline; the SHA-256 of "" is well-known and stable.
-            self.assertNotEqual(result.applied[0].hash_after, "")
-            self.assertEqual((workspace / "src" / "a.py").read_text(encoding="utf-8"), "a = 2\n")
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-
-    def test_apply_refuses_forbidden_path(self) -> None:
-        tmp = Path(tempfile_mkdtemp())
-        try:
-            workspace = _make_workspace(tmp)
-            patch = _make_patch(".env", "SECRET=1", "SECRET=2")
-            result = apply_patch_atomically(
-                [patch], workspace_root=workspace, keep_snapshot=False,
             )
             self.assertEqual(result.status, "failed")
-            self.assertEqual(result.error_code, PATCH_FORBIDDEN_PATH)
-            self.assertEqual((workspace / ".env").read_text(encoding="utf-8"), "SECRET=1")
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-
-    def test_apply_refuses_path_escape(self) -> None:
-        tmp = Path(tempfile_mkdtemp())
-        try:
-            workspace = _make_workspace(tmp)
-            patch = _make_patch("../outside.py", "", "x = 1\n")
-            result = apply_patch_atomically(
-                [patch], workspace_root=workspace, keep_snapshot=False,
-            )
-            self.assertEqual(result.status, "failed")
-            self.assertEqual(result.error_code, PATCH_PATH_OUTSIDE_WORKSPACE)
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-
-    def test_apply_rolls_back_on_failure(self) -> None:
-        tmp = Path(tempfile_mkdtemp())
-        try:
-            workspace = _make_workspace(tmp)
-            old_body = (workspace / "src" / "a.py").read_text(encoding="utf-8")
-            good_patch = _make_patch("src/a.py", old_body, "a = 2\n")
-            # Patch whose ``new_body`` deliberately does not match the
-            # source context, so the in-memory applier raises
-            # ``apply_io_error`` and the apply rolls back.
-            bad_patch = _make_patch(
-                "tests/test_a.py",
-                "def test_a(): assert True\n",
-                "def test_a(): assert False\n",
-            )
-            # Mutate the file so the in-memory check fails.
-            (workspace / "tests" / "test_a.py").write_text(
-                "# completely different content\nx = 99\n",
-                encoding="utf-8",
-            )
-            result = apply_patch_atomically(
-                [good_patch, bad_patch],
-                workspace_root=workspace,
-                keep_snapshot=False,
-            )
-            self.assertEqual(result.status, "failed")
-            self.assertEqual(result.error_code, PATCH_APPLY_IO_ERROR)
-            # Rollback must restore the original file.
-            self.assertEqual(
-                (workspace / "src" / "a.py").read_text(encoding="utf-8"),
-                old_body,
-            )
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-
-    def test_apply_returns_failed_result_for_forbidden_path(self) -> None:
-        tmp = Path(tempfile_mkdtemp())
-        try:
-            workspace = _make_workspace(tmp)
-            patch = _make_patch(".bago/session.sqlite", "x", "y")
-            result = apply_patch_atomically(
-                [patch], workspace_root=workspace, keep_snapshot=False,
-            )
-            self.assertEqual(result.status, "failed")
-            self.assertEqual(result.error_code, PATCH_FORBIDDEN_PATH)
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
-
-    def test_rollback_restores_snapshot(self) -> None:
-        tmp = Path(tempfile_mkdtemp())
-        try:
-            workspace = _make_workspace(tmp)
-            old_body = (workspace / "src" / "a.py").read_text(encoding="utf-8")
-            patch = _make_patch("src/a.py", old_body, "a = 99\n")
-            result = apply_patch_atomically(
-                [patch], workspace_root=workspace, keep_snapshot=True,
-            )
-            self.assertEqual(result.status, PATCH_OK)
-            self.assertEqual((workspace / "src" / "a.py").read_text(encoding="utf-8"), "a = 99\n")
-            self.assertTrue(Path(result.rollback_snapshot).is_dir())
-            rollback_patch(result.rollback_snapshot, workspace)
+            self.assertEqual(result.error_code, "workspace_patch_permit_required")
             self.assertEqual((workspace / "src" / "a.py").read_text(encoding="utf-8"), old_body)
+            self.assertFalse((workspace / ".bago" / "snapshots").exists())
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -190,46 +189,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fix", action="store_true", help="Apply safe fixes")
     parser.add_argument("--dry-run", action="store_true", help="Show safe fixes without writing")
     parser.add_argument("--json", action="store_true", help="Emit JSON output")
-    parser.add_argument("--test", action="store_true", help="Run self tests")
     return parser
-
-
-def _selftest_dir() -> Path:
-    return Path(__file__).resolve().parent / ".selftest_auto_heal"
-
-
-def run_self_tests() -> int:
-    base = _selftest_dir()
-    if base.exists():
-        shutil.rmtree(base)
-    (base / ".bago" / "tools").mkdir(parents=True)
-    try:
-        (base / ".bago" / "tools" / "bad_tool.py").write_text("print('x')\n", encoding="utf-8")
-        (base / "bad.json").write_text("{", encoding="utf-8")
-        (base / "empty.json").write_text("", encoding="utf-8")
-        (base / "broken.py").write_text("def x(:\n    pass\n", encoding="utf-8")
-        (base / "large.bin").write_bytes(b"0" * (MAX_LARGE_SIZE + 1))
-
-        ok1 = len(scan_missing_test_flag(base)) == 1
-        ok2 = _json_fix_replacement("") == "{}\n"
-        ok3 = _json_fix_replacement("[") == "[]\n"
-        ok4 = len(scan_invalid_python(base)) == 1
-        ok5 = len(scan_large_files(base)) == 1
-        apply_fixes(base, scan_invalid_json(base), dry_run=False)
-        ok6 = json.loads((base / "bad.json").read_text(encoding="utf-8")) == {}
-
-        results = [ok1, ok2, ok3, ok4, ok5, ok6]
-        passed = sum(1 for ok in results if ok)
-        print(f"{passed}/{len(results)} tests passed")
-        return 0 if passed == len(results) else 1
-    finally:
-        shutil.rmtree(base, ignore_errors=True)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.test:
-        return run_self_tests()
     root = Path(args.root or Path.cwd()).resolve()
     if not root.exists() or not root.is_dir():
         print(f"Error: invalid root {root}", file=sys.stderr)

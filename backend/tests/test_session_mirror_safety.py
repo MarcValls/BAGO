@@ -81,10 +81,12 @@ def test_prepare_session_mirror_stops_at_size_limit(tmp_path, monkeypatch):
 
     manager = object.__new__(session_manager.SessionManager)
     manager.session_id = "mirror-limit-test"
-    session_root = tmp_path / "sessions" / manager.session_id
+    manager.project_root = project.resolve()
+    session_root = tmp_path / "BAGO" / "sessions" / manager.session_id
 
     monkeypatch.setenv("BAGO_SESSION_MIRROR", "1")
     monkeypatch.setattr(session_manager, "MAX_MIRROR_BYTES", 4)
+    monkeypatch.setattr(session_manager.tempfile, "gettempdir", lambda: str(tmp_path))
     monkeypatch.setattr(
         session_manager.SessionManager,
         "_mirror_session_root",
@@ -97,6 +99,94 @@ def test_prepare_session_mirror_stops_at_size_limit(tmp_path, monkeypatch):
     assert "workspace too large" in result["error"]
     assert result["required_bytes"] == 10
     assert not session_root.exists()
+
+
+def test_prepare_session_mirror_materializes_via_gateway_adapter(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "main.py").write_text("print('mirror')", encoding="utf-8")
+    manager = object.__new__(session_manager.SessionManager)
+    manager.session_id = "mirror-gateway-test"
+    manager.project_root = project.resolve()
+    session_root = tmp_path / "BAGO" / "sessions" / manager.session_id
+
+    monkeypatch.setenv("BAGO_SESSION_MIRROR", "1")
+    monkeypatch.setattr(session_manager.tempfile, "gettempdir", lambda: str(tmp_path))
+    monkeypatch.setattr(
+        session_manager.SessionManager,
+        "_mirror_session_root",
+        staticmethod(lambda _session_id: session_root),
+    )
+
+    result = manager._prepare_session_mirror(project)
+
+    assert result["ok"] is True
+    assert result["mirror_root"] == session_root / "workspace"
+    assert (result["mirror_root"] / "main.py").read_text(encoding="utf-8") == "print('mirror')"
+    assert result["effect_id"] == "workspace.mirror.prepare"
+    assert result["receipt_id"].startswith("workspace-mirror:mirror-gateway-test:")
+
+
+def test_prepare_session_mirror_blocks_changed_project_before_copy(tmp_path, monkeypatch):
+    project = tmp_path / "requested-project"
+    active_project = tmp_path / "active-project"
+    project.mkdir()
+    active_project.mkdir()
+    manager = object.__new__(session_manager.SessionManager)
+    manager.session_id = "mirror-mismatch-test"
+    manager.project_root = active_project.resolve()
+    session_root = tmp_path / "BAGO" / "sessions" / manager.session_id
+    calls: list[str] = []
+
+    def unexpected_copy(*_args, **_kwargs):
+        calls.append("copy")
+        raise AssertionError("copy must be blocked before the material effect")
+
+    monkeypatch.setenv("BAGO_SESSION_MIRROR", "1")
+    monkeypatch.setattr(session_manager.tempfile, "gettempdir", lambda: str(tmp_path))
+    monkeypatch.setattr(session_manager.shutil, "copytree", unexpected_copy)
+    monkeypatch.setattr(
+        session_manager.SessionManager,
+        "_mirror_session_root",
+        staticmethod(lambda _session_id: session_root),
+    )
+
+    result = manager._prepare_session_mirror(project)
+
+    assert result["ok"] is False
+    assert "workspace_mirror_project_mismatch" in result["error"]
+    assert calls == []
+    assert not session_root.exists()
+
+
+def test_prepare_session_mirror_blocks_noncanonical_destination_before_delete(tmp_path, monkeypatch):
+    project = tmp_path / "project"
+    project.mkdir()
+    manager = object.__new__(session_manager.SessionManager)
+    manager.session_id = "mirror-target-test"
+    manager.project_root = project.resolve()
+    outside_root = tmp_path / "BAGO" / "outside" / manager.session_id
+    calls: list[str] = []
+
+    def unexpected_delete(*_args, **_kwargs):
+        calls.append("delete")
+        raise AssertionError("delete must be blocked before the material effect")
+
+    monkeypatch.setenv("BAGO_SESSION_MIRROR", "1")
+    monkeypatch.setattr(session_manager.tempfile, "gettempdir", lambda: str(tmp_path))
+    monkeypatch.setattr(session_manager.shutil, "rmtree", unexpected_delete)
+    monkeypatch.setattr(
+        session_manager.SessionManager,
+        "_mirror_session_root",
+        staticmethod(lambda _session_id: outside_root),
+    )
+
+    result = manager._prepare_session_mirror(project)
+
+    assert result["ok"] is False
+    assert "workspace_mirror_target_out_of_scope" in result["error"]
+    assert calls == []
+    assert not outside_root.exists()
 
 
 def test_prepare_session_mirror_can_be_disabled(tmp_path, monkeypatch):

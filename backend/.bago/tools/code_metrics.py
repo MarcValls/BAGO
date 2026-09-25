@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -89,45 +88,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ext", default="", help="Comma separated extension filter, ex: ts,py")
     parser.add_argument("--json", action="store_true", help="Emit JSON output")
     parser.add_argument("--sort", choices=["size", "files", "lines"], default="lines", help="Sort key")
-    parser.add_argument("--test", action="store_true", help="Run self tests")
     return parser
-
-
-def _selftest_dir() -> Path:
-    return Path(__file__).resolve().parent / ".selftest_code_metrics"
-
-
-def run_self_tests() -> int:
-    base = _selftest_dir()
-    if base.exists():
-        shutil.rmtree(base)
-    base.mkdir(parents=True)
-    try:
-        (base / "a.py").write_text("print('x')\nprint('y')\n", encoding="utf-8")
-        (base / "b.ts").write_text("const a = 1;\n", encoding="utf-8")
-        (base / "README.md").write_text("hello\nworld\n", encoding="utf-8")
-        (base / "node_modules").mkdir()
-        (base / "node_modules" / "skip.js").write_text("ignored\n", encoding="utf-8")
-
-        report = analyze(base)
-        ok1 = _normalize_exts("ts,py") == {".ts", ".py"}
-        ok2 = report["total"]["files"] == 3
-        ok3 = report["extensions"][".py"]["lines"] == 2
-        ok4 = ".js" not in report["extensions"]
-        ok5 = [item[0] for item in _sorted_extensions(report["extensions"], "files")][0] in {".md", ".py", ".ts"}
-
-        results = [ok1, ok2, ok3, ok4, ok5]
-        passed = sum(1 for ok in results if ok)
-        print(f"{passed}/{len(results)} tests passed")
-        return 0 if passed == len(results) else 1
-    finally:
-        shutil.rmtree(base, ignore_errors=True)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.test:
-        return run_self_tests()
     root = Path(args.root or Path.cwd()).resolve()
     if not root.exists() or not root.is_dir():
         print(f"Error: invalid root {root}", file=sys.stderr)

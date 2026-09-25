@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import shlex
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
@@ -304,15 +306,19 @@ def test_concurrent_duplicate_parent_authorizations_materialize_one_child(tmp_pa
     assert next(iter(plan.governed_work["outcomes"].values()))["outcome_status"] == "COMMITTED"
 
 
-def test_unsupported_child_is_blocked_before_budget_or_authority_expansion(tmp_path, monkeypatch):
+def test_process_child_uses_gateway_adapter_under_parent_claim(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
-    engine, plan, manager = _registered_plan(
-        tmp_path,
-        "1. Ejecutar echo no debe ejecutarse",
-    )
+    engine = PlanEngine()
+    plan = engine.create_plan_with_actions("Proceso por gateway", "1. Ejecutar comando aprobado")
+    program = 'print("gateway-plan")'
+    command = f"{shlex.quote(sys.executable)} -c {shlex.quote(program)}"
+    plan.steps[0].action = "run_command"
+    plan.steps[0].action_payload = {"command": command}
+    engine.register_plan(plan)
+    manager = _manager(tmp_path, engine)
     request = _request(plan)
     boundary = AuthorizationBoundary()
-    permit = _permit(boundary, request, "interaction-unsupported-child")
+    permit = _permit(boundary, request, "interaction-process-child")
 
     result, _ = ExecutionGateway(boundary).execute(
         permit_token=permit["token"],
@@ -320,12 +326,13 @@ def test_unsupported_child_is_blocked_before_budget_or_authority_expansion(tmp_p
         context=ExecutionContext(manager=manager),
     )
 
-    assert result["ok"] is False
-    assert result["block_code"] == "plan_child_adapter_missing"
-    assert plan.steps[0].status == "blocked"
-    assert plan.steps[0].block_code == "plan_child_adapter_missing"
-    assert plan.governed_work["budget_consumed"] == 0
-    assert plan.governed_work["outcomes"] == {}
+    assert result["ok"] is True
+    assert result["executed"] is True
+    assert plan.steps[0].status == "done"
+    assert plan.governed_work["budget_consumed"] == 1
+    outcome = next(iter(plan.governed_work["outcomes"].values()))
+    assert outcome["outcome_status"] == "COMMITTED"
+    assert "gateway-plan" in json.dumps(outcome)
 
 
 def test_nested_dispatch_cannot_be_called_without_gateway_owned_context(tmp_path, monkeypatch):

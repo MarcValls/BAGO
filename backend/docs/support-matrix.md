@@ -20,7 +20,7 @@ BAGO is Windows-first.
 python test_security_release.py
 python test_e2e.py
 python bago_core\cli.py validate
-python bago_core\cli.py evidence --test
+python -m pytest tests\test_evidence_bundle_gateway.py -q
 python bago_core\cli.py llm list
 python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
 ```

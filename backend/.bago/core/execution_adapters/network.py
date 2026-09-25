@@ -6,6 +6,7 @@ import base64
 import urllib.error
 import urllib.request
 from typing import Any, Mapping
+from urllib.parse import urlparse
 from execution_request import ExecutionRequest
 
 
@@ -55,18 +56,67 @@ class GatewayHTTPResponse:
         return iter(self._response)
 
 
+class _ReleaseRedirectGuard(urllib.request.HTTPRedirectHandler):
+    """Keep release traffic on the fixed GitHub hosts approved by policy."""
+
+    def __init__(self, allowed_hosts: frozenset[str]) -> None:
+        super().__init__()
+        self._allowed_hosts = allowed_hosts
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urlparse(str(newurl))
+        if parsed.scheme != "https" or (parsed.hostname or "").lower() not in self._allowed_hosts:
+            raise ExecutionGatewayError(
+                "Release redirect target is outside the approved GitHub hosts",
+                code="network_read_redirect_blocked",
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 class NetworkReadEffectAdapter:
     """Server-owned policy adapter for approved BAGO transport reads.
 
     Provider inference calls may use HTTP POST at the transport layer, but
     this adapter is only reachable for an explicitly classified BAGO transport
-    surface. Release, GitHub and arbitrary external mutations remain outside
-    this policy adapter and must use their explicit effects in later waves.
+    surface. Release traffic is limited to fixed HTTPS GitHub hosts and
+    read-only methods; arbitrary external mutations remain outside this
+    policy adapter and must use their explicit effects.
     """
 
     effect_ids = frozenset({"network.read"})
     server_policy_only = True
-    _ALLOWED_CLASSES = frozenset({"provider_transport", "runtime_probe", "local_discovery"})
+    _ALLOWED_CLASSES = frozenset({
+        "provider_transport",
+        "runtime_probe",
+        "local_discovery",
+        "release_metadata",
+        "release_asset_download",
+    })
+    _RELEASE_METADATA_HOSTS = frozenset({"api.github.com"})
+    _RELEASE_ASSET_HOSTS = frozenset({
+        "github.com",
+        "objects.githubusercontent.com",
+        "release-assets.githubusercontent.com",
+    })
+
+    @classmethod
+    def _release_hosts(cls, network_class: str) -> frozenset[str] | None:
+        if network_class == "release_metadata":
+            return cls._RELEASE_METADATA_HOSTS
+        if network_class == "release_asset_download":
+            return cls._RELEASE_ASSET_HOSTS
+        return None
+
+    @classmethod
+    def validate_release_download_url(cls, url: str) -> str:
+        parsed = urlparse(str(url or "").strip())
+        host = (parsed.hostname or "").lower()
+        if parsed.scheme != "https" or host not in cls._RELEASE_ASSET_HOSTS:
+            raise ExecutionGatewayError(
+                "Release URL is outside the approved GitHub hosts",
+                code="network_read_release_host_blocked",
+            )
+        return parsed.geturl()
 
     def execute(self, request: ExecutionRequest, context: ExecutionContext) -> Any:
         authorization = context.services.get("_authorization")
@@ -87,8 +137,25 @@ class NetworkReadEffectAdapter:
                 "Network target must use HTTP(S)",
                 code="network_read_url_invalid",
             )
+        release_hosts = self._release_hosts(network_class)
+        parsed_url = urlparse(url)
+        if network_class == "release_asset_download":
+            self.validate_release_download_url(url)
+        if release_hosts is not None and (
+            parsed_url.scheme != "https"
+            or (parsed_url.hostname or "").lower() not in release_hosts
+        ):
+            raise ExecutionGatewayError(
+                "Release URL is outside the approved GitHub hosts",
+                code="network_read_release_host_blocked",
+            )
         arguments = request.arguments if isinstance(request.arguments, dict) else {}
         method = str(request.target.get("method") or "GET").upper()
+        if release_hosts is not None and method not in {"GET", "HEAD"}:
+            raise ExecutionGatewayError(
+                "Release transport only allows read methods",
+                code="network_read_release_method_blocked",
+            )
         headers = arguments.get("headers") if isinstance(arguments.get("headers"), dict) else {}
         encoded_data = str(arguments.get("data_b64") or "")
         try:
@@ -100,13 +167,25 @@ class NetworkReadEffectAdapter:
                 method=method,
             )
             timeout = float(request.target.get("timeout") or 30.0)
-            response = urllib.request.urlopen(outbound, timeout=timeout)
+            if release_hosts is None:
+                response = urllib.request.urlopen(outbound, timeout=timeout)
+            else:
+                opener = urllib.request.build_opener(_ReleaseRedirectGuard(release_hosts))
+                response = opener.open(outbound, timeout=timeout)
             raw_headers = getattr(response, "headers", {})
             response_headers = raw_headers if hasattr(raw_headers, "items") else dict(raw_headers)
             getcode = getattr(response, "getcode", None)
             status = int(getattr(response, "status", getcode() if callable(getcode) else 200))
             geturl = getattr(response, "geturl", None)
             final_url = str(geturl() if callable(geturl) else url)
+            if release_hosts is not None:
+                final = urlparse(final_url)
+                if final.scheme != "https" or (final.hostname or "").lower() not in release_hosts:
+                    response.close()
+                    raise ExecutionGatewayError(
+                        "Release response resolved outside the approved GitHub hosts",
+                        code="network_read_release_redirect_blocked",
+                    )
         except ExecutionGatewayError:
             raise
         except (urllib.error.HTTPError, urllib.error.URLError):

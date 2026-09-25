@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import socket
 import sys
@@ -10,7 +11,13 @@ from pathlib import Path
 from typing import Any
 
 from bago_core.resolver import add_piece_paths
-from bago_core.user_state_paths import bago_lock_file, ensure_user_roots, state_root as configured_state_root
+from bago_core.user_state_paths import state_root as configured_state_root
+from bago_core.instance_lock import (
+    acquire_bago_lock,
+    bago_lock_file,
+    is_pid_alive,
+    release_bago_lock,
+)
 
 BAGO_ROOT = Path(__file__).resolve().parents[2]
 add_piece_paths("core.package", "chat.package", "providers.package", "api.package", "tools.package")
@@ -24,50 +31,6 @@ def _pick_free_port(host: str) -> int:
         sock.bind((host, 0))
         return int(sock.getsockname()[1])
 
-
-def _pid_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-        return True
-    except OSError:
-        return False
-
-
-def _acquire_bago_lock() -> tuple[bool, Path, int | None]:
-    ensure_user_roots()
-    lock_path = bago_lock_file()
-    try:
-        lock_path.parent.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
-    if lock_path.exists():
-        try:
-            payload = lock_path.read_text(encoding='utf-8').strip().splitlines()
-            existing_pid = int(payload[0].strip()) if payload and payload[0].strip().isdigit() else None
-        except Exception:
-            existing_pid = None
-        if existing_pid and _pid_alive(existing_pid):
-            return False, lock_path, existing_pid
-        try:
-            lock_path.unlink()
-        except Exception:
-            return False, lock_path, existing_pid
-    try:
-        fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        with os.fdopen(fd, 'w', encoding='utf-8') as fh:
-            fh.write(f"{os.getpid()}\n{time.time()}\n")
-        return True, lock_path, None
-    except FileExistsError:
-        return False, lock_path, None
-
-
-def _release_bago_lock(lock_path: Path) -> None:
-    try:
-        lock_path.unlink(missing_ok=True)
-    except Exception:
-        pass
 
 def cmd_claim(args: argparse.Namespace) -> int:
     """Gestiona el Claim Evidence Ledger."""
@@ -171,7 +134,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
     from bridge import BagoAPIServer
     from handlers_router import restore_session_model
 
-    acquired, lock_path, existing_pid = _acquire_bago_lock()
+    acquired, lock_path, existing_pid = acquire_bago_lock()
     if not acquired:
         if existing_pid:
             print(f"Ya hay una instancia de BAGO activa (pid {existing_pid}).")
@@ -222,12 +185,11 @@ def cmd_serve(args: argparse.Namespace) -> int:
                 mgr.close()
         except Exception:
             pass
-        _release_bago_lock(lock_path)
+        release_bago_lock(lock_path)
     return 0
 
 def cmd_manager(args: argparse.Namespace) -> int:
     """Abre la UI compilada unificada en background y la lanza en el navegador."""
-    import subprocess
     import time
     import webbrowser
     from urllib.error import URLError
@@ -238,7 +200,7 @@ def cmd_manager(args: argparse.Namespace) -> int:
     if lock_path.exists():
         try:
             pid_text = lock_path.read_text(encoding='utf-8').splitlines()[0].strip()
-            if pid_text.isdigit() and _pid_alive(int(pid_text)):
+            if pid_text.isdigit() and is_pid_alive(int(pid_text)):
                 print(f"Ya hay una instancia de BAGO activa (pid {pid_text}).")
                 return 0
         except Exception:
@@ -267,9 +229,6 @@ def cmd_manager(args: argparse.Namespace) -> int:
 
     if not _probe():
         cmd = [
-            sys.executable,
-            "-m",
-            "bago_core.launcher",
             "--base-path",
             str(root),
             "serve",
@@ -280,17 +239,61 @@ def cmd_manager(args: argparse.Namespace) -> int:
             "--ui-dist",
             ui_dist,
         ]
-        popen_kwargs: dict[str, Any] = {
-            "cwd": str(root),
-            "stdin": subprocess.DEVNULL,
-            "stdout": subprocess.DEVNULL,
-            "stderr": subprocess.DEVNULL,
-        }
-        if os.name == "nt":
-            popen_kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-        else:
-            popen_kwargs["start_new_session"] = True
-        proc = subprocess.Popen(cmd, **popen_kwargs)
+        from authorization_boundary import AuthorizationBoundary
+        from execution_adapter_contract import ExecutionContext
+        from execution_gateway import ExecutionGateway
+        from execution_request import build_execution_request
+        import uuid
+
+        runtime_root = Path(__file__).resolve().parents[2]
+        module_file = runtime_root / "bago_core" / "launcher.py"
+        request = build_execution_request(
+            effect_id="process.execute",
+            actor_kind="user",
+            principal_id="interactive-local-user",
+            session_id=f"cli-manager:{os.getpid()}",
+            source_surface="cli.manager.launch",
+            target={
+                "operation": "launch_manager_server",
+                "cwd": str(root),
+                "python_root": str(runtime_root),
+                "python_module_sha256": hashlib.sha256(module_file.read_bytes()).hexdigest(),
+                "host": host,
+                "port": port,
+                "ui_dist": str(Path(ui_dist).resolve()),
+            },
+            arguments={"argv": cmd},
+            scope="workspace",
+        )
+        boundary = AuthorizationBoundary()
+        interaction_id = f"cli-manager-{uuid.uuid4().hex}"
+        challenge = boundary.create_challenge(request, interaction_id=interaction_id)
+        print(f"BAGO va a iniciar el servidor local del manager en {url}.")
+        try:
+            confirmed = input("¿Continuar? [s/N] ").strip().lower() in {"s", "si", "sí", "y", "yes"}
+        except (EOFError, KeyboardInterrupt):
+            confirmed = False
+        if not confirmed:
+            print("Inicio del manager cancelado.")
+            return 1
+        approval = boundary.approve_cli_challenge(
+            challenge_id=str(challenge["challenge_id"]),
+            interaction_id=interaction_id,
+            session_id=request.session_id,
+            terminal_confirmed=True,
+        )
+        permit = str(approval.get("permit", {}).get("token") or "")
+        if not permit:
+            print("No se pudo autorizar el inicio del manager.", file=sys.stderr)
+            return 1
+        result, _authorization = ExecutionGateway(boundary).execute(
+            permit_token=permit,
+            request=request,
+            context=ExecutionContext(),
+        )
+        if not isinstance(result, dict) or result.get("executed") is not True:
+            print("El Gateway no confirmó el inicio del manager.", file=sys.stderr)
+            return 1
         deadline = time.time() + 20
         while time.time() < deadline:
             if _probe():

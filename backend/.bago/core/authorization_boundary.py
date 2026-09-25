@@ -129,6 +129,12 @@ def _ledger_path() -> Path:
     return state_root() / "authorization" / "ledger.json"
 
 
+def authorization_ledger_path() -> Path:
+    """Return the canonical authority ledger path for delegated consumers."""
+
+    return _ledger_path()
+
+
 def _empty_ledger() -> dict[str, Any]:
     return {
         "contract_version": AUTHORIZATION_CONTRACT_VERSION,
@@ -286,6 +292,40 @@ class AuthorizationBoundary:
                 "La autorización no procede de una superficie interactiva admitida",
                 code="authorization_user_origin_unverified",
             )
+        return self._approve_challenge_record(
+            challenge_id=challenge_id, interaction_id=interaction_id,
+            session_id=session_id, channel=clean_channel,
+        )
+
+    def approve_cli_challenge(
+        self,
+        *,
+        challenge_id: str,
+        interaction_id: str,
+        session_id: str,
+        terminal_confirmed: bool,
+    ) -> dict[str, Any]:
+        """Approve only from a confirmed interactive local terminal."""
+        import sys
+
+        if terminal_confirmed is not True or not sys.stdin.isatty():
+            raise AuthorizationError(
+                "La aprobación CLI requiere confirmación humana en un TTY",
+                code="authorization_cli_terminal_required",
+            )
+        return self._approve_challenge_record(
+            challenge_id=challenge_id, interaction_id=interaction_id,
+            session_id=session_id, channel="cli",
+        )
+
+    def _approve_challenge_record(
+        self,
+        *,
+        challenge_id: str,
+        interaction_id: str,
+        session_id: str,
+        channel: str,
+    ) -> dict[str, Any]:
         now = _now()
         with _LOCK:
             ledger = _read_ledger()
@@ -332,7 +372,7 @@ class AuthorizationBoundary:
                 expires_at=_iso(now + timedelta(seconds=PERMIT_TTL_SECONDS)),
                 provenance={
                     "kind": "direct_user_interaction",
-                    "channel": clean_channel,
+                    "channel": channel,
                     "contract": AUTHORIZATION_CONTRACT_VERSION,
                 },
             )
@@ -541,6 +581,7 @@ class AuthorizationBoundary:
             record["state"] = "consumed"
             record["consumed_at"] = _iso(now)
             record["executed_request_id"] = request.request_id
+            record["executed_request"] = request.public_descriptor()
             _write_ledger(ledger)
             return dict(record)
 
@@ -553,5 +594,6 @@ __all__ = [
     "AuthorizationOperation",
     "Permit",
     "UserAuthorizationProof",
+    "authorization_ledger_path",
     "build_operation",
 ]

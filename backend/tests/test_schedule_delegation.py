@@ -96,7 +96,7 @@ def _materialize_schedule(tmp_path, monkeypatch):
 def test_scheduler_executes_capability_only_through_child_permit(tmp_path, monkeypatch):
     calls = []
 
-    def execute_package(package_id, *, inputs, confirmed, approved_permissions):
+    def execute_package(package_id, *, inputs, confirmed, approved_permissions, process_executor=None):
         calls.append(
             {
                 "package_id": package_id,
@@ -111,7 +111,7 @@ def test_scheduler_executes_capability_only_through_child_permit(tmp_path, monke
         }
 
     monkeypatch.setattr(capability_packages, "get_package", lambda package_id: _package())
-    monkeypatch.setattr(capability_packages, "execute_package", execute_package)
+    monkeypatch.setattr(capability_packages, "_execute_package", execute_package)
     mgr, schedule, grant = _materialize_schedule(tmp_path, monkeypatch)
 
     # Legacy fields may be injected into a caller-owned copy, but are not authority.
@@ -140,7 +140,7 @@ def test_revoked_schedule_grant_blocks_runtime_before_effect(tmp_path, monkeypat
     monkeypatch.setattr(capability_packages, "get_package", lambda package_id: _package())
     monkeypatch.setattr(
         capability_packages,
-        "execute_package",
+        "_execute_package",
         lambda *args, **kwargs: calls.append((args, kwargs)) or {"ok": True},
     )
     mgr, schedule, grant = _materialize_schedule(tmp_path, monkeypatch)

@@ -13,8 +13,12 @@ class ClaimReceiptStore:
         self.path = path
 
     def append(self, claim_id: str, evidence: EvidenceRecord) -> None:
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps({"claim_id": claim_id, "evidence": asdict(evidence)}, ensure_ascii=False) + "\n")
+        from bago_core.atomic_json import append_text_durable
+
+        append_text_durable(
+            self.path,
+            json.dumps({"claim_id": claim_id, "evidence": asdict(evidence)}, ensure_ascii=False) + "\n",
+        )
 
     def latest(self, claim_id: str) -> EvidenceRecord | None:
         if not self.path.exists():

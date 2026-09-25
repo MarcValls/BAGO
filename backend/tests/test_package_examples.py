@@ -3,10 +3,30 @@ from __future__ import annotations
 import base64
 import io
 import json
+import subprocess
 from pathlib import Path
 import zipfile
 
+import pytest
+
 import capability_packages as packages
+
+_execute_package = packages._execute_package
+_execute_pipeline_package = packages._execute_pipeline_package
+
+
+def _run_package(*args, **kwargs):
+    kwargs.setdefault("process_executor", subprocess.run)
+    return _execute_package(*args, **kwargs)
+
+
+def _run_pipeline(*args, **kwargs):
+    kwargs.setdefault("process_executor", subprocess.run)
+    return _execute_pipeline_package(*args, **kwargs)
+
+
+packages._execute_package = _run_package
+packages._execute_pipeline_package = _run_pipeline
 
 
 EXAMPLES_ROOT = Path(__file__).resolve().parents[2] / "examples" / "packages"
@@ -48,14 +68,14 @@ def test_productivity_examples_satisfy_the_package_contract():
 def test_text_transform_and_report_examples_execute(tmp_path, monkeypatch):
     monkeypatch.setattr(packages, "state_root", lambda: tmp_path / "state")
     for name in ("text-transform", "report-builder"):
-        packages.import_package(
+        packages._materialize_import(
             content_base64=encode(example_archive(name)),
             file_name=f"{name}.bago.zip",
             confirm_trust=True,
         )
 
     packages.set_enabled("local.text-transform", True, confirm_trust=True)
-    transformed = packages.execute_package(
+    transformed = packages._execute_package(
         "local.text-transform",
         inputs={"text": "  BAGO   local  "},
         confirmed=True,
@@ -65,7 +85,7 @@ def test_text_transform_and_report_examples_execute(tmp_path, monkeypatch):
     assert transformed["receipt"]["result"]["text"] == "BAGO local"
 
     packages.set_enabled("local.report-builder", True, confirm_trust=True)
-    report = packages.execute_package(
+    report = packages._execute_package(
         "local.report-builder",
         inputs={
             "title": "Estado",
@@ -82,7 +102,7 @@ def test_text_transform_and_report_examples_execute(tmp_path, monkeypatch):
 def test_scheduled_report_is_inert_on_import_and_executes_when_enabled(tmp_path, monkeypatch):
     monkeypatch.setattr(packages, "state_root", lambda: tmp_path / "state")
     for name in ("file-batch", "report-builder", "scheduled-report"):
-        packages.import_package(
+        packages._materialize_import(
             content_base64=encode(example_archive(name)),
             file_name=f"{name}.bago.zip",
             confirm_trust=True,
@@ -103,7 +123,7 @@ def test_scheduled_report_is_inert_on_import_and_executes_when_enabled(tmp_path,
     }]
     assert not (tmp_path / "state" / "schedules.json").exists()
 
-    result = packages.execute_pipeline_package(
+    result = packages._execute_pipeline_package(
         "local.scheduled-report",
         inputs={"root": str(tmp_path), "title": "Informe de prueba"},
         confirmed=True,
@@ -116,13 +136,13 @@ def test_scheduled_report_is_inert_on_import_and_executes_when_enabled(tmp_path,
     assert "# Informe de prueba" in result["receipt"]["result"]["output"]["content"]
 
 
-def test_bundled_examples_can_be_listed_and_installed_without_activation(tmp_path, monkeypatch):
+def test_bundled_examples_are_listed_but_direct_install_is_denied(tmp_path, monkeypatch):
     monkeypatch.setattr(packages, "state_root", lambda: tmp_path / "state")
     examples = packages.list_example_packages()
     ids = {item["id"] for item in examples}
     assert {"local.text-transform", "local.file-batch", "local.report-builder", "local.scheduled-report"} <= ids
 
-    installed = packages.install_example_package("local.scheduled-report")
-    assert installed["package"]["id"] == "local.scheduled-report"
-    assert installed["package"]["enabled"] is False
-    assert installed["package"]["trust_state"] == "untrusted"
+    with pytest.raises(packages.CapabilityPackageError) as error:
+        packages.install_example_package("local.scheduled-report")
+    assert error.value.code == "authorization_required"
+    assert not (tmp_path / "state" / "capabilities").exists()

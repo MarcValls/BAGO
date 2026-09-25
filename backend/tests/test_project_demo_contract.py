@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 
 API = Path(__file__).resolve().parents[1] / ".bago" / "api"
 sys.path.insert(0, str(API))
@@ -129,13 +131,21 @@ def test_project_init_http_runtime_executes_through_gateway(monkeypatch, tmp_pat
 
 
 def test_project_link_http_runtime_executes_through_gateway(monkeypatch, tmp_path: Path) -> None:
-    project_memory = importlib.import_module("project_memory")
-    project_memory.init_project(tmp_path)
+    _init_responses, _ = _execute_project_action(monkeypatch, tmp_path, "init")
     responses, root = _execute_project_action(monkeypatch, tmp_path, "link")
 
     assert responses[-1][0] == 200
     assert responses[-1][1]["receipt"]["operation"] == "link"
     assert (root / ".bago" / "link.json").is_file()
+
+
+def test_project_memory_public_materializer_blocks_before_first_write_without_gateway_authority(tmp_path: Path) -> None:
+    project_memory = importlib.import_module("project_memory")
+
+    with pytest.raises(project_memory.ProjectWriteAuthorizationError):
+        project_memory.init_project(tmp_path)
+
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_project_seed_http_runtime_executes_through_gateway(monkeypatch, tmp_path: Path) -> None:
@@ -147,3 +157,42 @@ def test_project_seed_http_runtime_executes_through_gateway(monkeypatch, tmp_pat
     assert responses[-1][0] == 200
     assert responses[-1][1]["receipt"]["operation"] == "seed"
     assert (root / ".gabo" / "seed.meta.json").is_file()
+
+
+def test_project_sync_requires_approval_then_copies_through_gateway(monkeypatch, tmp_path: Path) -> None:
+    auth = importlib.import_module("authorization_boundary")
+    serializers = importlib.import_module("api_serializers")
+    source = tmp_path / "session" / "workspace"
+    target = tmp_path / "project"
+    source.mkdir(parents=True)
+    target.mkdir()
+    (source / "note.txt").write_text("edited in session", encoding="utf-8")
+    manager = SimpleNamespace(
+        session_id="mirror-sync-session", base_path=source.resolve(),
+        project_root=target.resolve(), workspace_id="workspace-1",
+        _mirror_ignore=lambda _directory, _names: set(),
+    )
+    responses: list[tuple[int, dict]] = []
+    handler = SimpleNamespace(headers={"X-Bago-Channel": "ui-react"})
+    monkeypatch.setattr(MODULE, "_mgr", lambda _handler: manager)
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(serializers, "send_json", lambda _handler, status, payload: responses.append((status, payload)))
+    common = {"interaction_id": "workspace-mirror-sync"}
+
+    MODULE.handle_project_sync(handler, {**common, "authorization_action": "challenge"})
+    challenge = responses[-1][1]["authorization"]["challenge"]
+    assert not (target / "note.txt").exists()
+    MODULE.handle_project_sync(handler, {
+        **common, "authorization_action": "approve", "challenge_id": challenge["challenge_id"],
+        "user_decision": "approve",
+    })
+    permit = responses[-1][1]["authorization"]["permit"]["token"]
+    assert not (target / "note.txt").exists()
+    MODULE.handle_project_sync(handler, {
+        **common, "authorization_action": "execute", "authorization_permit": permit,
+    })
+
+    assert responses[-1][0] == 200
+    assert responses[-1][1]["effect_id"] == "workspace.mirror.sync"
+    assert responses[-1][1]["authorization"]["state"] == "consumed"
+    assert (target / "note.txt").read_text(encoding="utf-8") == "edited in session"

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -17,6 +16,7 @@ from typing import Any
 
 from bago_core.user_state_paths import state_read_roots
 from bago_core.atomic_json import write_json_atomic, write_text_atomic
+from bago_core.server_effects import inspect_process
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from session_utils import ADAPTER_REGISTRY, BAGO_MODES, normalize_bago_mode, normalize_bridges
@@ -56,21 +56,16 @@ class SessionPersistenceMixin:
         """Return (repo_root, branch) for the current workspace if available."""
         root = str(getattr(self, "project_root", self.base_path))
         try:
-            repo_root = subprocess.run(
-                ["git", "-C", root, "rev-parse", "--show-toplevel"],
-                capture_output=True,
-                text=True,
-                timeout=3,
+            repo_root = inspect_process(
+                "git", ["rev-parse", "--show-toplevel"], cwd=root, manager=self, timeout=3,
             )
-            if repo_root.returncode != 0:
+            if int(repo_root.get("exit_code", 1)) != 0:
                 return "", ""
-            branch = subprocess.run(
-                ["git", "-C", root, "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True,
-                text=True,
-                timeout=3,
+            branch = inspect_process(
+                "git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd=root, manager=self, timeout=3,
             )
-            return repo_root.stdout.strip(), branch.stdout.strip() if branch.returncode == 0 else ""
+            branch_value = str(branch.get("stdout", "")).strip() if int(branch.get("exit_code", 1)) == 0 else ""
+            return str(repo_root.get("stdout", "")).strip(), branch_value
         except Exception:
             return "", ""
 
@@ -610,50 +605,9 @@ class SessionPersistenceMixin:
         }
         session_json_receipt = write_json_atomic(path, data)
 
-        session_db_indexed = False
-        try:
-            from session_db import get_session_db
-            db = get_session_db(str(self.state_dir))
-            db.upsert(
-                self.session_id,
-                created_at=datetime.fromtimestamp(self.created_at, tz=timezone.utc).isoformat(),
-                last_provider=self.provider,
-                last_model=self.model,
-                switch_count=len(self.switch_log),
-                bago_mode=self.bago_mode,
-                active_agent=self.agent_gateway.active.name,
-                total_tokens=self.total_tokens,
-                total_calls=self.total_calls,
-                last_switch_at=self.last_switch_at.isoformat() if isinstance(self.last_switch_at, float) else self.last_switch_at,
-                authorized_root=str(getattr(self, "project_root", self.base_path)),
-                context_revision=context_revision,
-                context_benchmark=context_benchmark,
-                cognitive_benchmark=cognitive_benchmark,
-                context_certification=context_certification,
-                context_classification=context_classification,
-                context_plan=context_plan,
-                context_route=context_route,
-                context_retrieval=context_retrieval,
-                last_global_review=global_review,
-                binding_confirmed=binding["binding_confirmed"],
-                project_root=str(getattr(self, "project_root", self.base_path)),
-                framework_root=str(getattr(self, "framework_root", resolve_framework_root())),
-                workspace_state_root=str(getattr(self, "workspace_state_root", Path(self.base_path) / ".gabo")),
-                workspace_scope_root=str(getattr(self, "workspace_scope_root", self.base_path)),
-                workspace_mirror_root=str(getattr(self, "workspace_mirror_root", self.base_path)),
-                workspace_id=str(getattr(self, "workspace_id", "")),
-                repo_root=repo_root,
-                repo_branch=repo_branch,
-            )
-        except Exception:
-            session_db_indexed = False
-        else:
-            session_db_indexed = True
-
         return {
             "session_json_persisted": True,
             "session_json_receipt": session_json_receipt,
-            "session_db_indexed": session_db_indexed,
         }
 
     @classmethod

@@ -10,7 +10,7 @@ import effect_registry
 def test_effect_registry_loads_canonical_contract() -> None:
     registry = effect_registry.load_effect_registry()
     assert registry.contract == "bago.effect-registry.v1"
-    assert registry.version == "1.0.0"
+    assert registry.version == "1.23.0"
     assert registry.status == "active"
     assert len(registry.effects) >= 20
     assert len(registry.digest) == 64
@@ -30,6 +30,10 @@ def test_strong_human_effects_are_reserved_for_e5_e6() -> None:
     assert {effect.risk_level for effect in strong} <= {"E5", "E6"}
     assert registry.get("filesystem.delete").requires_strong_human_proof is True
     assert registry.get("system.update.apply").requires_strong_human_proof is True
+    assert registry.get("system.install.apply").requires_strong_human_proof is True
+    assert registry.get("system.install.apply").destructive is True
+    assert registry.get("system.install.rollback").requires_strong_human_proof is True
+    assert registry.get("system.install.rollback").destructive is True
     assert registry.get("schedule.delegate").risk_level == "E6"
 
 

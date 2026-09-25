@@ -156,22 +156,8 @@ function writeInstallSelection(role, installPath) {
   const cleanPath = full(installPath);
   if (!INSTALL_ROLES.includes(cleanRole)) throw new Error(`Rol no valido: ${cleanRole}`);
   if (!exists(cleanPath)) throw new Error(`Ruta no encontrada: ${cleanPath}`);
-  const file = selectionPath();
-  const selection = readInstallSelection();
-  selection.roles = selection.roles || {};
-  selection.roles[cleanRole] = {
-    path: cleanPath,
-    label: ROLE_LABELS[cleanRole] || cleanRole,
-    updated_at: new Date().toISOString()
-  };
-  selection.version = 1;
-  selection.updated_at = new Date().toISOString();
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(selection, null, 2) + '\n', 'utf8');
-  fs.renameSync(tmp, file);
-  selection.selection_file = file;
-  return selection;
+  return ipcRenderer.invoke('bago:manager-settings-write', { resource: 'install_selection', role: cleanRole, install_dir: cleanPath })
+    .then(() => readInstallSelection());
 }
 
 function chainRegistryPath() {
@@ -198,12 +184,8 @@ function writeChainRegistry(payload) {
   const file = chainRegistryPath();
   const chains = payload && Array.isArray(payload.chains) ? payload.chains : [];
   const registry = { version: 1, updated_at: new Date().toISOString(), chains };
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(registry, null, 2) + '\n', 'utf8');
-  fs.renameSync(tmp, file);
-  registry.registry_file = file;
-  return registry;
+  return ipcRenderer.invoke('bago:manager-settings-write', { resource: 'chain_registry', chains })
+    .then(() => registry);
 }
 
 function readTag(root) {
@@ -385,50 +367,6 @@ function psEncoded(script) {
   return `powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${Buffer.from(String(script || ''), 'utf16le').toString('base64')}`;
 }
 
-function buildInstallCommand(tag, installDir, mode = 'Express') {
-  const cleanTag = String(tag || '').trim();
-  const cleanDir = String(installDir || resolveDefaultInstallDir()).trim();
-  const cleanMode = String(mode || 'Express').trim();
-  const releaseVersion = readReleaseVersion();
-  const releaseTag = releaseVersion ? `v${releaseVersion}` : '';
-  const targetTag = cleanTag || releaseTag;
-  const bundledInstall = path.join(
-    process.resourcesPath || ROOT_DIR,
-    'app.asar.unpacked',
-    'install-remote.ps1'
-  );
-  const fallbackInstall = path.join(ROOT_DIR, 'install-remote.ps1');
-  const installScript = exists(bundledInstall) ? bundledInstall : fallbackInstall;
-  return psEncoded([
-    `$s = ${psSingle(installScript)}`,
-    `& $s -Tag ${psSingle(targetTag)} -InstallDir ${psSingle(cleanDir)} -Mode ${psSingle(cleanMode)}`
-  ].join('; '));
-}
-
-function buildSourceInstallCommand(sourceRoot, installDir, branch = 'main', mode = 'Express') {
-  const cleanSource = full(String(sourceRoot || '').trim());
-  const cleanDir = full(String(installDir || resolveDefaultInstallDir()).trim());
-  const cleanBranch = String(branch || 'main').trim() || 'main';
-  const cleanMode = String(mode || 'Express').trim();
-  const installScript = path.join(cleanSource, 'install-v4.ps1');
-  return [
-    `$src = ${psSingle(cleanSource)}`,
-    `$branch = ${psSingle(cleanBranch)}`,
-    `Set-Location ${psSingle(cleanSource)}`,
-    'git fetch --all --prune',
-    `git pull --ff-only origin $branch`,
-    `& ${psSingle(installScript)} -SourceRoot ${psSingle(cleanSource)} -InstallDir ${psSingle(cleanDir)} -Profile stable -Mode ${psSingle(cleanMode)}`
-  ].join('; ');
-}
-
-function buildUninstallCommand(installDir, purgeState = false) {
-  const root = String(installDir || '').trim();
-  const script = path.join(root, 'uninstall-bago.ps1');
-  const args = [`-InstallDir ${psSingle(root)}`];
-  if (purgeState) args.push('-PurgeState');
-  return `& ${psSingle(script)} ${args.join(' ')}`;
-}
-
 function buildRoleCommand(role, installDir) {
   const cleanRole = String(role || '').trim();
   const root = full(String(installDir || '').trim());
@@ -465,9 +403,6 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   readChainRegistry: () => Promise.resolve(readChainRegistry()),
   writeChainRegistry: (payload) => Promise.resolve(writeChainRegistry(payload || {})),
   fetchReleases: () => ipcRenderer.invoke('bago:fetch-releases'),
-  buildInstallCommand,
-  buildSourceInstallCommand,
-  buildUninstallCommand,
   buildRoleCommand,
   getUserRoot: () => USER_ROOT,
   getInstallSelectionPath: () => selectionPath(),
@@ -508,11 +443,18 @@ contextBridge.exposeInMainWorld('bagoElectron', {
   bagoAudit: () => ipcRenderer.invoke('bago:bago-audit'),
   eventLedger: (limit = 60) => ipcRenderer.invoke('bago:event-ledger', Number(limit || 60)),
   onReleaseJobChanged: (callback) => {
-    if (typeof callback !== 'function') return;
-    ipcRenderer.on('bago:release-job-changed', (_event, job) => callback(job));
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, job) => callback(job);
+    ipcRenderer.on('bago:release-job-changed', listener);
+    return () => ipcRenderer.removeListener('bago:release-job-changed', listener);
   },
   // Node Control: invoca bago node <args> y devuelve {ok, data?, text?, raw?, cmd, error?}
   runNodeCommand: (args) => ipcRenderer.invoke('bago:node-cmd', Array.isArray(args) ? args.map(String) : []),
+  runAuthorizedProcess: (operation, args) => ipcRenderer.invoke(
+    'bago:authorized-process',
+    String(operation || ''),
+    Array.isArray(args) ? args.map(String) : []
+  ),
   runNodeStatus: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'status', '--json']),
   runNodeMatrix: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'matrix', '--json']),
   runNodePieces: () => ipcRenderer.invoke('bago:node-cmd', ['node', 'pieces', '--json']),

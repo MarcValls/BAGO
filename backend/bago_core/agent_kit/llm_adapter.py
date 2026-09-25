@@ -6,8 +6,8 @@ Supports:
 - Anthropic Messages API (basic)
 - BAGO-configured provider resolution (--use-bago-provider)
 
-Uses only the standard library by default. If `requests` is available it is
-preferred for nicer error messages, but the adapter works without it.
+Provider requests use BAGO's server-owned network adapter regardless of
+optional HTTP libraries installed in the environment.
 """
 
 from __future__ import annotations
@@ -21,11 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from bago_core.agent_kit.errors import AgentKitError
-
-try:
-    import requests
-except ModuleNotFoundError:  # pragma: no cover
-    requests = None  # type: ignore[assignment]
+from bago_core.server_effects import gateway_urlopen
 
 
 @dataclass
@@ -128,19 +124,9 @@ def resolve_bago_provider(user_root: str | Path | None = None) -> dict[str, Any]
 
 def _http_post(url: str, headers: dict[str, str], body: dict[str, Any], timeout: float = 60.0) -> dict[str, Any]:
     payload = json.dumps(body).encode("utf-8")
-    if requests is not None:
-        try:
-            resp = requests.post(url, headers=headers, data=payload, timeout=timeout)
-            resp.raise_for_status()
-        except requests.HTTPError as exc:
-            raise LLMAdapterError(f"HTTP {exc.response.status_code}: {exc.response.text[:500]}") from exc
-        except requests.RequestException as exc:
-            raise LLMAdapterError(f"request failed: {exc}") from exc
-        return resp.json()
-
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json", **headers}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as response:
+        with gateway_urlopen(req, timeout=timeout, network_class="provider_transport") as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         text = exc.read().decode("utf-8", errors="ignore")[:500]

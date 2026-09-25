@@ -76,30 +76,12 @@ def main() -> int:
             print(json.dumps({"ok": False, "error": f"Path outside workspace: {target}"}, ensure_ascii=False))
             return 1
 
-    existed = target.exists()
-
-    try:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content_arg, encoding="utf-8")
-    except Exception as exc:
-        print(json.dumps({"ok": False, "error": f"Write error: {exc}"}, ensure_ascii=False))
-        return 1
-
-    def _rel(target: Path, ws_root: Path) -> str:
-        try:
-            return str(target.relative_to(ws_root))
-        except ValueError:
-            return str(target)
-
-    result = {
-        "ok": True,
-        "path": _rel(target, ws_root) if str(target) != str(ws_root) else str(target),
-        "created": not existed,
-        "overwritten": existed,
-        "bytes_written": len(content_arg.encode("utf-8")),
-    }
-    print(json.dumps(result, ensure_ascii=False))
-    return 0
+    print(json.dumps({
+        "ok": False,
+        "error": "Direct file-write is disabled. Use the active session /files/write challenge, approval, and Permit flow.",
+        "code": "filesystem_write_authorization_required",
+    }, ensure_ascii=False))
+    return 1
 
 def _self_test() -> int:
     """Minimal R001 self-test: verify this tool compiles."""

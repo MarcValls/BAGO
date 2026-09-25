@@ -26,28 +26,15 @@ Lives at: .bago/core/autonomous_loop.py
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
-import subprocess
 import sys
-import tempfile
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
-# Cross-platform file locking
-try:
-    import fcntl as _fcntl  # Unix only
-    _HAS_FCNTL = True
-except ImportError:
-    _HAS_FCNTL = False  # Windows
-
-try:
-    import msvcrt as _msvcrt  # Windows only
-    _HAS_MSVCRT = True
-except ImportError:
-    _HAS_MSVCRT = False  # Unix
 
 # ── Path resolution ────────────────────────────────────────────────────────────
 _THIS_FILE   = Path(__file__).resolve()
@@ -61,7 +48,6 @@ _BAGO_BIN    = _BAGO_ROOT / "bago"
 # Persistent state files
 _INBOX_FILE  = _STATE_DIR / "inbox.json"
 _ASTATE_FILE = _STATE_DIR / "autonomous_state.json"
-_LOCK_FILE   = _STATE_DIR / "autonomous.lock"
 
 # Add core and tools to path for imports
 for _p in [str(_CORE), str(_TOOLS_DIR)]:
@@ -166,20 +152,30 @@ def _now() -> str:
 
 
 def _atomic_write(path: Path, data: Any) -> None:
-    """Write JSON to path atomically."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
-    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".tmp_")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(text)
-        os.replace(tmp, str(path))
-    except Exception:
-        try:
-            os.unlink(tmp)
-        except Exception:
-            pass
-        raise
+    """Persist only autonomous inbox/state through the server-owned state effect."""
+    from execution_adapter_contract import ExecutionContext
+    from execution_gateway import ExecutionGateway
+    from execution_request import build_execution_request
+
+    candidates = {_INBOX_FILE.resolve(), _ASTATE_FILE.resolve()}
+    target = Path(path).resolve()
+    root = _STATE_DIR.resolve()
+    if target not in candidates or target.parent != root:
+        raise ValueError("Autonomous state write target is outside the two approved resources")
+    if not isinstance(data, dict):
+        raise ValueError("Autonomous state payload must be a JSON object")
+    identity = hashlib.sha256(str(_BAGO_ROOT.resolve()).casefold().encode("utf-8")).hexdigest()
+    arguments = {"content": json.dumps(data, indent=2, ensure_ascii=False) + "\n"}
+    request = build_execution_request(
+        effect_id="state.write", actor_kind="system", principal_id=f"bago-autonomous:{identity}",
+        session_id=f"autonomous-loop:{identity}", source_surface="server.autonomous_loop.state.write",
+        target={"allowed_root": str(root), "path": str(target), "operation": "replace_text"},
+        arguments=arguments, scope="persistent",
+    )
+    ExecutionGateway().execute_server_owned(
+        request=request,
+        context=ExecutionContext(services={"_server_allowed_root": str(root)}),
+    )
 
 
 def _load_json(path: Path, default: Any = None) -> Any:
@@ -191,17 +187,55 @@ def _load_json(path: Path, default: Any = None) -> Any:
         return default if default is not None else {}
 
 
-def _run_tool(cmd: str, extra_args: list | None = None, timeout: int = TOOL_TIMEOUT) -> tuple[int, str]:
-    """Run `bago <cmd>` and return (returncode, combined_output)."""
-    args = [sys.executable, str(_BAGO_BIN), cmd] + (extra_args or [])
+def _run_tool(
+    cmd: str,
+    extra_args: list | None = None,
+    timeout: int = TOOL_TIMEOUT,
+    *,
+    unsafe: bool = False,
+) -> tuple[int, str]:
+    """Dispatch a fixed autonomous CLI tool through its registered owner."""
+    from bago_core.cli_execution import execute_cli_effect
+    from execution_adapter_contract import ExecutionContext
+    from execution_gateway import ExecutionGateway
+    from execution_request import build_execution_request
+
+    mutating = cmd in {"heal", "doctor"}
+    if mutating and not unsafe:
+        return -1, "[BLOCKED] Mutating autonomous tool requires --unsafe."
+    if mutating and not sys.stdin.isatty():
+        return -1, "[BLOCKED] Mutating autonomous tool requires interactive terminal approval."
     try:
-        r = subprocess.run(
-            args, capture_output=True, text=True,
-            timeout=timeout, cwd=str(_BAGO_ROOT),
+        identity = hashlib.sha256(str(_BAGO_ROOT.resolve()).casefold().encode("utf-8")).hexdigest()
+        effect_id = "autonomous.repair" if mutating else "autonomous.observe"
+        arguments = {"extra_args": list(extra_args or [])}
+        target = {
+            "tool": str(cmd), "timeout_seconds": float(timeout),
+            "backend_root": str(_BAGO_ROOT.resolve()), "python_executable": sys.executable,
+        }
+        request = build_execution_request(
+            effect_id=effect_id,
+            actor_kind="user" if mutating else "system",
+            principal_id="interactive-local-user" if mutating else f"bago-autonomous:{identity}",
+            session_id=f"autonomous-loop:{identity}",
+            source_surface="cli.autonomous_loop.tool" if mutating else "server.autonomous_loop.tool",
+            target=target, arguments=arguments,
+            scope="workspace" if mutating else "session",
         )
-        return r.returncode, (r.stdout + r.stderr)
-    except subprocess.TimeoutExpired:
-        return -1, f"[TIMEOUT] bago {cmd} exceeded {timeout}s"
+        if mutating:
+            result, _authorization = execute_cli_effect(
+                request,
+                confirmation_text=(
+                    f"{sys.executable} {_BAGO_BIN} {cmd} "
+                    f"(cwd={_BAGO_ROOT}, timeout={timeout}s); puede modificar estado BAGO"
+                ),
+            )
+        else:
+            result, _authorization = ExecutionGateway().execute_server_owned(
+                request=request,
+                context=ExecutionContext(services={"_server_allowed_root": str(_STATE_DIR.resolve())}),
+            )
+        return int(result.get("returncode", -1)), str(result.get("output") or "")
     except Exception as exc:
         return -1, f"[ERROR] {exc}"
 
@@ -209,64 +243,35 @@ def _run_tool(cmd: str, extra_args: list | None = None, timeout: int = TOOL_TIME
 # ── Single-instance lock ───────────────────────────────────────────────────────
 
 class _LoopLock:
-    """Non-blocking advisory lock — prevents two loops running simultaneously.
-
-    Cross-platform implementation:
-    - Unix: uses fcntl.flock (exclusive, non-blocking)
-    - Windows: uses atomic O_CREAT|O_EXCL lockfile (no msvcrt needed)
-    """
+    """Cross-process loop ownership using the canonical execution-claim store."""
 
     def __init__(self) -> None:
-        self._fd = None
-        self._lock_path: Path | None = None
+        self._store = None
+        self._claim = None
 
     def acquire(self) -> bool:
-        _LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
-        if _HAS_FCNTL:
-            return self._acquire_unix()
-        return self._acquire_windows()
+        from bago_core.user_state_paths import state_root
+        from execution_claims import SQLiteExecutionClaimStore
 
-    def _acquire_unix(self) -> bool:
-        try:
-            self._fd = open(_LOCK_FILE, "w")
-            _fcntl.flock(self._fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
-            self._fd.write(f"{os.getpid()}\n{_now()}\n")
-            self._fd.flush()
-            return True
-        except (OSError, IOError):
-            if self._fd:
-                self._fd.close()
-                self._fd = None
-            return False
+        self._store = SQLiteExecutionClaimStore(state_root() / "execution_claims.sqlite3")
+        identity = hashlib.sha256(str(_BAGO_ROOT.resolve()).casefold().encode("utf-8")).hexdigest()
+        self._claim = self._store.try_acquire(
+            f"autonomous-loop:{identity}", f"pid:{os.getpid()}:{uuid.uuid4().hex}",
+            f"autonomous-run:{uuid.uuid4().hex}", lease_seconds=3600,
+        )
+        return self._claim is not None
 
-    def _acquire_windows(self) -> bool:
-        """Atomic create-exclusive — if file exists, another loop is running."""
-        try:
-            fd = os.open(str(_LOCK_FILE), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            with os.fdopen(fd, "w") as fh:
-                fh.write(f"{os.getpid()}\n{_now()}\n")
-            self._lock_path = _LOCK_FILE
-            return True
-        except FileExistsError:
+    def renew(self) -> bool:
+        if self._store is None or self._claim is None:
             return False
-        except OSError:
-            return False
+        self._claim = self._store.renew(self._claim, lease_seconds=3600)
+        return self._claim is not None
 
     def release(self) -> None:
-        if _HAS_FCNTL and self._fd:
-            try:
-                _fcntl.flock(self._fd, _fcntl.LOCK_UN)
-                self._fd.close()
-                _LOCK_FILE.unlink(missing_ok=True)
-            except Exception:
-                pass
-            self._fd = None
-        elif self._lock_path:
-            try:
-                self._lock_path.unlink(missing_ok=True)
-            except Exception:
-                pass
-            self._lock_path = None
+        if self._store is not None and self._claim is not None:
+            self._store.release(self._claim)
+        self._claim = None
+        self._store = None
 
 
 # ── Inbox ─────────────────────────────────────────────────────────────────────
@@ -495,7 +500,7 @@ class AutonomousLoop:
             if self.verbose:
                 print(f"    ▶ [{goal['agent']}] bago {tool} …", flush=True)
 
-            rc, output = _run_tool(tool)
+            rc, output = _run_tool(tool, mutating=bool(goal.get("mutating")), unsafe=self.unsafe)
             results.append({"cmd": tool, "rc": rc, "output": output[:2000]})
 
             if self.verbose:
@@ -666,6 +671,9 @@ class AutonomousLoop:
             cycle = 0
 
             while True:
+                if not lock.renew():
+                    print("  ⚠️  Claim de ejecución autónoma vencida o sustituida; ciclo bloqueado.")
+                    break
                 decision, _ = self.run_cycle(cycle)
                 cycle += 1
 

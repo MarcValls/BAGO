@@ -105,7 +105,6 @@ def _write_llm_start_state(state_root: str | Path, provider: str, model: str, mo
     from datetime import datetime, timezone
 
     state_dir = Path(state_root)
-    state_dir.mkdir(parents=True, exist_ok=True)
     path = state_dir / "llm_start.json"
     payload = {
         "provider": provider,
@@ -114,13 +113,18 @@ def _write_llm_start_state(state_root: str | Path, provider: str, model: str, mo
         "bridges": list(dict.fromkeys([provider] + list(bridges or []))),
         "started_at": datetime.now(timezone.utc).isoformat(),
     }
-    path.write_text(_json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    from bago_core.server_effects import write_text_atomic
+    write_text_atomic(
+        path,
+        _json.dumps(payload, indent=2, ensure_ascii=False),
+        trusted_root=state_dir,
+        source_surface="cli.llm.start",
+    )
     return path
 
 
 def _headless_project_root() -> Path:
     root = Path(tempfile.gettempdir()) / "BAGO" / "headless"
-    root.mkdir(parents=True, exist_ok=True)
     return root
 
 def _start_monitor_bg(base_path: str, port: int = 7890) -> None:

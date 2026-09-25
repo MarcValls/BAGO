@@ -62,14 +62,11 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
     setActionLoading('authenticate');
     setError(null);
     try {
-      const started = await client.startGitHubAuth();
-      if (started.authenticated) {
-        await loadStatus();
-        return;
-      }
-      if (started.installed === false || started.error) {
-        throw new Error(started.error || 'GitHub CLI no está disponible');
-      }
+      const run = window.bagoElectron?.runAuthorizedProcess;
+      if (!run) throw new Error('La autenticación de GitHub requiere BAGO Desktop.');
+      const login = await run('github_cli', ['auth', 'login', '--hostname', 'github.com', '--web', '--clipboard', '--git-protocol', 'https', '--skip-ssh-key', '--scopes', 'repo,workflow']);
+      if (login.canceled) return;
+      if (login.exit_code !== 0) throw new Error(login.stderr || 'No se pudo completar la autenticación de GitHub');
 
       for (let attempt = 0; attempt < AUTH_POLL_ATTEMPTS; attempt += 1) {
         if (authPollGeneration.current !== generation) return;
@@ -111,7 +108,13 @@ export function GitHubAuthPanel({ client, onClose }: Props) {
     setActionLoading('logout');
     setError(null);
     try {
-      await client.logoutGitHub();
+      const run = window.bagoElectron?.runAuthorizedProcess;
+      if (!run) throw new Error('Cerrar sesión de GitHub requiere BAGO Desktop.');
+      const args = ['auth', 'logout', '--hostname', authState?.hostname || 'github.com'];
+      if (authState?.username) args.push('--user', authState.username);
+      const result = await run('github_cli', args);
+      if (result.canceled) return;
+      if (result.exit_code !== 0) throw new Error(result.stderr || 'No se pudo cerrar sesión de GitHub');
       await loadStatus();
     } catch (e: unknown) {
       setError(friendlyErrorMessage(e));

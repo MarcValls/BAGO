@@ -10,17 +10,16 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import tempfile
 import threading
-import time
 import urllib.parse
 import urllib.request
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from pathlib import PurePosixPath
-from urllib.parse import urlparse
+
+from bago_core.server_effects import download_release_bundle, gateway_urlopen, write_text_atomic
 
 ROOT = Path(__file__).resolve().parents[2]
 REPO_API = "https://api.github.com/repos/MarcValls/BAGO/releases"
@@ -29,11 +28,6 @@ ACTIVE_STATES = {"queued", "downloading", "verifying", "applying"}
 PRESERVED_STATES = ACTIVE_STATES | {"ready"}
 _TAG_RE = re.compile(r"^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$")
 _SHA_RE = re.compile(r"\b[a-fA-F0-9]{64}\b")
-_ALLOWED_DOWNLOAD_HOSTS = {
-    "github.com",
-    "objects.githubusercontent.com",
-    "release-assets.githubusercontent.com",
-}
 _lock = threading.RLock()
 
 
@@ -134,10 +128,13 @@ _state: dict = _load_state()
 def _persist(snapshot: dict) -> None:
     path = _state_path()
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temp = path.with_suffix(".tmp")
-        temp.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
-        os.replace(temp, path)
+        write_text_atomic(
+            path,
+            json.dumps(snapshot, ensure_ascii=False, indent=2),
+            trusted_root=_update_root(),
+            source_surface="release_update.state",
+            session_id="release-update",
+        )
     except OSError:
         # El estado en memoria sigue siendo útil aunque el disco esté bloqueado.
         return
@@ -171,7 +168,7 @@ def _request_json(url: str):
             "User-Agent": f"BAGO-updater/{_current()}",
         },
     )
-    with urllib.request.urlopen(request, timeout=20) as response:
+    with gateway_urlopen(request, timeout=20, network_class="release_metadata") as response:
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -310,24 +307,14 @@ def status() -> dict:
         return dict(_state)
 
 
-def _assert_download_url(url: str) -> None:
-    parsed = urlparse(url)
-    host = (parsed.hostname or "").lower()
-    local_test = os.environ.get("BAGO_UPDATE_ALLOW_INSECURE_LOCAL", "") == "1" and host in {"127.0.0.1", "localhost"}
-    if not ((parsed.scheme == "https" and host in _ALLOWED_DOWNLOAD_HOSTS) or local_test):
-        raise RuntimeError("La release contiene una URL de descarga no permitida.")
-
-
 def _download_text(url: str) -> str:
-    _assert_download_url(url)
     request = urllib.request.Request(url, headers={"User-Agent": f"BAGO-updater/{_current()}"})
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with gateway_urlopen(request, timeout=30, network_class="release_asset_download") as response:
         return response.read(4096).decode("utf-8", errors="replace")
 
 
 def _download_bundle(asset: dict, destination: Path) -> str:
     url = str(asset.get("url", ""))
-    _assert_download_url(url)
     expected = str(asset.get("digest", "")).lower()
     checksum_url = str(asset.get("checksum_url", ""))
     if checksum_url:
@@ -340,45 +327,13 @@ def _download_bundle(asset: dict, destination: Path) -> str:
         expected = declared
     if not expected:
         raise RuntimeError("No hay SHA-256 esperado para verificar la descarga.")
-
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    partial = destination.with_suffix(destination.suffix + ".part")
-    partial.unlink(missing_ok=True)
-    request = urllib.request.Request(url, headers={"User-Agent": f"BAGO-updater/{_current()}"})
-    digest = hashlib.sha256()
-    transferred = 0
-    last_report = 0.0
-    expected_size = int(asset.get("size") or 0)
-    if expected_size <= 0 or expected_size > 2 * 1024 * 1024 * 1024:
-        raise RuntimeError("El tamaño publicado del payload no es válido.")
-    with urllib.request.urlopen(request, timeout=60) as response, partial.open("wb") as output:
-        resolved_url = getattr(response, "geturl", lambda: url)()
-        _assert_download_url(str(resolved_url))
-        total = int(response.headers.get("Content-Length") or expected_size)
-        _set_state(status="downloading", phase="download", message="Descargando actualización…", total=total, transferred=0, percent=0)
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk:
-                break
-            output.write(chunk)
-            digest.update(chunk)
-            transferred += len(chunk)
-            if transferred > expected_size:
-                raise RuntimeError("La descarga supera el tamaño publicado por GitHub.")
-            now = time.monotonic()
-            if now - last_report >= 0.2:
-                percent = min(99, int(transferred * 100 / total)) if total else 0
-                _set_state(transferred=transferred, total=total, percent=percent)
-                last_report = now
-    if transferred != expected_size:
-        partial.unlink(missing_ok=True)
-        raise RuntimeError("La descarga no coincide con el tamaño publicado por GitHub.")
-    actual = digest.hexdigest().lower()
-    if actual != expected:
-        partial.unlink(missing_ok=True)
-        raise RuntimeError("SHA-256 no coincide; la actualización se ha descartado.")
-    os.replace(partial, destination)
-    return actual
+    result = download_release_bundle(
+        url=url,
+        sha256=expected,
+        size=int(asset.get("size") or 0),
+        filename=destination.name,
+    )
+    return str(result["sha256"])
 
 
 def _verify_bundle(path: Path, expected_version: str) -> None:
@@ -474,64 +429,68 @@ def start_update(tag: str = "") -> dict:
     return {"ok": True, **status()}
 
 
-def apply_update() -> dict:
-    with _lock:
-        if _state.get("status") != "ready":
-            return {**dict(_state), "ok": False, "error": "La actualización aún no está descargada y verificada"}
-        previous = dict(_state)
-        _state.update(
-            status="applying",
-            phase="apply",
-            message="BAGO se cerrará, instalará la actualización y volverá a abrirse.",
-            error="",
-        )
-        _state["updated_at"] = _now()
-        snapshot = dict(_state)
-    _persist(snapshot)
-    installation = snapshot.get("installation") if isinstance(snapshot.get("installation"), dict) else _installation()
-    if not installation.get("ready"):
-        _replace_state(previous)
-        return {**previous, "ok": False, "error": installation.get("reason", "Instalación no actualizable")}
-    detail = snapshot.get("detail") if isinstance(snapshot.get("detail"), dict) else {}
-    bundle = Path(str(detail.get("bundle_path", "")))
-    expected_sha = str(detail.get("sha256", ""))
-    helper = Path(__file__).with_name("apply_release_update.ps1")
-    if not bundle.is_file() or not helper.is_file() or not _SHA_RE.fullmatch(expected_sha):
-        _replace_state(previous)
-        return {**previous, "ok": False, "error": "Faltan archivos verificados para aplicar la actualización"}
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest().lower()
 
-    latest = str(snapshot.get("latest", ""))
-    powershell = os.environ.get("SystemRoot", r"C:\Windows") + r"\System32\WindowsPowerShell\v1.0\powershell.exe"
-    if not Path(powershell).is_file():
-        powershell = "powershell.exe"
-    log_path = _update_root() / "apply.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    command = [
-        powershell,
-        "-NoProfile",
-        "-ExecutionPolicy", "Bypass",
-        "-File", str(helper),
-        "-BundlePath", str(bundle),
-        "-InstallRoot", str(installation["root"]),
-        "-StatePath", str(_state_path()),
-        "-ExpectedVersion", latest,
-        "-ExpectedSha256", expected_sha,
-        "-BackendPid", str(os.getpid()),
-        "-Restart",
-    ]
-    flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
-    try:
-        with log_path.open("ab") as log:
-            subprocess.Popen(
-                command,
-                cwd=str(_update_root()),
-                stdin=subprocess.DEVNULL,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                creationflags=flags,
-                close_fds=True,
-            )
-    except OSError as exc:
-        _replace_state(previous)
-        return {**previous, "ok": False, "error": str(exc)}
-    return {"ok": True, **status()}
+
+def _powershell_path() -> str:
+    candidate = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    return str(candidate) if candidate.is_file() else "powershell.exe"
+
+
+def update_apply_descriptor() -> dict[str, str]:
+    """Derive the exact ready bundle and installation targets for authorization."""
+
+    snapshot = status()
+    if snapshot.get("status") != "ready":
+        raise RuntimeError("La actualización aún no está descargada y verificada")
+    installation = snapshot.get("installation")
+    if not isinstance(installation, dict) or not installation.get("ready"):
+        reason = str((installation or {}).get("reason") or "Instalación no actualizable")
+        raise RuntimeError(reason)
+
+    root = _update_root().expanduser().resolve()
+    detail = snapshot.get("detail") if isinstance(snapshot.get("detail"), dict) else {}
+    bundle_candidate = Path(str(detail.get("bundle_path") or "")).expanduser()
+    if bundle_candidate.is_symlink():
+        raise RuntimeError("El payload preparado no puede ser un enlace simbólico")
+    bundle = bundle_candidate.resolve()
+    expected_sha = str(detail.get("sha256") or "").lower()
+    if (
+        bundle.parent != root
+        or not bundle.is_file()
+        or not re.fullmatch(r"[a-f0-9]{64}", expected_sha)
+    ):
+        raise RuntimeError("Faltan archivos verificados para aplicar la actualización")
+    actual_sha = _sha256_file(bundle)
+    if actual_sha != expected_sha:
+        raise RuntimeError("El payload preparado cambió desde su verificación")
+
+    helper = Path(__file__).with_name("apply_release_update.ps1").resolve()
+    from authorization_boundary import authorization_ledger_path
+
+    ledger_path = authorization_ledger_path().expanduser().resolve()
+    latest = str(snapshot.get("latest") or "")
+    if not _TAG_RE.fullmatch(latest) or not helper.is_file():
+        raise RuntimeError("La versión o el helper de instalación no son válidos")
+    install_root = Path(str(installation.get("root") or "")).expanduser().resolve()
+    if not install_root.is_absolute():
+        raise RuntimeError("La raíz de instalación no es absoluta")
+    return {
+        "bundle_path": str(bundle),
+        "bundle_sha256": actual_sha,
+        "helper_path": str(helper),
+        "helper_sha256": _sha256_file(helper),
+        "authorization_ledger_path": str(ledger_path),
+        "install_root": str(install_root),
+        "state_path": str(_state_path().expanduser().resolve()),
+        "expected_version": latest,
+        "powershell": _powershell_path(),
+        "backend_pid": str(os.getpid()),
+        "log_path": str((root / "apply.log").resolve()),
+        "restart": True,
+    }

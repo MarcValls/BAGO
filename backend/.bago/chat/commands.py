@@ -601,61 +601,39 @@ def cmd_doctor(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
 
 
 def cmd_update(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
-    """Lanza el actualizador de BAGO elevado con UAC."""
-    import subprocess
-    import json
+    """Prepare a release through the canonical updater; installation stays explicit in React."""
+    from update_manager import start_update, status as update_status
 
-    # Version actual
-    try:
-        root = Path(__file__).resolve().parents[2]
-        data = json.loads((root / "versions.json").read_text(encoding="utf-8"))
-        current = data.get("current", "desconocida")
-    except Exception:
-        current = "desconocida"
-
-    installer = Path(__file__).resolve().parents[2] / "install-remote.ps1"
-    if not installer.exists():
-        return {
-            "ok": False,
-            "message": (
-                f"Version actual: {current}\n"
-                "No se encontro install-remote.ps1.\n"
-                "Descarga la ultima version manualmente desde:\n"
-                "  https://github.com/MarcValls/BAGO/releases"
-            ),
-        }
-
-    try:
-        subprocess.Popen(
-            [
-                "powershell.exe",
-                "-Command",
-                (
-                    f"Start-Process powershell.exe "
-                    f"-ArgumentList '-ExecutionPolicy Bypass -File \"{installer}\"' "
-                    f"-Verb RunAs"
-                ),
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+    current = update_status()
+    if current.get("status") == "ready":
         return {
             "ok": True,
             "message": (
-                f"Version actual: {current}\n"
-                "Lanzando actualizador elevado (UAC)...\n"
-                "Aprueba la solicitud de administrador que aparecera en pantalla.\n"
-                "BAGO se reiniciara cuando termine la instalacion."
+                "La actualización ya está descargada y verificada. Abre Sistema → "
+                "Actualización de BAGO y confirma «Instalar y reiniciar»."
             ),
+            "data": current,
+        }
+    try:
+        result = start_update(str(args[0]).strip() if args else "")
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "message": str(result.get("error") or result.get("message") or "No se pudo preparar la actualización."),
+                "data": result,
+            }
+        return {
+            "ok": True,
+            "message": (
+                "Descarga y verificación iniciadas por el actualizador del backend. "
+                "Cuando esté lista, abre Sistema → Actualización de BAGO y confirma «Instalar y reiniciar»."
+            ),
+            "data": result,
         }
     except Exception as exc:
         return {
             "ok": False,
-            "message": (
-                f"Error al lanzar actualizador: {exc}\n"
-                "Ejecuta manualmente (como admin):\n"
-                f"  powershell -ExecutionPolicy Bypass -File \"{installer}\""
-            ),
+            "message": f"No se pudo preparar la actualización: {exc}",
         }
 
 

@@ -2,6 +2,48 @@
 
 Record architectural or product decisions that affect canon here.
 
+## 2026-09-25 — Toolboxes materializan su carpeta por `state.write`
+
+- `toolsmith.save_toolbox()` ya no hace `mkdir` en paralelo. La escritura JSON
+  server-owned crea los padres y su resultado ahora se comprueba; un fallo del
+  writer se propaga como error en vez de devolver una ruta no persistida.
+- La prueba crea un toolbox con el directorio ausente y confirma que éste se
+  materializa durante la delegación al writer. `test_orchestration_tools.py`:
+  12 passed; `py_compile`, strict-classification y `git diff --check` PASS.
+- Inventario: 2316 sinks / 68 runtime-unbound / 0 sin clasificar. Strict-runtime
+  sigue OPEN. El segundo sink de `toolsmith.py` (`create_tool` genera un módulo
+  Python) permanece runtime-unbound; no se reclasifica ni se retira.
+- Duración estimada del cambio: ~1m neto, excluyendo pruebas y gates.
+
+## 2026-09-25 — Node Control reutiliza writers y guard modular en proceso
+
+- `_load_state()` ya no crea el registro Node Control con `Path.mkdir`; el
+  primer `pieces.json` pasa por `state.write`, que materializa su parent.
+  `run_modular_guard()` carga `backend/tools/check_modular.py` y llama a
+  `run_all()` directamente: el guard es de solo lectura y no requiere un
+  segundo proceso/runner.
+- La primera prueba detectó que el código previo buscaba el script fuera de
+  `backend/` y devolvía siempre R6. Se corrigió la raíz a `backend/tools`;
+  el pase final de split + translator fue 31 passed en 13.20s. Las pruebas
+  verifican materialización diferida y ausencia de `subprocess.run`.
+- Compile, strict-classification y diff-check PASS. Inventario: 2314 sinks /
+  66 runtime-unbound / 0 sin clasificar; strict-runtime sigue OPEN. Duración
+  neta estimada ~2m45s, excluyendo pruebas y gates.
+
+## 2026-09-25 — DirectoryContext lee Git por `process.inspect`
+
+- `HybridRetriever` ya no ejecuta `git diff --name-only` directamente. Cuando
+  pertenece a un `SessionManager`, usa el owner existente `process.inspect`,
+  con cwd ligado al workspace activo, `safe.directory` absoluto y argv de
+  solo lectura exacto. El SessionManager propaga su identidad a las dos rutas
+  de construcción del contexto. Un retriever autónomo sin SessionManager omite
+  ese enriquecimiento y no intenta iniciar Git.
+- El allowlist Git añadió únicamente `diff --name-only`. Pruebas de
+  DirectoryContext + ExecutionGateway: 65 passed en 5.11s; py_compile,
+  strict-classification y diff-check PASS. Inventario: 2313 / 65
+  runtime-unbound / 0 sin clasificar; strict-runtime continúa OPEN.
+- Duración reconstruida del cambio: ~1m neto, excluyendo pruebas y gates.
+
 ## 2026-09-25 — La lectura del historial Copilot es de solo lectura
 
 - Decisión: `rl_policies` abre la base existente de historial con URI SQLite
@@ -1638,3 +1680,217 @@ Record architectural or product decisions that affect canon here.
   compile, strict classification y diff check PASS. Inventario: 2197 / 120
   runtime-unbound / 0 unclassified. Strict runtime continúa OPEN. El bloque
   tomó 3m08s netos, excluyendo 0.61s de pytest.
+
+## 2026-09-25 — Un owner para memoria SQLite; retirar el índice de sesión duplicado
+
+- Decisión: `database.write` queda registrado en un solo
+  `DatabaseWriteEffectAdapter`, con operaciones acotadas a `KnowledgeBase` y
+  `EmbeddingStore`. Las fachadas de lectura ya no crean schema ni escriben;
+  API, chat y REPL piden autorización antes de mutar. El adapter revalida
+  sesión, raíz y target; deriva `source_session` de la sesión activa, serializa
+  escrituras por `state_root` y materializa schema/FTS/WAL y embeddings.
+- Decisión: retirar `SessionDB`. Sólo lo escribía `SessionPersistenceMixin`; no
+  tenía lectores de producto y duplicaba datos ya persistidos en la sesión JSON
+  canónica. `ContextStore.list_sessions` usa `sessions/<sid>/meta.json`, no
+  `sessions.db`. El receipt de workspace deja de exigir el índice derivado.
+- Evidencia: 102 pruebas de memoria/RAG/gateway/inventory y 67 de sesión,
+  workspace e inventory pasaron en sus bloques focalizados. `--strict-classification`
+  PASS; inventario actual `2336` sinks / `100` runtime-unbound / `0`
+  unclassified. `--strict-runtime` FAIL/OPEN (exit `1`); `git diff --check`
+  PASS. No es evidencia de cierre global ni de candidato comiteado. La suite
+  backend completa y la revisión independiente quedan pendientes. Tiempo de
+  cambio reconstruido: ~15m, excluyendo 2m58s de pytest y ~48s de gates de
+  inventory; la hora de inicio no quedó capturada con cronómetro.
+
+## 2026-09-25 — El arranque del manager CLI pasa por el owner de proceso
+
+- Decisión: el `Popen` de `bago manager` ya no vive en `cmd_content.py`.
+  El CLI presenta challenge y pide confirmación en TTY; el permiso consumido
+  se vincula al módulo launcher y su SHA-256, raíz runtime, workspace, UI,
+  puerto y host loopback. `ProcessExecutionEffectAdapter` valida de nuevo
+  esos datos inmediatamente antes del spawn desacoplado.
+- El bloqueo de instancia (`bago.lock`) queda en `bago_core.instance_lock`.
+  Sólo `cmd_serve` adquiere/libera el lock; el fichero contiene PID/tiempo para
+  coordinación y no transporta autoridad de ejecución.
+- Evidencia: prueba focal 4 passed en 4.42s con timeout externo de 60s;
+  compile y `git diff --check` PASS; BAGO strict-classification PASS.
+  Inventario: 2338 sinks / 96 runtime-unbound / 0 sin clasificar.
+  Strict-runtime sigue FAIL/OPEN. No es evidencia de candidato comiteado; la
+  suite backend completa y la revisión independiente siguen pendientes.
+- Duración reconstruida del cambio: ~4m40s, excluyendo ~37s de compilación,
+  pruebas y gates. Las interrupciones impidieron tomar cronómetro exacto.
+
+## 2026-09-25 — Cierre de subprocess obsoleto y vaciado de eventos
+
+- Decisión: `BagoContext.run_tool()` conserva su firma por compatibilidad, pero
+  falla cerrado; no tenía callsites dentro del repo y ejecutaba comandos BAGO
+  arbitrarios con `subprocess.run` sin autorización. `flush_events(clear=True)`
+  deja de hacer `unlink` y reemplaza `events.jsonl` por vacío mediante el owner
+  ya registrado `state.write` bajo la raíz del contexto.
+- Evidencia: 2 pruebas focales pasaron en 0.23s con timeout externo de 60s;
+  compile, BAGO strict-classification y `git diff --check` PASS. Inventario:
+  2338 total / 94 runtime-unbound / 0 sin clasificar. Strict-runtime sigue
+  OPEN; no existe todavía candidato comiteado ni revisión independiente.
+- Duración reconstruida del cambio: ~3m30s, excluyendo ~11s de test y gate;
+  aproximada por las interrupciones y el proceso de recuperación del entorno.
+
+## 2026-09-25 — Los marcadores de archivo del modelo ya no escriben
+
+- Decisión: `[WRITE:path]...[/WRITE]` se representa como contenido propuesto;
+  no crea directorios ni materializa archivos. Se elimina ese sink directo de
+  `SessionTurnMixin`; la escritura real debe pasar por `filesystem.write` y
+  su challenge/Permit del Gateway. El flujo de chat no convierte una salida
+  de provider en autoridad de filesystem.
+- Evidencia: 1 prueba focal passed en 0.15s con timeout externo de 60s;
+  compile, strict classification y `git diff --check` PASS. Inventario:
+  2336 / 92 runtime-unbound / 0 sin clasificar. Strict-runtime continúa OPEN.
+- Duración reconstruida del cambio: ~3m15s, excluyendo ~11s de compile,
+  prueba y gate.
+
+## 2026-09-25 — Resolver rutas de sesión deja de crear estado
+
+- Decisión: `state_paths.resolve_state_root` solo resuelve identidad. Se
+  retiraron los `mkdir` duplicados de `SessionManager.__init__` y
+  `session_registry.mark_active_session`; los writers existentes crean la
+  raíz cuando una escritura canónica debe materializarla.
+- Evidencia: 19 pruebas de user-state, recuperación/persistencia de sesión y
+  activación workspace pasaron en 3.62s; compile, BAGO strict-classification
+  y `git diff --check` PASS. Inventario: 2333 / 89 runtime-unbound / 0 sin
+  clasificar. Strict-runtime continúa OPEN.
+- Duración reconstruida del cambio: ~1m58s, excluyendo ~14s de checks.
+
+## 2026-09-25 — Git identity de sesión usa process.inspect
+
+- Decisión: `_git_info()` deja de invocar `subprocess.run` directamente. Reusa
+  `process.inspect`, el owner server-policy ya registrado, limitado a las tres
+  consultas Git exactas de solo lectura: `rev-parse HEAD`,
+  `rev-parse --show-toplevel` y `rev-parse --abbrev-ref HEAD`. No se crea una
+  autoridad de ejecución adicional.
+- Evidencia: 57 pruebas focales pasaron en 3.08s bajo timeout externo de 60s;
+  `py_compile` y `git diff --check` PASS. El gate directo del inventario dio
+  strict-classification PASS (2331 total, 0 sin clasificar) y strict-runtime
+  FAIL/OPEN (87 runtime-unbound, antes 89). El wrapper `bago.py verify` no
+  pudo arrancar su comando hijo en este Windows (`WinError 2`); por ello se
+  ejecutó el scanner directamente bajo timeout de 90s. Sin candidato
+  comiteado; suite backend completa y revisión independiente pendientes.
+- Duración reconstruida del cambio: ~3m35s (18:48:31–18:52:30 UTC),
+  excluyendo aproximadamente 25s de tests, compilación y gates.
+
+## 2026-09-25 — El shim file-write no puede eludir la autorización
+
+- Decisión: el tool legacy `file-write` falla cerrado después de su validación
+  de argumentos y ruta; no crea directorios ni escribe, incluso con
+  `BAGO_DEV_MODE`. La escritura material sigue disponible por la ruta de sesión
+  `/files/write`, que usa challenge, aprobación, Permit y
+  `FilesystemEffectAdapter`. El registro explica esa ruta; no se añadió una
+  segunda implementación de autorización.
+- Evidencia: 47 pruebas focales de tools pasaron en 4.05s bajo timeout externo
+  de 60s; `py_compile`, strict-classification y `git diff --check` PASS.
+  Inventario: 2329 total / 85 runtime-unbound / 0 unclassified; strict-runtime
+  FAIL/OPEN (antes 87). Cambiar el shim limita el escritor standalone CLI; la
+  ruta UI/API autorizada existente conserva la capacidad. Sin candidato
+  comiteado ni revisión independiente.
+- Duración reconstruida del cambio: ~5m40s (18:52:30–18:58:32 UTC),
+  excluyendo unos 22s de tests, compilación y gates; estimada porque no había
+  cronómetro por comando.
+
+## 2026-09-25 — Materializar piezas usa solo el writer canónico
+
+- Decisión: se retiraron los `mkdir` redundantes para root, categoría y pieza
+  en `materialize_piece_store()`. Si falta un manifiesto, `json_write` delega
+  en `write_json_atomic` y su owner registrado, que crea los directorios como
+  parte de la escritura. Si el manifiesto existe, sus padres ya existen. No se
+  cambió la identidad de pieza ni el contenido del manifiesto.
+- Evidencia: prueba nueva confirma que el padre no existe antes del writer y
+  que el manifiesto aparece después; Node Control split + translator: 29 passed
+  en 9.94s con timeout de 60s. Compile, strict-classification y diff check
+  PASS. Inventario: 2326 total / 82 runtime-unbound / 0 unclassified;
+  strict-runtime FAIL/OPEN (antes 85).
+- Duración reconstruida del cambio: ~4m35s (18:58:32–19:03:34 UTC),
+  excluyendo unos 25s de pruebas, compilación y gates.
+
+## 2026-09-25 — El plan de AgentOrchestrator persiste vía state.write
+
+- Decisión: `_plan_store_path()` solo resuelve la ruta; elimina el `mkdir`
+  anticipado. `save_orchestrator_plan()` sustituye `Path.open(..., "a")` por
+  `bago_core.atomic_json.append_text_durable`, que delega la materialización y
+  append en el writer server-owned `state.write`. Conserva el JSONL y la ruta
+  canónica.
+- Evidencia: `test_agent_kit.py`: 43 passed en 3.64s bajo timeout externo de
+  60s; prueba nueva observa que el padre aún no existe al invocar al writer.
+  Compile, strict-classification y `git diff --check` PASS. Inventario: 2324
+  total / 80 runtime-unbound / 0 unclassified; strict-runtime FAIL/OPEN
+  (antes 82).
+- Duración de cambio estimada: ~1m35s (aprox. 19:06:07–19:08:05 UTC),
+  excluyendo ~22s de pruebas, compilación y gates.
+
+## 2026-09-25 — La proyección Android usa state.write
+
+- Decisión: `_write_layers_state()` conserva su ruta `ANDROID_LAYERS_STATE` y
+  payload, pero delega el reemplazo JSON al writer existente
+  `bago_core.atomic_json.write_json_atomic` (`state.write`). Se eliminaron el
+  `mkdir` y `write_text` directos; el informe sigue siendo una proyección
+  derivada y no adquiere una autoridad propia.
+- Evidencia: prueba focal 1 passed en 0.24s bajo timeout de 60s; verifica la
+  delegación y contenido JSON. `py_compile`, strict-classification y
+  `git diff --check` PASS. Inventario: 2322 total / 78 runtime-unbound / 0
+  unclassified; strict-runtime FAIL/OPEN (antes 80). Un primer intento de test
+  falló por importar una función como módulo; corregido y corrida final PASS.
+- Duración reconstruida del cambio: ~2m47s (19:08:05–19:11:05 UTC),
+  excluyendo unos 13s de prueba, compilación y gates.
+
+## 2026-09-25 — ClaimLedger persiste por state.write sin adquirir autoridad
+
+- Decisión: `ClaimLedger` deja de crear `evidence/` durante construcción y
+  ambos logs append-only (`claims.jsonl` y `claim_receipts.jsonl`) escriben
+  mediante `bago_core.atomic_json.append_text_durable` (`state.write`). Se
+  preservan formato y verificación evidence-backed. `ClaimLedger` sigue siendo
+  ledger de afirmaciones/evidencia; no reemplaza ni comparte autoridad con
+  `ExecutionClaimStore`, `AuthorizationBoundary` o los Permits del Gateway.
+- Evidencia: claim ledger + evidence authority: 16 passed en 13.34s con timeout
+  externo de 60s; prueba nueva confirma constructor read-only y append vía
+  state writer. Compile, strict-classification y diff check PASS. Inventario:
+  2320 total / 75 runtime-unbound / 0 unclassified; strict-runtime FAIL/OPEN
+  (antes 78).
+- Duración de cambio estimada: ~2m10s (19:11:05–19:13:53 UTC), excluyendo
+  unos 34s de tests, compilación y gates.
+
+## 2026-09-25 — Raíces de estado requieren owner y el arranque no poda backups
+
+- Decisión: `state.directory.ensure` usa el único `ServerStateEffectAdapter`
+  server-policy; el adapter revalida el root y el conjunto exacto de rutas
+  canónicas antes de materializar. Respeta los overrides explícitos del
+  contrato (`BAGO_RUNTIME_ROOT` y `BAGO_STATE_ROOT`). `ensure_user_roots()` ya
+  no borra backups implícitamente; la rotación expone únicamente
+  `backup_prune_candidates()` read-only.
+- Evidencia: 77 pruebas focales pasaron en 8.13s con timeout de 60s y basetemp
+  dentro del checkout; `py_compile` y `git diff --check` PASS. Un test también
+  prueba que un target ajeno se bloquea antes de crear carpeta. Inventario:
+  2321 total / 73 runtime-unbound / 0 sin clasificar; strict-classification
+  PASS, strict-runtime FAIL/OPEN. Un intento inicial de pytest encontró
+  `PermissionError` enumerando el Temp global de Windows; se repitió con
+  basetemp local. Duración neta estimada ~12m, excluyendo pruebas/gates.
+
+## 2026-09-25 — AuditTrail persiste mediante state.write
+
+- Decisión: `OperationalIntegrity.AuditTrail` sigue siendo ledger de evidencia,
+  pero delega su append JSONL en `atomic_json.append_text_durable`
+  (`state.write`). Se eliminaron la creación de directorio y la apertura directa.
+- Evidencia: 21 pruebas de `test_operational_integrity.py` y
+  `test_claim_ledger_split.py` pasaron en 16.05s; `py_compile`,
+  strict-classification y `git diff --check` PASS. Inventario: 2319 total / 71
+  runtime-unbound / 0 sin clasificar; strict-runtime FAIL/OPEN. La duración neta
+  se estima en ~5m, excluyendo pruebas y gates.
+
+## 2026-09-25 — La identidad del candidato inspecciona Git por Gateway
+
+- Decisión: `candidate_identity` reutiliza `process.inspect` para sus consultas
+  Git exactas de solo lectura. Se amplió el allowlist cerrado para status,
+  remote, upstream, rama y diff; `safe.directory` solo admite rutas absolutas.
+  La salida de diff se hashea dentro del adapter para preservar el fingerprint
+  completo aunque exceda el límite de stdout de receipts.
+- Evidencia: 63 pruebas de sesión Git, Gateway y recibos de candidato pasaron en
+  25.98s bajo timeout de 90s; compile, strict-classification y diff-check PASS.
+  Inventario: 2317 total / 69 runtime-unbound / 0 sin clasificar;
+  strict-runtime FAIL/OPEN. Duración de cambio reconstruida ~7m, excluyendo
+  pruebas y gates.

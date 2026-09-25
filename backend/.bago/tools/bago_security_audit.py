@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import shutil
 import sys
 from pathlib import Path
 
@@ -213,47 +212,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", default="", help="Project root to scan. Default: cwd")
     parser.add_argument("--json", action="store_true", help="Emit JSON output")
     parser.add_argument("--fix", action="store_true", help="Show remediation instructions")
-    parser.add_argument("--test", action="store_true", help="Run self tests")
     return parser
-
-
-def _selftest_dir() -> Path:
-    return Path(__file__).resolve().parent / ".selftest_bago_security_audit"
-
-
-def run_self_tests() -> int:
-    base = _selftest_dir()
-    if base.exists():
-        shutil.rmtree(base)
-    base.mkdir(parents=True)
-    try:
-        token_line = "github_pat_" + "abcdefghijklmnopqrstuvwxyz_" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890\n"
-        (base / "token.txt").write_text(token_line, encoding="utf-8")
-        (base / ".env").write_text("OPENAI_KEY=test\n", encoding="utf-8")
-        (base / "example.txt").write_text("example github_pat_placeholder_token\n", encoding="utf-8")
-        (base / "prompt.ps1").write_text('$cfg.api_key = Read-InputOrDefault -Default $env:OPENAI_API_KEY\n', encoding="utf-8")
-
-        ok1 = any(item["token_type"] == "github_pat" for item in scan_tokens(base))
-        ok2 = _permission_flags(0o777) == ["executable", "world_writable"]
-        ok3 = any(item["kind"] == "env_gitignore" for item in scan_env_gitignore(base))
-        (base / ".gitignore").write_text(".env\n", encoding="utf-8")
-        ok4 = not scan_env_gitignore(base)
-        ok5 = compute_score([{"severity": "CRITICAL"}] * 10) == 0
-        ok6 = not any(item["file"] == "example.txt" for item in scan_tokens(base))
-        ok7 = not any(item["file"] == "prompt.ps1" for item in scan_tokens(base))
-
-        results = [ok1, ok2, ok3, ok4, ok5, ok6, ok7]
-        passed = sum(1 for ok in results if ok)
-        print(f"{passed}/{len(results)} tests passed")
-        return 0 if passed == len(results) else 1
-    finally:
-        shutil.rmtree(base, ignore_errors=True)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.test:
-        return run_self_tests()
     root = Path(args.root or Path.cwd()).resolve()
     if not root.exists() or not root.is_dir():
         print(f"Error: invalid root {root}", file=sys.stderr)

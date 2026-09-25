@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from ollama_discovery import discover_ollama_model_names  # noqa: E402
@@ -87,6 +88,35 @@ def test_manual_toggle_disables_auto_and_marks_active_model():
     assert sel.last_pick == "ollama-cloud/gpt-4o"
     assert sel.entries[1].selected is True
     assert "activo=ollama-cloud/gpt-4o" in repl_model_router.render_selection(sel)
+
+
+def test_save_selection_uses_canonical_state_writer(tmp_path: Path) -> None:
+    state_root = tmp_path / "state"
+    selection = repl_model_router.Selection(
+        entries=[repl_model_router.ModelEntry("ollama-local", "llama3.2:3b", selected=True)],
+        auto_switch=True,
+        last_pick="ollama-local/llama3.2:3b",
+    )
+
+    repl_model_router.save_selection(state_root, selection)
+
+    target = state_root / ".bago_model_selection.json"
+    assert state_root.is_dir()
+    assert json.loads(target.read_text(encoding="utf-8")) == {
+        "entries": [{
+            "provider": "ollama-local",
+            "model_id": "llama3.2:3b",
+            "wire_name": "",
+            "context_tokens": 0,
+            "best_for": "",
+            "available": True,
+            "selected": True,
+        }],
+        "auto_switch": True,
+        "last_pick": "ollama-local/llama3.2:3b",
+        "last_pick_at": "",
+    }
+    assert list(state_root.glob("*.tmp")) == []
 
 
 def test_manager_catalog_keeps_cloud_fallback_entries():

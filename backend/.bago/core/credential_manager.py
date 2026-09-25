@@ -65,6 +65,19 @@ CREDENTIAL_SCHEMA: dict[str, dict[str, str]] = {
     },
 }
 
+_PROVIDER_API_KEY_ALIASES = {
+    ("ollama-cloud", "OLLAMA_CLOUD_KEY"),
+    ("copilot", "GITHUB_TOKEN"),
+    ("anthropic", "ANTHROPIC_API_KEY"),
+    ("codex", "OPENAI_API_KEY"),
+    ("openrouter", "OPENROUTER_API_KEY"),
+    ("opencode", "OPENCODE_API_KEY"),
+}
+
+
+def _secret_store_key(provider: str, key: str) -> str:
+    return f"providers/{provider}/api_key" if (provider, key) in _PROVIDER_API_KEY_ALIASES else f"providers/{provider}/{key}"
+
 
 class _DATA_BLOB(Structure):
     _fields_ = [("cbData", wintypes.DWORD), ("pbData", POINTER(wintypes.BYTE))]
@@ -139,7 +152,6 @@ class CredentialManager:
     def __init__(self, base_path: str | None = None, state_root: str | None = None):
         self.base_path = Path(base_path or os.getcwd())
         self.config_dir = resolve_state_root(state_root)
-        self.config_dir.mkdir(parents=True, exist_ok=True)
         self.install_config = _load_install_config(self.base_path)
         store_cfg = self.install_config.get("credentials", {})
         self.store_mode = str(store_cfg.get("mode", "legacy")).lower()
@@ -152,7 +164,12 @@ class CredentialManager:
         else:
             self.cred_path = self.config_dir / "credentials.json"
         self._data: dict[str, dict[str, str]] = {}
+        self._session_manager: Any = None
         self._load()
+
+    def bind_session_manager(self, manager: Any) -> None:
+        """Bind writes to the active session's canonical execution authority."""
+        self._session_manager = manager
 
     def _load(self) -> None:
         legacy_path = self.base_path / ".bago" / ("session-credentials.json" if self.store_mode == "session" else "credentials.json")
@@ -170,12 +187,12 @@ class CredentialManager:
                 self._data = {}
         else:
             self._data = {}
-        # Auto-migrate from env vars on first run
+        # Import into this process only. Persisting during construction bypasses
+        # the user's explicit credential-write authorization boundary.
         self._auto_import_env()
 
     def _auto_import_env(self) -> None:
         """Importa automáticamente credenciales desde env vars si no existen localmente."""
-        dirty = False
         for provider, mapping in CREDENTIAL_SCHEMA.items():
             for env_var, desc in mapping.items():
                 val = os.environ.get(env_var)
@@ -183,29 +200,56 @@ class CredentialManager:
                     self._data[provider] = {}
                 if val and env_var not in (self._data.get(provider) or {}):
                     self._data.setdefault(provider, {})[env_var] = val
-                    dirty = True
-        if dirty:
-            self._save()
+        # Environment credentials remain process-local until explicitly saved.
 
     def _save(self) -> None:
-        if self.store_mode == "session":
-            return
-        if self.store_encrypted:
-            self.cred_path.parent.mkdir(parents=True, exist_ok=True)
-            payload = _dpapi_protect(json.dumps(self._data, indent=2, ensure_ascii=False))
-            self.cred_path.write_text(payload, encoding="utf-8")
-            return
-        self.cred_path.parent.mkdir(parents=True, exist_ok=True)
-        self.cred_path.write_text(json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8")
-        # Intentar permisos restrictivos (no crítico si falla en Windows)
-        try:
-            os.chmod(self.cred_path, 0o600)
-        except (OSError, AttributeError):
-            pass
+        raise RuntimeError("La persistencia legacy de credenciales está deshabilitada; use credential.write.")
+
+    def _execute_secret_write(self, provider: str, key: str, operation: str, value: str = "") -> bool:
+        from credential_manager import CREDENTIAL_SCHEMA
+        manager = self._session_manager
+        if manager is None or key not in CREDENTIAL_SCHEMA.get(provider, {}):
+            raise RuntimeError("Escritura de credenciales requiere SessionManager y una clave registrada.")
+        from execution_request import build_execution_request, stable_digest
+        from bago_core.cli_execution import execute_cli_effect
+
+        config_getter = getattr(getattr(manager, "config", None), "provider_config", None)
+        if not callable(config_getter):
+            raise RuntimeError("No hay configuración autoritativa del proveedor.")
+        request = build_execution_request(
+            effect_id="credential.write", actor_kind="user",
+            principal_id="interactive-local-user",
+            session_id=str(getattr(manager, "session_id", "") or ""),
+            source_surface="cli.credentials",
+            target={
+                "resource": "provider_credential", "operation": operation,
+                "provider": provider, "key": "api_key" if (provider, key) in _PROVIDER_API_KEY_ALIASES else key,
+                "configuration_digest": stable_digest(config_getter(provider)),
+                "configuration_patch": {},
+            },
+            arguments={"value": value} if operation == "set" else {},
+            scope="persistent",
+        )
+        result, _authorization = execute_cli_effect(
+            request,
+            confirmation_text=f"{operation} {provider}/{key} (secreto guardado en SecretStore)",
+            manager=manager,
+        )
+        return bool(result.get("changed", False)) if operation == "delete" and isinstance(result, dict) else True
 
     def get(self, provider: str, key: str, default: str = "") -> str:
         """Obtiene credencial. Fallback: archivo -> env var -> default."""
-        # 1. Archivo local
+        # The canonical SecretStore wins over retained legacy read-only data.
+        val = ""
+        if key in CREDENTIAL_SCHEMA.get(provider, {}):
+            try:
+                from bago_core.secrets import get_secret_store
+                val = get_secret_store().get_secret(_secret_store_key(provider, key)) or ""
+            except (ImportError, OSError, RuntimeError):
+                val = ""
+            if val:
+                return val
+        # Legacy credential files remain readable but are no longer writable.
         val = self._data.get(provider, {}).get(key, "")
         if val:
             return val
@@ -221,18 +265,38 @@ class CredentialManager:
         return default
 
     def set(self, provider: str, key: str, value: str) -> None:
-        """Guarda credencial en archivo local."""
-        self._data.setdefault(provider, {})[key] = value
-        self._save()
+        """Persiste a través de credential.write y su aprobación interactiva."""
+        if self.store_mode == "session":
+            self._data.setdefault(provider, {})[key] = str(value)
+            return
+        self._execute_secret_write(provider, key, "set", str(value))
+        self._data.setdefault(provider, {})[key] = str(value)
 
     def delete(self, provider: str, key: str) -> bool:
-        """Elimina credencial del archivo local."""
-        if provider in self._data and key in self._data[provider]:
-            del self._data[provider][key]
-            if not self._data[provider]:
+        """Elimina un secreto canónico; legacy files quedan solo lectura."""
+        if self.store_mode == "session":
+            values = self._data.get(provider, {})
+            if key not in values:
+                return False
+            del values[key]
+            if not values:
                 del self._data[provider]
-            self._save()
             return True
+        try:
+            from bago_core.secrets import get_secret_store
+            exists = bool(get_secret_store().get_secret(_secret_store_key(provider, key)))
+        except (ImportError, OSError, RuntimeError):
+            exists = False
+        if exists and self._execute_secret_write(provider, key, "delete"):
+            if provider in self._data and key in self._data[provider]:
+                del self._data[provider][key]
+                if not self._data[provider]:
+                    del self._data[provider]
+            return True
+        # A cached legacy value cannot be removed without rewriting an
+        # ungoverned legacy file, so report no deletion instead of claiming it.
+        if provider in self._data and key in self._data[provider]:
+            return False
         return False
 
     def list_for_provider(self, provider: str) -> dict[str, str]:
@@ -255,7 +319,13 @@ class CredentialManager:
         return CREDENTIAL_SCHEMA.get(provider, {}).get(key, "")
 
     def all_providers(self) -> dict[str, dict[str, str]]:
-        return {k: dict(v) for k, v in self._data.items()}
+        result = {k: dict(v) for k, v in self._data.items()}
+        for provider, keys in CREDENTIAL_SCHEMA.items():
+            for key in keys:
+                value = self.get(provider, key)
+                if value:
+                    result.setdefault(provider, {})[key] = value
+        return result
 
 
 # ── Quick test ──────────────────────────────────────────────────────

@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -248,15 +249,24 @@ class LayerStore:
     """Persistencia de capas comprimidas en JSON Lines."""
 
     def __init__(self, base_dir: Path | str):
-        self.base_dir = Path(base_dir) / ".bago" / "state" / "layers"
-        self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.state_root = Path(base_dir) / ".bago" / "state"
+        self.base_dir = self.state_root / "layers"
         self._file = self.base_dir / "layers.jsonl"
 
     def save_layers(self, layers: list[Layer], session_id: str) -> None:
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", str(session_id or "")):
+            raise ValueError("Invalid session id for layer persistence")
+        from bago_core.server_effects import write_text_atomic
+
         path = self.base_dir / f"{session_id}_layers.jsonl"
-        with open(path, "w", encoding="utf-8") as fh:
-            for layer in layers:
-                fh.write(json.dumps(layer.to_dict(), ensure_ascii=False) + "\n")
+        content = "".join(json.dumps(layer.to_dict(), ensure_ascii=False) + "\n" for layer in layers)
+        write_text_atomic(
+            path,
+            content,
+            trusted_root=self.state_root,
+            source_surface="context.layers",
+            session_id=str(session_id),
+        )
 
     def load_layers(self, session_id: str) -> list[Layer]:
         path = self.base_dir / f"{session_id}_layers.jsonl"

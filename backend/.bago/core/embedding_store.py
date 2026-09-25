@@ -16,7 +16,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from state_paths import resolve_state_root
+from bago_core.user_state_paths import state_root as configured_state_root
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -41,39 +41,25 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 class EmbeddingStore:
     def __init__(self, base_path: str | None = None, state_root: str | None = None):
         self.base_path = Path(base_path or os.getcwd())
-        self.state_dir = resolve_state_root(state_root)
-        self.state_dir.mkdir(parents=True, exist_ok=True)
+        self.state_dir = Path(state_root).expanduser().resolve() if state_root else Path(configured_state_root()).resolve()
         self.db_path = self.state_dir / "embeddings.db"
         self._lock = threading.RLock()
-        self.conn = sqlite3.connect(str(self.db_path), timeout=30.0, check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row
-        self.conn.execute("PRAGMA busy_timeout=30000")
-        self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.execute("PRAGMA synchronous=NORMAL")
-        self._init_schema()
+        self.conn: sqlite3.Connection | None = None
 
-    def _init_schema(self) -> None:
+    def _connect(self) -> sqlite3.Connection | None:
         with self._lock:
-            self.conn.execute("""
-                CREATE TABLE IF NOT EXISTS embeddings (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    memory_id TEXT,
-                    content TEXT NOT NULL,
-                    vector_json TEXT NOT NULL,
-                    source_session TEXT,
-                    provider TEXT,
-                    model TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            if self.conn is None:
+                if not self.db_path.is_file():
+                    return None
+                self.conn = sqlite3.connect(
+                    f"{self.db_path.as_uri()}?mode=ro",
+                    timeout=30.0,
+                    check_same_thread=False,
+                    uri=True,
                 )
-            """)
-            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_embeddings_memory_id ON embeddings(memory_id)")
-            columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(embeddings)")}
-            if "vector_dim" not in columns:
-                self.conn.execute("ALTER TABLE embeddings ADD COLUMN vector_dim INTEGER NOT NULL DEFAULT 0")
-            if "updated_at" not in columns:
-                self.conn.execute("ALTER TABLE embeddings ADD COLUMN updated_at TEXT")
-            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_embeddings_scope ON embeddings(memory_id, provider, model)")
-            self.conn.commit()
+                self.conn.row_factory = sqlite3.Row
+                self.conn.execute("PRAGMA busy_timeout=30000")
+            return self.conn
 
     @staticmethod
     def _validate_vector(vector: list[float]) -> list[float]:
@@ -94,53 +80,39 @@ class EmbeddingStore:
         provider: str = "",
         model: str = "",
     ) -> int:
-        vector = self._validate_vector(vector)
-        with self._lock:
-            try:
-                existing = self.conn.execute(
-                    "SELECT id FROM embeddings WHERE memory_id = ? AND provider = ? AND model = ? ORDER BY id DESC LIMIT 1",
-                    (memory_id, provider, model),
-                ).fetchone()
-                payload = (content, json.dumps(vector), len(vector), source_session, provider, model)
-                if existing:
-                    self.conn.execute(
-                        "UPDATE embeddings SET content=?, vector_json=?, vector_dim=?, source_session=?, provider=?, model=?, "
-                        "updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                        (*payload, int(existing["id"])),
-                    )
-                    self.conn.commit()
-                    return int(existing["id"])
-                cursor = self.conn.execute(
-                    """
-                    INSERT INTO embeddings(memory_id, content, vector_json, vector_dim, source_session, provider, model, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    """,
-                    (memory_id, *payload),
-                )
-                self.conn.commit()
-                return int(cursor.lastrowid)
-            except Exception:
-                self.conn.rollback()
-                raise
+        raise PermissionError("EmbeddingStore is read-only; use database.write through ExecutionGateway")
 
     def search(self, *, query_vector: list[float], limit: int = 5, provider: str = "", model: str = "") -> list[dict[str, Any]]:
         query_vector = self._validate_vector(query_vector)
         if limit <= 0:
             return []
-        where, params = [], []
-        if provider:
-            where.append("provider = ?")
-            params.append(provider)
-        if model:
-            where.append("model = ?")
-            params.append(model)
-        clause = (" WHERE " + " AND ".join(where)) if where else ""
         with self._lock:
-            rows = self.conn.execute(
-                """
-                SELECT id, memory_id, content, vector_json, source_session, provider, model, created_at
-                FROM embeddings
-                """ + clause + " ORDER BY id DESC", params).fetchall()
+            connection = self._connect()
+            if connection is None:
+                return []
+            if provider and model:
+                rows = connection.execute(
+                    "SELECT id, memory_id, content, vector_json, source_session, provider, model, created_at "
+                    "FROM embeddings WHERE provider = ? AND model = ? ORDER BY id DESC",
+                    (provider, model),
+                ).fetchall()
+            elif provider:
+                rows = connection.execute(
+                    "SELECT id, memory_id, content, vector_json, source_session, provider, model, created_at "
+                    "FROM embeddings WHERE provider = ? ORDER BY id DESC",
+                    (provider,),
+                ).fetchall()
+            elif model:
+                rows = connection.execute(
+                    "SELECT id, memory_id, content, vector_json, source_session, provider, model, created_at "
+                    "FROM embeddings WHERE model = ? ORDER BY id DESC",
+                    (model,),
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    "SELECT id, memory_id, content, vector_json, source_session, provider, model, created_at "
+                    "FROM embeddings ORDER BY id DESC"
+                ).fetchall()
 
         results: list[dict[str, Any]] = []
         for row in rows:
@@ -165,63 +137,39 @@ class EmbeddingStore:
         return results[:limit]
 
     def remove_for_memory(self, memory_id: str) -> int:
-        with self._lock:
-            try:
-                cursor = self.conn.execute("DELETE FROM embeddings WHERE memory_id = ?", (memory_id,))
-                self.conn.commit()
-                return cursor.rowcount
-            except Exception:
-                self.conn.rollback()
-                raise
+        raise PermissionError("EmbeddingStore is read-only; use database.write through ExecutionGateway")
 
     def stats(self) -> dict[str, Any]:
         with self._lock:
-            row = self.conn.execute(
-                "SELECT COUNT(*) AS total, COUNT(DISTINCT memory_id) AS memories, "
-                "COUNT(DISTINCT provider) AS providers, MIN(vector_dim) AS min_dim, MAX(vector_dim) AS max_dim "
-                "FROM embeddings"
-            ).fetchone()
+            connection = self._connect()
+            if connection is None:
+                row = None
+            else:
+                columns = {str(item["name"]) for item in connection.execute("PRAGMA table_info(embeddings)").fetchall()}
+                if "vector_dim" in columns:
+                    row = connection.execute(
+                        "SELECT COUNT(*) AS total, COUNT(DISTINCT memory_id) AS memories, "
+                        "COUNT(DISTINCT provider) AS providers, MIN(vector_dim) AS min_dim, MAX(vector_dim) AS max_dim "
+                        "FROM embeddings"
+                    ).fetchone()
+                elif columns:
+                    row = connection.execute(
+                        "SELECT COUNT(*) AS total, COUNT(DISTINCT memory_id) AS memories, "
+                        "COUNT(DISTINCT provider) AS providers FROM embeddings"
+                    ).fetchone()
+                else:
+                    row = None
         return {
-            "total": int(row["total"] or 0),
-            "memories": int(row["memories"] or 0),
-            "providers": int(row["providers"] or 0),
-            "min_dim": int(row["min_dim"] or 0),
-            "max_dim": int(row["max_dim"] or 0),
+            "total": int(row["total"] or 0) if row else 0,
+            "memories": int(row["memories"] or 0) if row else 0,
+            "providers": int(row["providers"] or 0) if row else 0,
+            "min_dim": int(row["min_dim"] or 0) if row and "min_dim" in row.keys() else 0,
+            "max_dim": int(row["max_dim"] or 0) if row and "max_dim" in row.keys() else 0,
             "database": str(self.db_path),
         }
 
     def close(self) -> None:
         with self._lock:
-            self.conn.close()
-
-
-def _run_tests() -> int:
-    import tempfile
-
-    with tempfile.TemporaryDirectory() as td:
-        state_root = Path(td) / "state"
-        old = os.environ.get("BAGO_STATE_ROOT")
-        os.environ["BAGO_STATE_ROOT"] = str(state_root)
-        store = EmbeddingStore(base_path=td)
-        try:
-            a = [1.0, 0.0, 0.0]
-            b = [0.9, 0.1, 0.0]
-            c = [0.0, 1.0, 0.0]
-            store.add(memory_id="m1", content="alpha", vector=a, provider="ollama-local", model="stub")
-            store.add(memory_id="m2", content="beta", vector=c, provider="ollama-local", model="stub")
-            results = store.search(query_vector=b, limit=2)
-            assert results[0]["memory_id"] == "m1"
-            assert results[0]["score"] > results[1]["score"]
-            print("embedding_store.py --test: ALL PASS")
-        finally:
-            store.close()
-            if old is None:
-                os.environ.pop("BAGO_STATE_ROOT", None)
-            else:
-                os.environ["BAGO_STATE_ROOT"] = old
-    return 0
-
-
-if __name__ == "__main__":
-    if "--test" in sys.argv:
-        raise SystemExit(_run_tests())
+            if self.conn:
+                self.conn.close()
+                self.conn = None

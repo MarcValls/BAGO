@@ -15,7 +15,7 @@ from typing import Any
 
 from effect_registry import REGISTRY
 from execution_request import build_execution_request, stable_digest
-from execution_claims import file_resource_key
+from execution_claims import execution_resource_key
 from execution_operations import operation_store_for
 
 
@@ -536,8 +536,12 @@ def execute_plan_through_gateway(
             )
 
         try:
-            resource_key = file_resource_key(
-                str(target.get("path") or ""), context.manager, effect_id=effect_id
+            resource_key = execution_resource_key(
+                effect_id,
+                target,
+                arguments,
+                context.manager,
+                session_id=str(getattr(parent_request, "session_id", "") or ""),
             )
         except (OSError, ValueError) as exc:
             return _blocked(str(exc), "pipeline_resource_invalid")

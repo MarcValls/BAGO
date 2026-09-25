@@ -60,7 +60,7 @@
     },
     "file_write": {
       "file": "file_write.py",
-      "sha256": "3a9c06d3011f53cad252b1829d1914d874a9aca89036a44d6137ff1c3a84fa1d",
+      "sha256": "dca754adcc8f03dc26a1b335742e688c5738bac8b23c63154a8f9d635bc05adf",
       "cmd": "file-write"
     },
     "find_dependents": {

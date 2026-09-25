@@ -17,7 +17,7 @@ class ProjectWriteEffectAdapter:
     effect_ids = frozenset({"project.write"})
     _FILE_RESOURCE = "project_file"
     _OPERATION_RESOURCE = "project_operation"
-    _OPERATIONS = frozenset({"init", "link", "seed", "demo"})
+    _OPERATIONS = frozenset({"init", "link", "seed", "demo", "patch", "patch.rollback"})
     _FORBIDDEN_SEGMENTS = frozenset({".git", ".env", "node_modules", ".venv", "venv", "dist", "release", "__pycache__"})
     _LOCKS_GUARD = threading.RLock()
     _LOCKS: dict[str, threading.RLock] = {}
@@ -151,20 +151,52 @@ class ProjectWriteEffectAdapter:
         target = cls._validate_operation_target(trusted_root, raw_path, clean_operation)
         return trusted_root, target, cls.operation_descriptor_digest(target, clean_operation)
 
+    @classmethod
+    def prepare_patch_operation(cls, manager: Any, raw_path: str, diffs: Any) -> tuple[Path, Path, str]:
+        from project_patch_operations import prepare_apply
+
+        return prepare_apply(cls, manager, raw_path, diffs)
+
+    @classmethod
+    def prepare_patch_rollback(cls, manager: Any, raw_path: str, snapshot_path: str) -> tuple[Path, Path, str]:
+        from project_patch_operations import prepare_rollback
+
+        return prepare_rollback(cls, manager, raw_path, snapshot_path)
+
+    @classmethod
+    def build_patch_request(cls, manager: Any, diffs: Any) -> ExecutionRequest:
+        from project_patch_operations import build_apply_request
+
+        return build_apply_request(cls, manager, diffs)
+
+    @classmethod
+    def build_patch_rollback_request(cls, manager: Any, snapshot_path: str) -> ExecutionRequest:
+        from project_patch_operations import build_rollback_request
+
+        return build_rollback_request(cls, manager, snapshot_path)
+
     @staticmethod
-    def _execute_project_operation(target: Path, operation: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    def _execute_project_operation(
+        target: Path,
+        operation: str,
+        arguments: Mapping[str, Any],
+        request: ExecutionRequest,
+        context: ExecutionContext,
+    ) -> dict[str, Any]:
         import project_memory
 
         if operation == "init":
-            return dict(project_memory.init_project(target))
+            return dict(project_memory.init_project(target, request=request, context=context))
         if operation == "link":
-            return dict(project_memory.link_project(target))
+            return dict(project_memory.link_project(target, request=request, context=context))
         if operation == "seed":
             depth = max(1, min(int(arguments.get("depth", 3)), 8))
             ref_value = str(arguments.get("ref") or "").strip()
-            return dict(project_memory.seed_project(target, depth=depth, ref=ref_value or None))
+            return dict(project_memory.seed_project(
+                target, depth=depth, ref=ref_value or None, request=request, context=context,
+            ))
         if operation == "demo":
-            return dict(project_memory.create_demo_project(target))
+            return dict(project_memory.create_demo_project(target, request=request, context=context))
         raise ExecutionGatewayError(
             "Project write operation is not approved",
             code="project_write_operation_invalid",
@@ -234,6 +266,10 @@ class ProjectWriteEffectAdapter:
                     code="project_write_digest_required",
                 )
             arguments = request.arguments if isinstance(request.arguments, dict) else {}
+            if operation in {"patch", "patch.rollback"}:
+                from project_patch_operations import execute as execute_patch
+
+                return execute_patch(self, request, context, root, target, resource, operation, arguments)
             current_root = self._trusted_root(manager)
             should_activate = operation in {"init", "link", "seed"} and target != current_root
             rebind = getattr(manager, "rebind_project_root", None)
@@ -250,7 +286,7 @@ class ProjectWriteEffectAdapter:
                         code="project_write_target_changed",
                     )
                 try:
-                    result = self._execute_project_operation(target, operation, arguments)
+                    result = self._execute_project_operation(target, operation, arguments, request, context)
                     if should_activate:
                         rebind(target)
                 except ExecutionGatewayError:

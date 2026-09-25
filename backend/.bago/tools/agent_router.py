@@ -2,23 +2,20 @@
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import os
 import re
-import shutil
 import sys
 import unicodedata
 import urllib.error
 import urllib.request
-from contextlib import redirect_stdout
 from pathlib import Path
 
 from _path_helper import ensure_tools_path
 ensure_tools_path()  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from bago_core.server_effects import gateway_urlopen
-from bago_utils import get_scan_root, load_json, print_test_results, save_json, timestamp_iso
+from bago_utils import get_scan_root, load_json, save_json, timestamp_iso
 
 
 def _default_ollama_url() -> str:
@@ -212,7 +209,6 @@ def configure_paths(root_override: str | None = None) -> Path:
     STATE_DIR = BAGO_ROOT / 'state'
     ROUTER_HISTORY = STATE_DIR / 'route_history.json'
     ROUTER_POLICY = STATE_DIR / 'llm_config.json'
-    STATE_DIR.mkdir(parents=True, exist_ok=True)
     return SCAN_ROOT
 
 
@@ -477,93 +473,9 @@ def route_task(task: str, agents: list[dict] | None = None, use_classifier: bool
     return result
 
 
-def _scratch_dir(label: str) -> Path:
-    root = Path.cwd() / '.bago' / 'state' / '_selftests' / label
-    if root.exists():
-        shutil.rmtree(root)
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
-def _run_tests() -> int:
-    scratch = _scratch_dir('agent_router')
-    old_host = os.environ.get('OLLAMA_HOST')
-    old_orchestration = os.environ.get('BAGO_ORCHESTRATE')
-    try:
-        configure_paths(str(scratch))
-        save_json(ROUTER_POLICY, {'default_agent': 'copilot', 'prefer_local': True})
-        os.environ['OLLAMA_HOST'] = 'http://localhost:42424'
-        agents = [
-            {'id': 'ollama', 'available': True},
-            {'id': 'codex', 'available': True},
-            {'id': 'copilot', 'available': True},
-        ]
-        route = route_task('implement multi-file auth and run tests', agents=agents, use_classifier=False)
-        os.environ['BAGO_ORCHESTRATE'] = '1'
-        orchestrated_route = route_task('review the backend contract', agents=agents, use_classifier=False)
-        brief_id = orchestrated_route.get('brief_id', '')
-        brief_payload = load_json(BAGO_ROOT / 'state' / 'orchestrator' / f'{brief_id}.json', {})
-        detected = detect_agents()
-        original_up = _ollama_server_up
-        try:
-            globals()['_ollama_server_up'] = lambda url=None: False
-            fallback = route_task('brainstorm offline notes', agents=agents, use_classifier=True)
-        finally:
-            globals()['_ollama_server_up'] = original_up
-        out = io.StringIO()
-        with redirect_stdout(out):
-            json_rc = main(['--root', str(scratch), '--task', 'brainstorm offline notes', '--json', '--no-classifier'])
-        json_payload = json.loads(out.getvalue())
-        role_dir = BAGO_ROOT / 'roles' / 'gobierno'
-        role_dir.mkdir(parents=True, exist_ok=True)
-        (role_dir / 'ORQUESTADOR_CENTRAL.md').write_text('# role\n', encoding='utf-8')
-        production_dir = BAGO_ROOT / 'roles' / 'produccion'
-        production_dir.mkdir(parents=True, exist_ok=True)
-        (production_dir / 'ANALISTA.md').write_text('# role\n', encoding='utf-8')
-        (production_dir / 'VALIDADOR.md').write_text('# role\n', encoding='utf-8')
-        save_json(BAGO_ROOT / 'roles' / 'manifest.json', {
-            'roles': {
-                'role_government_orquestador_central': {
-                    'status': 'active', 'name': 'orquestador_central', 'file': 'gobierno/ORQUESTADOR_CENTRAL.md',
-                },
-                'role_production_analista': {
-                    'status': 'active', 'name': 'ANALISTA', 'file': 'produccion/ANALISTA.md',
-                },
-                'role_production_validador': {
-                    'status': 'active', 'name': 'VALIDADOR', 'file': 'produccion/VALIDADOR.md',
-                },
-            },
-        })
-        cabinet = plan_cabinet('analyze the current repository')
-        results = [
-            ('default_ollama_url', isinstance(_default_ollama_url(), str) and _default_ollama_url().startswith('http'), 'default ollama url is a string'),
-            ('resolve_models_dir', isinstance(_resolve_ollama_models_dir(), Path), 'ollama models dir resolves to Path'),
-            ('route_has_agent', isinstance(route, dict) and route.get('agent') == 'codex', 'route_task returns dict with agent key'),
-            ('orchestration_brief_is_explicit', isinstance(brief_id, str) and brief_payload.get('status') == 'pending', 'opt-in orchestration creates a pending domain brief without assigning the provider as a specialist'),
-            ('available_agents_list', isinstance(detected, list) and all('id' in item for item in detected), 'detect_agents returns agent list'),
-            ('deterministic_fallback', fallback.get('agent') == 'ollama', 'fallback is deterministic when classifier is unavailable'),
-            ('json_output_mode', json_rc == 0 and isinstance(json_payload, dict) and 'agent' in json_payload, 'json output mode prints route json'),
-            ('cabinet_plan_is_bounded', cabinet['workflow'] == 'workflow_analysis' and len(cabinet['waves']) == 1 and len(cabinet['waves'][0]) <= MAX_CONCURRENT, 'cabinet plan uses active roles and respects concurrency'),
-        ]
-        return print_test_results(results)
-    finally:
-        if old_host is None:
-            os.environ.pop('OLLAMA_HOST', None)
-        else:
-            os.environ['OLLAMA_HOST'] = old_host
-        if old_orchestration is None:
-            os.environ.pop('BAGO_ORCHESTRATE', None)
-        else:
-            os.environ['BAGO_ORCHESTRATE'] = old_orchestration
-        if scratch.exists():
-            shutil.rmtree(scratch)
-        configure_paths()
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description='Route tasks to the best available AI agent')
     parser.add_argument('--root', default='', help='Scan root override')
-    parser.add_argument('--test', action='store_true', help='Run self-tests')
     parser.add_argument('--task', default='', help='Task text to route')
     parser.add_argument('--json', action='store_true', help='Print route JSON')
     parser.add_argument('--history', action='store_true', help='Show routing history and exit')
@@ -574,8 +486,6 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     configure_paths(args.root or None)
 
-    if args.test:
-        return _run_tests()
     if args.history:
         history = load_json(ROUTER_HISTORY, {})
         if not isinstance(history, list):

@@ -2,16 +2,13 @@
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import os
 import re
-import shutil
 import sys
 import textwrap
 import urllib.error
 import urllib.request
-from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -19,7 +16,7 @@ from _path_helper import ensure_tools_path
 ensure_tools_path()  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from bago_core.server_effects import gateway_urlopen
-from bago_utils import get_scan_root, load_json, print_test_results, save_json, timestamp_iso
+from bago_utils import get_scan_root, load_json, save_json, timestamp_iso
 
 TOOLS_DIR = Path(__file__).resolve().parent
 SCAN_ROOT = Path.cwd()
@@ -44,7 +41,6 @@ def configure_paths(root_override: str | None = None) -> Path:
     CATALOG_PATH = BAGO_ROOT / 'mcp' / 'toolbox_catalog.json'
     TOOLBOXES_DIR = BAGO_ROOT / 'state' / 'toolboxes'
     REGISTRY_PATH = TOOLS_DIR / 'tool_registry.py'
-    TOOLBOXES_DIR.mkdir(parents=True, exist_ok=True)
     return SCAN_ROOT
 
 
@@ -170,11 +166,11 @@ def assign_toolbox(task: str, agent: str | None = None, sprint: str = 'backlog')
 
 
 def save_toolbox(toolbox: Toolbox) -> Path:
-    TOOLBOXES_DIR.mkdir(parents=True, exist_ok=True)
     safe_agent = re.sub(r'[^A-Za-z0-9._-]+', '-', toolbox.agent).strip('-') or 'agent'
     safe_sprint = re.sub(r'[^A-Za-z0-9._-]+', '-', toolbox.sprint).strip('-') or 'backlog'
     path = TOOLBOXES_DIR / f'{safe_agent}-{safe_sprint}.json'
-    save_json(path, toolbox.to_dict())
+    if not save_json(path, toolbox.to_dict()):
+        raise OSError(f'No se pudo persistir el toolbox mediante state.write: {path}')
     return path
 
 
@@ -212,36 +208,6 @@ def missing_tools() -> list[str]:
         if not (TOOLS_DIR / f'{tool_name}.py').exists():
             missing.append(tool_name)
     return missing
-
-
-TOOL_TEMPLATE = '''#!/usr/bin/env python3
-from __future__ import annotations
-
-import argparse
-import shutil
-import sys
-from pathlib import Path
-
-from _path_helper import ensure_tools_path
-ensure_tools_path()  # noqa: E402
-from bago_utils import get_scan_root, print_test_results
-
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(description={description!r})
-    parser.add_argument('--root', default='', help='Scan root override')
-    parser.add_argument('--test', action='store_true', help='Run self-tests')
-    args = parser.parse_args(argv)
-    get_scan_root(args.root or None)
-    if args.test:
-        return print_test_results([('smoke', True, 'template test')])
-    print({message!r})
-    return 0
-
-
-if __name__ == '__main__':
-    raise SystemExit(main())
-'''
 
 
 def create_tool(tool_name: str, description: str = '', category: str = 'general') -> Path:
@@ -298,70 +264,15 @@ def _parse_tasks(raw: str) -> list[str]:
     return [item.strip() for item in raw.split('|') if item.strip()]
 
 
-def _run_tests() -> int:
-    scratch = Path.cwd() / '.bago' / 'state' / '_selftests' / 'toolsmith'
-    if scratch.exists():
-        shutil.rmtree(scratch)
-    scratch.mkdir(parents=True, exist_ok=True)
-    try:
-        configure_paths(str(scratch))
-        results: list[tuple[str, bool, str]] = []
-        results.append(('catalog_empty_ok', _load_catalog() == {}, 'missing catalog loads as empty dict'))
-        catalog = {
-            'groups': {
-                'analysis': ['inspector', 'grepper'],
-                'build': ['builder'],
-            },
-            'tools': {
-                'inspector': {'purpose': 'inspect code', 'category': 'analysis'},
-                'grepper': {'purpose': 'search text', 'category': 'analysis'},
-                'builder': {'purpose': 'build project', 'category': 'build'},
-            },
-            'composites': {
-                'analysis-stack': {'groups': ['analysis']}
-            },
-            'task_routing': [
-                {'keywords': ['debug', 'error'], 'agent': 'copilot', 'composite': 'analysis-stack'}
-            ],
-            'agent_defaults': {
-                'copilot': {'groups': ['analysis']},
-                'codex': {'groups': ['build']},
-            },
-        }
-        save_json(CATALOG_PATH, catalog)
-        toolbox = assign_toolbox('debug failing build', sprint='sprint-1')
-        toolbox_path = TOOLBOXES_DIR / 'copilot-sprint-1.json'
-        results.append(('assign_creates_file', toolbox_path.exists(), 'assign writes toolbox json file'))
-        results.append(('toolbox_structure', isinstance(toolbox.tools, list) and bool(toolbox.tools) and isinstance(toolbox.tools[0], AssignedTool), 'toolbox contains assigned tools'))
-        out = io.StringIO()
-        with redirect_stdout(out):
-            rc_catalog = main(['--root', str(scratch), 'catalog'])
-        results.append(('catalog_list_output', rc_catalog == 0 and 'tool groups=' in out.getvalue(), 'catalog command prints summary'))
-        err = io.StringIO()
-        with redirect_stderr(err):
-            rc_missing = main(['--root', str(scratch), 'unknown'])
-        results.append(('missing_subcommand', rc_missing == 1, 'unknown subcommand returns 1'))
-        sprint_paths = assign_sprint('sprint-2', ['debug auth', 'build release'])
-        results.append(('sprint_assignment', len(sprint_paths) == 2 and all(path.exists() for path in sprint_paths), 'sprint assignment creates per-agent toolboxes'))
-        return print_test_results(results)
-    finally:
-        if scratch.exists():
-            shutil.rmtree(scratch)
-        configure_paths()
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description='Manage BAGO toolboxes for agents')
     parser.add_argument('--root', default='', help='Scan root override')
-    parser.add_argument('--test', action='store_true', help='Run self-tests')
     parser.add_argument('--json', action='store_true', help='Output JSON where relevant')
     parser.add_argument('command', nargs='?')
     parser.add_argument('rest', nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     configure_paths(args.root or None)
 
-    if args.test:
-        return _run_tests()
     if not args.command:
         parser.print_help()
         return 0

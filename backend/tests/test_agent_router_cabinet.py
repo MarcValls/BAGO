@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -81,6 +82,24 @@ def test_system_change_keeps_architect_as_high_risk_escalation_only(router):
     assert 'role_production_arquitecto' in risky
     assert 'role_production_arquitecto' in risky_execution
     assert 'role_production_generador' in risky_execution
+
+
+def test_embedded_test_command_is_removed_without_creating_state(router, tmp_path):
+    with pytest.raises(SystemExit) as exc:
+        router.main(['--root', str(tmp_path), '--test'])
+
+    assert exc.value.code == 2
+    assert not (tmp_path / '.bago' / 'state').exists()
+
+
+def test_router_json_cli_uses_supplied_root_without_eager_state_creation(router, tmp_path, monkeypatch, capsys):
+    expected = {'agent': 'codex', 'model': 'gpt-5', 'reason': 'test', 'task': 'review'}
+    monkeypatch.setattr(router, 'route_task', lambda *_args, **_kwargs: expected)
+
+    assert router.main(['--root', str(tmp_path), '--task', 'review', '--json', '--no-classifier']) == 0
+
+    assert json.loads(capsys.readouterr().out) == expected
+    assert not (tmp_path / '.bago' / 'state').exists()
 
 
 @pytest.mark.parametrize('task', [

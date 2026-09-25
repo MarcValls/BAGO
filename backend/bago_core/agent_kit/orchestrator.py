@@ -69,7 +69,6 @@ def _default_state_root() -> Path:
 
 def _plan_store_path(state_root: Path | None = None) -> Path:
     root = state_root or _default_state_root()
-    root.mkdir(parents=True, exist_ok=True)
     return root / "orchestrator_plans.jsonl"
 
 
@@ -94,8 +93,9 @@ def save_orchestrator_plan(
         "plan": plan,
     }
     path = _plan_store_path(state_root)
-    with path.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    from bago_core.atomic_json import append_text_durable
+
+    append_text_durable(path, json.dumps(record, ensure_ascii=False) + "\n")
     return path
 
 

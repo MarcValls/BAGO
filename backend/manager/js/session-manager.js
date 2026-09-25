@@ -188,6 +188,7 @@ async function pmLoadSession(id){
 async function pmCreateSession(){
   try{
     const result=await pmSessionApi(['create']);
+    if(result&&result.canceled)return;
     pmSession=result.session;await pmLoadSessions();pmRenderSession();showToast('Sesion creada',true);
   }catch(error){showToast(error.message,false);}
 }
@@ -203,7 +204,7 @@ async function pmApplySession(){
     agent: document.getElementById('pm-session-agent').value,
     bridges,
   });
-  try{const result=await pmSessionApi(args);pmSession=result.session;await pmLoadSessions();pmRenderSession();showToast('Sesion actualizada',true);}catch(error){showToast(error.message,false);}
+  try{const result=await pmSessionApi(args);if(result&&result.canceled)return;pmSession=result.session;await pmLoadSessions();pmRenderSession();showToast('Sesion actualizada',true);}catch(error){showToast(error.message,false);}
 }
 async function pmSendSession(orchestrate=false){
   if(!pmSession)return;
@@ -216,7 +217,7 @@ async function pmSendSession(orchestrate=false){
   });
   input.disabled=true;
   const args=['send','--session-id',pmSession.session_id,'--prompt',prompt];if(orchestrate)args.push('--orchestrate');
-  try{const result=await pmSessionApi(args);pmSession=result.session;input.value='';pmRenderSession();if(orchestrate&&Object.values(result.response||{}).some(item=>!item.ok))showToast('Orquestacion parcial: revisa respuestas',false);}catch(error){showToast(error.message,false);}finally{input.disabled=false;}
+  try{const result=await pmSessionApi(args);if(result&&result.canceled)return;pmSession=result.session;input.value='';pmRenderSession();if(orchestrate&&Object.values(result.response||{}).some(item=>!item.ok))showToast('Orquestacion parcial: revisa respuestas',false);}catch(error){showToast(error.message,false);}finally{input.disabled=false;}
 }
 function pmInitSessions(){
   document.getElementById('pm-session-refresh').addEventListener('click',pmLoadSessions);

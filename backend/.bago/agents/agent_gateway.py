@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -48,7 +49,7 @@ for _p in [str(_BAGO_ROOT), str(_TOOLS_DIR), str(_AGENTS_DIR), str(_DYN_AGENTS),
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from bago_core.server_effects import gateway_urlopen
+from bago_core.server_effects import append_text_durable, gateway_urlopen
 
 # ── Static Guard — separación motor / dinámica ───────────────────────────────
 import importlib.util as _ilu
@@ -378,11 +379,7 @@ class CodexAdapter(BaseAgentAdapter):
         )
 
     def health(self) -> bool:
-        try:
-            r = subprocess.run(["codex", "--version"], capture_output=True, timeout=3)
-            return r.returncode == 0
-        except Exception:
-            return False
+        return shutil.which("codex") is not None
 
     def execute(self, request: AgentRequest) -> AgentResult:
         t0 = time.time()
@@ -564,8 +561,13 @@ class AgentGateway:
         # Intentar emitir al Neural Bus si está disponible
         try:
             neural_log = _STATE_DIR / "neural_events.jsonl"
-            with open(neural_log, "a", encoding="utf-8") as f:
-                f.write(json.dumps(event, ensure_ascii=False) + "\n")
+            append_text_durable(
+                neural_log,
+                json.dumps(event, ensure_ascii=False) + "\n",
+                trusted_root=_STATE_DIR,
+                source_surface="agent.gateway.event",
+                session_id=f"agent-gateway:{_STATE_DIR.resolve()}",
+            )
         except Exception:
             pass
 

@@ -146,7 +146,7 @@ def _validation_commands(
     relative_output = _relative_output_path(output_dir)
     commands = [
         "python test_e2e.py",
-        "python -m bago_core.evidence_cli --test",
+        "python -m pytest tests/test_evidence_bundle_gateway.py -q",
     ]
     if mode == "simulated":
         commands.append(

@@ -1,6 +1,8 @@
 """Execution coordination claims for the governed runtime."""
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import sqlite3
 import threading
@@ -671,6 +673,77 @@ def file_resource_key(path: str, manager: Any = None, *, effect_id: str = "files
     else:
         raise ValueError(f"unsupported claim resource effect: {effect_id}")
     return "file:" + os.path.normcase(str(candidate.resolve(strict=False)))
+
+
+def process_working_directory(target: dict[str, Any], manager: Any) -> Path:
+    """Resolve a process cwd from the request or the trusted live workspace."""
+    roots: list[Path] = []
+    for name in ("base_path", "project_root"):
+        value = str(getattr(manager, name, "") or "").strip()
+        if not value:
+            continue
+        try:
+            root = Path(value).expanduser().resolve(strict=True)
+        except (OSError, RuntimeError):
+            continue
+        if root.is_dir() and root not in roots:
+            roots.append(root)
+    if not roots:
+        raise ValueError("process resource requires a trusted workspace root")
+
+    raw_cwd = str(target.get("cwd") or "").strip()
+    candidate = Path(raw_cwd).expanduser() if raw_cwd else roots[0]
+    if not candidate.is_absolute():
+        candidate = roots[0] / candidate
+    resolved = candidate.resolve(strict=True)
+    if not resolved.is_dir() or not any(resolved == root or root in resolved.parents for root in roots):
+        raise ValueError("process cwd is outside the active workspace")
+    return resolved
+
+
+def process_resource_key(
+    target: dict[str, Any],
+    arguments: Any,
+    manager: Any,
+    *,
+    session_id: str,
+) -> str:
+    """Bind concurrent claims to one normalized process operation and cwd."""
+    semantic_target = {
+        str(key): value for key, value in target.items()
+        if str(key) != "_pipeline"
+    }
+    if not str(semantic_target.get("command") or "").strip() and not str(
+        semantic_target.get("executable") or ""
+    ).strip():
+        raise ValueError("process resource requires a command or executable")
+    cwd = process_working_directory(semantic_target, manager)
+    payload = json.dumps(
+        {"target": semantic_target, "arguments": arguments, "cwd": str(cwd)},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return f"process:{str(session_id).strip()}:{digest}"
+
+
+def execution_resource_key(
+    effect_id: str,
+    target: dict[str, Any],
+    arguments: Any,
+    manager: Any,
+    *,
+    session_id: str,
+) -> str:
+    """Canonical concurrency key for effects supported by the claim store."""
+    if effect_id in {"filesystem.read", "filesystem.write"}:
+        return file_resource_key(
+            str(target.get("path") or ""), manager, effect_id=effect_id
+        )
+    if effect_id == "process.execute":
+        return process_resource_key(target, arguments, manager, session_id=session_id)
+    raise ValueError(f"unsupported execution claim effect: {effect_id}")
 
 
 DEFAULT_EXECUTION_CLAIM_STORE = InMemoryExecutionClaimStore()

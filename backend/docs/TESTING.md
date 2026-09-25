@@ -11,7 +11,7 @@ python test_e2e.py
 python -m pytest tests\test_canonical_contract_state.py -q
 python bago_core\cli.py validate
 python test_security_release.py
-python bago_core\cli.py evidence --test
+python -m pytest tests\test_evidence_bundle_gateway.py -q
 python bago_core\cli.py llm list
 python bago_core\cli.py llm start --provider ollama-local --model llama3.2:3b --dry-run
 ```

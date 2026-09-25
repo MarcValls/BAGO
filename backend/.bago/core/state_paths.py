@@ -6,7 +6,7 @@ from bago_core.user_state_paths import state_root as configured_state_root
 
 
 def resolve_state_root(state_root: str | Path | None = None) -> Path:
-    """Resolve and create the canonical mutable-state directory.
+    """Resolve the canonical mutable-state directory without materializing it.
 
     An explicit non-empty path wins. Otherwise the shared user-state contract
     resolves BAGO_STATE_ROOT, then BAGO_USER_ROOT/state, then the per-user
@@ -20,5 +20,4 @@ def resolve_state_root(state_root: str | Path | None = None) -> Path:
         if explicit is not None
         else configured_state_root()
     )
-    root.mkdir(parents=True, exist_ok=True)
     return root

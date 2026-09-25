@@ -3,12 +3,9 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import re
-import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from http.server import BaseHTTPRequestHandler
@@ -19,7 +16,6 @@ from bago_core.atomic_json import write_json_atomic
 
 _REPO_FILE = ".bago_github_repo.json"
 _REPO_RE = re.compile(r"^(?:https?://github\.com/)?([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
-_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def _state(handler) -> Path:
@@ -27,62 +23,34 @@ def _state(handler) -> Path:
     return Path(resolve_state_root(handler))
 
 
-def _non_interactive_env() -> dict:
-    env = dict(os.environ)
-    env["GH_PROMPT_DISABLED"] = "1"
-    return env
+def _run_gh(handler, args: list[str], timeout: int = 30) -> tuple[int, str, str]:
+    """Run fixed GitHub reads through the registered process.inspect owner."""
+    from api_state import get_mgr
+    from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
+    from execution_gateway import ExecutionGateway
+    from execution_request import build_execution_request
+    from execution_adapters.process import ProcessExecutionEffectAdapter
 
-
-def _run_gh(args: list[str], timeout: int = 30) -> tuple[int, str, str]:
+    manager = get_mgr(handler)
+    if manager is None or not ProcessExecutionEffectAdapter.is_read_only_github_argv(args):
+        return 126, "", "Esta operación gh no está permitida como inspección de servidor"
     try:
-        proc = subprocess.run(
-            ["gh", *args],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=timeout,
-            stdin=subprocess.DEVNULL,
-            env=_non_interactive_env(),
+        request = build_execution_request(
+            effect_id="process.inspect", actor_kind="server", principal_id="bago-runtime",
+            session_id=str(getattr(manager, "session_id", "") or ""),
+            source_surface="server.process.inspect",
+            target={
+                "operation": "gh", "executable": "gh",
+                "cwd": str(getattr(manager, "base_path", "") or ""),
+                "timeout_seconds": min(max(int(timeout), 1), 30),
+            }, arguments={"argv": args}, scope="workspace",
         )
-        return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
-    except FileNotFoundError:
-        return 127, "", "gh no está instalado"
-    except subprocess.TimeoutExpired:
-        return 124, "", "GitHub tardó demasiado en responder"
-
-
-def _run_git(args: list[str], timeout: int = 30) -> tuple[int, str, str]:
-    try:
-        proc = subprocess.run(
-            ["git", *args],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=timeout,
-            stdin=subprocess.DEVNULL,
+        result, _authorization = ExecutionGateway().execute_server_owned(
+            request=request, context=ExecutionContext(manager=manager),
         )
-        return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
-    except FileNotFoundError:
-        return 127, "", "git no está instalado"
-    except subprocess.TimeoutExpired:
-        return 124, "", "git tardó demasiado en responder"
-
-
-def _launch_gh_detached(args: list[str]) -> None:
-    """Launch gh in the background so the UI can poll status while the user auths."""
-    kwargs: dict = {
-        "stdin": subprocess.DEVNULL,
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
-    }
-    if os.name == "nt":
-        kwargs["creationflags"] = (
-            getattr(subprocess, "DETACHED_PROCESS", 0)
-            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        )
-    else:
-        kwargs["start_new_session"] = True
-    subprocess.Popen(["gh", *args], **kwargs)
+        return int(result.get("exit_code", 1)), str(result.get("stdout", "")).strip(), str(result.get("stderr", "")).strip()
+    except (ExecutionGatewayError, ValueError, TypeError) as exc:
+        return 126, "", str(exc)
 
 
 def _repo_value(value: object) -> str:
@@ -90,16 +58,6 @@ def _repo_value(value: object) -> str:
     if not match:
         raise ValueError("Usa owner/repo o una URL de GitHub válida")
     return f"{match.group(1)}/{match.group(2)}"
-
-
-def _extract_github_url(raw: str) -> str:
-    lines = [line.strip() for line in raw.splitlines() if line.strip()]
-    for line in lines:
-        parsed = urlparse(line)
-        host = (parsed.hostname or "").lower()
-        if parsed.scheme in ("http", "https") and (host == "github.com" or host.endswith(".github.com")):
-            return line
-    return lines[-1] if lines else ""
 
 
 def _saved_repo(state: Path) -> str | None:
@@ -120,11 +78,11 @@ def _send(handler, code: int, payload: dict) -> None:
 @safe_handler
 def handle_status(handler: "BaseHTTPRequestHandler") -> None:
     state = _state(handler)
-    code, output, error = _run_gh(["auth", "status"])
+    code, output, error = _run_gh(handler, ["auth", "status"])
     repo = _saved_repo(state)
     details = None
     if repo and code == 0:
-        rcode, raw, _ = _run_gh(["api", f"repos/{repo}"])
+        rcode, raw, _ = _run_gh(handler, ["api", f"repos/{repo}"])
         if rcode == 0:
             try:
                 details = json.loads(raw)
@@ -140,7 +98,7 @@ def handle_connect(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     except ValueError as exc:
         send_error(handler, 400, "invalid_repository", str(exc))
         return
-    code, raw, error = _run_gh(["api", f"repos/{repo}"])
+    code, raw, error = _run_gh(handler, ["api", f"repos/{repo}"])
     if code != 0:
         send_error(handler, 403 if code == 4 else 400, "github_repository_unavailable", error or raw or "No se pudo leer el repositorio")
         return
@@ -150,7 +108,8 @@ def handle_connect(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         send_error(handler, 502, "github_invalid_response", "GitHub devolvió una respuesta no válida")
         return
     state = _state(handler)
-    state.mkdir(parents=True, exist_ok=True)
+    # The canonical state.write adapter creates this parent directory as part
+    # of the same server-owned materialization; do not split a second writer.
     write_json_atomic(state / _REPO_FILE, {"repo": repo})
     _send(handler, 200, {"ok": True, "repo": repo, "repository": details, "knowledge_source": f"github:{repo}"})
 
@@ -165,7 +124,7 @@ def handle_contents(handler: "BaseHTTPRequestHandler") -> None:
         _send(handler, 409, {"ok": False, "error": "Vincula un repositorio primero"})
         return
     endpoint = f"repos/{repo}/contents/{path}" if path else f"repos/{repo}/readme"
-    code, raw, error = _run_gh(["api", endpoint])
+    code, raw, error = _run_gh(handler, ["api", endpoint])
     if code != 0:
         _send(handler, 400, {"ok": False, "error": error or raw})
         return
@@ -180,21 +139,7 @@ def handle_contents(handler: "BaseHTTPRequestHandler") -> None:
 
 @safe_handler
 def handle_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
-    name = str(body.get("name") or "").strip()
-    if not re.match(r"^[A-Za-z0-9_.-]{1,100}$", name):
-        _send(handler, 400, {"ok": False, "error": "Nombre de repositorio no válido"})
-        return
-    visibility = "--private" if bool(body.get("private", True)) else "--public"
-    args = ["repo", "create", name, visibility]
-    description = str(body.get("description") or "").strip()
-    if description:
-        args.extend(["--description", description[:500]])
-    code, raw, error = _run_gh(args)
-    if code != 0:
-        _send(handler, 403, {"ok": False, "error": error or raw or "No se pudo crear el repositorio; revisa tus permisos"})
-        return
-    url = _extract_github_url(raw)
-    _send(handler, 200, {"ok": True, "url": url, "output": raw})
+    _send(handler, 410, {"ok": False, "error": "La creación de repositorios requiere el cliente Desktop y su autorización de proceso."})
 
 
 @safe_handler
@@ -210,7 +155,7 @@ def handle_auth_start(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 @safe_handler
 def handle_auth_refresh(handler: "BaseHTTPRequestHandler", body: dict) -> None:
     """Refresh gh auth token by re-checking auth status."""
-    code, output, error = _run_gh(["auth", "status"])
+    code, output, error = _run_gh(handler, ["auth", "status"])
     _send(handler, 200, {
         "ok": True,
         "authenticated": code == 0,
@@ -221,52 +166,17 @@ def handle_auth_refresh(handler: "BaseHTTPRequestHandler", body: dict) -> None:
 
 @safe_handler
 def handle_auth_logout(handler: "BaseHTTPRequestHandler", body: dict) -> None:
-    """Logout from gh CLI."""
-    code, _, error = _run_gh(["auth", "logout", "--hostname", "github.com"])
-    if code == 0:
-        _send(handler, 200, {"ok": True, "message": "Sesión de GitHub cerrada"})
-    else:
-        _send(handler, 400, {"ok": False, "error": error or "No se pudo cerrar sesión"})
+    _send(handler, 410, {"ok": False, "error": "El cierre de sesión requiere el cliente Desktop y su autorización de proceso."})
 
 
 @safe_handler
 def handle_setup(handler: "BaseHTTPRequestHandler", body: dict) -> None:
-    """Configure gh with a token directly (token never stored by BAGO)."""
-    token = str(body.get("token") or "").strip()
-    hostname = str(body.get("hostname") or "github.com").strip()
-    if not token:
-        _send(handler, 400, {"ok": False, "error": "'token' es obligatorio"})
-        return
-    code, _, error = _run_gh(["auth", "login", "--hostname", hostname, "--token", token])
-    if code == 0:
-        _send(handler, 200, {"ok": True, "authenticated": True, "hostname": hostname})
-    else:
-        _send(handler, 400, {"ok": False, "error": error or "Falló la autenticación con gh"})
+    _send(handler, 410, {"ok": False, "error": "La configuración de credenciales requiere el cliente Desktop y su autorización de proceso."})
 
 
 @safe_handler
 def handle_mcp_create(handler: "BaseHTTPRequestHandler", body: dict) -> None:
-    """Invoke the same explicit write policy through BAGO's MCP tool surface."""
-    try:
-        import importlib.util
-        mcp_path = Path(__file__).resolve().parents[1] / "mcp" / "bago_mcp_server.py"
-        spec = importlib.util.spec_from_file_location("bago_mcp_server_ui", mcp_path)
-        if spec is None or spec.loader is None:
-            raise RuntimeError("MCP GitHub no disponible")
-        mcp_server = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mcp_server)
-        mcp_server.READONLY_MODE = False
-        mcp_server.ALLOW_MUTATING = True
-        result = mcp_server._github_create_repository({
-            "name": body.get("name"),
-            "private": body.get("private", True),
-            "description": body.get("description", ""),
-            "confirm": body.get("confirm") is True,
-        })
-        text = str(result.get("content", [{}])[0].get("text", "{}"))
-        _send(handler, 200, json.loads(text))
-    except Exception as exc:
-        _send(handler, 400, {"ok": False, "error": str(exc)})
+    _send(handler, 410, {"ok": False, "error": "La ruta de creación MCP fue retirada; usa la acción Desktop gobernada."})
 
 
 # ─── GitHub Auth State ──────────────────────────────────────────────────
@@ -368,12 +278,12 @@ def handle_github_status(handler: "BaseHTTPRequestHandler") -> None:
     Keeps the previous /github/status contract (repo/repository fields) while
     reporting the richer auth-panel state derived from the hosts payload.
     """
-    code, output, error = _run_gh(["auth", "status", "--json", "hosts"])
+    code, output, error = _run_gh(handler, ["auth", "status", "--json", "hosts"])
     info = _extract_auth_info(code, output, error)
     repo = _saved_repo(_state(handler))
     repository = None
     if repo and info.get("authenticated"):
-        rcode, raw, _ = _run_gh(["api", f"repos/{repo}"])
+        rcode, raw, _ = _run_gh(handler, ["api", f"repos/{repo}"])
         if rcode == 0:
             try:
                 repository = json.loads(raw)
@@ -387,70 +297,7 @@ def handle_github_status(handler: "BaseHTTPRequestHandler") -> None:
 
 @safe_handler
 def handle_github_auth_start(handler: "BaseHTTPRequestHandler", body: dict) -> None:
-    """Start GitHub auth flow. Backend decides the strategy."""
-    code, output, _ = _run_gh(["auth", "status", "--json", "hosts"])
-    if code == 127:
-        _send(handler, 200, {
-            "ok": True,
-            "authenticated": False,
-            "installed": False,
-            "pending": False,
-            "error": "gh no está instalado",
-        })
-        return
-
-    info = _extract_auth_info(code, output, "")
-    if info.get("authenticated"):
-        _send(handler, 200, {
-            "ok": True,
-            "message": "Ya autenticado",
-            "authenticated": True,
-        })
-        return
-
-    hostname = str(body.get("hostname") or "github.com").strip() or "github.com"
-    if not _HOSTNAME_RE.match(hostname):
-        _send(handler, 400, {"ok": False, "error": "hostname no válido"})
-        return
-
-    # Web-based device flow launched in the background: gh opens the browser and
-    # copies the one-time code to the clipboard, while the UI polls for status.
-    try:
-        _launch_gh_detached([
-            "auth", "login",
-            "--hostname", hostname,
-            "--web",
-            "--clipboard",
-            "--git-protocol", "https",
-            "--skip-ssh-key",
-            "--scopes", "repo,workflow",
-        ])
-    except FileNotFoundError:
-        _send(handler, 200, {
-            "ok": True,
-            "authenticated": False,
-            "installed": False,
-            "pending": False,
-            "error": "gh no está instalado",
-        })
-        return
-    except OSError as exc:
-        _send(handler, 200, {
-            "ok": True,
-            "authenticated": False,
-            "pending": False,
-            "error": f"No se pudo iniciar el flujo de autenticación: {exc}",
-        })
-        return
-
-    _send(handler, 200, {
-        "ok": True,
-        "message": "Se abrió el navegador: autoriza el dispositivo con el código del portapapeles y pulsa Refrescar",
-        "authenticated": False,
-        "hostname": hostname,
-        "pending": True,
-        "error": None,
-    })
+    _send(handler, 410, {"ok": False, "error": "La autenticación requiere el cliente Desktop y su autorización de proceso."})
 
 
 # ─── POST /github/auth/refresh ─────────────────────────────────────────
@@ -467,36 +314,7 @@ def handle_github_auth_refresh(handler: "BaseHTTPRequestHandler", body: dict) ->
 
 @safe_handler
 def handle_github_auth_logout(handler: "BaseHTTPRequestHandler", body: dict) -> None:
-    """Logout from GitHub non-interactively (no -y flag in supported gh versions)."""
-    hostname = str(body.get("hostname") or "github.com").strip() or "github.com"
-    if not _HOSTNAME_RE.match(hostname):
-        _send(handler, 400, {"ok": False, "error": "hostname no válido"})
-        return
-
-    args = ["auth", "logout", "--hostname", hostname]
-
-    # gh requires an explicit --user in non-interactive mode; resolve the active
-    # account for the host from the status payload when the body omits it.
-    user = str(body.get("user") or "").strip()
-    if not user:
-        code, output, _ = _run_gh(["auth", "status", "--json", "hosts"])
-        if code == 0:
-            accounts = _parse_status_hosts(output).get(hostname, [])
-            active = next((a for a in accounts if a.get("active")), accounts[0] if accounts else None)
-            if active:
-                user = str(active.get("login") or "").strip()
-    if user:
-        args.extend(["--user", user])
-
-    code, _, error = _run_gh(args)
-    if code == 0:
-        handle_github_status(handler)
-    else:
-        _send(handler, 200, {
-            "ok": True,
-            "authenticated": False,
-            "error": error or "No se pudo cerrar sesión",
-        })
+    _send(handler, 410, {"ok": False, "error": "El cierre de sesión requiere el cliente Desktop y su autorización de proceso."})
 
 
 # ─── POST /github/setup-git ────────────────────────────────────────────
@@ -504,39 +322,7 @@ def handle_github_auth_logout(handler: "BaseHTTPRequestHandler", body: dict) -> 
 
 @safe_handler
 def handle_github_setup_git(handler: "BaseHTTPRequestHandler", body: dict) -> None:
-    """Configure git identity for the workspace (git config, not gh config)."""
-    email = str(body.get("email") or "").strip()
-    username = str(body.get("username") or "").strip()
-
-    if not email or not username:
-        _send(handler, 400, {"ok": False, "error": "email y username son obligatorios"})
-        return
-    if email.startswith("-") or username.startswith("-") or len(email) > 254 or len(username) > 254:
-        _send(handler, 400, {"ok": False, "error": "email o username no válidos"})
-        return
-
-    errors: list[str] = []
-
-    code1, _, err1 = _run_git(["config", "user.email", email])
-    if code1 != 0:
-        errors.append(f"git config email: {err1}")
-
-    code2, _, err2 = _run_git(["config", "user.name", username])
-    if code2 != 0:
-        errors.append(f"git config name: {err2}")
-
-    if errors:
-        _send(handler, 200, {
-            "ok": True,
-            "configured": False,
-            "errors": errors,
-        })
-    else:
-        _send(handler, 200, {
-            "ok": True,
-            "configured": True,
-            "message": f"Git configurado para {username}",
-        })
+    _send(handler, 410, {"ok": False, "error": "La identidad Git requiere el cliente Desktop y su autorización de proceso."})
 
 
 # ─── GET /github/accounts ──────────────────────────────────────────────
@@ -545,7 +331,7 @@ def handle_github_setup_git(handler: "BaseHTTPRequestHandler", body: dict) -> No
 @safe_handler
 def handle_github_accounts(handler: "BaseHTTPRequestHandler") -> None:
     """List all configured GitHub accounts."""
-    code, output, error = _run_gh(["auth", "status", "--json", "hosts"])
+    code, output, error = _run_gh(handler, ["auth", "status", "--json", "hosts"])
     if code != 0:
         _send(handler, 200, {"ok": True, "accounts": [], "count": 0, "error": error or None})
         return

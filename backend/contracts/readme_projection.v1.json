@@ -14,7 +14,7 @@
   ],
   "governance": {
     "authorization_boundary_status": "IMPLEMENTED_SLICE · CRIT_READY",
-    "effect_count": 58,
+    "effect_count": 59,
     "effect_registry_status": "active",
     "effect_registry_version": "1.23.0",
     "execution_gateway_status": "P2_P3_IMPLEMENTED_SLICE · CRIT_READY",

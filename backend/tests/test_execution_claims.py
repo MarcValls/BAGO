@@ -130,6 +130,7 @@ def test_plan_execution_records_claim_identity_and_fencing_evidence(tmp_path, mo
     engine.register_plan(plan)
     manager = SimpleNamespace(
         base_path=tmp_path,
+        state_root=tmp_path / "canonical-state",
         project_root=tmp_path,
         workspace_scope_root=tmp_path,
         workspace_mirror_root=tmp_path,
@@ -164,6 +165,7 @@ def test_plan_execution_records_claim_identity_and_fencing_evidence(tmp_path, mo
     )
 
     assert result["ok"] is True
+    assert (manager.state_root / "execution_claims.sqlite3").is_file()
     outcome = next(iter(plan.governed_work["outcomes"].values()))
     assert outcome["execution_claim_id"]
     assert outcome["execution_resource_key"].endswith("notes\\claimed.txt")
@@ -272,6 +274,39 @@ def test_gateway_uses_sqlite_under_session_manager_state_root(tmp_path):
     assert isinstance(store, SQLiteExecutionClaimStore)
     assert store is gateway.claim_store_for(manager)
     assert store.db_path == (manager.state_root / "execution_claims.sqlite3").resolve()
+
+
+def test_invalid_plan_permit_does_not_materialize_gateway_claim_store(tmp_path):
+    from types import SimpleNamespace
+
+    from authorization_boundary import AuthorizationError
+    from execution_adapter_contract import ExecutionContext
+    from execution_gateway import ExecutionGateway
+    from execution_request import build_execution_request
+    from effect_registry import REGISTRY
+
+    state_root = tmp_path / "untrusted-state"
+    manager = SimpleNamespace(state_root=state_root)
+    request = build_execution_request(
+        effect_id="plan.execute",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="invalid-plan-permit-session",
+        source_surface="test.execution-claim-pre-effect",
+        target={"plan_id": "plan-invalid", "plan_fingerprint": "sha256:invalid"},
+        arguments={},
+        scope=REGISTRY.get("plan.execute").default_scope,
+        policy_version=REGISTRY.digest,
+    )
+
+    with pytest.raises(AuthorizationError):
+        ExecutionGateway().execute(
+            permit_token="not-a-valid-permit",
+            request=request,
+            context=ExecutionContext(manager=manager),
+        )
+
+    assert not state_root.exists()
 
 
 def test_sqlite_expired_lease_can_be_recovered_after_restart(tmp_path):

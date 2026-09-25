@@ -60,6 +60,9 @@ INTERNAL_AUTHORITY_PATHS = {
     # lock and does not authorize or materialize the loop's business effects.
     "backend/.bago/core/execution_claims.py",
     "backend/.bago/core/execution_operations.py",
+    # The singleton CLI startup lease serializes server startup and teardown;
+    # it is process coordination metadata, not application/workspace content.
+    "backend/bago_core/instance_lock.py",
 }
 
 # These implementations are reached only through registered, server-owned
@@ -99,6 +102,11 @@ GATEWAY_OWNED_PATHS = {
     # then claims the one-use ticket before backup, PATH/registry writes or
     # removal. Direct CLI invocation without that ticket is tested fail-closed.
     "backend/.bago/core/execution_adapters/install_uninstall_lifecycle.py",
+    # Database schema helpers are private to DatabaseWriteEffectAdapter; the
+    # default gateway registry binds its only canonical effect_id to that
+    # adapter. The inventory test checks both the runtime registration and
+    # that the schema/materializer helpers have no call sites outside it.
+    "backend/.bago/core/execution_adapters/database_write.py",
 }
 EXECUTION_GATEWAY_PATH = "backend/.bago/core/execution_gateway.py"
 

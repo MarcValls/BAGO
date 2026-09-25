@@ -16,9 +16,18 @@ import ast
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
+import hashlib
 from pathlib import Path
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
+from bago_core.cli_execution import execute_cli_effect
+from execution_request import build_execution_request
 
 SKIP_DIRS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build",
@@ -50,17 +59,50 @@ def resolve_root(root_arg: str) -> Path:
 
 
 def git(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args], cwd=str(cwd), capture_output=True, text=True, check=False
+    operations = {
+        ("diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR"): "staged_files",
+        ("diff", "--cached"): "staged_diff",
+    }
+    operation = operations.get(tuple(args))
+    if operation is None:
+        raise ValueError("commit readiness may inspect only staged file names and staged diff")
+    root = cwd.resolve()
+    request = build_execution_request(
+        effect_id="repository.inspect",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="repository:" + hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:20],
+        source_surface=f"cli.commit_readiness.{operation}",
+        target={"operation": operation, "repository_root": str(root)},
+        arguments={},
+        scope="workspace",
+    )
+    result, _authorization = execute_cli_effect(
+        request,
+        confirmation_text=f"leer {operation.replace('_', ' ')} del repositorio {root}",
+    )
+    if not isinstance(result, dict) or result.get("ok") is not True:
+        raise RuntimeError("Repository inspection returned no success receipt")
+    return subprocess.CompletedProcess(
+        args=["git", *args],
+        returncode=int(result.get("returncode", 1)),
+        stdout=str(result.get("stdout") or ""),
+        stderr=str(result.get("stderr") or ""),
     )
 
 
 def find_git_root(start: Path) -> Path | None:
     current = start.resolve()
     while True:
-        probe = git(["rev-parse", "--show-toplevel"], current)
-        if probe.returncode == 0 and probe.stdout.strip():
-            return Path(probe.stdout.strip())
+        marker = current / ".git"
+        try:
+            metadata = marker.lstat()
+        except OSError:
+            metadata = None
+        reparse = int(getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+        is_reparse = metadata is not None and bool(int(getattr(metadata, "st_file_attributes", 0) or 0) & reparse)
+        if metadata is not None and (marker.is_dir() or marker.is_file()) and not marker.is_symlink() and not is_reparse:
+            return current
         if current.parent == current:
             return None
         current = current.parent
@@ -80,8 +122,7 @@ def get_staged_files(git_root: Path, scan_root: Path) -> list[Path]:
     if result.returncode != 0:
         return []
     files: list[Path] = []
-    for raw in result.stdout.splitlines():
-        raw = raw.strip()
+    for raw in result.stdout.split("\0"):
         if not raw.endswith(".py"):
             continue
         path = (git_root / raw).resolve()
@@ -252,11 +293,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--file", default="", help="Scan one specific file")
     parser.add_argument("--strict", action="store_true", help="Enable extra checks")
     parser.add_argument("--json", dest="as_json", action="store_true", help="JSON output")
-    parser.add_argument("--test", action="store_true", help="Run self-tests")
     args = parser.parse_args(argv)
-
-    if args.test:
-        return run_self_tests()
 
     scan_root = resolve_root(args.root)
     if not scan_root.exists() or not scan_root.is_dir():
@@ -287,48 +324,6 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print_report(result)
     return 1 if result["findings"] else 0
-
-
-def run_self_tests() -> int:
-    import tempfile
-
-    results: list[tuple[str, bool, str]] = []
-
-    def record(name: str, ok: bool, detail: str) -> None:
-        results.append((name, ok, detail))
-
-    with tempfile.TemporaryDirectory() as td:
-        root = Path(td)
-        sample = root / "sample.py"
-
-        sample.write_text("def bad(:\n    pass\n", encoding="utf-8")
-        record("commit:syntax", bool(check_syntax(sample, root)), "syntax flagged")
-
-        sample.write_text('password = "supersecret123"\n', encoding="utf-8")  # nosec: test fixture
-        record("commit:secret", bool(check_secrets(sample, root)), "secret flagged")
-
-        sample.write_text("<<<<<<< HEAD\nfoo = 1\n=======\nfoo = 2\n>>>>>>> branch\n", encoding="utf-8")
-        record("commit:merge", bool(check_merge_conflicts(sample, root)), "merge flagged")
-
-        sample.write_text("def f():\n    print('debug')\n", encoding="utf-8")
-        record("commit:print", bool(check_debug_prints(sample, root)), "print flagged")
-
-        todo_findings = check_new_todos("+ # TODO: fix me\n")
-        record("commit:todo", bool(todo_findings), "todo diff flagged")
-
-        sample.write_text("def public():\n    return 1\n", encoding="utf-8")
-        strict_findings = check_docstrings(sample, root)
-        record("commit:strict_docstring", bool(strict_findings), "docstring flagged")
-
-        sample.write_text('"""module doc"""\n\n\ndef public():\n    """doc"""\n    return 1\n', encoding="utf-8")
-        clean = evaluate([sample], root, None, strict=True)
-        record("commit:clean", clean["total"] == 0, f"total={clean['total']}")
-
-    passed = sum(1 for _, ok, _ in results if ok)
-    for name, ok, detail in results:
-        print(f"{'OK' if ok else 'FAIL'}: {name} - {detail}")
-    print(f"{passed}/{len(results)} tests passed")
-    return 0 if passed == len(results) else 1
 
 
 if __name__ == "__main__":

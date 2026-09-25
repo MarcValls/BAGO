@@ -298,8 +298,6 @@ class SessionManager(
 
     def _prepare_session_mirror(self, project_root: Path) -> dict[str, Any]:
         session_root = self._mirror_session_root(self.session_id)
-        mirror_root = session_root / "workspace"
-        context_root = session_root / "context"
         mirror_enabled = os.environ.get("BAGO_SESSION_MIRROR", "1").strip().casefold()
         if mirror_enabled in {"0", "false", "no", "off"}:
             return {
@@ -312,62 +310,48 @@ class SessionManager(
                 "file_count": 0,
                 "error": "session mirror disabled by BAGO_SESSION_MIRROR",
             }
+        try:
+            from execution_gateway import ExecutionContext, ExecutionGateway
+            from execution_request import build_execution_request
 
-        stats = self._workspace_stats(project_root)
-        workspace_bytes = int(stats["bytes"])
-        file_count = int(stats["files"])
-        required_bytes = max(workspace_bytes * 2, 0)
-        free_bytes = 0
-        error = str(stats.get("error", ""))
-        try:
-            free_bytes = shutil.disk_usage(tempfile.gettempdir()).free
-        except Exception as exc:
-            if not error:
-                error = str(exc)
-        if not error and required_bytes and free_bytes < required_bytes:
-            error = f"insufficient disk space: free={free_bytes} required={required_bytes}"
-        if error:
-            return {
-                "ok": False,
-                "mirror_root": project_root,
-                "context_root": project_root / ".gabo" / "context",
-                "session_root": session_root,
-                "required_bytes": required_bytes,
-                "free_bytes": free_bytes,
-                "file_count": file_count,
-                "error": error,
-            }
-        try:
-            if session_root.exists():
-                shutil.rmtree(session_root)
-            mirror_root.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(
-                project_root,
-                mirror_root,
-                ignore=self._mirror_ignore,
-                symlinks=True,
+            request = build_execution_request(
+                effect_id="workspace.mirror.prepare",
+                actor_kind="server",
+                principal_id="bago-session-manager",
+                session_id=self.session_id,
+                source_surface="server.session_manager.mirror",
+                target={
+                    "project_root": str(Path(project_root).expanduser().resolve()),
+                    "session_root": str(session_root),
+                },
+                arguments={},
+                scope="session",
             )
-            context_root.mkdir(parents=True, exist_ok=True)
-            return {
-                "ok": True,
-                "mirror_root": mirror_root,
-                "context_root": context_root,
-                "session_root": session_root,
-                "required_bytes": required_bytes,
-                "free_bytes": free_bytes,
-                "file_count": file_count,
-                "error": "",
-            }
+            result, _authorization = ExecutionGateway().execute_server_owned(
+                request=request,
+                context=ExecutionContext(manager=self),
+            )
+            payload = dict(result) if isinstance(result, dict) else {}
+            if payload.get("ok"):
+                payload["mirror_root"] = Path(str(payload["mirror_root"]))
+                payload["context_root"] = Path(str(payload["context_root"]))
+                payload["session_root"] = Path(str(payload["session_root"]))
+            else:
+                payload["mirror_root"] = Path(str(payload.get("mirror_root") or project_root))
+                payload["context_root"] = Path(str(payload.get("context_root") or (project_root / ".gabo" / "context")))
+                payload["session_root"] = Path(str(payload.get("session_root") or session_root))
+            return payload
         except Exception as exc:
+            error_code = str(getattr(exc, "code", "") or "").strip()
             return {
                 "ok": False,
                 "mirror_root": project_root,
                 "context_root": project_root / ".gabo" / "context",
                 "session_root": session_root,
-                "required_bytes": required_bytes,
-                "free_bytes": free_bytes,
-                "file_count": file_count,
-                "error": str(exc),
+                "required_bytes": 0,
+                "free_bytes": 0,
+                "file_count": 0,
+                "error": f"{error_code}: {exc}" if error_code else str(exc),
             }
 
     def __init__(
@@ -395,7 +379,6 @@ class SessionManager(
         )
         self.state_root = resolve_state_root(state_root)
         self.state_dir = self.state_root
-        self.state_dir.mkdir(parents=True, exist_ok=True)
         # CANON[SS-002]: workspace binding comes from explicit project and workspace roots.
         self.framework_root = resolve_framework_root()
         self.project_root = self.base_path
@@ -418,6 +401,7 @@ class SessionManager(
 
         self.config = ConfigManager(base_path=str(self.base_path), state_root=str(self.state_root))
         self.credentials = CredentialManager(base_path=str(self.base_path), state_root=str(self.state_root))
+        self.credentials.bind_session_manager(self)
 
         self.store = ContextStore(self.session_id, base_dir=self.state_dir)
         if not self.store.get_meta():
@@ -475,12 +459,12 @@ class SessionManager(
         self.last_cognitive_benchmark: dict[str, Any] | None = None
         self.last_context_certification: dict[str, Any] | None = None
         self._gabo: GaboConnector = GaboConnector(self.project_root)
-        self.directory_context = DirectoryContextEngine(self.base_path, self.workspace_context_root)
+        self.directory_context = DirectoryContextEngine(self.base_path, self.workspace_context_root, manager=self)
         self.last_working_set: dict[str, Any] | None = None
 
         self.path_guard = PathGuard(dev_mode=self.dev_mode)
         tool_log_path = self.state_dir / "tool_log.jsonl"
-        self.tool_logger = ToolLogger(log_path=str(tool_log_path))
+        self.tool_logger = ToolLogger(log_path=str(tool_log_path), trusted_root=self.state_dir)
         self.claim_validator = ClaimValidator()
 
         self.created_at = time.time()
@@ -534,6 +518,7 @@ class SessionManager(
 
         self.config = ConfigManager(base_path=str(self.base_path), state_root=str(self.state_root))
         self.credentials = CredentialManager(base_path=str(self.base_path), state_root=str(self.state_root))
+        self.credentials.bind_session_manager(self)
         self.script_registry = ScriptRegistry(repo_root=self.base_path, event_sink=self.store)
         self.dev_mode = os.environ.get("BAGO_DEV_MODE", "").strip() in ("1", "true", "TRUE", "yes", "YES")
         self.tool_registry = ToolRegistry(script_registry=self.script_registry, workspace_root=self.base_path, dev_mode=self.dev_mode)
@@ -549,7 +534,7 @@ class SessionManager(
         self.canon_cache = CanonCache(self.base_path, self.workspace_context_root)
         self.path_guard = PathGuard(dev_mode=self.dev_mode)
         self._gabo = GaboConnector(self.project_root)
-        self.directory_context = DirectoryContextEngine(self.base_path, self.workspace_context_root)
+        self.directory_context = DirectoryContextEngine(self.base_path, self.workspace_context_root, manager=self)
         self.last_working_set = None
         self._adapter = None
         self._init_info = self._init_adapter()
@@ -638,99 +623,18 @@ class SessionManager(
         return resolved
 
     def attach_context(self, paths: list[str] | None = None) -> dict[str, Any]:
-        work_root = Path(getattr(self, "base_path", self.project_root)).resolve()
-        context_root = Path(getattr(self, "workspace_context_root", self.workspace_state_root / "context")).resolve()
-        context_root.mkdir(parents=True, exist_ok=True)
-        selected = self._resolve_context_selection(paths)
-        bundle_root = context_root / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        bundle_root.mkdir(parents=True, exist_ok=True)
-        copied: list[str] = []
-        copied_files = 0
-        for source in selected:
-            rel = source.relative_to(work_root)
-            target = bundle_root / rel
-            if source.is_dir():
-                shutil.copytree(
-                    source,
-                    target,
-                    dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns(*SESSION_MIRROR_EXCLUDED_DIRS),
-                )
-                copied.append(rel.as_posix())
-                continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
-            copied.append(rel.as_posix())
-            copied_files += 1
-        manifest = {
-            "session_id": self.session_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "work_root": str(work_root),
-            "context_root": str(context_root),
-            "bundle_root": str(bundle_root),
-            "requested_paths": [str(item) for item in (paths or []) if str(item).strip()],
-            "resolved_paths": [str(path) for path in selected],
-            "copied_paths": copied,
-            "copy_count": len(copied),
-            "file_count": copied_files,
-            "mirror_ready": bool(getattr(self, "workspace_mirror_ready", False)),
-        }
-        (bundle_root / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-        self.store.update_meta({
-            "last_context_bundle": manifest,
-            "workspace_context_root": str(context_root),
-        })
         return {
-            "ok": True,
-            "message": f"Contexto adjuntado en {bundle_root} ({len(copied)} rutas)",
-            "data": manifest,
+            "ok": False,
+            "authorization_required": True,
+            "message": "Adjuntar contexto requiere autorización explícita mediante POST /context/attach.",
         }
 
     def sync_workspace_mirror(self) -> dict[str, Any]:
-        src = Path(getattr(self, "base_path", self.project_root)).resolve()
-        dst = Path(getattr(self, "project_root", self.base_path)).resolve()
-        if src == dst:
-            return {
-                "ok": False,
-                "blocked": True,
-                "message": "No hay espejo activo para sincronizar.",
-                "source_root": str(src),
-                "target_root": str(dst),
-            }
-        copied: list[str] = []
-        for path in sorted(src.rglob("*"), key=lambda item: str(item).lower()):
-            try:
-                rel = path.relative_to(src)
-            except Exception:
-                continue
-            if any(part in SESSION_MIRROR_EXCLUDED_DIRS for part in rel.parts):
-                continue
-            target = dst / rel
-            try:
-                if path.is_dir():
-                    target.mkdir(parents=True, exist_ok=True)
-                    continue
-                if path.is_file():
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(path, target)
-                    copied.append(rel.as_posix())
-            except Exception:
-                continue
-        self.store.update_meta({
-            "last_mirror_sync": {
-                "source_root": str(src),
-                "target_root": str(dst),
-                "files_synced": len(copied),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-        })
         return {
-            "ok": True,
-            "message": f"Espejo sincronizado hacia {dst} ({len(copied)} archivos)",
-            "source_root": str(src),
-            "target_root": str(dst),
-            "files_synced": len(copied),
-            "sample_files": copied[:20],
+            "ok": False,
+            "blocked": True,
+            "authorization_required": True,
+            "message": "La sincronización directa está deshabilitada; usa ExecutionGateway con un Permit explícito.",
         }
 
 # ── Quick test ──────────────────────────────────────────────────────
