@@ -77,7 +77,7 @@ jobs:
         working-directory: backend
         run: |
           python bago_core/cli.py validate
-          python -m pytest -q
+          python scripts/run_backend_test_inventory.py
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test_clean_install.ps1
           npm ci
           npm run manager:test-jobs

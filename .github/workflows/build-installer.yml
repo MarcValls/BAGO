@@ -56,7 +56,7 @@ jobs:
           npm run build
           npm run typecheck
           npm run test:frontend
-          python -m pytest backend/tests -q
+          python backend/scripts/run_backend_test_inventory.py
 
       - name: Resolve current version
         id: version
