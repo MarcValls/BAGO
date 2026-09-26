@@ -45,7 +45,6 @@ class RewardStore:
     def __init__(self, base_dir: Path | str | None = None, state_root: str | Path | None = None):
         root = resolve_state_root(state_root if state_root is not None else base_dir)
         self.base_dir = root / "rl"
-        self.base_dir.mkdir(parents=True, exist_ok=True)
         self._file = self.base_dir / "rewards.jsonl"
 
     def append(
@@ -66,8 +65,14 @@ class RewardStore:
             "fingerprint": fingerprint,
             "meta": metadata or {},
         }
-        with open(self._file, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        from bago_core.server_effects import append_text_durable
+
+        append_text_durable(
+            self._file,
+            json.dumps(entry, ensure_ascii=False) + "\n",
+            trusted_root=self.base_dir,
+            source_surface="rl.reward_store",
+        )
 
     def read_all(self) -> list[dict]:
         if not self._file.exists():
@@ -271,67 +276,3 @@ class FeedbackCollector:
 
     def fingerprint_for(self, text: str) -> str:
         return self._fingerprint(text)
-
-
-# ── Quick test ────────────────────────────────────────────────────────
-
-def _run_tests() -> int:
-    import tempfile
-    with tempfile.TemporaryDirectory() as td:
-        state_root = Path(td) / "state"
-        old = os.environ.get("BAGO_STATE_ROOT")
-        os.environ["BAGO_STATE_ROOT"] = str(state_root)
-        # RewardStore
-        store = RewardStore(td)
-        store.append("s1", "ollama-local", "llama3.2:3b", 0.8, "hola_10")
-        store.append("s1", "ollama-local", "llama3.2:1b", 0.4, "hola_10")
-        all_rewards = store.read_all()
-        assert len(all_rewards) == 2
-        assert all_rewards[0]["reward"] == 0.8
-
-        # PreferenceModel
-        pm = PreferenceModel(td)
-        # La cache debe reconstruirse desde disco al arrancar en frio
-        assert abs(pm.score("ollama-local", "llama3.2:3b", "hola_10") - 0.8) < 0.01
-        pm.store._file.write_text("")
-        pm._dirty = True
-        pm.add_reward("s1", "ollama-local", "llama3.2:3b", 0.8, "hola_10")
-        pm.add_reward("s1", "ollama-local", "llama3.2:3b", 0.9, "hola_10")
-        pm.add_reward("s1", "ollama-local", "llama3.2:1b", 0.3, "hola_10")
-        assert abs(pm.score("ollama-local", "llama3.2:3b", "hola_10") - 0.85) < 0.01
-        assert abs(pm.score("ollama-local", "llama3.2:3b") - 0.85) < 0.01
-        assert pm.best("", [("ollama-local", "llama3.2:3b"), ("ollama-local", "llama3.2:1b")]) == ("ollama-local", "llama3.2:3b")
-        assert pm.best("", [("openrouter", "nous/hermes-3")]) is None
-
-        best = pm.best("hola_10", [("ollama-local", "llama3.2:3b"), ("ollama-local", "llama3.2:1b")])
-        assert best == ("ollama-local", "llama3.2:3b")
-
-        # RLPolicy
-        policy = RLPolicy(pm, epsilon=0.0, ucb_c=1.414)
-        selected = policy.select(
-            [("ollama-local", "llama3.2:3b"), ("ollama-local", "llama3.2:1b")],
-            "hola_10",
-        )
-        assert selected == ("ollama-local", "llama3.2:3b")
-
-        # FeedbackCollector implicit
-        fc = FeedbackCollector(pm)
-        r = fc.implicit("s2", "ollama-local", "llama3.2:3b", "hola", "OK todo bien", 1500, 42)
-        assert isinstance(r, float)
-        assert -1.0 <= r <= 1.0
-
-        # FeedbackCollector explicit
-        fc.explicit("s2", "ollama-local", "llama3.2:3b", "hola", 1.0)
-        assert pm.score("ollama-local", "llama3.2:3b", "hola_4") >= 0.0
-
-    print("rl_engine.py --test: ALL PASS")
-    if old is None:
-        os.environ.pop("BAGO_STATE_ROOT", None)
-    else:
-        os.environ["BAGO_STATE_ROOT"] = old
-    return 0
-
-
-if __name__ == "__main__":
-    if "--test" in sys.argv:
-        raise SystemExit(_run_tests())

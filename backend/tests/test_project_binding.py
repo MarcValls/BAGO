@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,6 +51,9 @@ class _DummyConfig:
 class _DummyCreds:
     def __init__(self, *args, **kwargs):
         pass
+
+    def bind_session_manager(self, _manager) -> None:
+        return None
 
     def required_keys(self, provider: str) -> list[str]:
         return []
@@ -297,6 +302,38 @@ def test_project_wizard_uses_exact_active_path_not_parent(tmp_path, monkeypatch)
     assert repl_menu.BagoReplMenuMixin._project_wizard(repl, project) is True
 
     assert calls == [project]
+
+
+@pytest.mark.parametrize(("choice", "command"), [(2, "cmd_init"), (3, "cmd_link")])
+def test_project_wizard_routes_project_writes_through_authorized_cli_adapter(
+    tmp_path, monkeypatch, choice, command,
+):
+    project = tmp_path / "project"
+    project.mkdir()
+    calls = []
+
+    class DummyMgr:
+        def rebind_project_root(self, root):
+            calls.append(("bind", Path(root)))
+
+    class DummyREPL:
+        mgr = DummyMgr()
+
+        def _wizard_tty_ok(self, *_args):
+            return True
+
+        def _navigate(self, *_args):
+            return choice
+
+    module = SimpleNamespace(**{
+        command: lambda root: calls.append((command, root)) or 0,
+    })
+    monkeypatch.setattr(repl_menu, "_load_tool_module", lambda *_args: module)
+    monkeypatch.setattr(repl_menu.R, "ok", lambda text: text)
+    monkeypatch.setattr(repl_menu.R, "warn", lambda text: text)
+
+    assert repl_menu.BagoReplMenuMixin._project_wizard(DummyREPL(), project) is True
+    assert calls[-1] == (command, str(project))
 
 
 def test_menu_does_not_auto_audit_invalid_workspace(tmp_path, monkeypatch, capsys):

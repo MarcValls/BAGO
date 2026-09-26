@@ -30,6 +30,62 @@ def _bundle(version: str = "4.8.5") -> bytes:
     return output.getvalue()
 
 
+def _write_helper_ticket(
+    helper: Path,
+    bundle: Path,
+    install_root: Path,
+    state_path: Path,
+    expected_version: str,
+    expected_sha256: str,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    backend_pid: int = 0,
+) -> tuple[Path, str, str]:
+    import authorization_boundary as auth
+    from execution_adapters.system_update import SystemUpdateApplyEffectAdapter
+    from execution_request import build_execution_request
+
+    monkeypatch.setenv("BAGO_STATE_ROOT", str(bundle.parent / "user-state"))
+    ledger_path = auth.authorization_ledger_path().resolve()
+    target = {
+        "bundle_path": str(bundle.resolve()),
+        "bundle_sha256": expected_sha256.lower(),
+        "helper_path": str(helper.resolve()),
+        "helper_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
+        "authorization_ledger_path": str(ledger_path),
+        "install_root": str(install_root.resolve()),
+        "state_path": str(state_path.resolve()),
+        "expected_version": expected_version,
+        "backend_pid": str(backend_pid),
+        "restart": False,
+    }
+    request = build_execution_request(
+        effect_id="system.update.apply",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="test-session",
+        source_surface="api.release.apply",
+        target=target,
+        arguments={},
+        scope="system",
+    )
+    boundary = auth.AuthorizationBoundary()
+    challenge = boundary.create_challenge(request, interaction_id="test-update-helper")
+    approved = boundary.approve_challenge(
+        challenge_id=challenge["challenge_id"],
+        interaction_id="test-update-helper",
+        session_id=request.session_id,
+        channel="ui-react",
+    )
+    authorization = boundary.consume_permit(
+        permit_token=approved["permit"]["token"], request=request,
+    )
+    ticket, nonce, permit_id = SystemUpdateApplyEffectAdapter._write_helper_ticket(
+        request, authorization, bundle,
+    )
+    return ticket, nonce, permit_id
+
+
 def _release(payload: bytes, *, digest: str | None = None) -> dict:
     sha = digest or hashlib.sha256(payload).hexdigest()
     return {
@@ -49,7 +105,7 @@ def _release(payload: bytes, *, digest: str | None = None) -> dict:
             },
             {
                 "name": "bago-4.8.5-distribution.zip",
-                "browser_download_url": "http://127.0.0.1/distribution.zip",
+                "browser_download_url": "https://github.com/MarcValls/BAGO/releases/download/v4.8.5/distribution.zip",
                 "size": len(payload),
                 "digest": f"sha256:{sha}",
             },
@@ -69,6 +125,14 @@ class _Response(io.BytesIO):
         self.close()
 
 
+class _FixtureOpener:
+    def __init__(self, payload: bytes):
+        self._payload = payload
+
+    def open(self, *_args, **_kwargs):
+        return _Response(self._payload)
+
+
 @pytest.fixture
 def isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     install_root = tmp_path / "BAGO"
@@ -76,7 +140,6 @@ def isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     (install_root / "electron-viewer").mkdir()
     (install_root / "electron-viewer" / "BAGO.exe").write_bytes(b"MZold")
     monkeypatch.setenv("BAGO_UPDATE_ROOT", str(tmp_path / "updates"))
-    monkeypatch.setenv("BAGO_UPDATE_ALLOW_INSECURE_LOCAL", "1")
     monkeypatch.setattr(updater, "_installation", lambda: {
         "ready": True,
         "root": str(install_root),
@@ -110,6 +173,45 @@ def test_check_uses_latest_stable_distribution_asset(isolated: Path, monkeypatch
     assert result["installation"]["root"] == str(isolated)
 
 
+def test_request_json_uses_release_network_policy(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict = {}
+    payload = json.dumps({"tag_name": "v4.8.5", "assets": []}).encode("utf-8")
+
+    def fake_gateway_urlopen(request, *, timeout, network_class):
+        captured.update({"url": request.full_url, "timeout": timeout, "network_class": network_class})
+        return _Response(payload)
+
+    monkeypatch.setattr(updater, "gateway_urlopen", fake_gateway_urlopen)
+
+    result = updater._request_json(updater.REPO_API)
+
+    assert result["tag_name"] == "v4.8.5"
+    assert captured == {
+        "url": updater.REPO_API,
+        "timeout": 20,
+        "network_class": "release_metadata",
+    }
+
+
+def test_release_download_blocks_unapproved_url_before_creating_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache = tmp_path / "release-cache"
+    monkeypatch.setattr(updater, "_update_root", lambda: cache)
+    from bago_core.server_effects import download_release_bundle
+
+    with pytest.raises(Exception) as blocked:
+        download_release_bundle(
+            url="https://evil.example/payload.zip",
+            sha256="a" * 64,
+            size=10,
+            filename="bago-v4.8.5-distribution.zip",
+        )
+
+    assert blocked.value.code == "network_read_release_host_blocked"
+    assert not cache.exists()
+
+
 def test_check_uses_cached_release_when_github_is_temporarily_offline(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     payload = _bundle()
     monkeypatch.setattr(updater, "_request_json", lambda _url: _release(payload))
@@ -127,7 +229,7 @@ def test_check_uses_cached_release_when_github_is_temporarily_offline(isolated: 
 def test_prepare_download_verifies_sha_and_payload(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     payload = _bundle()
     monkeypatch.setattr(updater, "_request_json", lambda _url: _release(payload))
-    monkeypatch.setattr(updater.urllib.request, "urlopen", lambda *_args, **_kwargs: _Response(payload))
+    monkeypatch.setattr(updater.urllib.request, "build_opener", lambda *_args, **_kwargs: _FixtureOpener(payload))
 
     started = updater.start_update("v4.8.5")
     state = _wait_for("ready")
@@ -142,7 +244,7 @@ def test_prepare_rejects_changed_payload(isolated: Path, monkeypatch: pytest.Mon
     payload = _bundle()
     wrong_digest = "0" * 64
     monkeypatch.setattr(updater, "_request_json", lambda _url: _release(payload, digest=wrong_digest))
-    monkeypatch.setattr(updater.urllib.request, "urlopen", lambda *_args, **_kwargs: _Response(payload))
+    monkeypatch.setattr(updater.urllib.request, "build_opener", lambda *_args, **_kwargs: _FixtureOpener(payload))
 
     assert updater.start_update("v4.8.5")["ok"] is True
     state = _wait_for("error")
@@ -184,7 +286,11 @@ def test_start_update_blocks_parallel_release_discovery(isolated: Path, monkeypa
     assert updater.status()["status"] == "idle"
 
 
-def test_apply_launches_external_helper_for_active_installation(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_launches_external_helper_only_through_authorized_gateway(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import authorization_boundary as auth
+    from execution_gateway import ExecutionContext, ExecutionGateway
+    from execution_request import build_execution_request
+
     bundle = Path(updater._update_root()) / "verified.zip"
     bundle.parent.mkdir(parents=True, exist_ok=True)
     bundle.write_bytes(b"verified")
@@ -198,75 +304,67 @@ def test_apply_launches_external_helper_for_active_installation(isolated: Path, 
         captured["kwargs"] = kwargs
         return _Process()
 
-    monkeypatch.setattr(updater.subprocess, "Popen", fake_popen)
+    import execution_adapters.system_update as system_update
+    import update_manager as adapter_updater
+    monkeypatch.setattr(system_update.subprocess, "Popen", fake_popen)
     updater._set_state(
         status="ready",
         latest="v4.8.5",
-        detail={"bundle_path": str(bundle), "sha256": "a" * 64},
+        detail={"bundle_path": str(bundle), "sha256": hashlib.sha256(b"verified").hexdigest()},
     )
-
-    result = updater.apply_update()
+    monkeypatch.setattr(adapter_updater, "_installation", lambda: {
+        "ready": True, "root": str(isolated), "viewer": str(isolated / "electron-viewer" / "BAGO.exe"), "reason": "",
+    })
+    monkeypatch.setattr(auth, "state_root", lambda: Path(updater._update_root()) / "auth")
+    descriptor = updater.update_apply_descriptor()
+    class Manager:
+        session_id = "release-session"
+    manager = Manager()
+    request = build_execution_request(
+        effect_id="system.update.apply", actor_kind="user",
+        principal_id="interactive-local-user", session_id=manager.session_id,
+        source_surface="test.release.apply", target=descriptor,
+        arguments={}, scope="system",
+    )
+    boundary = auth.AuthorizationBoundary()
+    challenge = boundary.create_challenge(request, interaction_id="release-apply-test")
+    permit = boundary.approve_challenge(
+        challenge_id=challenge["challenge_id"], interaction_id="release-apply-test",
+        session_id=request.session_id, channel="ui-react",
+    )["permit"]
+    result, _ = ExecutionGateway(boundary).execute(
+        permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager),
+    )
 
     assert result["ok"] is True
     assert result["status"] == "applying"
     assert "-InstallRoot" in captured["command"]
     assert str(isolated) in captured["command"]
-
-
-def test_apply_update_blocks_parallel_requests(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    bundle = Path(updater._update_root()) / "verified.zip"
-    bundle.parent.mkdir(parents=True, exist_ok=True)
-    bundle.write_bytes(b"verified")
-    entered = threading.Event()
-    release = threading.Event()
-    results: list[dict] = []
-
-    class _Process:
-        pass
-
-    def fake_popen(command, **kwargs):
-        entered.set()
-        assert release.wait(timeout=3)
-        return _Process()
-
-    monkeypatch.setattr(updater.subprocess, "Popen", fake_popen)
-    updater._set_state(
-        status="ready",
-        latest="v4.8.5",
-        detail={"bundle_path": str(bundle), "sha256": "a" * 64},
-    )
-
-    worker = threading.Thread(target=lambda: results.append(updater.apply_update()))
-    worker.start()
-    assert entered.wait(timeout=3)
-
-    concurrent = updater.apply_update()
-
-    release.set()
-    worker.join(timeout=3)
-
-    assert concurrent["ok"] is False
-    assert concurrent["error"] == "La actualización aún no está descargada y verificada"
-    assert results and results[0]["ok"] is True
-    assert updater.status()["status"] == "applying"
+    assert captured["command"][captured["command"].index("-AuthorizationLedgerPath") + 1] == request.target["authorization_ledger_path"]
+    ticket_arg = captured["command"][captured["command"].index("-AuthorizationTicketPath") + 1]
+    ticket = json.loads(Path(ticket_arg).read_text(encoding="utf-8"))
+    assert ticket["effect_id"] == "system.update.apply"
+    assert ticket["operation_fingerprint"] == request.fingerprint
+    assert ticket["target"] == request.target
 
 
 def test_apply_rejects_unprepared_update_with_actionable_error(isolated: Path) -> None:
     updater._set_state(status="idle", error="")
 
-    result = updater.apply_update()
-
-    assert result["ok"] is False
-    assert result["error"] == "La actualización aún no está descargada y verificada"
+    with pytest.raises(RuntimeError, match="aún no está descargada y verificada"):
+        updater.update_apply_descriptor()
 
 
-def test_external_helper_persists_error_state_when_preflight_fails(tmp_path: Path) -> None:
+def test_external_helper_persists_error_state_when_preflight_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     install_root = tmp_path / "invalid-install"
     install_root.mkdir()
     state_path = install_root / "state" / "updates" / "release-update.json"
     bundle = tmp_path / "release.zip"
     bundle.write_bytes(b"placeholder")
     helper = API_DIR / "apply_release_update.ps1"
+    ticket, nonce, permit_id = _write_helper_ticket(
+        helper, bundle, install_root, state_path, "v4.8.5", "0" * 64, monkeypatch,
+    )
 
     completed = subprocess.run([
         "pwsh", "-NoProfile",
@@ -276,6 +374,10 @@ def test_external_helper_persists_error_state_when_preflight_fails(tmp_path: Pat
         "-StatePath", str(state_path),
         "-ExpectedVersion", "v4.8.5",
         "-ExpectedSha256", "0" * 64,
+        "-AuthorizationLedgerPath", str(bundle.parent / "user-state" / "authorization" / "ledger.json"),
+        "-AuthorizationTicketPath", str(ticket),
+        "-AuthorizationTicketNonce", nonce,
+        "-PermitId", permit_id,
     ], check=False, timeout=30, capture_output=True, text=True)
 
     assert completed.returncode != 0
@@ -284,8 +386,58 @@ def test_external_helper_persists_error_state_when_preflight_fails(tmp_path: Pat
     assert "Destino de actualización inseguro" in state["error"]
 
 
-@pytest.mark.skipif(os.name != "nt", reason="El helper de aplicación es específico de Windows")
-def test_external_helper_swaps_components_and_keeps_state(tmp_path: Path) -> None:
+def test_external_helper_direct_invocation_blocks_before_any_effect(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install_root = tmp_path / "BAGO"
+    install_root.mkdir()
+    state_path = install_root / "state" / "updates" / "release-update.json"
+    bundle = tmp_path / "release.zip"
+    bundle.write_bytes(b"placeholder")
+    helper = API_DIR / "apply_release_update.ps1"
+    ticket = bundle.parent / ".apply-forged-permit.json"
+    monkeypatch.setenv("BAGO_STATE_ROOT", str(tmp_path / "isolated-state"))
+    ledger_path = tmp_path / "isolated-state" / "authorization" / "ledger.json"
+    ticket.write_text(json.dumps({
+        "schema": "bago.system-update-helper-ticket.v1",
+        "nonce": "a" * 32,
+        "permit_id": "forged-permit",
+        "operation_fingerprint": "b" * 64,
+        "effect_id": "system.update.apply",
+        "session_id": "forged-session",
+        "target": {
+            "authorization_ledger_path": str(ledger_path),
+            "bundle_path": str(bundle.resolve()),
+            "bundle_sha256": "0" * 64,
+            "install_root": str(install_root.resolve()),
+            "state_path": str(state_path.resolve()),
+            "expected_version": "v4.8.5",
+            "backend_pid": "0",
+            "restart": False,
+            "helper_path": str(helper.resolve()),
+            "helper_sha256": hashlib.sha256(helper.read_bytes()).hexdigest(),
+        },
+    }), encoding="utf-8")
+
+    completed = subprocess.run([
+        "pwsh", "-NoProfile",
+        "-File", str(helper),
+        "-BundlePath", str(bundle),
+        "-InstallRoot", str(install_root),
+        "-StatePath", str(state_path),
+        "-ExpectedVersion", "v4.8.5",
+        "-ExpectedSha256", "0" * 64,
+        "-AuthorizationLedgerPath", str(ledger_path),
+        "-AuthorizationTicketPath", str(ticket),
+        "-AuthorizationTicketNonce", "a" * 32,
+        "-PermitId", "forged-permit",
+    ], check=False, timeout=30, capture_output=True, text=True)
+
+    assert completed.returncode != 0
+    assert bundle.read_bytes() == b"placeholder"
+    assert not state_path.exists()
+    assert not (install_root / "backups").exists()
+
+
+def test_external_helper_rejects_ticket_for_changed_target_before_effects(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     install_root = tmp_path / "BAGO"
     backend = install_root / "backend"
     viewer = install_root / "electron-viewer"
@@ -299,6 +451,53 @@ def test_external_helper_swaps_components_and_keeps_state(tmp_path: Path) -> Non
     payload = _bundle()
     bundle.write_bytes(payload)
     helper = API_DIR / "apply_release_update.ps1"
+    digest = hashlib.sha256(payload).hexdigest()
+    ticket, nonce, permit_id = _write_helper_ticket(
+        helper, bundle, install_root, state_path, "v4.8.5", digest, monkeypatch,
+    )
+    ticket_data = json.loads(ticket.read_text(encoding="utf-8"))
+    ticket_data["target"]["install_root"] = str((tmp_path / "other").resolve())
+    ticket.write_text(json.dumps(ticket_data), encoding="utf-8")
+
+    completed = subprocess.run([
+        "pwsh", "-NoProfile",
+        "-File", str(helper),
+        "-BundlePath", str(bundle),
+        "-InstallRoot", str(install_root),
+        "-StatePath", str(state_path),
+        "-ExpectedVersion", "v4.8.5",
+        "-ExpectedSha256", digest,
+        "-AuthorizationLedgerPath", str(bundle.parent / "user-state" / "authorization" / "ledger.json"),
+        "-AuthorizationTicketPath", str(ticket),
+        "-AuthorizationTicketNonce", nonce,
+        "-PermitId", permit_id,
+    ], check=False, timeout=30, capture_output=True, text=True)
+
+    assert completed.returncode != 0
+    assert bundle.read_bytes() == payload
+    assert not state_path.exists()
+    assert not (install_root / "backups").exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="El helper de aplicación es específico de Windows")
+def test_external_helper_swaps_components_and_keeps_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install_root = tmp_path / "BAGO"
+    backend = install_root / "backend"
+    viewer = install_root / "electron-viewer"
+    (backend / "bago_core").mkdir(parents=True)
+    viewer.mkdir()
+    (backend / "release_version.txt").write_text("4.8.2", encoding="utf-8")
+    (backend / "bago_core" / "launcher.py").write_text("print('old')", encoding="utf-8")
+    (viewer / "BAGO.exe").write_bytes(b"MZold")
+    state_path = install_root / "state" / "updates" / "release-update.json"
+    bundle = tmp_path / "release.zip"
+    payload = _bundle()
+    bundle.write_bytes(payload)
+    helper = API_DIR / "apply_release_update.ps1"
+    expected_sha256 = hashlib.sha256(payload).hexdigest()
+    ticket, nonce, permit_id = _write_helper_ticket(
+        helper, bundle, install_root, state_path, "v4.8.5", expected_sha256, monkeypatch,
+    )
 
     subprocess.run([
         "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
@@ -307,7 +506,11 @@ def test_external_helper_swaps_components_and_keeps_state(tmp_path: Path) -> Non
         "-InstallRoot", str(install_root),
         "-StatePath", str(state_path),
         "-ExpectedVersion", "v4.8.5",
-        "-ExpectedSha256", hashlib.sha256(payload).hexdigest(),
+        "-ExpectedSha256", expected_sha256,
+        "-AuthorizationLedgerPath", str(bundle.parent / "user-state" / "authorization" / "ledger.json"),
+        "-AuthorizationTicketPath", str(ticket),
+        "-AuthorizationTicketNonce", nonce,
+        "-PermitId", permit_id,
     ], check=True, timeout=30)
 
     state = json.loads(state_path.read_text(encoding="utf-8-sig"))

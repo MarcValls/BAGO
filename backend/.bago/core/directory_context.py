@@ -13,7 +13,6 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -577,9 +576,10 @@ class DependencyGraph:
 class HybridRetriever:
     """Retrieves candidate files first, then concrete symbols and definitions."""
 
-    def __init__(self, workspace_root: str | Path, context_root: str | Path) -> None:
+    def __init__(self, workspace_root: str | Path, context_root: str | Path, manager: Any | None = None) -> None:
         self.root = Path(workspace_root).resolve()
         self.context_root = Path(context_root).resolve()
+        self.manager = manager
 
     def retrieve(
         self,
@@ -757,20 +757,23 @@ class HybridRetriever:
         return matches
 
     def _git_diff_paths(self) -> list[str]:
+        if self.manager is None:
+            return []
         try:
-            proc = subprocess.run(
-                ["git", "diff", "--name-only"],
-                cwd=str(self.root),
-                capture_output=True,
-                text=True,
+            from bago_core.server_effects import inspect_process
+
+            result = inspect_process(
+                "git",
+                ["-c", f"safe.directory={self.root.as_posix()}", "diff", "--name-only"],
+                cwd=self.root,
+                manager=self.manager,
                 timeout=5,
-                check=False,
             )
         except Exception:
             return []
-        if proc.returncode != 0:
+        if int(result.get("exit_code", 1)) != 0:
             return []
-        return [line.strip().replace("\\", "/") for line in proc.stdout.splitlines() if line.strip()]
+        return [line.strip().replace("\\", "/") for line in str(result.get("stdout") or "").splitlines() if line.strip()]
 
 
 class ContextAssembler:
@@ -850,14 +853,15 @@ class DirectoryWatcher:
 class DirectoryContextEngine:
     """Facade used by SessionManager and future UI adapters."""
 
-    def __init__(self, workspace_root: str | Path, context_root: str | Path | None = None) -> None:
+    def __init__(self, workspace_root: str | Path, context_root: str | Path | None = None, *, manager: Any | None = None) -> None:
         self.root = Path(workspace_root).resolve()
         self.context_root = Path(context_root).resolve() if context_root else self.root / ".gabo" / "context"
+        self.manager = manager
         self.scanner = DirectoryScanner(self.root)
         self.indexer = SymbolIndexer(self.root)
         self.graph_builder = DependencyGraph(self.root)
         self.map_builder = RepositoryMapBuilder(self.root, self.context_root)
-        self.retriever = HybridRetriever(self.root, self.context_root)
+        self.retriever = HybridRetriever(self.root, self.context_root, manager=self.manager)
         self.assembler = ContextAssembler()
         self.watcher = DirectoryWatcher(self)
         self._snapshot_cache: dict[str, Any] | None = None

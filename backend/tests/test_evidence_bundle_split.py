@@ -134,7 +134,7 @@ class TestEvidenceFacades(unittest.TestCase):
         src = (REPO_ROOT / "bago_core" / "evidence_cli.py").read_text(
             encoding="utf-8"
         )
-        # Public entry points: build_parser, run, main, _run_tests
+        # Public entry points: build_parser, run, main
         tree = ast.parse(src)
         names = {
             n.name
@@ -142,7 +142,7 @@ class TestEvidenceFacades(unittest.TestCase):
             if isinstance(n, ast.FunctionDef)
         }
         self.assertTrue(
-            {"build_parser", "run", "main", "_run_tests"}.issubset(names),
+            {"build_parser", "run", "main"}.issubset(names),
             f"cli missing public names: {names}",
         )
 
@@ -252,7 +252,7 @@ class TestEvidenceBundleSmoke(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "bundle"
             with registered_mock_adapter():
-                manifest_path = bundle.generate_bundle(
+                manifest_path = generator._materialize_bundle(
                     mode="simulated",
                     objective="community-knowledge",
                     output_dir=output,

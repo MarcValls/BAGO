@@ -283,15 +283,6 @@ export function ControlPlane() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [pendingConfirm, resolveConfirmation]);
 
-  useEffect(() => {
-    clientRef.current.setAuthorizationConfirmation(({ label }) => requestConfirmation({
-      title: 'Confirmar acción protegida',
-      description: `El backend solicita autorización para ${label}. ¿Continuar?`,
-      confirmLabel: 'Autorizar y ejecutar',
-    }));
-    return () => clientRef.current.setAuthorizationConfirmation(undefined);
-  }, [requestConfirmation]);
-
   const applyBootData = (
     data: Awaited<ReturnType<typeof clientRef.current.bootstrap>>,
     requestedConversationRevision = conversationRevisionRef.current
@@ -780,6 +771,8 @@ export function ControlPlane() {
       }
 
       if (nextSnapshot && !nextSnapshot.permissions.canChat && nextSnapshot.workspace.manifestState !== 'valid') {
+        const confirmed = window.confirm('Sincronizará los archivos del espejo de sesión hacia el workspace seleccionado. ¿Continuar?');
+        if (!confirmed) return false;
         await clientRef.current.syncProject(cleanRoot);
         nextSnapshot = await refreshAfterMutation();
       }
@@ -879,7 +872,25 @@ export function ControlPlane() {
     setLastMessage(`ejecutando ${clean}`);
     setBusyCount((count) => count + 1);
     try {
-      const result = await clientRef.current.runCommand(clean);
+      const contextAttach = clean.match(/^\/context attach(?:\s+([\s\S]+))?$/);
+      let result: BackendCommandResult;
+      if (contextAttach) {
+        const rawPath = String(contextAttach[1] || '').trim();
+        const selectedPath = rawPath.length >= 2
+          && ((rawPath.startsWith('"') && rawPath.endsWith('"')) || (rawPath.startsWith("'") && rawPath.endsWith("'")))
+          ? rawPath.slice(1, -1)
+          : rawPath;
+        const confirmation = selectedPath
+          ? 'Copiar "' + selectedPath + '" al bundle de contexto de esta sesión. ¿Continuar?'
+          : 'Copiar al contexto las rutas recientes seleccionadas por BAGO. ¿Continuar?';
+        if (!window.confirm(confirmation)) {
+          result = { ok: false, message: 'Adjuntar contexto cancelado.' };
+        } else {
+          result = await clientRef.current.attachContext(selectedPath ? [selectedPath] : []);
+        }
+      } else {
+        result = await clientRef.current.runCommand(clean);
+      }
       const key = commandKey(clean);
       setCommandResults((current) => ({ ...current, [key]: result }));
       setTurns((current) => current.map((turn) => turn.id === turnId ? {
@@ -1202,6 +1213,14 @@ export function ControlPlane() {
   const setDraft = (key: string, text: string) => {
     setUiState((current) => patchUiState(current, { drafts: { ...current.drafts, [key]: text } }));
   };
+
+  useEffect(() => {
+    clientRef.current.setAuthorizationConfirmation(async ({ label }) => requestConfirmation({
+      title: 'Confirmar acción protegida',
+      description: `El backend ha emitido un challenge para ${label}. ¿Quieres continuar?`,
+      confirmLabel: 'Continuar',
+    }));
+  }, [requestConfirmation]);
 
   const navigate = (section: ActiveSection) => {
     const destination = section === 'chat' ? 'home' : section;

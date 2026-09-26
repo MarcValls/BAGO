@@ -4,7 +4,7 @@ BAGO Process Monitor — monitor HTML en tiempo real de todos los procesos inter
 Observa .bago/state/ y genera/sirve un monitor.html con auto-refresh.
 
 CLI:
-  python process_monitor.py [--root DIR] [--port N] [--test]
+  python process_monitor.py [--root DIR] [--port N]
   python process_monitor.py serve [--port N] [--root DIR]
   python process_monitor.py generate [--root DIR] [--out PATH]
 
@@ -14,6 +14,7 @@ Integrado como:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -481,115 +482,6 @@ def serve(root: Path, port: int = 7890, refresh: int = 5, silent: bool = False) 
                 print("\n[BAGO Monitor] Detenido.")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  TESTS
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _run_tests(root: Path) -> int:
-    import tempfile
-    tests = []
-
-    def ok(name, cond, detail=""):
-        tests.append((name, cond, detail))
-        marker = "✓" if cond else "✗"
-        print(f"  [{marker}] {name}" + (f" — {detail}" if detail else ""))
-        return cond
-
-    print("process_monitor.py self-tests")
-    print("─" * 40)
-
-    with tempfile.TemporaryDirectory() as td:
-        td = Path(td)
-        state = td / ".bago" / "state"
-        state.mkdir(parents=True)
-
-        # T1: collect_all on empty dir
-        try:
-            snap = collect_all(td)
-            ok("collect_all_empty", isinstance(snap, dict), "dict returned")
-        except Exception as e:
-            ok("collect_all_empty", False, str(e))
-
-        # T2: LLM state
-        (state / "llm_start.json").write_text(json.dumps({
-            "provider": "ollama-local", "model": "llama3.2:3b",
-            "mode": "chat", "started_at": timestamp_iso()
-        }), encoding="utf-8")
-        llm = collect_llm_state(state)
-        ok("llm_provider", llm["provider"] == "ollama-local")
-        ok("llm_model", llm["model"] == "llama3.2:3b")
-
-        # T3: Sessions
-        sess_dir = state / "sessions" / "abc123"
-        sess_dir.mkdir(parents=True)
-        (sess_dir / "meta.json").write_text(json.dumps({
-            "session_id": "abc123", "provider": "codex",
-            "model": "gpt-5.4-mini", "turn_count": 7,
-            "created_at": "2025-01-01T12:00:00Z", "status": "closed"
-        }), encoding="utf-8")
-        sessions = collect_sessions(state)
-        ok("sessions_count", len(sessions) >= 1)
-        ok("sessions_turns", sessions[0]["turns"] == 7 if sessions else False)
-
-        # T4: Orchestrator
-        orc_dir = state / "orchestrator"
-        orc_dir.mkdir()
-        brief_data = {
-            "brief": {
-                "brief_id": "BRF-001", "task_description": "Test task",
-                "domain": "Backend", "priority": "P1",
-                "status": "open", "assigned_to": "Backend Specialist",
-                "created_at": "2025-01-01T12:00:00Z",
-            },
-            "current_phase": "execution"
-        }
-        (orc_dir / "BRF-001.json").write_text(
-            json.dumps(brief_data), encoding="utf-8")
-        orc = collect_orchestrator(state)
-        ok("orchestrator_count", len(orc) == 1)
-        ok("orchestrator_domain", orc[0]["domain"] == "Backend" if orc else False)
-
-        # T5: RL rewards
-        rl_dir = state / "rl"
-        rl_dir.mkdir()
-        rewards = [{"action": "accept", "reward": 1.0, "timestamp": "2025-01-01T12:00:00Z"}]
-        (rl_dir / "rewards.jsonl").write_text("\n".join(json.dumps(r) for r in rewards))
-        rl = collect_rl_rewards(state)
-        ok("rl_rewards", len(rl) == 1)
-        ok("rl_reward_val", rl[0]["reward"] == 1.0 if rl else False)
-
-        # T6: HTML generation
-        snap = collect_all(td)
-        html = generate_html(snap, refresh=5)
-        ok("html_generated", "<!DOCTYPE html>" in html)
-        ok("html_has_monitor", "BAGO Process Monitor" in html)
-        ok("html_has_table", "<table>" in html)
-        ok("html_has_card", "card-header" in html)
-
-        # T7: generate_html with live port
-        html_live = generate_html(snap, refresh=3, live_port=7890)
-        ok("html_live_script", "fetch('/snapshot')" in html_live)
-
-        # T8: snapshot JSON
-        ok("snapshot_has_llm", "llm" in snap)
-        ok("snapshot_has_sessions", "sessions" in snap)
-        ok("snapshot_has_orchestrator", "orchestrator" in snap)
-
-    total = len(tests)
-    passed = sum(1 for _, ok_val, _ in tests if ok_val)
-    print("─" * 40)
-    if passed == total:
-        print(f"✓ ALL {total} TESTS PASS")
-        return 0
-    else:
-        print(f"✗ {total - passed}/{total} TESTS FAILED")
-        return 1
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  CLI
-# ══════════════════════════════════════════════════════════════════════════════
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="process_monitor",
@@ -601,20 +493,62 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=7890, help="Puerto HTTP para 'serve' (default: 7890)")
     parser.add_argument("--refresh", type=int, default=5, help="Segundos entre auto-refresh (default: 5)")
     parser.add_argument("--out", default="", help="Ruta de salida para 'generate' (default: .bago/monitor.html)")
-    parser.add_argument("--test", action="store_true", help="Ejecuta self-tests")
 
     args = parser.parse_args(argv)
     root = get_scan_root(args.root or None)
-
-    if args.test:
-        return _run_tests(root)
 
     if args.subcmd == "generate" or args.subcmd is None:
         snapshot = collect_all(root)
         html = generate_html(snapshot, refresh=args.refresh)
         out_path = Path(args.out) if args.out else root / ".bago" / "monitor.html"
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(html, encoding="utf-8")
+        root = root.expanduser().resolve(strict=True)
+        out_path = Path(os.path.abspath(str(out_path.expanduser())))
+        try:
+            out_path.relative_to(root)
+        except ValueError:
+            expected_prior_sha256 = "out-of-scope"
+        else:
+            if any(component.is_symlink() for component in (out_path, *out_path.parents)):
+                expected_prior_sha256 = "linked"
+            elif not out_path.exists():
+                expected_prior_sha256 = "missing"
+            elif not out_path.is_file():
+                expected_prior_sha256 = "not-a-file"
+            else:
+                expected_prior_sha256 = hashlib.sha256(out_path.read_bytes()).hexdigest()
+        from bago_core.cli_execution import execute_cli_effect
+        from execution_request import build_execution_request
+
+        content_sha256 = hashlib.sha256(html.encode("utf-8")).hexdigest()
+        request = build_execution_request(
+            effect_id="monitor.generate",
+            actor_kind="user",
+            principal_id="interactive-local-user",
+            session_id=f"process-monitor:{root}",
+            source_surface="cli.process_monitor.generate",
+            target={
+                "project_root": str(root),
+                "path": str(out_path),
+                "content_sha256": content_sha256,
+                "expected_prior_sha256": expected_prior_sha256,
+            },
+            arguments={"content": html},
+            scope="workspace",
+        )
+        try:
+            result, _authorization = execute_cli_effect(
+                request,
+                confirmation_text=(
+                    f"Generar informe Process Monitor en {out_path} "
+                    f"({len(html.encode('utf-8'))} bytes, sha256 {content_sha256})"
+                ),
+            )
+        except Exception as exc:
+            print(f"[BAGO Monitor] Generación bloqueada: {exc}", file=sys.stderr)
+            return 1
+        if not result.get("ok"):
+            print("[BAGO Monitor] El owner no confirmó la escritura", file=sys.stderr)
+            return 1
         print(f"[BAGO Monitor] Monitor generado: {out_path}")
         return 0
 

@@ -26,7 +26,9 @@ class ProjectSeedRuntimeTests(unittest.TestCase):
             (root / "src").mkdir()
             (root / "src" / "main.py").write_text("def main():\n    return 1\n", encoding="utf-8")
 
-            report = project_memory.seed_project(root, depth=3, ref=root)
+            report = project_memory._execute_cli_project_write(
+                root, "seed", arguments={"depth": 3, "ref": str(root)},
+            )
 
             self.assertEqual(Path(report["root"]), root.resolve())
             self.assertTrue((root / ".gabo" / "workspace.json").is_file())

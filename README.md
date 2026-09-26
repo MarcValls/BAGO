@@ -20,7 +20,7 @@
 | Python en Canonical CI | `3.14` | `.github/workflows/canonical-ci.yml` |
 | Node.js | `>=22.12.0` | `package.json` |
 | npm | `>=10.0.0` | `frontend/package.json` |
-| Effect Registry | `active` · v`1.0.0` · 27 efectos | `bago.effect-registry.v1.json` |
+| Effect Registry | `active` · v`1.24.0` · 60 efectos | `bago.effect-registry.v1.json` |
 | Authorization Boundary | `IMPLEMENTED_SLICE · CRIT_READY` | `user_authorization_provenance.v1.md` |
 | ExecutionGateway | `P2_P3_IMPLEMENTED_SLICE · CRIT_READY` | `execution_gateway.v2.md` |
 | Scheduler + DelegationGrant | `P4_IMPLEMENTED · RETEST_READY` | `scheduler_delegation.v1.md` |
@@ -133,13 +133,11 @@ direct user decision
 El grant liga principal, schedule, efectos admitidos, target, digest de argumentos, scope, policy version, expiración, cardinalidad y revocación. Los schedules legacy habilitados sin grant migran a fail-closed. Contrato: [`backend/docs/contracts/scheduler_delegation.v1.md`](backend/docs/contracts/scheduler_delegation.v1.md).
 
 Los planes gobernados con varios efectos materiales no reutilizan ciegamente el estado de un `Permit` padre consumido: antes de cada child, `ExecutionGateway` exige una revalidación de frescura propiedad de `AuthorizationBoundary`. La revocación o expiración que gane antes del siguiente child bloquea ese efecto con cero materialización; si el child ya posee el lease de autoridad, la revocación se lineariza después de completar ese commit. Para ejecuciones delegadas, la misma admisión revalida también el `DelegationGrant` vivo.
-
 ### Sinks de estado persistente server-owned
 
 `state.delete`, `workspace.bind`, `project.write` y `credential.write` se migraron a adapters de `ExecutionGateway` (`backend/.bago/core/execution_gateway.py`) en vez de escrituras directas del proceso servidor. Cada adapter valida el `Permit` autorizado antes de tocar disco y rechaza fail-closed si falta autorizacion, el root no coincide, el path esta fuera de scope o el digest previo no calza. Esto cierra la autoridad de esos sinks concretos dentro de P4-P10; no declara la frontera unica de ejecucion (`ExecutionGateway` sigue P2_P3_IMPLEMENTED_SLICE) ni sustituye el resto del plan de unificacion.
 
 Los clientes HTTP realizan `challenge -> approve -> execute` para cada mutacion protegida y conservan el mismo payload, scope e identificador de interaccion durante las tres fases. El endpoint HTTP de comandos no puede atribuirse procedencia de TTY ni autoaprobar escrituras; esa via queda limitada a entradas CLI locales verificadas. Los cambios de workspace autorizados ligan el root seleccionado y vuelven a validar target, scope y digest justo antes del efecto. Las lecturas de red de proveedores siguen siendo server-owned, pero la respuesta gobernada se entrega de forma incremental para no bloquear streams hasta EOF.
-
 ---
 
 ## Fuente de verdad del README

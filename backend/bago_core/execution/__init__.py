@@ -12,8 +12,9 @@ below lives here:
   :mod:`bago_core.execution.staging_workspace` is the temporary copy
   of the project the validation pipeline reads from.
 - :func:`apply_patch_atomically` and friends in
-  :mod:`bago_core.execution.atomic_patch` are the seam between an
-  accepted :class:`Patch` and the real workspace on disk.
+  :mod:`bago_core.execution.atomic_patch` are request clients. They require an
+  operation-bound Permit and dispatch through ``project.write``; the registered
+  project adapter owns workspace patch materialization and rollback.
 """
 from __future__ import annotations
 

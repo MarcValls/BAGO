@@ -3,26 +3,19 @@
 
 Usage:
     python .bago/tools/bago_infra_scan.py [--root DIR] [--quick] [--json] [--all]
-    python .bago/tools/bago_infra_scan.py --test
 """
 from __future__ import annotations
 
 import argparse
-import contextlib
-import http.server
 import json
 import os
-import shutil
 import socket
 import subprocess
 import sys
-import threading
-import time
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from unittest import mock
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -35,7 +28,7 @@ for _stream in (sys.stdout, sys.stderr):
 from _path_helper import ensure_tools_path
 ensure_tools_path()  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from bago_core.server_effects import gateway_urlopen
+from bago_core.server_effects import gateway_urlopen, write_text_atomic
 from bago_utils import get_scan_root
 
 OLLAMA_DEFAULT_PORT = 11434
@@ -56,17 +49,12 @@ SERVICE_SIGNATURES: list[dict[str, Any]] = [
     {"name": "llamacpp", "match": "llama", "probe": "/health", "type": "local-llm"},
     {"name": "lmstudio", "match": "lm studio", "probe": "/v1/models", "type": "local-llm"},
 ]
-TEST_WORKSPACE = Path(__file__).parent / "_selftest_bago_infra_scan"
-
-
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
 def _state_file(root: Path) -> Path:
-    path = root / ".bago" / "state" / "infra_status.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return path
+    return root / ".bago" / "state" / "infra_status.json"
 
 
 def _port_open(host: str, port: int, timeout: float = 0.5) -> bool:
@@ -232,7 +220,12 @@ def build_payload(root: Path, services: list[dict[str, Any]], quick: bool, host:
 
 def save_payload(root: Path, payload: dict[str, Any]) -> Path:
     path = _state_file(root)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    write_text_atomic(
+        path,
+        json.dumps(payload, indent=2, ensure_ascii=True) + "\n",
+        trusted_root=path.parent,
+        source_surface="tools.bago_infra_scan",
+    )
     return path
 
 
@@ -255,16 +248,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--quick", action="store_true", help="Scan default ports only")
     parser.add_argument("--json", dest="as_json", action="store_true", help="JSON output")
     parser.add_argument("--all", action="store_true", help="Include common system ports")
-    parser.add_argument("--test", action="store_true", help="Run self-tests")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.test:
-        return run_self_tests()
-
     root = get_scan_root(args.root)
     services = scan(quick=args.quick, include_system=args.all)
     payload = build_payload(root, services, quick=args.quick, host="127.0.0.1")
@@ -276,81 +265,6 @@ def main(argv: list[str] | None = None) -> int:
         print(format_report(payload))
         print(f"State file: {state_path}")
     return 0
-
-
-class _TestHandler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self) -> None:  # noqa: N802
-        if self.path == "/":
-            body = b"Ollama is running"
-            self.send_response(200)
-            self.send_header("Content-Type", "text/plain")
-        elif self.path == "/api/version":
-            body = b'{"version": "0.4.0"}'
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-        elif self.path == "/api/tags":
-            body = b'{"models": [{"name": "llama3"}, {"name": "mistral"}]}'
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-        else:
-            body = b'{}'
-            self.send_response(404)
-            self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def log_message(self, format: str, *args: Any) -> None:
-        return
-
-
-def _start_test_server() -> tuple[http.server.HTTPServer, threading.Thread, int]:
-    server = http.server.HTTPServer(("127.0.0.1", 0), _TestHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    time.sleep(0.1)
-    return server, thread, int(server.server_address[1])
-
-
-def _reset_workspace() -> Path:
-    if TEST_WORKSPACE.exists():
-        shutil.rmtree(TEST_WORKSPACE)
-    TEST_WORKSPACE.mkdir(parents=True, exist_ok=True)
-    return TEST_WORKSPACE
-
-
-def run_self_tests() -> int:
-    workspace = _reset_workspace()
-    results: list[tuple[str, bool, str]] = []
-
-    def check(name: str, condition: bool, detail: str) -> None:
-        results.append((name, condition, detail))
-
-    server, thread, port = _start_test_server()
-    try:
-        check("port_open_bool", isinstance(_port_open("127.0.0.1", port), bool), "_port_open returns bool")
-        check("probe_http_error", _probe_http("127.0.0.1", 1, "/") is None, "_probe_http handles connection errors")
-        models = _extract_models('{"models": [{"name": "alpha"}, {"id": "beta"}]}')
-        check("extract_models", models == ["alpha", "beta"], "_extract_models parses JSON payloads")
-        identified = _identify_service("127.0.0.1", port)
-        check("identify_service", identified.get("name") == "ollama" and identified.get("models") == ["llama3", "mistral"], "service identification works")
-        with mock.patch.object(sys.modules[__name__], "_netstat_ports", return_value=[port]):
-            services = scan(quick=False)
-        check("scan_returns_list", isinstance(services, list) and len(services) == 1, "scan returns a service list")
-        payload = build_payload(workspace, services, quick=False, host="127.0.0.1")
-        state_path = save_payload(workspace, payload)
-        check("save_payload", state_path.exists() and "services" in state_path.read_text(encoding="utf-8"), "scan state saved under root")
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join(timeout=2)
-        shutil.rmtree(workspace, ignore_errors=True)
-
-    passed = sum(1 for _, ok, _ in results if ok)
-    for name, ok, detail in results:
-        print(f"[{'OK' if ok else 'FAIL'}] {name}: {detail}")
-    print(f"{passed}/{len(results)} tests passed")
-    return 0 if passed == len(results) else 1
 
 
 if __name__ == "__main__":

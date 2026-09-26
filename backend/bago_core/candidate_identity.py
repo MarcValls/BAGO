@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import hashlib
-import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 from bago_core.operational_integrity import CandidateIdentity
 
@@ -24,29 +24,57 @@ def _safe_directory_args(repo: Path) -> list[str]:
 
 
 def git(repo: Path, *args: str, allow_empty: bool = False) -> str:
-    result = subprocess.run(
-        ["git", *_safe_directory_args(repo), *args],
-        cwd=repo, capture_output=True, text=True, encoding="utf-8", errors="replace",
+    from bago_core.server_effects import inspect_process
+
+    root = repo.resolve()
+    manager = SimpleNamespace(
+        session_id=f"candidate-identity:{root}",
+        base_path=str(root),
+        project_root=str(root),
     )
-    if result.returncode != 0 and not allow_empty:
-        raise ValueError(result.stderr.strip() or f"git {' '.join(args)} failed")
-    return result.stdout.strip()
+    result = inspect_process(
+        "git",
+        [*_safe_directory_args(root), *args],
+        cwd=root,
+        manager=manager,
+    )
+    if int(result.get("exit_code", 1)) != 0 and not allow_empty:
+        raise ValueError(str(result.get("stderr") or "").strip() or f"git {' '.join(args)} failed")
+    return str(result.get("stdout") or "").strip()
 
 
 def fingerprint(repo: Path) -> dict[str, object]:
     repo = repo.resolve()
     root = Path(git(repo, "rev-parse", "--show-toplevel")).resolve()
     status = git(root, "status", "--porcelain=v1", "--untracked-files=all")
-    patch = subprocess.run(
-        ["git", "-c", f"safe.directory={root.as_posix()}", "diff", "--binary", "HEAD"],
-        cwd=root, capture_output=True, check=True,
-    ).stdout
+    from bago_core.server_effects import inspect_process
+
+    manager = SimpleNamespace(
+        session_id=f"candidate-identity:{root}",
+        base_path=str(root),
+        project_root=str(root),
+    )
+    patch = inspect_process(
+        "git",
+        ["-c", f"safe.directory={root.as_posix()}", "diff", "--binary", "HEAD"],
+        cwd=root,
+        manager=manager,
+        output_digest="sha256",
+    )
+    patch_sha256 = str(patch.get("stdout") or "").removeprefix("sha256:")
+    empty_patch_sha256 = hashlib.sha256(b"").hexdigest()
     remote = git(root, "remote", "get-url", "origin", allow_empty=True) or f"local-only:{root}"
+    sha = git(root, "rev-parse", "HEAD")
+    worktree_sha256 = (
+        patch_sha256
+        if patch_sha256 != empty_patch_sha256
+        else hashlib.sha256(status.encode("utf-8") if status else sha.encode("utf-8")).hexdigest()
+    )
     return {
-        "path": str(root), "sha": git(root, "rev-parse", "HEAD"),
+        "path": str(root), "sha": sha,
         "branch": git(root, "branch", "--show-current") or "detached", "remote": remote,
         "upstream": git(root, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}", allow_empty=True),
-        "dirty": bool(status), "worktree_sha256": hashlib.sha256((patch or status.encode("utf-8")) or git(root, "rev-parse", "HEAD").encode("utf-8")).hexdigest(),
+        "dirty": bool(status), "worktree_sha256": worktree_sha256,
     }
 
 

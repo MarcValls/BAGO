@@ -3,7 +3,7 @@ from .cmd_android import cmd_android
 from .cmd_system import cmd_appdata, cmd_cmd_rl, cmd_engine, cmd_rl, cmd_validate
 from .cmd_tools import cmd_agent, cmd_backup, cmd_canary, cmd_inventory, cmd_preflight, cmd_project, cmd_route, cmd_scan, cmd_toolsmith
 from .cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_manager, cmd_serve, cmd_api
-from .cmd_lifecycle import cmd_install, cmd_uninstall
+from .cmd_lifecycle import cmd_install, cmd_rollback_archive, cmd_uninstall
 from .cmd_release_check import cmd_release_check
 
 __all__ = [
@@ -21,6 +21,7 @@ __all__ = [
     "cmd_engine",
     "cmd_evidence",
     "cmd_install",
+    "cmd_rollback_archive",
     "cmd_inventory",
     "cmd_llm",
     "cmd_manager",

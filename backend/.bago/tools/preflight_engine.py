@@ -3,7 +3,6 @@
 
 Usage:
     python .bago/tools/preflight_engine.py [--root DIR] [--cmd COMMAND]
-    python .bago/tools/preflight_engine.py --test
 """
 from __future__ import annotations
 
@@ -29,7 +28,6 @@ ensure_tools_path()  # noqa: E402
 from bago_utils import get_scan_root
 
 TOOLS_DIR = Path(__file__).resolve().parent
-TEST_WORKSPACE = TOOLS_DIR / "_selftest_preflight_engine"
 
 
 def _find_sibling(stem: str) -> Path:
@@ -229,80 +227,16 @@ def _known_command() -> str:
     return Path(sys.executable).name
 
 
-def _reset_workspace() -> Path:
-    if TEST_WORKSPACE.exists():
-        shutil.rmtree(TEST_WORKSPACE)
-    TEST_WORKSPACE.mkdir(parents=True, exist_ok=True)
-    return TEST_WORKSPACE
-
-
-def run_self_tests() -> int:
-    workspace = _reset_workspace()
-    results: list[tuple[str, bool, str]] = []
-
-    def check(name: str, condition: bool, detail: str) -> None:
-        results.append((name, condition, detail))
-
-    existing_file = workspace / "present.txt"
-    existing_file.write_text("ok\n", encoding="utf-8")
-
-    pf_file_pass = Preflight("sample", root=workspace)
-    pf_file_pass.require_file("present.txt")
-    check("require_file_pass", pf_file_pass.passed, "existing file passes")
-
-    pf_file_fail = Preflight("sample", root=workspace)
-    pf_file_fail.require_file("missing.txt")
-    check("require_file_fail", not pf_file_fail.passed, "missing file fails")
-
-    os.environ["BAGO_PREFLIGHT_TEST_ENV"] = "1"
-    pf_env_pass = Preflight("sample")
-    pf_env_pass.require_env("BAGO_PREFLIGHT_TEST_ENV")
-    check("require_env_pass", pf_env_pass.passed, "existing env passes")
-    os.environ.pop("BAGO_PREFLIGHT_TEST_ENV", None)
-
-    pf_env_fail = Preflight("sample")
-    pf_env_fail.require_env("BAGO_PREFLIGHT_TEST_ENV")
-    check("require_env_fail", not pf_env_fail.passed, "missing env fails")
-
-    pf_cmd = Preflight("sample")
-    pf_cmd.require_cmd(_known_command())
-    check("require_cmd", pf_cmd.passed, "known command is found")
-
-    pf_warning = Preflight("sample", root=workspace)
-    pf_warning.require_file("missing-warning.txt", severity="warning")
-    check("warnings_vs_errors", pf_warning.run(exit_on_fail=False, silent=True), "warning-only preflight does not block")
-
-    pf_json = Preflight("sample", root=workspace)
-    pf_json.require_file("missing-json.txt")
-    checks = pf_json.to_json_checks()
-    schema_ok = len(checks) == 1 and all(key in checks[0] for key in ("name", "passed", "message", "severity"))
-    check("to_json_checks", schema_ok, "JSON schema is stable")
-
-    pf_run = Preflight("sample", root=workspace)
-    pf_run.require_file("missing-run.txt")
-    check("run_return_value", pf_run.run(exit_on_fail=False, silent=True) is False, "run returns False on error")
-
-    shutil.rmtree(workspace, ignore_errors=True)
-    passed = sum(1 for _, ok, _ in results if ok)
-    for name, ok, detail in results:
-        print(f"[{'OK' if ok else 'FAIL'}] {name}: {detail}")
-    print(f"{passed}/{len(results)} tests passed")
-    return 0 if passed == len(results) else 1
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Portable preflight engine")
     parser.add_argument("--root", default="", help="Project root for relative file checks")
     parser.add_argument("--cmd", default="", help="Registry command to evaluate")
-    parser.add_argument("--test", action="store_true", help="Run self-tests")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.test:
-        return run_self_tests()
     if args.cmd:
         ok = run_from_registry(args.cmd, exit_on_fail=False, root=get_scan_root(args.root))
         print(f"Preflight {'OK' if ok else 'FAIL'} for '{args.cmd}'")

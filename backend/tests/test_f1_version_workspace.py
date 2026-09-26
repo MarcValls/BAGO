@@ -1,7 +1,6 @@
 """test_f1_version_workspace.py — Regression tests for F1: version/workspace unification.
 
 - bago_core.__version__ is not hardcoded to 4.7.0
-- SessionDB schema has workspace_state_root column
 - SessionManager.save() persists workspace_state_root in session JSON
 - SessionManager.load() restores workspace_state_root when it exists
 - No '4.7.0' fallbacks remain in the canonical frontend source
@@ -38,42 +37,6 @@ def test_bago_core_version_matches_release():
     from bago_core.versioning import current
     rv = (REPO_ROOT / "release_version.txt").read_text(encoding="utf-8").strip()
     assert current() == rv, f"versioning.current()={current()!r} != release_version.txt={rv!r}"
-
-
-# ── 2. SessionDB has workspace_state_root column ─────────────────────
-
-def test_session_db_schema_has_workspace_state_root():
-    """SessionDB schema must include workspace_state_root column."""
-    schema_file = REPO_ROOT / ".bago" / "core" / "session_db.py"
-    content = schema_file.read_text(encoding="utf-8")
-    assert "workspace_state_root" in content, (
-        "session_db.py must reference workspace_state_root in schema and upsert"
-    )
-    assert "context_revision" in content, (
-        "session_db.py must track context_revision in schema and upsert"
-    )
-
-
-def test_session_db_upsert_accepts_workspace_state_root():
-    """SessionDB.upsert() must accept workspace_state_root as a field."""
-    from session_db import SessionDB
-    with tempfile.TemporaryDirectory() as td:
-        db = SessionDB(td)
-        db.upsert("test-sid", last_provider="ollama-local", workspace_state_root="/tmp/fake-ws")
-        row = db.get("test-sid")
-        assert row is not None
-        assert row["workspace_state_root"] == "/tmp/fake-ws"
-
-
-def test_session_db_upsert_accepts_context_revision():
-    """SessionDB.upsert() must accept context_revision as a field."""
-    from session_db import SessionDB
-    with tempfile.TemporaryDirectory() as td:
-        db = SessionDB(td)
-        db.upsert("test-sid", last_provider="ollama-local", context_revision="abc123")
-        row = db.get("test-sid")
-        assert row is not None
-        assert row["context_revision"] == "abc123"
 
 
 # ── 3. SessionManager persists workspace_state_root ──────────────────

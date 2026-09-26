@@ -172,20 +172,18 @@ class SessionToolsMixin:
         if not adapter.supports_embeddings():
             raise RuntimeError(f"{self.provider} no soporta memoria híbrida")
         vector = adapter.embed([content], model=self.model)[0]
-        memory_id = self.knowledge.add(content, source_session=self.session_id)
-        try:
-            embedding_id = self.embedding_store.add(
-                memory_id=str(memory_id),
-                content=content,
-                vector=vector,
-                source_session=self.session_id,
-                provider=self.provider,
-                model=self.model,
-            )
-        except Exception:
-            self.knowledge.delete(memory_id)
-            raise
-        return {"memory_id": memory_id, "embedding_id": embedding_id}
+        from bago_core.memory_database import execute_memory_database_cli
+
+        return execute_memory_database_cli(
+            self,
+            "knowledge.hybrid_add",
+            {
+                "content": content,
+                "vector": vector,
+                "provider": self.provider,
+                "model": self.model,
+            },
+        )
 
     def memory_search_hybrid(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
         adapter = self._ensure_adapter()

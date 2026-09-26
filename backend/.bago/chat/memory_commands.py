@@ -26,7 +26,9 @@ def cmd_memory(mgr: Any, engine: Any, args: list[str]) -> dict:
         return {"ok": True, "message": f"Resultados para '{query}':\n" + "\n".join(lines)}
     if args[0] == "add" and len(args) >= 2:
         content = " ".join(args[1:])
-        mid = mgr.knowledge.add(content, source_session=mgr.session_id)
+        from bago_core.memory_database import execute_memory_database_cli
+        result = execute_memory_database_cli(mgr, "knowledge.add", {"content": content})
+        mid = result["memory_id"]
         return {"ok": True, "message": f"✓ Recuerdo añadido (ID: {mid})."}
     if args[0] == "hybrid-add" and len(args) >= 2:
         content = " ".join(args[1:])
@@ -51,7 +53,9 @@ def cmd_memory(mgr: Any, engine: Any, args: list[str]) -> dict:
     if args[0] == "delete" and len(args) >= 2:
         try:
             mid = int(args[1])
-            ok = mgr.knowledge.delete(mid)
+            from bago_core.memory_database import execute_memory_database_cli
+            result = execute_memory_database_cli(mgr, "knowledge.delete", {"memory_id": mid})
+            ok = result["deleted"]
             if ok:
                 return {"ok": True, "message": f"✓ Recuerdo {mid} eliminado."}
             return {"ok": False, "message": f"No se encontró el recuerdo {mid}."}

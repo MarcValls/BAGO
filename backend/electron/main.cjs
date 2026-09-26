@@ -60,7 +60,7 @@ function getDependencyService() {
       path,
       ROOT_DIR,
       resolveBagoRuntimeRoot,
-      resolvePythonCommand,
+      prepareProviderCredential: (...args) => getRuntimeService().prepareProviderCredential(...args),
       getManagerState: () => ({
         mutation: getRuntimeService().getState().mutation,
         ...getReleaseService().getState()
@@ -77,7 +77,6 @@ function getRuntimeService() {
       app,
       dialog,
       shell,
-      execFile,
       spawn,
       fs,
       net,
@@ -93,8 +92,7 @@ function getRuntimeService() {
       resolveBundledRuntimeRoot,
       resolveInstalledRuntimeRoot,
       resolveDevelopmentRuntimeRoot,
-      resolvePythonCommand,
-      runVisiblePowerShell
+      resolvePythonCommand
     });
   }
   return runtimeService;
@@ -112,7 +110,9 @@ function getInstallService() {
       ICON_PATH,
       resolveBagoRuntimeRoot,
       findPackagedRuntimeRoot,
-      getDependencyService
+      prepareSystemInstall: (...args) => getRuntimeService().prepareSystemInstall(...args),
+      prepareSystemSourceUpdate: (...args) => getRuntimeService().prepareSystemSourceUpdate(...args),
+      prepareSystemUninstall: (...args) => getRuntimeService().prepareSystemUninstall(...args)
     });
   }
   return installService;
@@ -124,7 +124,15 @@ function getReleaseService() {
       BrowserWindow,
       os,
       path,
-      getDependencyService
+      getDependencyService,
+      verifyReleaseSignature: (...args) => getRuntimeService().verifyReleaseSignature(...args),
+      stageReleaseBundle: (...args) => getRuntimeService().stageReleaseBundle(...args),
+      downloadReleaseAsset: (...args) => getRuntimeService().downloadReleaseAsset(...args),
+      persistReleaseJob: (...args) => getRuntimeService().persistReleaseJob(...args),
+      appendReleaseJobLog: (...args) => getRuntimeService().appendReleaseJobLog(...args),
+      archiveReleaseJob: (...args) => getRuntimeService().archiveReleaseJob(...args),
+      prepareSystemInstall: (...args) => getRuntimeService().prepareSystemInstall(...args),
+      rollbackSystemInstall: (...args) => getRuntimeService().rollbackSystemInstall(...args)
     });
   }
   return releaseService;
@@ -190,7 +198,7 @@ app.whenReady().then(async () => {
   // The window is the first thing the user sees; everything else (install,
   // release jobs) is wired up after the UI is on screen.
   createManagerWindow({ getRuntimeService });
-  getReleaseService().initReleaseJobs();
+  await getReleaseService().initReleaseJobs();
   getInstallService().ensureBagoInstalled().catch(err => {
     getInstallService().emitInstallState({ phase: 'failed', error: String(err && err.message || err) });
   });
@@ -200,16 +208,21 @@ app.whenReady().then(async () => {
 });
 
 async function shutdownBago() {
-  if (shutdownRequested) return;
+  if (shutdownRequested) return false;
   shutdownRequested = true;
   try {
     if (runtimeService && typeof runtimeService.shutdown === 'function') {
-      await runtimeService.shutdown();
-    } else if (runtimeService && typeof runtimeService.cleanupZombies === 'function') {
-      await runtimeService.cleanupZombies();
+      const result = await runtimeService.shutdown();
+      if (result && result.canceled) {
+        shutdownRequested = false;
+        return false;
+      }
     }
+    return true;
   } catch (error) {
     console.error(`BAGO shutdown cleanup failed: ${error && error.message ? error.message : error}`);
+    shutdownRequested = false;
+    return false;
   }
 }
 
@@ -218,8 +231,8 @@ app.on('before-quit', (event) => {
     return;
   }
   event.preventDefault();
-  void shutdownBago().finally(() => {
-    app.quit();
+  void shutdownBago().then(shouldQuit => {
+    if (shouldQuit) app.quit();
   });
 });
 

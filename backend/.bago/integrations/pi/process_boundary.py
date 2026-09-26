@@ -2,17 +2,15 @@
 
 Construye el entorno mínimo para el sidecar (allowlist explícita,
 HOME efímero, cwd fijado, timeout, kill switch) y nunca hereda
-`os.environ` del backend. La función principal `spawn_sidecar` está
-pensada para ser sustituida por un wrapper que use `subprocess.Popen`
-real; aquí exponemos una versión abstracta y una implementación
-`LocalPopen` que sólo arranca un proceso de prueba inerte.
+`os.environ` del backend. El proceso se materializa únicamente en el owner
+registrado del `ExecutionGateway`.
 """
 from __future__ import annotations
 
 import os
 import subprocess
-import sys
 import tempfile
+import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
@@ -35,7 +33,6 @@ ALLOWED_ENV_KEYS: frozenset[str] = frozenset(
         "TMP",
         "TEMP",
         "TMPDIR",
-        "NODE_OPTIONS",
         "BAGO_BRIDGE_CORRELATION_ID",
         "BAGO_BRIDGE_EXECUTION_ID",
         "BAGO_BRIDGE_PHASE",
@@ -45,20 +42,14 @@ ALLOWED_ENV_KEYS: frozenset[str] = frozenset(
 
 @dataclass
 class BoundarySpec:
-    """Especificación de la frontera de proceso del sidecar.
-
-    Mantiene viva la referencia a `tempfile.TemporaryDirectory` para
-    que el directorio efímero `HOME` no se limpie mientras el sidecar
-    está en ejecución. La limpieza ocurre al destruir el `BoundarySpec`.
-    """
+    """Solicitud de proceso; el owner materializa HOME al despachar."""
 
     argv: tuple[str, ...]
     cwd: str
     env: dict[str, str]
     timeout_seconds: float
-    home_dir: str
+    home_parent: str
     integrity: dict[str, str] = field(default_factory=dict)
-    _home_handle: "object | None" = field(default=None, repr=False, compare=False)
 
 
 def _filter_env(
@@ -106,12 +97,6 @@ def _filter_env(
     return base
 
 
-def _make_ephemeral_home(parent: Path | None = None) -> tempfile.TemporaryDirectory:
-    base = parent or Path(tempfile.gettempdir())
-    base.mkdir(parents=True, exist_ok=True)
-    return tempfile.TemporaryDirectory(prefix="bago-pi-home-", dir=str(base))
-
-
 def build_boundary(
     *,
     argv: Sequence[str],
@@ -135,12 +120,11 @@ def build_boundary(
     if not Path(cwd).exists():
         raise ProcessCapabilityDenied("cwd missing", details={"cwd": cwd})
 
-    tmp_home = _make_ephemeral_home(parent_home)
-    home_name = tmp_home.name
+    home_root = (parent_home or Path(tempfile.gettempdir())).expanduser().resolve()
+    if not home_root.is_dir():
+        raise ProcessCapabilityDenied("ephemeral HOME parent is missing", details={"path": str(home_root)})
     env = _filter_env(
         {
-            "HOME": home_name,
-            "USERPROFILE": home_name,  # Windows
             "BAGO_BRIDGE_CORRELATION_ID": correlation_id,
             "BAGO_BRIDGE_EXECUTION_ID": execution_id,
             **(dict(extra_env) if extra_env else {}),
@@ -151,9 +135,8 @@ def build_boundary(
         cwd=str(Path(cwd).resolve()),
         env=env,
         timeout_seconds=float(timeout_seconds),
-        home_dir=home_name,
+        home_parent=str(home_root),
         integrity=dict(integrity or {}),
-        _home_handle=tmp_home,
     )
 
 
@@ -166,55 +149,73 @@ def verify_integrity(spec: BoundarySpec, sidecar_artifact_hash: str) -> None:
         )
 
 
-def _run_with_timeout(
-    spec: BoundarySpec, stdin_payload: str | None = None
-) -> subprocess.CompletedProcess:
-    try:
-        proc = subprocess.Popen(
-            list(spec.argv),
-            cwd=spec.cwd,
-            env=spec.env,
-            stdin=subprocess.PIPE if stdin_payload is not None else None,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            shell=False,
-        )
-    except FileNotFoundError as exc:
-        raise ProcessCapabilityDenied(
-            "sidecar binary not found",
-            details={"argv": list(spec.argv), "error": str(exc)},
-        ) from exc
-    try:
-        stdout, stderr = proc.communicate(input=stdin_payload, timeout=spec.timeout_seconds)
-    except subprocess.TimeoutExpired as exc:
-        proc.kill()
-        try:
-            proc.communicate(timeout=2)
-        except Exception:
-            pass
-        raise BridgeTimeout(
-            "sidecar timeout",
-            details={"timeout_seconds": spec.timeout_seconds},
-        ) from exc
-    return subprocess.CompletedProcess(
-        args=list(spec.argv),
-        returncode=proc.returncode,
-        stdout=stdout or "",
-        stderr=stderr or "",
-    )
-
-
 def run_sidecar(
     spec: BoundarySpec,
     *,
     stdin_payload: str | None = None,
     sidecar_artifact_hash: str = "",
+    cancel_token: Any | None = None,
 ) -> subprocess.CompletedProcess:
-    """Lanza el sidecar. Valida integridad si se proporciona hash."""
-    if sidecar_artifact_hash:
-        verify_integrity(spec, sidecar_artifact_hash)
-    return _run_with_timeout(spec, stdin_payload)
+    """Resolve PI process authority in ExecutionGateway before sidecar spawn."""
+    if len(spec.argv) != 2:
+        raise ProcessCapabilityDenied("PI provider sidecar requires exactly node and the canonical script")
+    from execution_gateway import ExecutionContext, ExecutionGateway, ExecutionGatewayError
+    from execution_request import build_execution_request
+
+    try:
+        sidecar_path = Path(spec.argv[1]).expanduser().resolve(strict=True)
+        digest = hashlib.sha256(sidecar_path.read_bytes()).hexdigest()
+        expected_digest = sidecar_artifact_hash or str(spec.integrity.get("sidecar_artifact_hash") or "")
+        if expected_digest and expected_digest != digest:
+            raise BridgeIntegrityMismatch(
+                "sidecar artifact hash mismatch",
+                details={"expected": expected_digest, "effective": digest},
+            )
+        if spec.integrity.get("sidecar_artifact_hash"):
+            verify_integrity(spec, digest)
+
+        session_id = str(spec.env.get("BAGO_BRIDGE_CORRELATION_ID") or "")
+        execution_id = str(spec.env.get("BAGO_BRIDGE_EXECUTION_ID") or "")
+        request = build_execution_request(
+            effect_id="process.sidecar.execute",
+            actor_kind="server",
+            principal_id="bago-pi-provider",
+            session_id=session_id,
+            source_surface="server.pi.sidecar",
+            target={
+                "operation": "provider-sidecar",
+                "node_path": spec.argv[0],
+                "sidecar_path": str(sidecar_path),
+                "sidecar_sha256": digest,
+                "cwd": spec.cwd,
+                "timeout_seconds": spec.timeout_seconds,
+                "home_parent": spec.home_parent,
+            },
+            arguments={
+                "stdin_payload": str(stdin_payload or ""),
+                "environment": dict(spec.env),
+                "execution_id": execution_id,
+            },
+            scope="external",
+        )
+        result, _authorization = ExecutionGateway().execute_server_owned(
+            request=request,
+            context=ExecutionContext(services={"_pi_cancel_token": cancel_token}),
+        )
+        if not isinstance(result, dict) or result.get("effect_id") != request.effect_id or result.get("executed") is not True:
+            raise ProcessCapabilityDenied("ExecutionGateway did not return a PI process receipt")
+        return subprocess.CompletedProcess(
+            args=list(spec.argv),
+            returncode=int(result.get("exit_code", 1)),
+            stdout=str(result.get("stdout") or ""),
+            stderr=str(result.get("stderr") or ""),
+        )
+    except ExecutionGatewayError as exc:
+        if getattr(exc, "code", "") == "pi_sidecar_timeout":
+            raise BridgeTimeout("sidecar timeout", details={"timeout_seconds": spec.timeout_seconds}) from exc
+        raise ProcessCapabilityDenied("ExecutionGateway rejected PI sidecar", details={"code": getattr(exc, "code", "")}) from exc
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ProcessCapabilityDenied("PI sidecar dispatch failed", details={"error": str(exc)}) from exc
 
 
 __all__ = [

@@ -1,6 +1,6 @@
 # Execution Gateway Unification Plan v1
 
-Estado: P4_MERGED · RETEST_READY · P5_OPEN  
+Estado: P4_MERGED · RETEST_READY · P5_OPEN
 Base requerida: User Authorization Provenance Boundary (PR #217)
 
 ## Objetivo
@@ -95,6 +95,13 @@ El caller no puede elegir la función material después de obtener autorización
 Nueva forma:
 
 `ExecutionRequest → ExecutionGateway → EffectAdapterRegistry → EffectAdapter`
+
+The gateway dispatch and adapter implementations are separate modules. The
+registered adapter implementation modules live under
+`backend/.bago/core/execution_adapters/`; this is code organization only. The
+registry remains server-owned by `ExecutionGateway`, and the effect-sink
+inventory classifies concrete adapter sinks there as `gateway_owned` without
+excluding those sinks from the inventory.
 
 Adapters iniciales:
 

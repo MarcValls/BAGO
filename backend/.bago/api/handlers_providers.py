@@ -600,18 +600,18 @@ def handle_list_models(handler: "BaseHTTPRequestHandler", provider_id: str) -> N
 def _active_models_path(provider_id: str):
     """Archivo donde guardamos qué modelos están activos para el provider."""
     from bago_core.user_state_paths import state_root
-    import re
-    safe = re.sub(r"[^a-z0-9-]", "-", provider_id.lower()).strip("-")
-    d = state_root() / "active_models"
-    d.mkdir(parents=True, exist_ok=True)
-    return d / f"{safe}.json"
+    provider_key = str(provider_id)
+    if provider_key not in PROVIDER_CATALOG:
+        raise ValueError("provider id is not canonical")
+    return state_root() / "active_models" / f"{provider_key}.json"
 
 
 def _active_models_read_paths(provider_id: str):
     from bago_core.user_state_paths import state_read_candidates
-    import re
-    safe = re.sub(r"[^a-z0-9-]", "-", provider_id.lower()).strip("-")
-    return state_read_candidates(f"active_models/{safe}.json")
+    provider_key = str(provider_id)
+    if provider_key not in PROVIDER_CATALOG:
+        raise ValueError("provider id is not canonical")
+    return state_read_candidates(f"active_models/{provider_key}.json")
 
 
 def _load_active_models(provider_id: str) -> list[str]:
@@ -637,6 +637,9 @@ def _save_active_models(provider_id: str, models: list[str]) -> None:
 def handle_active_models_get(handler: "BaseHTTPRequestHandler", provider_id: str) -> None:
     """GET /providers/<id>/active-models — lista de modelos marcados activos."""
     from api_serializers import send_json
+    if provider_id not in PROVIDER_CATALOG:
+        send_json(handler, 404, {"ok": False, "error": "provider no válido"})
+        return
     active = _load_active_models(provider_id)
     send_json(handler, 200, {
         "ok": True,
@@ -651,6 +654,10 @@ def handle_active_models_set(handler: "BaseHTTPRequestHandler", provider_id: str
 
     if not isinstance(body, dict):
         send_json(handler, 400, {"ok": False, "error": "body debe ser objeto"})
+        return
+
+    if provider_id not in PROVIDER_CATALOG:
+        send_json(handler, 400, {"ok": False, "error": "provider no válido"})
         return
 
     raw = body.get("models", [])

@@ -563,7 +563,7 @@ def _run_live_bundle(
         mgr.close()
 
 
-def generate_bundle(
+def _materialize_bundle(
     *,
     mode: str,
     objective: str,

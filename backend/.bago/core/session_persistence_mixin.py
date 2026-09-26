@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -17,6 +16,7 @@ from typing import Any
 
 from bago_core.user_state_paths import state_read_roots
 from bago_core.atomic_json import write_json_atomic, write_text_atomic
+from bago_core.server_effects import inspect_process
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from session_utils import ADAPTER_REGISTRY, BAGO_MODES, normalize_bago_mode, normalize_bridges
@@ -56,21 +56,16 @@ class SessionPersistenceMixin:
         """Return (repo_root, branch) for the current workspace if available."""
         root = str(getattr(self, "project_root", self.base_path))
         try:
-            repo_root = subprocess.run(
-                ["git", "-C", root, "rev-parse", "--show-toplevel"],
-                capture_output=True,
-                text=True,
-                timeout=3,
+            repo_root = inspect_process(
+                "git", ["rev-parse", "--show-toplevel"], cwd=root, manager=self, timeout=3,
             )
-            if repo_root.returncode != 0:
+            if int(repo_root.get("exit_code", 1)) != 0:
                 return "", ""
-            branch = subprocess.run(
-                ["git", "-C", root, "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True,
-                text=True,
-                timeout=3,
+            branch = inspect_process(
+                "git", ["rev-parse", "--abbrev-ref", "HEAD"], cwd=root, manager=self, timeout=3,
             )
-            return repo_root.stdout.strip(), branch.stdout.strip() if branch.returncode == 0 else ""
+            branch_value = str(branch.get("stdout", "")).strip() if int(branch.get("exit_code", 1)) == 0 else ""
+            return str(repo_root.get("stdout", "")).strip(), branch_value
         except Exception:
             return "", ""
 
@@ -609,7 +604,6 @@ class SessionPersistenceMixin:
             "binding_reason": binding["binding_reason"],
         }
         session_json_receipt = write_json_atomic(path, data)
-
         session_db_indexed = False
         try:
             from session_db import get_session_db

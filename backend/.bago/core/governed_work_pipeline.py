@@ -15,6 +15,8 @@ from typing import Any
 
 from effect_registry import REGISTRY
 from execution_request import build_execution_request, stable_digest
+from execution_claims import execution_resource_key
+from execution_operations import operation_store_for
 
 
 GOVERNED_WORK_CONTRACT = "bago.governed-work-pipeline/v0.2-FIX2"
@@ -296,6 +298,35 @@ class GovernedPipelineState:
             contract["outcomes"][key] = outcome
             return {"replay": False, "outcome": dict(outcome), "step_idempotency_key": key}
 
+    def unresolved_attempt(self, step: Any) -> dict[str, Any] | None:
+        """Return the one unfinished write attempt eligible for durable recovery."""
+        with self.lock:
+            contract = self.ensure()
+            matches = [
+                dict(record)
+                for record in contract["outcomes"].values()
+                if isinstance(record, dict)
+                and record.get("step_id") == _step_id(step)
+                and record.get("step_definition_fingerprint") == step_definition_fingerprint(step)
+                and record.get("outcome_status") in {OUTCOME_PENDING, OUTCOME_UNKNOWN}
+            ]
+            if len(matches) > 1:
+                raise GovernedWorkError(
+                    "Hay varios outcomes ambiguos para el mismo step",
+                    code="pipeline_outcome_unknown",
+                )
+            return matches[0] if matches else None
+
+    def resume_unresolved(self, key: str) -> dict[str, Any]:
+        with self.lock:
+            contract = self.ensure()
+            record = contract["outcomes"].get(key)
+            if not isinstance(record, dict) or record.get("outcome_status") not in {OUTCOME_PENDING, OUTCOME_UNKNOWN}:
+                raise GovernedWorkError("Outcome pendiente inexistente", code="pipeline_outcome_missing")
+            record["outcome_status"] = OUTCOME_PENDING
+            record.pop("error", None)
+            return dict(record)
+
     def commit(self, key: str, *, result: Any, evidence: list[str], receipt_id: str) -> None:
         with self.lock:
             contract = self.ensure()
@@ -439,6 +470,23 @@ def _replayed_outcome(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _reconcile_committed_write(
+    state: GovernedPipelineState,
+    key: str,
+    unresolved: dict[str, Any],
+    receipt: Any,
+) -> dict[str, Any] | None:
+    if not isinstance(receipt, dict) or not str(receipt.get("receipt_id") or "").strip():
+        return None
+    evidence = list(unresolved.get("evidence") or []) + [
+        f"step_idempotency_key:{key}",
+        "operation_ledger:COMMITTED",
+        "operation_reconciled:receipt",
+    ]
+    state.commit(key, result=receipt, evidence=evidence, receipt_id=str(receipt["receipt_id"]))
+    return _replayed_outcome(state.ensure()["outcomes"][key])
+
+
 def execute_plan_through_gateway(
     *,
     plan: Any,
@@ -471,21 +519,120 @@ def execute_plan_through_gateway(
         if not effect_id:
             return _blocked("action_not_material", "non_material_action")
         try:
-            gateway.adapters.resolve(effect_id)
+            child_adapter = gateway.adapters.resolve(effect_id)
         except Exception:
             return _blocked(
                 "plan_child_gateway_unavailable",
                 "plan_child_adapter_missing",
             )
+        claim_store = context.services.get("_execution_claim_store") or gateway.claim_store_for(context.manager)
+        if (
+            bool(getattr(claim_store, "requires_sink_fencing", False))
+            and not bool(getattr(child_adapter, "supports_distributed_fencing", False))
+        ):
+            return _blocked(
+                "El sink de filesystem no ofrece fencing distribuido por generación",
+                "pipeline_distributed_sink_fencing_unavailable",
+            )
 
         try:
-            started = state.begin_attempt(step, authority)
+            resource_key = execution_resource_key(
+                effect_id,
+                target,
+                arguments,
+                context.manager,
+                session_id=str(getattr(parent_request, "session_id", "") or ""),
+            )
+        except (OSError, ValueError) as exc:
+            return _blocked(str(exc), "pipeline_resource_invalid")
+        operation_digest = _json_digest({"resource_key": resource_key, "arguments": arguments})
+        operation_store = (
+            operation_store_for(context.manager)
+            if effect_id == "filesystem.write" and claim_store.durability == "durable-local"
+            else None
+        )
+        recoverable = state.unresolved_attempt(step) if effect_id == "filesystem.write" and operation_store else None
+        if recoverable:
+            operation_id = str(recoverable["step_idempotency_key"])
+            try:
+                prior_operation = operation_store.get(operation_id)
+            except Exception:
+                return _blocked("No se pudo leer el ledger de reconciliación", "pipeline_operation_ledger_unavailable")
+            if (
+                not prior_operation
+                or prior_operation.get("resource_key") != resource_key
+                or prior_operation.get("payload_digest") != operation_digest
+            ):
+                return _blocked(
+                    "Outcome sin registro durable coincidente; requiere resolución explícita",
+                    "pipeline_reconciliation_record_missing",
+                )
+            if prior_operation.get("status") == "COMMITTED":
+                reconciled = _reconcile_committed_write(
+                    state, operation_id, recoverable, prior_operation.get("receipt")
+                )
+                return reconciled or _blocked(
+                    "El registro durable no contiene un receipt reconciliable",
+                    "pipeline_reconciliation_receipt_invalid",
+                )
+        else:
+            next_attempt = int(getattr(step, "attempt", 0) or 0) + 1
+            operation_id = (
+                f"{contract['pipeline_operation_id']}:{_step_id(step)}:attempt:"
+                f"{next_attempt}:{step_definition_fingerprint(step)[:16]}"
+            )
+        claim = claim_store.try_acquire(
+            resource_key,
+            str(getattr(parent_request, "request_id", "") or ""),
+            operation_id,
+        )
+        if claim is None:
+            return _blocked(
+                "El recurso ya tiene una ejecución reclamada",
+                "pipeline_resource_claim_busy",
+            )
+
+        try:
+            attempt_authority = {
+                **authority,
+                "execution_claim_id": claim.claim_id,
+                "execution_resource_key": claim.resource_key,
+                "execution_fencing_token": str(claim.fencing_token),
+                "execution_claim_durability": claim_store.durability,
+            }
+            if recoverable:
+                started = {
+                    "replay": False,
+                    "outcome": state.resume_unresolved(operation_id),
+                    "step_idempotency_key": operation_id,
+                }
+            else:
+                started = state.begin_attempt(step, attempt_authority)
         except GovernedWorkError as exc:
+            claim_store.release(claim)
             return _blocked(str(exc), exc.code)
         if started.get("replay"):
+            claim_store.release(claim)
             return _replayed_outcome(dict(started["outcome"]))
 
         key = str(started["step_idempotency_key"])
+        if operation_store and effect_id == "filesystem.write":
+            try:
+                record = operation_store.prepare(
+                    key, resource_key, operation_digest, claim.fencing_token
+                )
+            except Exception as exc:
+                claim_store.release(claim)
+                return _blocked(str(exc), "pipeline_operation_ledger_failed")
+            if record.get("status") == "COMMITTED":
+                claim_store.release(claim)
+                reconciled = _reconcile_committed_write(
+                    state, key, started["outcome"], record.get("receipt")
+                )
+                return reconciled or _blocked(
+                    "El registro durable no contiene un receipt reconciliable",
+                    "pipeline_reconciliation_receipt_invalid",
+                )
         pipeline_target = dict(target.get("_pipeline") or {})
         preconditions = (
             f"pipeline_operation_id:{contract['pipeline_operation_id']}",
@@ -493,6 +640,8 @@ def execute_plan_through_gateway(
             f"step_idempotency_key:{key}",
             f"step_definition_fingerprint:{step_definition_fingerprint(step)}",
             f"workflow_fingerprint:{contract['workflow_fingerprint']}",
+            f"execution_claim_id:{claim.claim_id}",
+            f"execution_fencing_token:{claim.fencing_token}",
         )
         child_request = build_execution_request(
             effect_id=effect_id,
@@ -508,26 +657,34 @@ def execute_plan_through_gateway(
             delegation_id=str(getattr(parent_request, "delegation_id", "") or ""),
             preconditions=preconditions,
         )
+        child_services = dict(getattr(context, "services", {}) or {})
+        child_services["_execution_claim"] = claim
+        from execution_gateway import ExecutionContext
+
+        claim_context = ExecutionContext(manager=context.manager, services=child_services)
         try:
             child_result, _ = gateway.execute_nested(
                 parent_request=parent_request,
                 child_request=child_request,
-                context=context,
+                context=claim_context,
             )
         except Exception as exc:
-            error_code = str(getattr(exc, "code", "") or "")
-            if bool(getattr(exc, "pre_dispatch", False)):
+            from execution_adapter_contract import ExecutionGatewayError
+
+            claim_store.release(claim)
+            if isinstance(exc, ExecutionGatewayError):
                 evidence = [
                     "blocked",
-                    "authority_revalidation_failed",
-                    f"code:{error_code}",
+                    "outcome_status:FAILED",
                     f"step_idempotency_key:{key}",
+                    f"block_code:{exc.code}",
                 ]
-                state.fail(key, result={}, evidence=evidence, error=str(exc))
-                return _blocked(str(exc), error_code)
+                state.fail(key, result={"ok": False, "error": str(exc)}, evidence=evidence, error=str(exc))
+                return _blocked(str(exc), exc.code)
             evidence = ["blocked", "outcome_status:OUTCOME_UNKNOWN", f"step_idempotency_key:{key}"]
             state.unknown(key, error=str(exc), evidence=evidence)
             return _blocked("plan_child_outcome_unknown", "pipeline_outcome_unknown")
+        claim_store.release(claim)
 
         result = dict(child_result) if isinstance(child_result, dict) else {"result": child_result}
         evidence = [str(item) for item in result.get("evidence", []) if str(item)]
@@ -536,9 +693,19 @@ def execute_plan_through_gateway(
             f"workflow_fingerprint:{contract['workflow_fingerprint']}",
             f"step_idempotency_key:{key}",
             f"delegation_chain_ref:{authority['delegation_chain_ref']}",
+            f"execution_claim_id:{claim.claim_id}",
+            f"execution_fencing_token:{claim.fencing_token}",
+            f"execution_claim_durability:{claim_store.durability}",
         ])
         receipt_id = str(result.get("receipt_id") or "").strip()
         if bool(result.get("ok")) and bool(result.get("executed")) and receipt_id:
+            if operation_store and effect_id == "filesystem.write":
+                try:
+                    operation_store.commit(key, result)
+                except Exception as exc:
+                    evidence.extend(["operation_ledger:COMMIT_FAILED", f"operation_ledger_error:{type(exc).__name__}"])
+                    state.unknown(key, error="receipt_materialized_but_ledger_commit_failed", evidence=evidence)
+                    return _blocked("El efecto se materializó; ledger pendiente para reconciliación", "pipeline_reconciliation_pending")
             state.commit(key, result=result, evidence=evidence, receipt_id=receipt_id)
             return {
                 "ok": True,

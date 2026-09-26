@@ -307,12 +307,27 @@ def test_persistence_uses_atomic_writes(tmp_path: Path) -> None:
     from integrations.pi.agent_runner import _atomic_write_json
 
     test_file = tmp_path / "test_atomic.json"
-    _atomic_write_json(test_file, {"hello": "world"})
+    _atomic_write_json(test_file, {"hello": "world"}, trusted_root=tmp_path, execution_id="test-1")
     assert test_file.exists()
     # No hay archivos .tmp residuales.
     assert not test_file.with_suffix(".json.tmp").exists()
     # El contenido es JSON válido.
     assert json.loads(test_file.read_text()) == {"hello": "world"}
+
+
+def test_persistence_blocks_targets_outside_trusted_receipts_root(tmp_path: Path) -> None:
+    import pytest
+    from integrations.pi.agent_runner import _atomic_write_json
+
+    outside = tmp_path / "outside.json"
+    with pytest.raises(ValueError, match="outside its trusted root"):
+        _atomic_write_json(
+            outside,
+            {"must_not_write": True},
+            trusted_root=tmp_path / "receipts",
+            execution_id="exec-1",
+        )
+    assert not outside.exists()
 
 
 def test_runner_persists_tool_receipts(tmp_path: Path) -> None:

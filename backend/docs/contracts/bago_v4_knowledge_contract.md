@@ -13,6 +13,10 @@ Una entrada de conocimiento útil debe tener:
 - fecha de creación persistida por `KnowledgeBase`,
 - una evidencia o comando que permita reproducir el contexto en el que se añadió.
 
+En las rutas HTTP, `source_session` lo asigna el `SessionManager` activo. El
+body del caller no puede elegir ni sobrescribir esa identidad; sin sesión
+activa, la escritura se rechaza antes de abrir los almacenes.
+
 ## Reglas
 
 1. El conocimiento no sustituye la sesión: la complementa.

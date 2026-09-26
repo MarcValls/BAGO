@@ -19,6 +19,7 @@ Uso:
 """
 
 from pathlib import Path
+import hashlib
 import json
 import sys
 from datetime import datetime, timezone
@@ -85,11 +86,6 @@ def load_manifest() -> dict:
     if MANIFEST.exists():
         return json.loads(MANIFEST.read_text(encoding="utf-8"))
     return {"roles": {}, "created": datetime.now(timezone.utc).isoformat()}
-
-
-def save_manifest(manifest: dict):
-    """Guarda manifest."""
-    MANIFEST.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def role_exists(name: str, family: str = None) -> bool:
@@ -191,25 +187,36 @@ def create_role(family: str, name: str, propósito: str, alcance: list,
         criterio=criterio or "(especificar)"
     )
 
-    # Crear archivo
-    role_file = ROLES_DIR / family / f"{name.upper()}.md"
+    # Authorize the exact repository role and manifest transition before either write.
     try:
-        role_file.write_text(content, encoding="utf-8")
-        print(f"✅ Rol creado: {family}/{name.upper()}.md")
+        backend_root = Path(__file__).resolve().parents[2]
+        if str(backend_root) not in sys.path:
+            sys.path.insert(0, str(backend_root))
+        from bago_core.cli_execution import execute_cli_effect
+        from execution_request import build_execution_request
+
+        root = ROLES_DIR.absolute()
+        current = MANIFEST.read_bytes() if MANIFEST.exists() else b""
+        manifest_digest = hashlib.sha256(current).hexdigest() if current else "missing"
+        request = build_execution_request(
+            effect_id="role.definition.create",
+            actor_kind="user",
+            principal_id="interactive-local-user",
+            session_id="roles:" + hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:20],
+            source_surface="cli.role_factory.create",
+            target={"role_root": str(root), "family": family, "name": name, "manifest_sha256": manifest_digest},
+            arguments={"content": content},
+            scope="workspace",
+        )
+        result, _authorization = execute_cli_effect(
+            request, confirmation_text=f"crear el rol {family}/{name.upper()} en {root}"
+        )
+        if not isinstance(result, dict) or result.get("ok") is not True:
+            raise RuntimeError("La creación del rol no produjo un recibo válido")
     except Exception as e:
         print(f"❌ Error creando rol: {e}")
         return False
-
-    # Registrar en manifest
-    manifest = load_manifest()
-    manifest["roles"][f"role_{family}_{name}"] = {
-        "family": family,
-        "name": name,
-        "file": str(role_file.relative_to(ROLES_DIR)),
-        "created": datetime.now(timezone.utc).isoformat(),
-        "status": "active"
-    }
-    save_manifest(manifest)
+    print(f"✅ Rol creado: {family}/{name.upper()}.md")
     print(f"📝 Registrado en manifest")
 
     return True

@@ -282,7 +282,6 @@ async function pmDeleteTerminalJobs() {
   const jobs = releaseJobs.filter(job => ['ready', 'completed', 'cancelled', 'failed', 'rolled-back'].includes(job.state));
   if (!jobs.length) return showToast('No hay trabajos terminales', true);
   if (!api || !api.deleteReleaseJob) return showToast('deleteReleaseJob no disponible', false);
-  if (!window.confirm('Archivar ' + jobs.length + ' trabajo(s) terminal(es)?')) return;
   for (const job of jobs) await api.deleteReleaseJob(job.id);
   await pmLoadJobs();
   showToast('Trabajos archivados', true);

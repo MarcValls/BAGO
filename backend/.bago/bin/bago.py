@@ -7,7 +7,7 @@ It delegates to the real modules below and records verification evidence under
 
 Commands:
     status    Show project lifecycle state, version, active handoff and conflicts.
-    verify    Run a real check command and record its result.
+    verify    Run a pytest check with direct TTY authorization and record it.
     doctor    Run the portable project doctor.
     handoff   Set or read the active handoff note.
 
@@ -26,6 +26,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -61,32 +62,67 @@ CONFLICTS_FILE = CONFLICTS_DIR / "CONFLICTS.md"
 PROJECT_STATE_FILE = STATE_DIR / "PROJECT_STATE.json"
 
 
-def _ensure_dirs() -> None:
-    for d in (RUNTIME_DIR, STATE_DIR, DECISIONS_DIR, CONFLICTS_DIR):
-        d.mkdir(parents=True, exist_ok=True)
-
-
 def _now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
 
 def _git_sha() -> str | None:
+    from bago_core.server_effects import inspect_process
+
     candidates = [REPO_ROOT, BAGO_ROOT, REPO_ROOT / "backend"]
     for cwd in candidates:
         try:
-            result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=cwd,
-                capture_output=True,
-                text=True,
-                check=True,
+            manager = SimpleNamespace(session_id=f"bago-git:{cwd}", base_path=str(cwd))
+            result = inspect_process(
+                "git", ["rev-parse", "HEAD"], cwd=cwd, manager=manager, timeout=15,
             )
-            sha = result.stdout.strip()[:12]
+            if int(result.get("exit_code", 1)) != 0:
+                continue
+            sha = str(result.get("stdout") or "").strip()[:12]
             if sha:
                 return sha
         except Exception:
             continue
     return None
+
+
+def _execute_verify_command(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    """Run only pytest checks through a direct-TTY, Permit-bound process effect."""
+    from bago_core.cli_execution import execute_cli_effect
+    from execution_request import build_execution_request
+
+    values = [str(value) for value in command]
+    if values and values[0].lower() == "pytest":
+        argv = ["-m", "pytest", *values[1:]]
+    elif values and values[0].lower() in {"python", "python.exe", sys.executable.lower()} and values[1:3] == ["-m", "pytest"]:
+        argv = values[1:]
+    else:
+        raise ValueError("verify accepts only pytest or python -m pytest commands")
+    if not argv or any("\x00" in item for item in argv):
+        raise ValueError("verification argv is invalid")
+
+    manager = SimpleNamespace(session_id=f"bago-verify:{cwd}", base_path=str(cwd))
+    request = build_execution_request(
+        effect_id="process.execute",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=manager.session_id,
+        source_surface="cli.bago.verify",
+        target={"executable": sys.executable, "cwd": str(cwd), "timeout_seconds": 1800},
+        arguments={"argv": argv},
+        scope="workspace",
+    )
+    receipt = execute_cli_effect(
+        request,
+        confirmation_text=f"ejecutar pytest en {cwd}",
+        manager=manager,
+    )
+    return subprocess.CompletedProcess(
+        args=[sys.executable, *argv],
+        returncode=int(receipt.get("exit_code", 1)),
+        stdout=str(receipt.get("stdout") or ""),
+        stderr=str(receipt.get("stderr") or ""),
+    )
 
 
 def _read_version() -> str:
@@ -158,9 +194,14 @@ def _read_handoff() -> str:
 
 
 def _write_handoff(note: str) -> None:
-    ACTIVE_HANDOFF.write_text(
+    from bago_core.server_effects import write_text_atomic
+
+    write_text_atomic(
+        ACTIVE_HANDOFF,
         f"<!-- Active handoff updated {_now()} -->\n{note}\n",
-        encoding="utf-8",
+        trusted_root=BAGO_ROOT,
+        source_surface="bago.runtime.handoff",
+        session_id=f"bago-handoff:{REPO_ROOT}",
     )
 
 
@@ -174,9 +215,12 @@ def _load_project_state() -> dict[str, Any]:
 
 
 def _save_project_state(state: dict[str, Any]) -> None:
+    from bago_utils import save_json
+
     state["updated_at"] = _now()
     state["updated_from"] = str(_THIS.relative_to(REPO_ROOT))
-    PROJECT_STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+    if not save_json(PROJECT_STATE_FILE, state):
+        raise RuntimeError("project state write was rejected by the ExecutionGateway")
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -206,7 +250,7 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 def cmd_verify(args: argparse.Namespace) -> int:
     if not args.command:
-        print("verify requires a command: python .bago/bin/bago.py verify -- <command>", file=sys.stderr)
+        print("verify requires pytest: python .bago/bin/bago.py verify -- pytest <paths/options>", file=sys.stderr)
         return 2
     # Verification commands are executed from the repository root so that relative
     # paths (e.g. backend/...) resolve correctly regardless of where the wrapper
@@ -225,12 +269,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
     }
     print(f"[verify] running: {' '.join(cmd)}")
     try:
-        result = subprocess.run(
-            cmd,
-            cwd=verify_root,
-            capture_output=True,
-            text=True,
-        )
+        result = _execute_verify_command(cmd, verify_root)
         evidence["returncode"] = result.returncode
         evidence["stdout"] = result.stdout
         evidence["stderr"] = result.stderr
@@ -243,7 +282,10 @@ def cmd_verify(args: argparse.Namespace) -> int:
         evidence["status"] = "error"
 
     evidence_file = RUNTIME_DIR / f"{evidence['id']}.json"
-    evidence_file.write_text(json.dumps(evidence, indent=2, ensure_ascii=False), encoding="utf-8")
+    from bago_utils import save_json
+
+    if not save_json(evidence_file, evidence):
+        raise RuntimeError("verification evidence write was rejected by the ExecutionGateway")
     state = _load_project_state()
     state["last_verification"] = evidence["id"]
     _save_project_state(state)
@@ -316,7 +358,6 @@ def cmd_handoff(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    _ensure_dirs()
     # Shared flags must be available both before and after the subcommand.
     shared = argparse.ArgumentParser(add_help=False)
     shared.add_argument("--json", action="store_true", help="Output JSON where supported")

@@ -66,13 +66,6 @@ def _fallback_unprotect(ciphertext: bytes) -> bytes:
     return bytes(value ^ key[index % len(key)] for index, value in enumerate(encrypted))
 
 
-def _secret_dir(*, create: bool = True) -> Path:
-    path = secrets_root()
-    if create:
-        path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
 def _is_windows() -> bool:
     return sys.platform.startswith("win")
 
@@ -82,8 +75,8 @@ def _safe_key_name(key: str) -> str:
     return f"{safe}.bin"
 
 
-def _key_to_path(key: str, *, create: bool = True) -> Path:
-    return _secret_dir(create=create) / _safe_key_name(key)
+def _key_to_path(key: str) -> Path:
+    return secrets_root() / _safe_key_name(key)
 
 
 def _key_read_candidates(key: str) -> tuple[Path, ...]:
@@ -91,25 +84,24 @@ def _key_read_candidates(key: str) -> tuple[Path, ...]:
 
 
 class SecretStore:
-    """OS-bound secret store owned by the backend kernel."""
+    """Read-only OS-bound secret store; writes belong to ``credential.write``."""
 
     def _platform_is_windows(self) -> bool:
         """Keep platform selection overridable for compatibility facades/tests."""
         return _is_windows()
 
-    def set_secret(self, key: str, value: str) -> None:
+    def path_for_key(self, key: str) -> Path:
+        """Return the canonical file identity without creating its parent."""
+        return _key_to_path(key)
+
+    def protect_secret(self, value: str) -> bytes:
         if not isinstance(value, str):
             raise TypeError("value debe ser str")
         raw = value.encode("utf-8")
-        cipher = _dpapi_protect(raw) if self._platform_is_windows() else _fallback_protect(raw)
-        path = _key_to_path(key, create=True)
-        temporary = path.with_suffix(".tmp")
-        temporary.write_bytes(cipher)
-        os.replace(str(temporary), str(path))
-        try:
-            os.chmod(str(path), 0o600)
-        except (OSError, NotImplementedError):
-            pass
+        return _dpapi_protect(raw) if self._platform_is_windows() else _fallback_protect(raw)
+
+    def set_secret(self, key: str, value: str) -> None:
+        raise RuntimeError("La escritura directa de secretos está deshabilitada; use credential.write.")
 
     def get_secret(self, key: str) -> Optional[str]:
         for path in _key_read_candidates(key):
@@ -124,11 +116,7 @@ class SecretStore:
         return None
 
     def delete_secret(self, key: str) -> bool:
-        path = _key_to_path(key, create=False)
-        if path.exists():
-            path.unlink()
-            return True
-        return False
+        raise RuntimeError("El borrado directo de secretos está deshabilitado; use credential.write.")
 
     def list_keys(self) -> list[str]:
         keys: set[str] = set()

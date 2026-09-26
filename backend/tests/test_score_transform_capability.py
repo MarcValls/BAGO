@@ -11,6 +11,16 @@ import pytest
 
 import capability_packages as packages
 
+_execute_package = packages._execute_package
+
+
+def _run_package(*args, **kwargs):
+    kwargs.setdefault("process_executor", subprocess.run)
+    return _execute_package(*args, **kwargs)
+
+
+packages._execute_package = _run_package
+
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_ROOT = ROOT / "examples" / "capabilities" / "score-transform"
@@ -27,7 +37,7 @@ def package_base64() -> str:
 
 def test_package_executes_musicxml_pipeline_with_receipt(tmp_path, monkeypatch):
     monkeypatch.setattr(packages, "state_root", lambda: tmp_path / "state")
-    imported = packages.import_package(
+    imported = packages._materialize_import(
         content_base64=package_base64(),
         file_name="music.score-transform-1.0.0.zip",
         confirm_trust=True,
@@ -41,7 +51,7 @@ def test_package_executes_musicxml_pipeline_with_receipt(tmp_path, monkeypatch):
         "separate_voices_in_full": True,
     })
 
-    result = packages.execute_package(
+    result = packages._execute_package(
         "music.score-transform",
         inputs={
             "source_path": str(PACKAGE_ROOT / "sample.musicxml"),

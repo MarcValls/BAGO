@@ -45,6 +45,7 @@ from typing import Any, Callable
 
 from bago_core.user_state_paths import state_read_candidates, state_root
 from bago_core.server_effects import gateway_urlopen
+from bago_core.server_effects import write_config_text_atomic, write_text_atomic
 
 
 # ─── Estado global del job ────────────────────────────────────────────
@@ -131,17 +132,13 @@ def _persist_last_job() -> None:
                 return
             data = JOB.to_dict()
         target = _last_job_path()
-        target.parent.mkdir(parents=True, exist_ok=True)
-        import tempfile
-        fd, tmp = tempfile.mkstemp(prefix="last_auto.", suffix=".tmp", dir=str(target.parent))
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            os.replace(tmp, target)
-        except Exception:
-            try: os.unlink(tmp)
-            except Exception: pass
-            raise
+        write_text_atomic(
+            target,
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+            trusted_root=target.parent,
+            source_surface="auto_configurator.persist_job",
+            session_id="auto-configurator-job",
+        )
     except Exception:
         pass
 
@@ -748,20 +745,13 @@ def apply_generated_config(force: bool = False) -> dict:
         "blacklist_count": len(cfg.get("blacklist", [])),
     }
 
-    # Guardar atómicamente
-    cfg_path.parent.mkdir(parents=True, exist_ok=True)
-    import tempfile
-    fd, tmp_name = tempfile.mkstemp(prefix="config.", suffix=".tmp", dir=str(cfg_path.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(existing, f, indent=2, ensure_ascii=False)
-        os.replace(tmp_name, cfg_path)
-    except Exception:
-        try:
-            os.unlink(tmp_name)
-        except Exception:
-            pass
-        raise
+    write_config_text_atomic(
+        cfg_path,
+        json.dumps(existing, indent=2, ensure_ascii=False) + "\n",
+        trusted_root=cfg_path.parent,
+        source_surface="auto_configurator.apply_config",
+        session_id="auto-configurator-config",
+    )
 
     # Aplicar blacklist por separado (otro archivo)
     blacklist = cfg.get("blacklist", [])

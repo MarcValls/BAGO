@@ -99,7 +99,8 @@ bago exec /status
 | `python bago_core\cli.py validate` | checks contracts, security defaults, and provider configuration |
 | `bago exec /commands json` | exports the slash-command catalog for agents |
 | `bago exec /doctor` | checks command catalog, headless execution, install roles, and provider health |
-| `python bago_core\cli.py evidence --test` | validates evidence bundle generation |
+| `python -m pytest tests\test_evidence_bundle_gateway.py -q` | validates evidence bundle generation through its strong CLI Permit |
+| `bago rollback-archive --backup-zip <zip> --install-dir <path> --backup-root <path>` | restores a named ZIP after strong TTY approval, retaining current runtime state by default |
 | `python bago_core\cli.py llm list` | lists provider/model availability |
 | `python bago_core\cli.py llm start ...` | starts or dry-runs provider-aware startup |
 | `python bago_core\cli.py serve --host 127.0.0.1 --port 8080` | starts the local API |

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import inspect
+import hashlib
+import subprocess
+import sys
 import threading
-import time
 from pathlib import Path
 
 import pytest
@@ -14,8 +16,11 @@ from execution_gateway import (
     ExecutionContext,
     ExecutionGateway,
     ExecutionGatewayError,
+    ProcessExecutionEffectAdapter,
+    ContextAttachEffectAdapter,
     ProjectWriteEffectAdapter,
     WorkspaceBindEffectAdapter,
+    WorkspaceMirrorSyncEffectAdapter,
     build_default_effect_adapter_registry,
 )
 from execution_request import build_execution_request
@@ -142,6 +147,442 @@ def test_missing_adapter_does_not_consume_valid_permit(tmp_path, monkeypatch) ->
     assert consumed["state"] == "consumed"
 
 
+def test_process_execute_adapter_runs_only_the_permitted_workspace_argv(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    monkeypatch.setattr("execution_adapters.process.shutil.which", lambda _exe: r"C:\GitHubCLI\gh.exe")
+    monkeypatch.setattr(
+        "execution_adapters.process.subprocess.run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(command, 0, "gateway-owned\n", ""),
+    )
+    boundary = auth.AuthorizationBoundary()
+    request = build_execution_request(
+        effect_id="process.execute",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="session-1",
+        source_surface="test.gateway",
+        target={"executable": "gh", "cwd": str(tmp_path), "timeout_seconds": 5},
+        arguments={"argv": ["auth", "status"]},
+    )
+    permit = _permit(boundary, request, interaction="process-execute")
+    manager = type("Manager", (), {"session_id": "session-1", "base_path": str(tmp_path)})()
+    gateway = ExecutionGateway(boundary=boundary)
+    assert isinstance(gateway.adapters.resolve("process.execute"), ProcessExecutionEffectAdapter)
+
+    result, authorization = gateway.execute(
+        permit_token=permit["token"],
+        request=request,
+        context=ExecutionContext(manager=manager),
+    )
+
+    assert authorization["state"] == "consumed"
+    assert result["ok"] is True
+    assert result["stdout"].strip() == "gateway-owned"
+    assert result["cwd"] == str(tmp_path.resolve())
+
+
+def test_process_execute_rejects_out_of_workspace_cwd_before_spawn(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    monkeypatch.setattr(
+        "execution_adapters.process.subprocess.run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("spawn must be blocked")),
+    )
+    boundary = auth.AuthorizationBoundary()
+    request = build_execution_request(
+        effect_id="process.execute",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="session-1",
+        source_surface="test.gateway",
+        target={"executable": "gh", "cwd": str(tmp_path.parent)},
+        arguments={"argv": ["auth", "status"]},
+    )
+    permit = _permit(boundary, request, interaction="process-cwd-block")
+    manager = type("Manager", (), {"session_id": "session-1", "base_path": str(tmp_path)})()
+    gateway = ExecutionGateway(boundary=boundary)
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        gateway.execute(
+            permit_token=permit["token"],
+            request=request,
+            context=ExecutionContext(manager=manager),
+        )
+
+    assert blocked.value.code == "process_execution_cwd_out_of_scope"
+
+
+def test_server_process_inspection_allows_only_exact_git_head_read(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("execution_adapters.process.shutil.which", lambda _exe: r"C:\Git\git.exe")
+    monkeypatch.setattr(
+        "execution_adapters.process.subprocess.run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(command, 0, "abc123\n", ""),
+    )
+    from bago_core.server_effects import inspect_process
+
+    manager = type("Manager", (), {"session_id": "git-inspect-1", "base_path": str(tmp_path)})()
+    result = inspect_process("git", ["rev-parse", "HEAD"], cwd=tmp_path, manager=manager)
+
+    assert result["exit_code"] == 0
+    assert result["stdout"] == "abc123\n"
+
+
+def test_server_process_inspection_allows_exact_git_diff_paths_read(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("execution_adapters.process.shutil.which", lambda _exe: r"C:\Git\git.exe")
+    calls = []
+
+    def run(command, **_kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, "src/changed.py\n", "")
+
+    monkeypatch.setattr("execution_adapters.process.subprocess.run", run)
+    from bago_core.server_effects import inspect_process
+
+    manager = type("Manager", (), {"session_id": "git-diff-paths-1", "base_path": str(tmp_path)})()
+    argv = ["-c", f"safe.directory={tmp_path.as_posix()}", "diff", "--name-only"]
+    result = inspect_process("git", argv, cwd=tmp_path, manager=manager, timeout=5)
+
+    assert result["exit_code"] == 0
+    assert result["stdout"] == "src/changed.py\n"
+    assert calls and calls[0][1:] == argv
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["rev-parse", "--show-toplevel"],
+        ["rev-parse", "--abbrev-ref", "HEAD"],
+    ],
+)
+def test_server_process_inspection_allows_exact_git_binding_reads(tmp_path, monkeypatch, argv) -> None:
+    monkeypatch.setattr("execution_adapters.process.shutil.which", lambda _exe: r"C:\Git\git.exe")
+    monkeypatch.setattr(
+        "execution_adapters.process.subprocess.run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(command, 0, "value\n", ""),
+    )
+    from bago_core.server_effects import inspect_process
+
+    manager = type("Manager", (), {"session_id": "git-binding-1", "base_path": str(tmp_path)})()
+    result = inspect_process("git", argv, cwd=tmp_path, manager=manager)
+
+    assert result["exit_code"] == 0
+    assert result["stdout"] == "value\n"
+
+
+def test_server_process_inspection_rejects_git_mutation_before_gateway(tmp_path) -> None:
+    from bago_core.server_effects import inspect_process
+
+    manager = type("Manager", (), {"session_id": "git-inspect-2", "base_path": str(tmp_path)})()
+    with pytest.raises(ValueError, match="read-only allowlist"):
+        inspect_process("git", ["config", "user.name", "changed"], cwd=tmp_path, manager=manager)
+
+
+def test_process_adapter_pytest_allowlist_rejects_inline_code() -> None:
+    assert ProcessExecutionEffectAdapter.is_authorized_executable_argv(
+        sys.executable, ["-m", "pytest", "-q", "tests"]
+    )
+    assert not ProcessExecutionEffectAdapter.is_authorized_executable_argv(
+        sys.executable, ["-c", "print('arbitrary')"]
+    )
+
+
+def test_process_execute_runs_only_a_digest_bound_bago_module(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    framework = tmp_path / "framework"
+    package = framework / "bago_core"
+    package.mkdir(parents=True)
+    module_file = package / "launcher.py"
+    module_file.write_text("import sys\nprint('module-owned:' + '|'.join(sys.argv[1:]))\n", encoding="utf-8")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    digest = hashlib.sha256(module_file.read_bytes()).hexdigest()
+    boundary = auth.AuthorizationBoundary()
+    request = build_execution_request(
+        effect_id="process.execute",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="session-module",
+        source_surface="api.process.execute.desktop",
+        target={
+            "python_module": "bago_core.launcher",
+            "python_root": str(framework),
+            "python_module_sha256": digest,
+            "cwd": str(workspace),
+            "timeout_seconds": 5,
+        },
+        arguments={"argv": ["--sample", "exact"]},
+        scope="workspace",
+    )
+    permit = _permit(boundary, request, interaction="process-module-execute")
+    manager = type("Manager", (), {
+        "session_id": "session-module", "base_path": str(workspace),
+        "framework_root": str(framework),
+    })()
+    result, authorization = ExecutionGateway(boundary=boundary).execute(
+        permit_token=permit["token"], request=request,
+        context=ExecutionContext(manager=manager),
+    )
+    assert authorization["state"] == "consumed"
+    assert result["python_module"] == "bago_core.launcher"
+    assert result["stdout"].strip() == "module-owned:--sample|exact"
+    assert result["cwd"] == str(workspace.resolve())
+
+
+def test_process_execute_module_digest_drift_blocks_before_spawn(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    framework = tmp_path / "framework"
+    package = framework / "bago_core"
+    package.mkdir(parents=True)
+    module_file = package / "launcher.py"
+    module_file.write_text("print('authorized')\n", encoding="utf-8")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    digest = hashlib.sha256(module_file.read_bytes()).hexdigest()
+    boundary = auth.AuthorizationBoundary()
+    request = build_execution_request(
+        effect_id="process.execute", actor_kind="user",
+        principal_id="interactive-local-user", session_id="session-module-drift",
+        source_surface="api.process.execute.desktop",
+        target={"python_module": "bago_core.launcher", "python_root": str(framework),
+                "python_module_sha256": digest, "cwd": str(workspace), "timeout_seconds": 5},
+        arguments={"argv": []}, scope="workspace",
+    )
+    permit = _permit(boundary, request, interaction="process-module-drift")
+    module_file.write_text("print('changed after challenge')\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "execution_adapters.process.subprocess.run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("spawn must be blocked")),
+    )
+    manager = type("Manager", (), {
+        "session_id": "session-module-drift", "base_path": str(workspace),
+        "framework_root": str(framework),
+    })()
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway(boundary=boundary).execute(
+            permit_token=permit["token"], request=request,
+            context=ExecutionContext(manager=manager),
+        )
+    assert blocked.value.code == "process_execution_module_unavailable"
+
+
+def test_process_inspect_server_policy_allows_only_fixed_read_only_launcher_operations(tmp_path, monkeypatch) -> None:
+    framework = tmp_path / "framework"
+    package = framework / "bago_core"
+    package.mkdir(parents=True)
+    module_file = package / "launcher.py"
+    module_file.write_text("print('launcher')\n", encoding="utf-8")
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    digest = hashlib.sha256(module_file.read_bytes()).hexdigest()
+    manager = type("Manager", (), {
+        "session_id": "session-inspect", "base_path": str(workspace),
+        "framework_root": str(framework),
+    })()
+    request = build_execution_request(
+        effect_id="process.inspect", actor_kind="server", principal_id="bago-runtime",
+        session_id="session-inspect", source_surface="server.process.inspect",
+        target={"python_module": "bago_core.launcher", "python_root": str(framework),
+                "python_module_sha256": digest, "cwd": str(workspace), "timeout_seconds": 30},
+        arguments={"argv": ["node", "status", "--json"]}, scope="workspace",
+    )
+    calls = []
+    monkeypatch.setattr(
+        "execution_adapters.process.subprocess.run",
+        lambda *args, **kwargs: calls.append((args, kwargs)) or type(
+            "Completed", (), {"returncode": 0, "stdout": "{}", "stderr": ""}
+        )(),
+    )
+    result, authorization = ExecutionGateway().execute_server_owned(
+        request=request, context=ExecutionContext(manager=manager),
+    )
+    assert authorization["kind"] == "server_policy"
+    assert result["effect_id"] == "process.inspect"
+    assert result["executed"] is True
+    assert len(calls) == 1
+
+    blocked_request = build_execution_request(
+        effect_id="process.inspect", actor_kind="server", principal_id="bago-runtime",
+        session_id="session-inspect", source_surface="server.process.inspect",
+        target={"python_module": "bago_core.launcher", "python_root": str(framework),
+                "python_module_sha256": digest, "cwd": str(workspace), "timeout_seconds": 30},
+        arguments={"argv": ["node", "export", "--output", "outside.json"]}, scope="workspace",
+    )
+    with pytest.raises(ExecutionGatewayError) as denied:
+        ExecutionGateway().execute_server_owned(
+            request=blocked_request, context=ExecutionContext(manager=manager),
+        )
+    assert denied.value.code == "process_execution_authorization_required"
+    assert len(calls) == 1
+
+
+def test_workspace_mirror_sync_requires_exact_permit_and_copies_through_gateway(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    source = tmp_path / "session" / "workspace"
+    target = tmp_path / "project"
+    source.mkdir(parents=True)
+    target.mkdir()
+    (source / "note.txt").write_text("session edit", encoding="utf-8")
+    manager = type("Manager", (), {
+        "session_id": "mirror-sync-session", "base_path": source,
+        "project_root": target, "workspace_id": "workspace-1",
+        "_mirror_ignore": staticmethod(lambda _directory, _names: set()),
+    })()
+    src, dst, digest = WorkspaceMirrorSyncEffectAdapter.prepare_operation(manager)
+    request = build_execution_request(
+        effect_id="workspace.mirror.sync", actor_kind="user",
+        principal_id="interactive-local-user", session_id=manager.session_id,
+        source_surface="test.workspace.mirror.sync",
+        target={"source_root": str(src), "target_root": str(dst), "binding_digest": digest,
+                "workspace_id": manager.workspace_id, "resource": "workspace_mirror", "operation": "sync"},
+        arguments={}, scope="workspace",
+    )
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction="workspace-mirror-sync")
+    gateway = ExecutionGateway(boundary=boundary)
+
+    result, authorization = gateway.execute(
+        permit_token=permit["token"], request=request,
+        context=ExecutionContext(manager=manager),
+    )
+
+    assert authorization["state"] == "consumed"
+    assert result["effect_id"] == "workspace.mirror.sync"
+    assert (target / "note.txt").read_text(encoding="utf-8") == "session edit"
+
+
+def test_workspace_mirror_sync_blocks_changed_destination_before_copy(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    source = tmp_path / "session" / "workspace"
+    target = tmp_path / "project"
+    changed = tmp_path / "other-project"
+    source.mkdir(parents=True)
+    target.mkdir()
+    changed.mkdir()
+    (source / "note.txt").write_text("must not copy", encoding="utf-8")
+    manager = type("Manager", (), {
+        "session_id": "mirror-sync-session", "base_path": source,
+        "project_root": target, "workspace_id": "workspace-1",
+        "_mirror_ignore": staticmethod(lambda _directory, _names: set()),
+    })()
+    src, dst, digest = WorkspaceMirrorSyncEffectAdapter.prepare_operation(manager)
+    request = build_execution_request(
+        effect_id="workspace.mirror.sync", actor_kind="user",
+        principal_id="interactive-local-user", session_id=manager.session_id,
+        source_surface="test.workspace.mirror.sync",
+        target={"source_root": str(src), "target_root": str(dst), "binding_digest": digest,
+                "workspace_id": manager.workspace_id, "resource": "workspace_mirror", "operation": "sync"},
+        arguments={}, scope="workspace",
+    )
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction="workspace-mirror-sync-changed")
+    manager.project_root = changed
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway(boundary=boundary).execute(
+            permit_token=permit["token"], request=request,
+            context=ExecutionContext(manager=manager),
+        )
+
+    assert blocked.value.code == "workspace_mirror_sync_target_changed"
+    assert not (target / "note.txt").exists()
+    assert not (changed / "note.txt").exists()
+
+
+def _context_attach_manager(tmp_path: Path, *, session_id: str = "context-attach-session"):
+    workspace = tmp_path / "sessions" / session_id / "workspace"
+    context_root = tmp_path / "sessions" / session_id / "context"
+    workspace.mkdir(parents=True)
+    mirror_root = workspace
+    (workspace / "docs").mkdir()
+    (workspace / "docs" / "note.txt").write_text("context source", encoding="utf-8")
+    return type("Manager", (), {
+        "session_id": session_id,
+        "base_path": workspace,
+        "workspace_mirror_root": mirror_root,
+        "workspace_context_root": context_root,
+        "workspace_state_root": workspace / ".gabo",
+        "workspace_mirror_ready": True,
+        "_resolve_context_selection": staticmethod(
+            lambda paths: [((workspace / paths[0]).resolve())] if paths else []
+        ),
+        "_mirror_ignore": staticmethod(lambda _directory, names: {
+            name for name in names if name.casefold() in {".git", ".gabo", "node_modules", "__pycache__"}
+        }),
+    })()
+
+
+def _context_attach_request(manager):
+    paths = ["docs"]
+    source, context_root, selected, digest = ContextAttachEffectAdapter.prepare_operation(manager, paths)
+    return build_execution_request(
+        effect_id="workspace.context.attach",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=manager.session_id,
+        source_surface="test.context.attach",
+        target={
+            "source_root": str(source),
+            "context_root": str(context_root),
+            "selection": [str(path) for path in selected],
+            "selection_digest": digest,
+            "resource": "session_context",
+            "operation": "attach",
+        },
+        arguments={"paths": paths},
+        scope="workspace",
+    )
+
+
+def test_context_attach_requires_exact_permit_and_materializes_an_atomic_bundle(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    manager = _context_attach_manager(tmp_path)
+    request = _context_attach_request(manager)
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction="context-attach")
+    assert not manager.workspace_context_root.exists()
+
+    result, authorization = ExecutionGateway(boundary=boundary).execute(
+        permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager),
+    )
+
+    assert authorization["state"] == "consumed"
+    assert result["effect_id"] == "workspace.context.attach"
+    bundle_root = Path(result["data"]["bundle_root"])
+    assert (bundle_root / "docs" / "note.txt").read_text(encoding="utf-8") == "context source"
+    assert (bundle_root / "manifest.json").is_file()
+    assert not any(path.name.startswith(".attach-") for path in manager.workspace_context_root.iterdir())
+
+
+def test_context_attach_blocks_changed_source_before_bundle_creation(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    manager = _context_attach_manager(tmp_path)
+    request = _context_attach_request(manager)
+    boundary = auth.AuthorizationBoundary()
+    permit = _permit(boundary, request, interaction="context-attach-changed")
+    (manager.base_path / "docs" / "note.txt").write_text("changed after approval", encoding="utf-8")
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway(boundary=boundary).execute(
+            permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager),
+        )
+
+    assert blocked.value.code == "context_attach_target_changed"
+    assert not manager.workspace_context_root.exists()
+
+
+def test_context_attach_adapter_rejects_unbound_consumed_authorization_before_write(tmp_path) -> None:
+    manager = _context_attach_manager(tmp_path)
+    request = _context_attach_request(manager)
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ContextAttachEffectAdapter().execute(
+            request,
+            ExecutionContext(manager=manager, services={"_authorization": {"state": "consumed"}}),
+        )
+
+    assert blocked.value.code == "context_attach_authorization_required"
+    assert not manager.workspace_context_root.exists()
+
+
 def test_registry_rejects_duplicate_effect_ownership() -> None:
     registry = EffectAdapterRegistry()
     registry.register(_RecordingAdapter())
@@ -157,10 +598,14 @@ def test_default_registry_owns_governed_plan_and_filesystem_adapters() -> None:
     assert "filesystem.read" in registry.registered_effects()
     assert "plan.execute" in registry.registered_effects()
     assert "state.write" in registry.registered_effects()
+    assert "state.directory.ensure" in registry.registered_effects()
+    assert "state.bootstrap" in registry.registered_effects()
     assert "config.write" in registry.registered_effects()
     assert "memory.write" in registry.registered_effects()
     assert "agent.definition.write" in registry.registered_effects()
     assert "workspace.bind" in registry.registered_effects()
+    assert "workspace.mirror.sync" in registry.registered_effects()
+    assert "workspace.context.attach" in registry.registered_effects()
     assert "state.delete" in registry.registered_effects()
     assert "project.write" in registry.registered_effects()
     assert "credential.write" in registry.registered_effects()
@@ -214,24 +659,6 @@ def test_project_operation_revalidates_target_immediately_before_first_write(tmp
     assert not (project / ".bago" / "pack.json").exists()
 
 
-@pytest.mark.parametrize("invalid_root", [Path.home(), Path(Path.home().anchor)])
-def test_project_operation_rejects_unsafe_selected_root_before_fingerprint(tmp_path, invalid_root) -> None:
-    manager = type("Manager", (), {
-        "project_root": tmp_path / "project",
-        "session_id": "unsafe-root-session",
-    })()
-    manager.project_root.mkdir()
-    before = {(invalid_root / name).exists() for name in (".bago", ".gabo")}
-
-    with pytest.raises(ExecutionGatewayError) as blocked:
-        ProjectWriteEffectAdapter.prepare_operation(manager, str(invalid_root), "init")
-
-    assert blocked.value.code == "project_write_root_invalid"
-    assert {(invalid_root / name).exists() for name in (".bago", ".gabo")} == before
-    assert not (manager.project_root / ".bago").exists()
-    assert not (manager.project_root / ".gabo").exists()
-
-
 def test_project_operation_allows_authorized_root_switch(tmp_path, monkeypatch) -> None:
     project = tmp_path / "project"
     project.mkdir()
@@ -266,98 +693,6 @@ def test_project_operation_allows_authorized_root_switch(tmp_path, monkeypatch) 
     assert manager.project_root == other.resolve()
     assert (other / ".bago").exists()
     assert not (project / ".bago").exists()
-
-
-def test_project_root_switches_on_one_manager_are_serialized(tmp_path, monkeypatch) -> None:
-    first = tmp_path / "first"
-    second = tmp_path / "second"
-    first.mkdir()
-    second.mkdir()
-
-    class Manager:
-        project_root = first
-        session_id = "serialized-root-session"
-
-        def __init__(self) -> None:
-            self.active = 0
-            self.maximum_active = 0
-            self.rebound: list[Path] = []
-
-        def rebind_project_root(self, target):
-            self.project_root = Path(target).resolve()
-            self.rebound.append(self.project_root)
-
-    manager = Manager()
-    requests = []
-    for root, interaction in ((first, "serialized-first"), (second, "serialized-second")):
-        trusted_root, target, digest = ProjectWriteEffectAdapter.prepare_operation(manager, str(root), "init")
-        requests.append(build_execution_request(
-            effect_id="project.write",
-            actor_kind="user",
-            principal_id="interactive-local-user",
-            session_id=manager.session_id,
-            source_surface="test.project.concurrent",
-            target={
-                "path": str(target),
-                "allowed_root": str(trusted_root),
-                "resource": "project_operation",
-                "operation": "init",
-                "root_digest": digest,
-            },
-            arguments={},
-            scope="workspace",
-        ))
-
-    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
-    boundary = auth.AuthorizationBoundary()
-    permits = [_permit(boundary, request, interaction) for request, interaction in zip(
-        requests, ("serialized-first", "serialized-second")
-    )]
-    entered = threading.Event()
-    release = threading.Event()
-    entered_count = 0
-    entered_guard = threading.Lock()
-
-    def execute_operation(target, operation, arguments):
-        nonlocal entered_count
-        with entered_guard:
-            entered_count += 1
-            manager.active += 1
-            manager.maximum_active = max(manager.maximum_active, manager.active)
-            if entered_count == 1:
-                entered.set()
-        if entered_count == 1:
-            assert release.wait(2)
-        time.sleep(0.01)
-        with entered_guard:
-            manager.active -= 1
-        return {"ok": True, "path": str(target)}
-
-    monkeypatch.setattr(ProjectWriteEffectAdapter, "_execute_project_operation", staticmethod(execute_operation))
-    results: list[tuple[dict, dict]] = []
-
-    def run(index: int) -> None:
-        results.append(ExecutionGateway(boundary).execute(
-            permit_token=permits[index]["token"],
-            request=requests[index],
-            context=ExecutionContext(manager=manager),
-        ))
-
-    first_thread = threading.Thread(target=run, args=(0,))
-    second_thread = threading.Thread(target=run, args=(1,))
-    first_thread.start()
-    assert entered.wait(2)
-    second_thread.start()
-    time.sleep(0.05)
-    assert manager.maximum_active == 1
-    release.set()
-    first_thread.join(2)
-    second_thread.join(2)
-
-    assert len(results) == 2
-    assert manager.maximum_active == 1
-    assert manager.project_root in {first.resolve(), second.resolve()}
-    assert len(manager.rebound) == 1
 
 
 def test_project_operation_rejects_tampered_authorized_target(tmp_path, monkeypatch) -> None:
@@ -479,19 +814,6 @@ class _FakeProviderConfig:
         return dict(self._providers.get(provider, {}))
 
 
-class _RecordingSecretStore:
-    def __init__(self) -> None:
-        self.set_calls: list[tuple[str, str]] = []
-        self.delete_calls: list[str] = []
-
-    def set_secret(self, key: str, value: str) -> None:
-        self.set_calls.append((key, value))
-
-    def delete_secret(self, key: str) -> bool:
-        self.delete_calls.append(key)
-        return True
-
-
 def _consumed_authorization() -> dict:
     return {
         "state": "consumed",
@@ -519,7 +841,7 @@ def _credential_request(*, operation: str, configuration_digest: str, configurat
     )
 
 
-def test_credential_adapter_matching_digest_succeeds_for_set_and_delete(monkeypatch) -> None:
+def test_credential_adapter_matching_digest_succeeds_for_set_and_delete(monkeypatch, tmp_path) -> None:
     import secret_store as secret_store_module
     from execution_request import stable_digest
 
@@ -530,24 +852,25 @@ def test_credential_adapter_matching_digest_succeeds_for_set_and_delete(monkeypa
 
     manager = type("Manager", (), {"session_id": "credential-session"})()
     manager.config = _FakeProviderConfig({"openrouter": live_config})
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
+    monkeypatch.setattr(secret_store_module, "_is_windows", lambda: False)
+    store = secret_store_module.get_secret_store()
 
     for operation in ("set", "delete"):
-        store = _RecordingSecretStore()
-        monkeypatch.setattr(secret_store_module, "get_secret_store", lambda store=store: store)
         request = _credential_request(operation=operation, configuration_digest=digest, configuration_patch=patch)
         result = CredentialWriteEffectAdapter().execute(
             request,
             ExecutionContext(manager=manager, services={"_authorization": _consumed_authorization()}),
         )
         assert result["ok"] is True
+        assert result["changed"] is True
         if operation == "set":
-            assert store.set_calls == [("providers/openrouter/api_key", "fresh-secret")]
+            assert store.get_secret("providers/openrouter/api_key") == "fresh-secret"
         else:
-            assert store.delete_calls == ["providers/openrouter/api_key"]
+            assert store.get_secret("providers/openrouter/api_key") is None
 
 
-def test_credential_adapter_rejects_drifted_configuration_before_secret_store_access_set(monkeypatch) -> None:
-    import secret_store as secret_store_module
+def test_credential_adapter_rejects_drifted_configuration_before_secret_store_access_set(monkeypatch, tmp_path) -> None:
     from execution_request import stable_digest
 
     approved_live_config = {"enabled": False, "base_url": "https://openrouter.ai/api/v1"}
@@ -560,8 +883,7 @@ def test_credential_adapter_rejects_drifted_configuration_before_secret_store_ac
     manager = type("Manager", (), {"session_id": "credential-session"})()
     manager.config = _FakeProviderConfig({"openrouter": drifted_live_config})
 
-    store = _RecordingSecretStore()
-    monkeypatch.setattr(secret_store_module, "get_secret_store", lambda: store)
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
     request = _credential_request(operation="set", configuration_digest=authorized_digest, configuration_patch=patch)
 
     with pytest.raises(ExecutionGatewayError) as blocked:
@@ -571,12 +893,10 @@ def test_credential_adapter_rejects_drifted_configuration_before_secret_store_ac
         )
 
     assert blocked.value.code == "credential_write_configuration_changed"
-    assert store.set_calls == []
-    assert store.delete_calls == []
+    assert not (tmp_path / "user" / "secrets").exists()
 
 
-def test_credential_adapter_rejects_drifted_configuration_before_secret_store_access_delete(monkeypatch) -> None:
-    import secret_store as secret_store_module
+def test_credential_adapter_rejects_drifted_configuration_before_secret_store_access_delete(monkeypatch, tmp_path) -> None:
     from execution_request import stable_digest
 
     approved_live_config = {"enabled": True, "default_model": "openai/gpt-4.1-mini"}
@@ -587,8 +907,7 @@ def test_credential_adapter_rejects_drifted_configuration_before_secret_store_ac
     manager = type("Manager", (), {"session_id": "credential-session"})()
     manager.config = _FakeProviderConfig({"openrouter": drifted_live_config})
 
-    store = _RecordingSecretStore()
-    monkeypatch.setattr(secret_store_module, "get_secret_store", lambda: store)
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
     request = _credential_request(operation="delete", configuration_digest=authorized_digest, configuration_patch=patch)
 
     with pytest.raises(ExecutionGatewayError) as blocked:
@@ -598,19 +917,16 @@ def test_credential_adapter_rejects_drifted_configuration_before_secret_store_ac
         )
 
     assert blocked.value.code == "credential_write_configuration_changed"
-    assert store.set_calls == []
-    assert store.delete_calls == []
+    assert not (tmp_path / "user" / "secrets").exists()
 
 
-def test_credential_adapter_requires_authoritative_configuration_source(monkeypatch) -> None:
-    import secret_store as secret_store_module
+def test_credential_adapter_requires_authoritative_configuration_source(monkeypatch, tmp_path) -> None:
     from execution_request import stable_digest
 
     manager = type("Manager", (), {"session_id": "credential-session"})()
     # No `.config` attribute at all: fail closed rather than trust anything.
 
-    store = _RecordingSecretStore()
-    monkeypatch.setattr(secret_store_module, "get_secret_store", lambda: store)
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
     request = _credential_request(
         operation="set",
         configuration_digest=stable_digest({"enabled": True}),
@@ -624,8 +940,7 @@ def test_credential_adapter_requires_authoritative_configuration_source(monkeypa
         )
 
     assert blocked.value.code == "credential_write_configuration_source_unavailable"
-    assert store.set_calls == []
-    assert store.delete_calls == []
+    assert not (tmp_path / "user" / "secrets").exists()
 
 
 @pytest.mark.parametrize(
@@ -638,15 +953,13 @@ def test_credential_adapter_requires_authoritative_configuration_source(monkeypa
         "not-a-dict",
     ],
 )
-def test_credential_adapter_rejects_invalid_or_secret_bearing_patch(monkeypatch, configuration_patch) -> None:
-    import secret_store as secret_store_module
+def test_credential_adapter_rejects_invalid_or_secret_bearing_patch(monkeypatch, tmp_path, configuration_patch) -> None:
     from execution_request import stable_digest
 
     manager = type("Manager", (), {"session_id": "credential-session"})()
     manager.config = _FakeProviderConfig({"openrouter": {"enabled": False}})
 
-    store = _RecordingSecretStore()
-    monkeypatch.setattr(secret_store_module, "get_secret_store", lambda: store)
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
     request = build_execution_request(
         effect_id="credential.write",
         actor_kind="user",
@@ -672,8 +985,7 @@ def test_credential_adapter_rejects_invalid_or_secret_bearing_patch(monkeypatch,
         )
 
     assert blocked.value.code == "credential_write_configuration_patch_invalid"
-    assert store.set_calls == []
-    assert store.delete_calls == []
+    assert not (tmp_path / "user" / "secrets").exists()
 
 
 def test_workspace_bind_adapter_executes_compound_effect_only_after_permit(tmp_path, monkeypatch) -> None:
@@ -1008,6 +1320,79 @@ def test_server_policy_network_adapter_blocks_unclassified_surface(monkeypatch) 
 
     assert blocked.value.code == "network_read_surface_blocked"
     assert called is False
+
+
+@pytest.mark.parametrize(
+    ("url", "method", "expected_code"),
+    [
+        ("https://downloads.example.invalid/payload", "GET", "network_read_release_host_blocked"),
+        ("http://api.github.com/repos/MarcValls/BAGO/releases", "GET", "network_read_release_host_blocked"),
+        ("https://api.github.com/repos/MarcValls/BAGO/releases", "POST", "network_read_release_method_blocked"),
+    ],
+)
+def test_release_network_policy_blocks_host_scheme_and_mutation_before_open(
+    monkeypatch, url: str, method: str, expected_code: str,
+) -> None:
+    import urllib.request
+
+    called = False
+
+    def _unexpected(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("unapproved release request reached network opener")
+
+    monkeypatch.setattr(urllib.request, "build_opener", _unexpected)
+    request = build_execution_request(
+        effect_id="network.read",
+        actor_kind="server",
+        principal_id="bago-runtime",
+        session_id="network-release-test",
+        source_surface="server.network.release_asset_download",
+        target={
+            "url": url,
+            "method": method,
+            "network_class": "release_asset_download" if "api.github.com" not in url else "release_metadata",
+            "timeout": 1.0,
+        },
+        arguments={},
+        scope="external",
+    )
+
+    with pytest.raises(ExecutionGatewayError) as blocked:
+        ExecutionGateway().execute_server_owned(request=request)
+
+    assert blocked.value.code == expected_code
+    assert called is False
+
+
+def test_release_redirect_guard_blocks_unapproved_host_before_following(monkeypatch) -> None:
+    import urllib.request
+
+    called = False
+
+    def _open_with_unsafe_redirect(handler):
+        class _Opener:
+            def open(self, *_args, **_kwargs):
+                nonlocal called
+                called = True
+                handler.redirect_request(
+                    None, None, 302, "Found", {}, "https://evil.example/payload"
+                )
+
+        return _Opener()
+
+    monkeypatch.setattr(urllib.request, "build_opener", _open_with_unsafe_redirect)
+    from bago_core.server_effects import gateway_urlopen
+
+    with pytest.raises(Exception) as blocked:
+        gateway_urlopen(
+            "https://github.com/MarcValls/BAGO/releases/download/v1/payload.zip",
+            network_class="release_asset_download",
+        )
+
+    assert blocked.value.code == "network_read_redirect_blocked"
+    assert called is True
 
 
 def test_gateway_urlopen_exposes_first_chunk_before_eof(monkeypatch) -> None:

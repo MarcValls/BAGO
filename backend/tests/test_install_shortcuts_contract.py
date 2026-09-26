@@ -36,18 +36,34 @@ def test_install_service_reports_shortcuts_and_install_path():
     assert "PowerShell bootstrap:" in script
 
 
+def test_electron_install_operations_use_system_install_gateway():
+    root = Path(__file__).resolve().parents[1]
+    service = (root / "electron" / "install-service.cjs").read_text(encoding="utf-8")
+    dependency = (root / "electron" / "dependency-service.cjs").read_text(encoding="utf-8")
+    main = (root / "electron" / "main.cjs").read_text(encoding="utf-8")
+
+    assert "prepareSystemInstall" in main
+    assert "applyInstallThroughGateway" in service
+    assert "runInstallScript" not in service
+    assert "buildInstallCommand" not in dependency
+    assert "runInstallScript" not in dependency
+
+
 def test_uninstall_and_launchers_propagate_context_menu_flag():
     root = Path(__file__).resolve().parents[1]
     cli = (root / "bago_core" / "cli.py").read_text(encoding="utf-8")
     uninstall_ps1 = (root / "uninstall-bago.ps1").read_text(encoding="utf-8")
     uninstall_cmd = (root / "uninstall-bago.cmd").read_text(encoding="utf-8")
     lifecycle = (root / "bago_core" / "commands" / "cmd_lifecycle.py").read_text(encoding="utf-8")
+    uninstall_owner = (root / ".bago" / "core" / "execution_adapters" / "install_uninstall_lifecycle.py").read_text(encoding="utf-8")
     preload = (root / "electron" / "preload.cjs").read_text(encoding="utf-8")
     dependency = (root / "electron" / "dependency-service.cjs").read_text(encoding="utf-8")
 
     assert "parents[1]" in cli
-    assert "Push-Location $root" in uninstall_ps1
+    assert "system.install.uninstall" in uninstall_ps1
+    assert "python @argsList" not in uninstall_ps1
     assert "pushd \"%BAGO_ROOT%\"" in uninstall_cmd
-    assert "_remove_bago_explorer_context_menu" in lifecycle
-    assert "Directory\\shell\\BAGO" in lifecycle
-    assert "Directory\\Background\\shell\\BAGO" in lifecycle
+    assert "_remove_bago_explorer_context_menu" in uninstall_owner
+    assert "Directory\\shell\\BAGO" in uninstall_owner
+    assert "Directory\\Background\\shell\\BAGO" in uninstall_owner
+    assert "shutil.rmtree" not in lifecycle

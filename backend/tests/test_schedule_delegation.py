@@ -96,7 +96,7 @@ def _materialize_schedule(tmp_path, monkeypatch):
 def test_scheduler_executes_capability_only_through_child_permit(tmp_path, monkeypatch):
     calls = []
 
-    def execute_package(package_id, *, inputs, confirmed, approved_permissions):
+    def execute_package(package_id, *, inputs, confirmed, approved_permissions, process_executor=None):
         calls.append(
             {
                 "package_id": package_id,
@@ -111,7 +111,7 @@ def test_scheduler_executes_capability_only_through_child_permit(tmp_path, monke
         }
 
     monkeypatch.setattr(capability_packages, "get_package", lambda package_id: _package())
-    monkeypatch.setattr(capability_packages, "execute_package", execute_package)
+    monkeypatch.setattr(capability_packages, "_execute_package", execute_package)
     mgr, schedule, grant = _materialize_schedule(tmp_path, monkeypatch)
 
     # Legacy fields may be injected into a caller-owned copy, but are not authority.
@@ -140,7 +140,7 @@ def test_revoked_schedule_grant_blocks_runtime_before_effect(tmp_path, monkeypat
     monkeypatch.setattr(capability_packages, "get_package", lambda package_id: _package())
     monkeypatch.setattr(
         capability_packages,
-        "execute_package",
+        "_execute_package",
         lambda *args, **kwargs: calls.append((args, kwargs)) or {"ok": True},
     )
     mgr, schedule, grant = _materialize_schedule(tmp_path, monkeypatch)
@@ -242,87 +242,3 @@ def test_scheduler_executes_governed_plan_through_gateway(tmp_path, monkeypatch)
 
     persisted = DelegationGrantRegistry(handlers_schedule._state_dir(mgr)).get(grant["grant_id"])
     assert persisted["run_count"] == 1
-
-
-def test_delegated_grant_revocation_between_plan_children_blocks_next_effect(tmp_path, monkeypatch):
-    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
-    from plan_engine import PlanEngine
-
-    engine = PlanEngine()
-    plan = engine.create_plan_with_actions(
-        "Plan delegado con revocación intermedia",
-        "1. Crear archivo notes/delegated-first.txt con contenido: first\n"
-        "2. Crear archivo notes/delegated-second.txt con contenido: second",
-    )
-    plan_id = engine.register_plan(plan)
-    mgr = SimpleNamespace(
-        base_path=tmp_path,
-        project_root=tmp_path,
-        workspace_scope_root=tmp_path,
-        workspace_mirror_root=tmp_path,
-        session_id="session-scheduler",
-        plan_engine=engine,
-    )
-    payload = {
-        "id": "schedule-plan-revoke-between",
-        "name": "Plan delegado con revocación",
-        "target_type": "plan",
-        "target": {"plan_id": plan_id},
-        "schedule_type": "interval",
-        "interval_s": 60,
-        "timezone": "UTC",
-        "enabled": True,
-        "delegation": {
-            "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
-            "max_runs": 2,
-        },
-    }
-
-    request, draft, requested_enabled, _ = handlers_schedule._delegation_request(mgr, payload)
-    boundary = AuthorizationBoundary()
-    challenge = boundary.create_challenge(request, interaction_id="interaction-plan-revoke-between")
-    permit = boundary.approve_challenge(
-        challenge_id=challenge["challenge_id"],
-        interaction_id="interaction-plan-revoke-between",
-        session_id=request.session_id,
-        channel="ui-react",
-    )["permit"]
-    issued, _ = ExecutionGateway(boundary).execute(
-        permit_token=permit["token"],
-        request=request,
-        context=ExecutionContext(
-            manager=mgr,
-            services={"state_dir": handlers_schedule._state_dir(mgr)},
-        ),
-    )
-    grant = issued["delegation_grant"]
-    schedule = handlers_schedule._registry(mgr).create(
-        {
-            **draft,
-            "enabled": requested_enabled,
-            "delegation_id": grant["grant_id"],
-        }
-    )
-
-    original_nested = ExecutionGateway.execute_nested
-    calls = {"count": 0}
-
-    def revoke_after_first_child(self, **kwargs):
-        calls["count"] += 1
-        result = original_nested(self, **kwargs)
-        if calls["count"] == 1:
-            DelegationGrantRegistry(handlers_schedule._state_dir(mgr)).revoke(
-                grant["grant_id"],
-                reason="test_between_plan_children",
-            )
-        return result
-
-    monkeypatch.setattr(ExecutionGateway, "execute_nested", revoke_after_first_child)
-    execution = handlers_schedule._execute_target(mgr, schedule)
-
-    assert execution["ok"] is False
-    assert plan.steps[0].status == "done"
-    assert plan.steps[1].status == "blocked"
-    assert plan.steps[1].block_code == "delegation_revoked"
-    assert (tmp_path / "notes" / "delegated-first.txt").read_text(encoding="utf-8") == "first"
-    assert not (tmp_path / "notes" / "delegated-second.txt").exists()

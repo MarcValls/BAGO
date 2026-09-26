@@ -107,6 +107,25 @@ class WorkspaceBinding:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    def execution_descriptor(self) -> dict[str, Any]:
+        """Stable workspace identity snapshot bound into an execution request.
+
+        Excludes observation/provenance fields that may change independently
+        of the identity contract. This is the single field projection used by
+        workspace.bind authorization and its pre-effect revalidation.
+        """
+        return {
+            "framework_root": self.framework_root,
+            "project_root": self.project_root,
+            "workspace_state_root": self.workspace_state_root,
+            "workspace_scope_root": self.workspace_scope_root,
+            "workspace_id": self.workspace_id,
+            "manifest_path": self.manifest_path,
+            "manifest_exists": self.manifest_exists,
+            "binding_confirmed": self.binding_confirmed,
+            "binding_reason": self.binding_reason,
+        }
+
 
 def resolve_workspace_binding(project_root: str | Path | None = None) -> WorkspaceBinding:
     project = resolve_project_root(project_root)

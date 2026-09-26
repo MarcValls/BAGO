@@ -3,12 +3,23 @@ from __future__ import annotations
 import base64
 import io
 import json
+import subprocess
 import zipfile
 
 import pytest
 
 import capability_packages as packages
 from capability_contract import validate_capability
+
+_execute_package = packages._execute_package
+
+
+def _run_package(*args, **kwargs):
+    kwargs.setdefault("process_executor", subprocess.run)
+    return _execute_package(*args, **kwargs)
+
+
+packages._execute_package = _run_package
 
 
 MANIFEST = {
@@ -54,7 +65,7 @@ def isolated_state(tmp_path, monkeypatch):
 
 
 def test_import_enable_configure_execute_and_persist_receipt():
-    imported = packages.import_package(content_base64=archive(), file_name="text-stats.zip", confirm_trust=False)
+    imported = packages._materialize_import(content_base64=archive(), file_name="text-stats.zip", confirm_trust=False)
     assert imported["package"]["enabled"] is False
     assert imported["package"]["trust_state"] == "untrusted"
     with pytest.raises(packages.CapabilityPackageError, match="confianza"):
@@ -62,7 +73,7 @@ def test_import_enable_configure_execute_and_persist_receipt():
     assert packages.set_enabled("local.text-stats", True, confirm_trust=True)["enabled"] is True
     assert packages.configure_package("local.text-stats", {"lowercase": True})["config"] == {"lowercase": True}
 
-    result = packages.execute_package(
+    result = packages._execute_package(
         "local.text-stats",
         inputs={"text": "Hola MUNDO"},
         confirmed=True,
@@ -80,8 +91,8 @@ def test_import_enable_configure_execute_and_persist_receipt():
 
 def test_import_is_idempotent_for_same_digest():
     content = archive()
-    first = packages.import_package(content_base64=content, file_name="text-stats.zip", confirm_trust=True)
-    second = packages.import_package(content_base64=content, file_name="text-stats.zip", confirm_trust=True)
+    first = packages._materialize_import(content_base64=content, file_name="text-stats.zip", confirm_trust=True)
+    second = packages._materialize_import(content_base64=content, file_name="text-stats.zip", confirm_trust=True)
     assert first["already_installed"] is False
     assert second["already_installed"] is True
     assert len(packages.list_packages()) == 1
@@ -89,7 +100,7 @@ def test_import_is_idempotent_for_same_digest():
 
 def test_zip_path_traversal_is_rejected():
     with pytest.raises(packages.CapabilityPackageError, match="ruta relativa segura"):
-        packages.import_package(content_base64=archive(member_name="../run.py"), file_name="unsafe.zip", confirm_trust=True)
+        packages._materialize_import(content_base64=archive(member_name="../run.py"), file_name="unsafe.zip", confirm_trust=True)
 
 
 def test_execution_requires_activation_confirmation_and_permissions():
@@ -99,11 +110,31 @@ def test_execution_requires_activation_confirmation_and_permissions():
         package.writestr("capability.json", json.dumps(manifest))
         package.writestr("run.py", RUNNER)
     content = base64.b64encode(buffer.getvalue()).decode("ascii")
-    packages.import_package(content_base64=content, file_name="permissions.zip", confirm_trust=True)
+    packages._materialize_import(content_base64=content, file_name="permissions.zip", confirm_trust=True)
     with pytest.raises(packages.CapabilityPackageError, match="Activa"):
-        packages.execute_package("local.text-stats", inputs={"text": "x"}, confirmed=True, approved_permissions=[])
+        packages._execute_package("local.text-stats", inputs={"text": "x"}, confirmed=True, approved_permissions=[])
     packages.set_enabled("local.text-stats", True, confirm_trust=True)
     with pytest.raises(packages.CapabilityPackageError, match="confirmación"):
-        packages.execute_package("local.text-stats", inputs={"text": "x"}, confirmed=False, approved_permissions=[])
+        packages._execute_package("local.text-stats", inputs={"text": "x"}, confirmed=False, approved_permissions=[])
     with pytest.raises(packages.CapabilityPackageError, match="filesystem.read"):
-        packages.execute_package("local.text-stats", inputs={"text": "x"}, confirmed=True, approved_permissions=[])
+        packages._execute_package("local.text-stats", inputs={"text": "x"}, confirmed=True, approved_permissions=[])
+
+
+def test_public_package_execution_fails_closed_without_gateway_permit(monkeypatch):
+    packages._materialize_import(content_base64=archive(), file_name="text-stats.zip")
+    packages.set_enabled("local.text-stats", True, confirm_trust=True)
+    called = False
+
+    def unexpected_process(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("process launched without gateway permit")
+
+    monkeypatch.setattr(subprocess, "run", unexpected_process)
+    with pytest.raises(packages.CapabilityPackageError) as denied:
+        packages.execute_package(
+            "local.text-stats", inputs={"text": "x"}, confirmed=True,
+            approved_permissions=[],
+        )
+    assert denied.value.code == "authorization_required"
+    assert called is False

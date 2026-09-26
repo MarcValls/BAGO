@@ -1,16 +1,12 @@
-const { BrowserWindow } = require('electron');
-
 function createDependencyService(ctx) {
   const {
     app,
-    dialog,
     execFile,
-    spawn,
     fs,
     path,
     ROOT_DIR,
     resolveBagoRuntimeRoot,
-    resolvePythonCommand,
+    prepareProviderCredential,
     getManagerState,
     runVisiblePowerShell
   } = ctx;
@@ -229,75 +225,16 @@ function createDependencyService(ctx) {
     });
   }
 
-  function buildInstallCommand(packagedRoot, installDir, extraArgs = []) {
-    const installScript = path.join(packagedRoot, 'install-v4.ps1');
-    if (!fs.existsSync(installScript)) {
-      throw new Error(`No se encontró install-v4.ps1 en el paquete. Buscado en: ${installScript}`);
-    }
-    return [
-      'powershell.exe',
-      '-NoProfile',
-      '-ExecutionPolicy', 'Bypass',
-      '-File', installScript,
-      '-SourceRoot', packagedRoot,
-      '-InstallDir', installDir,
-      '-Profile', 'stable',
-      '-Mode', 'Express',
-      ...extraArgs
-    ];
-  }
-
-  function buildUninstallCommand(installDir, extraArgs = []) {
-    const installScript = path.join(installDir, 'uninstall-bago.ps1');
-    if (!fs.existsSync(installScript)) {
-      throw new Error(`No se encontró uninstall-bago.ps1 en el destino. Buscado en: ${installScript}`);
-    }
-    return [
-      'powershell.exe',
-      '-NoProfile',
-      '-ExecutionPolicy', 'Bypass',
-      '-File', installScript,
-      '-InstallDir', installDir,
-      ...extraArgs
-    ];
-  }
-
-  function runPythonInline(script, args = [], cwd = ROOT_DIR, timeout = 20000) {
-    return new Promise((resolve, reject) => {
-      const python = resolvePythonCommand();
-      execFile(
-        python.command,
-        [...python.argsPrefix, '-c', script, ...args.map(value => String(value || ''))],
-        { cwd, windowsHide: true, timeout, maxBuffer: 16 * 1024 * 1024 },
-        (error, stdout, stderr) => {
-          if (error) {
-            reject(new Error(String(stderr || stdout || error.message || `python failed (${python.display})`).trim()));
-            return;
-          }
-          resolve({ stdout: String(stdout || '').trim(), stderr: String(stderr || '').trim() });
-        }
-      );
-    });
-  }
-
   async function saveProviderCredential(payload) {
     const provider = String(payload && payload.provider || '').trim();
     const key = String(payload && payload.key || '').trim();
     const value = String(payload && payload.value || '').trim();
-    const runtimeRoot = resolveBagoRuntimeRoot();
     if (!provider) throw new Error('Falta provider');
     if (!key) throw new Error('Falta key');
     if (!value) throw new Error('Falta value');
-    const script = [
-      'import pathlib, sys',
-      'root = pathlib.Path(sys.argv[1])',
-      'sys.path.insert(0, str(root / ".gabo" / "core"))',
-      'from credential_manager import CredentialManager',
-      'cm = CredentialManager(base_path=str(root))',
-      'cm.set(sys.argv[2], sys.argv[3], sys.argv[4])',
-      'print("ok")'
-    ].join('; ');
-    return runPythonInline(script, [runtimeRoot, provider, key, value], runtimeRoot);
+    if (key !== 'api_key') throw new Error('Solo se admite escribir el campo api_key.');
+    if (typeof prepareProviderCredential !== 'function') throw new Error('credential.write no está conectado al Manager.');
+    return prepareProviderCredential({ provider, value });
   }
 
   function buildDependencyCommand(payload) {
@@ -352,109 +289,6 @@ function createDependencyService(ctx) {
     });
   }
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
-  }
-
-  function showProgressWindow(title) {
-    const win = new BrowserWindow({
-      width: 480,
-      height: 220,
-      title: title || 'Procesando…',
-      icon: path.join(ROOT_DIR, 'bago.ico'),
-      backgroundColor: '#020617',
-      resizable: false,
-      minimizable: false,
-      maximizable: false,
-      alwaysOnTop: true,
-      webPreferences: { nodeIntegration: false, contextIsolation: true }
-    });
-    win.removeMenu();
-    win.loadURL('data:text/html;base64,' + Buffer.from(`
-      <!DOCTYPE html>
-      <html style="background:#020617;color:#e2e8f0;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;">
-        <div>
-          <div style="font-size:48px;margin-bottom:12px;">⏳</div>
-          <h2 style="margin:0 0 8px;font-size:18px;">${escapeHtml(title || 'Procesando…')}</h2>
-          <p style="margin:0;color:#94a3b8;font-size:14px;">Esto puede tardar unos minutos.<br>No cierres esta ventana.</p>
-        </div>
-      </html>
-    `).toString('base64'));
-    return win;
-  }
-
-  async function runInstallScript(packagedRoot, installDir, extraArgs = [], progressTitle = 'Instalando BAGO…') {
-    const command = buildInstallCommand(packagedRoot, installDir, extraArgs);
-    const progressWin = showProgressWindow(progressTitle);
-
-    return new Promise((resolve, reject) => {
-      const child = spawn(command[0], command.slice(1), {
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', d => { stdout += d; });
-      child.stderr.on('data', d => { stderr += d; });
-
-      child.on('exit', async (code) => {
-        if (progressWin && !progressWin.isDestroyed()) progressWin.close();
-        if (code === 0) {
-          resolve({ stdout, stderr });
-        } else {
-          await dialog.showErrorBox(
-            'Instalación fallida',
-            `El instalador retornó código ${code}.\n\nStdout:\n${stdout}\n\nStderr:\n${stderr}`
-          );
-          reject(new Error(`install-v4.ps1 exited with ${code}`));
-        }
-      });
-
-      child.on('error', async (err) => {
-        if (progressWin && !progressWin.isDestroyed()) progressWin.close();
-        await dialog.showErrorBox('Error al lanzar instalador', err.message);
-        reject(err);
-      });
-    });
-  }
-
-  async function runUninstallScript(installDir, extraArgs = [], progressTitle = 'Desinstalando BAGO…') {
-    const command = buildUninstallCommand(installDir, extraArgs);
-    const progressWin = showProgressWindow(progressTitle);
-
-    return new Promise((resolve, reject) => {
-      const child = spawn(command[0], command.slice(1), {
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', d => { stdout += d; });
-      child.stderr.on('data', d => { stderr += d; });
-
-      child.on('exit', async (code) => {
-        if (progressWin && !progressWin.isDestroyed()) progressWin.close();
-        if (code === 0) {
-          resolve({ stdout, stderr });
-        } else {
-          await dialog.showErrorBox(
-            'Desinstalación fallida',
-            `El desinstalador retornó código ${code}.\n\nStdout:\n${stdout}\n\nStderr:\n${stderr}`
-          );
-          reject(new Error(`uninstall-bago.ps1 exited with ${code}`));
-        }
-      });
-
-      child.on('error', async (err) => {
-        if (progressWin && !progressWin.isDestroyed()) progressWin.close();
-        await dialog.showErrorBox('Error al lanzar desinstalador', err.message);
-        reject(err);
-      });
-    });
-  }
-
   async function runInstallPreflight(targetDir) {
     const dir = targetDir || path.join(app.getPath('home'), '.gabo', 'active');
     const checks = await Promise.all([
@@ -466,32 +300,19 @@ function createDependencyService(ctx) {
     let writeOk = false;
     let writeDetail = '';
     try {
-      const probe = path.join(dir, '.gabo-preflight-' + Date.now());
-      fs.writeFileSync(probe, 'ok');
-      fs.unlinkSync(probe);
+      fs.accessSync(dir, fs.constants.W_OK);
       writeOk = true;
-      writeDetail = 'writable';
+      writeDetail = 'permisos de escritura disponibles';
     } catch (err) {
       writeDetail = err.message || 'not writable';
     }
     let diskOk = false;
     let diskDetail = '';
     try {
-      const root = path.parse(dir).root;
-      if (process.platform === 'win32') {
-        const out = require('child_process').spawnSync('powershell.exe',
-          ['-NoProfile', '-Command', `(Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -ne $null -and ('${root}'.TrimEnd('\\') -like ($_.Root + '*')) } | Select-Object -First 1).Free`],
-          { encoding: 'utf8', windowsHide: true, timeout: 6000 });
-        const bytes = parseInt(String(out.stdout || '').replace(/[^0-9]/g, ''), 10);
-        diskOk = bytes > 500 * 1024 * 1024;
-        diskDetail = bytes ? (bytes / (1024 * 1024)).toFixed(0) + ' MB libres' : 'no se pudo leer';
-      } else {
-        const stat = require('child_process').spawnSync('df', ['-k', dir], { encoding: 'utf8', timeout: 6000 });
-        const m = String(stat.stdout || '').split(/\s+/);
-        const kb = parseInt(m[3] || '0', 10);
-        diskOk = kb > 500 * 1024;
-        diskDetail = kb ? (kb / 1024).toFixed(0) + ' MB libres' : 'no se pudo leer';
-      }
+      const stat = fs.statfsSync(dir);
+      const bytes = Number(stat.bavail) * Number(stat.bsize);
+      diskOk = bytes > 500 * 1024 * 1024;
+      diskDetail = Number.isFinite(bytes) && bytes > 0 ? (bytes / (1024 * 1024)).toFixed(0) + ' MB libres' : 'no se pudo leer';
     } catch (err) {
       diskDetail = err.message || 'no se pudo comprobar';
     }
@@ -568,10 +389,6 @@ function createDependencyService(ctx) {
     PROVIDER_ONBOARDING,
     dependencyCatalog,
     buildStartupHealth,
-    buildInstallCommand,
-    buildUninstallCommand,
-    runInstallScript,
-    runUninstallScript,
     runInstallPreflight,
     runDependencyAction,
     managerHealth,

@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { ReleaseJobManager } = require('../electron/release-job-manager.cjs');
 
 async function main() {
@@ -29,9 +30,46 @@ async function main() {
     });
   assert.ok(release);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'bago-release-live-'));
-  const manager = new ReleaseJobManager({ rootDir: path.join(root, 'jobs') });
+  const manager = new ReleaseJobManager({
+    rootDir: path.join(root, 'jobs'),
+    downloadAsset: async (operation, signal) => {
+      const response = await fetch(operation.url, { signal });
+      assert.strictEqual(response.ok, true);
+      const bytes = Buffer.from(await response.arrayBuffer());
+      const assetPath = path.join(root, 'jobs', 'cache', operation.job_id, operation.filename);
+      fs.mkdirSync(path.dirname(assetPath), { recursive: true });
+      fs.writeFileSync(assetPath, bytes);
+      return {
+        ok: true,
+        effect_id: 'release.download',
+        path: assetPath,
+        sha256: require('crypto').createHash('sha256').update(bytes).digest('hex'),
+        bytes_written: bytes.length
+      };
+    },
+    persistJob: async job => {
+      const directory = path.join(root, 'jobs', 'jobs');
+      fs.mkdirSync(directory, { recursive: true });
+      fs.writeFileSync(path.join(directory, `${job.id}.json`), `${JSON.stringify(job, null, 2)}\n`);
+    },
+    appendJobLog: async (jobId, record) => {
+      const directory = path.join(root, 'jobs', 'logs');
+      fs.mkdirSync(directory, { recursive: true });
+      fs.appendFileSync(path.join(directory, `${jobId}.jsonl`), `${JSON.stringify(record)}\n`);
+    },
+    stageBundle: async (jobId, sourceBundle) => {
+      const stagingPath = path.join(root, 'jobs', 'staging', jobId);
+      fs.mkdirSync(stagingPath, { recursive: true });
+      execFileSync('powershell.exe', [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+        `Expand-Archive -LiteralPath '${sourceBundle.replace(/'/g, "''")}' -DestinationPath '${stagingPath.replace(/'/g, "''")}' -Force`
+      ], { windowsHide: true });
+      return { staging_path: stagingPath };
+    }
+  });
   try {
-    const job = manager.startPrepare({
+    await manager.initialize();
+    const job = await manager.startPrepare({
       release,
       target: path.join(root, 'target'),
       action: 'separate'

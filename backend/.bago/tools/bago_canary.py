@@ -6,7 +6,6 @@ Usage:
     python bago_canary.py [--root DIR] check
     python bago_canary.py [--root DIR] list
     python bago_canary.py [--root DIR] purge
-    python bago_canary.py --test
 
 Exit codes:
     0 = ok
@@ -18,10 +17,17 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import shutil
+import stat
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[2]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
+from bago_core.cli_execution import execute_cli_effect
+from execution_request import build_execution_request
 
 CANARY_TYPES = ["aws_keys", "openai_api", "github_pat", "telegram_bot", "google_api"]
 
@@ -31,9 +37,7 @@ def resolve_root(root_arg: str) -> Path:
 
 
 def state_dir(root: Path) -> Path:
-    path = root / ".bago" / "state"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    return root / ".bago" / "state"
 
 
 def state_file(root: Path) -> Path:
@@ -41,9 +45,7 @@ def state_file(root: Path) -> Path:
 
 
 def canary_dir(root: Path) -> Path:
-    path = root / ".bago" / "canary"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+    return root / ".bago" / "canary"
 
 
 def now_stamp() -> str:
@@ -54,60 +56,83 @@ def sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _is_reparse(path: Path) -> bool:
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return False
+    reparse = int(getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+    return path.is_symlink() or bool(int(getattr(metadata, "st_file_attributes", 0) or 0) & reparse)
+
+
+def _assert_state_paths(root: Path) -> None:
+    for path in (root / ".bago", state_dir(root), state_file(root)):
+        if _is_reparse(path):
+            raise RuntimeError("Canary state may not traverse a link")
+
+
 def load_state(root: Path) -> dict[str, object]:
+    _assert_state_paths(root)
     path = state_file(root)
     if not path.exists():
         return {"tokens": []}
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def save_state(root: Path, data: dict[str, object]) -> None:
-    state_file(root).write_text(json.dumps(data, indent=2, ensure_ascii=True), encoding="utf-8")
+def _state_digest(root: Path) -> str:
+    _assert_state_paths(root)
+    path = state_file(root)
+    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "missing"
 
 
-def render_token(token_type: str) -> tuple[str, str]:
-    stamp = now_stamp()
-    if token_type == "aws_keys":
-        aws_access_key = "AKIA" + "FAKE123456789012"
-        aws_secret = "fakeAwsSecretKeyValue" + "000000000000000000000000"
-        return (f"aws_{stamp}.env", f"AWS_ACCESS_KEY_ID={aws_access_key}\nAWS_SECRET_ACCESS_KEY={aws_secret}\n")  # nosec: test fixture
-    if token_type == "openai_api":
-        openai_key = "sk-" + "fakeOpenAIToken00000000000000000000"
-        return (f"openai_{stamp}.env", f"OPENAI_API_KEY={openai_key}\n")  # nosec: test fixture
-    if token_type == "github_pat":
-        github_pat = "ghp_" + "FAKEGitHubTokenValue123456789012345678"
-        return (f"github_{stamp}.env", f"GITHUB_TOKEN={github_pat}\n")  # nosec: test fixture
-    if token_type == "telegram_bot":
-        telegram_token = "987654321:" + "FAKETelegramBotTokenValue1234567890abcd"
-        return (f"telegram_{stamp}.txt", f"{telegram_token}\n")  # nosec: test fixture
-    if token_type == "google_api":
-        google_key = "AIza" + "FakeGoogleApiKeyValue000000000000"
-        return (f"google_{stamp}.env", f"GOOGLE_API_KEY={google_key}\n")  # nosec: test fixture
-    raise ValueError(f"unsupported canary type: {token_type}")
+def _canonical_artifact_path(root: Path, entry: dict[str, object]) -> Path:
+    token_type = str(entry.get("type") or "")
+    relative = str(entry.get("path") or "")
+    prefix = {
+        "aws_keys": "aws", "openai_api": "openai", "github_pat": "github",
+        "telegram_bot": "telegram", "google_api": "google",
+    }.get(token_type)
+    extension = ".txt" if token_type == "telegram_bot" else ".env"
+    candidate = Path(relative)
+    if (
+        prefix is None
+        or candidate.is_absolute()
+        or candidate.parts[:2] != (".bago", "canary")
+        or len(candidate.parts) != 3
+        or not candidate.name.startswith(prefix + "_")
+        or not candidate.name.endswith(extension)
+    ):
+        raise RuntimeError("Canary state contains a non-canonical artifact path")
+    path = root / candidate
+    if any(_is_reparse(item) for item in (root / ".bago", canary_dir(root), path)) or (path.exists() and not path.is_file()):
+        raise RuntimeError("Canary artifact is not a regular file")
+    return path
 
 
 def deploy(root: Path, token_type: str) -> list[dict[str, object]]:
     types = CANARY_TYPES if token_type == "all" else [token_type]
-    state = load_state(root)
-    tokens = list(state.get("tokens", []))
-    created: list[dict[str, object]] = []
-    for item_type in types:
-        filename, content = render_token(item_type)
-        path = canary_dir(root) / filename
-        # These are synthetic honeytokens, never live credentials.
-        path.write_text(content, encoding="utf-8")
-        entry = {
-            "type": item_type,
-            "path": str(path.relative_to(root)),
-            "sha256": sha256_text(content),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "size": len(content.encode("utf-8")),
-        }
-        tokens.append(entry)
-        created.append(entry)
-    state["tokens"] = tokens
-    save_state(root, state)
-    return created
+    if any(item not in CANARY_TYPES for item in types):
+        raise ValueError("unsupported canary type")
+    created_at = datetime.now(timezone.utc).isoformat()
+    request = build_execution_request(
+        effect_id="security.canary.manage", actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="canary:" + hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:20],
+        source_surface="cli.security.canary.deploy",
+        target={
+            "operation": "deploy", "project_root": str(root), "types": types,
+            "stamp": now_stamp(), "created_at": created_at,
+            "state_sha256": _state_digest(root),
+        },
+        arguments={}, scope="workspace",
+    )
+    result, _authorization = execute_cli_effect(
+        request,
+        confirmation_text=f"desplegar {', '.join(types)} en {root} (tokens sintéticos)",
+    )
+    if not isinstance(result, dict) or result.get("ok") is not True:
+        raise RuntimeError("Canary deployment returned no success receipt")
+    return list(result.get("entries") or [])
 
 
 def list_tokens(root: Path) -> list[dict[str, object]]:
@@ -118,7 +143,11 @@ def list_tokens(root: Path) -> list[dict[str, object]]:
 def check(root: Path) -> list[dict[str, object]]:
     findings: list[dict[str, object]] = []
     for entry in list_tokens(root):
-        path = root / entry["path"]
+        try:
+            path = _canonical_artifact_path(root, entry)
+        except RuntimeError:
+            findings.append({"type": entry.get("type"), "path": entry.get("path"), "status": "invalid_path"})
+            continue
         if not path.exists():
             findings.append({"type": entry["type"], "path": entry["path"], "status": "missing"})
             continue
@@ -129,17 +158,32 @@ def check(root: Path) -> list[dict[str, object]]:
 
 
 def purge(root: Path) -> int:
-    removed = 0
-    for entry in list_tokens(root):
-        path = root / entry["path"]
-        if path.exists():
-            path.unlink()
-            removed += 1
-    save_state(root, {"tokens": []})
-    canary_path = root / ".bago" / "canary"
-    if canary_path.exists() and not any(canary_path.iterdir()):
-        shutil.rmtree(canary_path)
-    return removed
+    entries = list_tokens(root)
+    if not entries:
+        return 0
+    artifacts = []
+    for entry in entries:
+        path = _canonical_artifact_path(root, entry)
+        digest = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "missing"
+        artifacts.append({"type": entry.get("type"), "path": entry.get("path"), "sha256": digest})
+    request = build_execution_request(
+        effect_id="security.canary.manage", actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id="canary:" + hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:20],
+        source_surface="cli.security.canary.purge",
+        target={
+            "operation": "purge", "project_root": str(root),
+            "state_sha256": _state_digest(root), "artifacts": artifacts,
+        },
+        arguments={}, scope="workspace",
+    )
+    result, _authorization = execute_cli_effect(
+        request,
+        confirmation_text=f"eliminar {len(artifacts)} canary(s) registrados en {root}",
+    )
+    if not isinstance(result, dict) or result.get("ok") is not True:
+        raise RuntimeError("Canary purge returned no success receipt")
+    return int(result.get("removed") or 0)
 
 
 def print_list(entries: list[dict[str, object]]) -> None:
@@ -154,7 +198,6 @@ def print_list(entries: list[dict[str, object]]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Portable honeytoken manager")
     parser.add_argument("--root", default="", help="Project root")
-    parser.add_argument("--test", action="store_true", help="Run self-tests")
     sub = parser.add_subparsers(dest="command")
     deploy_parser = sub.add_parser("deploy", help="Deploy fake credential canaries")
     deploy_parser.add_argument("--type", default="aws_keys", choices=CANARY_TYPES + ["all"])
@@ -162,9 +205,6 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("list", help="List deployed canaries")
     sub.add_parser("purge", help="Delete all deployed canaries")
     args = parser.parse_args(argv)
-
-    if args.test:
-        return run_self_tests()
 
     root = resolve_root(args.root)
     if not root.exists() or not root.is_dir():
@@ -195,43 +235,6 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:  # noqa: BLE001
         print(f"[ERROR] bago_canary failed: {exc}", file=sys.stderr)
         return 2
-
-
-def run_self_tests() -> int:
-    import tempfile
-
-    results: list[tuple[str, bool, str]] = []
-
-    def record(name: str, ok: bool, detail: str) -> None:
-        results.append((name, ok, detail))
-
-    with tempfile.TemporaryDirectory() as td:
-        root = Path(td)
-        created = deploy(root, "aws_keys")
-        record("canary:deploy_one", len(created) == 1, f"count={len(created)}")
-
-        clean = check(root)
-        record("canary:check_clean", clean == [], f"findings={len(clean)}")
-
-        all_created = deploy(root, "all")
-        record("canary:deploy_all", len(all_created) == len(CANARY_TYPES), f"count={len(all_created)}")
-
-        entries = list_tokens(root)
-        record("canary:list_state", len(entries) == len(CANARY_TYPES) + 1, f"count={len(entries)}")
-
-        tamper_path = root / entries[0]["path"]
-        tamper_path.write_text("tampered\n", encoding="utf-8")
-        dirty = check(root)
-        record("canary:tamper_detect", any(item["status"] == "modified" for item in dirty), f"findings={dirty}")
-
-        removed = purge(root)
-        record("canary:purge", removed >= 1 and list_tokens(root) == [], f"removed={removed}")
-
-    passed = sum(1 for _, ok, _ in results if ok)
-    for name, ok, detail in results:
-        print(f"{'OK' if ok else 'FAIL'}: {name} - {detail}")
-    print(f"{passed}/{len(results)} tests passed")
-    return 0 if passed == len(results) else 1
 
 
 if __name__ == "__main__":

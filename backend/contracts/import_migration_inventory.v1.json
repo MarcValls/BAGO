@@ -2,14 +2,14 @@
   "contract": "bago.import-migration-inventory.v1",
   "version": "1.0.0",
   "generated_from": "AST scan: executable sys.path.insert/append calls and add_piece_paths usage over versioned backend sources (tests, __pycache__ and git-ignored build/output trees excluded)",
-  "total_files": 69,
-  "total_mutations": 110,
+  "total_files": 77,
+  "total_mutations": 118,
   "files": [
     {
       "path": "backend/.bago/agents/agent_gateway.py",
       "mutations": [
         {
-          "line": 49,
+          "line": 48,
           "call": "sys.path.insert"
         }
       ]
@@ -66,11 +66,11 @@
       "path": "backend/.bago/bin/bago.py",
       "mutations": [
         {
-          "line": 45,
+          "line": 46,
           "call": "sys.path.insert"
         },
         {
-          "line": 47,
+          "line": 48,
           "call": "sys.path.insert"
         }
       ]
@@ -110,19 +110,19 @@
       "path": "backend/.bago/chat/repl.py",
       "mutations": [
         {
-          "line": 37,
-          "call": "sys.path.insert"
-        },
-        {
-          "line": 38,
-          "call": "sys.path.insert"
-        },
-        {
-          "line": 39,
+          "line": 33,
           "call": "sys.path.insert"
         },
         {
           "line": 34,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 43,
           "call": "sys.path.insert"
         }
       ]
@@ -157,7 +157,7 @@
       "path": "backend/.bago/chat/repl_model_router.py",
       "mutations": [
         {
-          "line": 23,
+          "line": 22,
           "call": "sys.path.insert"
         }
       ]
@@ -188,7 +188,7 @@
       "path": "backend/.bago/core/autonomous_loop.py",
       "mutations": [
         {
-          "line": 69,
+          "line": 55,
           "call": "sys.path.insert"
         }
       ]
@@ -382,6 +382,15 @@
       ]
     },
     {
+      "path": "backend/.bago/roles/role_factory.py",
+      "mutations": [
+        {
+          "line": 194,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
       "path": "backend/.bago/tools/_path_helper.py",
       "mutations": [
         {
@@ -394,7 +403,16 @@
       "path": "backend/.bago/tools/agent_router.py",
       "mutations": [
         {
-          "line": 19,
+          "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/tools/bago_canary.py",
+      "mutations": [
+        {
+          "line": 27,
           "call": "sys.path.insert"
         }
       ]
@@ -403,7 +421,34 @@
       "path": "backend/.bago/tools/bago_infra_scan.py",
       "mutations": [
         {
-          "line": 37,
+          "line": 30,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/tools/bago_utils.py",
+      "mutations": [
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/tools/commit_readiness.py",
+      "mutations": [
+        {
+          "line": 27,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/tools/debt_guard.py",
+      "mutations": [
+        {
+          "line": 55,
           "call": "sys.path.insert"
         }
       ]
@@ -412,7 +457,7 @@
       "path": "backend/.bago/tools/toolsmith.py",
       "mutations": [
         {
-          "line": 20,
+          "line": 17,
           "call": "sys.path.insert"
         }
       ]
@@ -422,6 +467,15 @@
       "mutations": [
         {
           "line": 16,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/cli_execution.py",
+      "mutations": [
+        {
+          "line": 11,
           "call": "sys.path.insert"
         }
       ]
@@ -447,7 +501,7 @@
           "call": "add_piece_paths"
         },
         {
-          "line": 144,
+          "line": 148,
           "call": "add_piece_paths"
         }
       ]
@@ -456,27 +510,27 @@
       "path": "backend/bago_core/commands/cmd_content.py",
       "mutations": [
         {
-          "line": 12,
+          "line": 13,
           "call": "import add_piece_paths"
         },
         {
-          "line": 16,
+          "line": 23,
           "call": "add_piece_paths"
         },
         {
-          "line": 74,
+          "line": 37,
           "call": "add_piece_paths"
         },
         {
-          "line": 103,
+          "line": 66,
           "call": "add_piece_paths"
         },
         {
-          "line": 167,
+          "line": 130,
           "call": "add_piece_paths"
         },
         {
-          "line": 311,
+          "line": 314,
           "call": "add_piece_paths"
         }
       ]
@@ -485,11 +539,11 @@
       "path": "backend/bago_core/commands/cmd_lifecycle.py",
       "mutations": [
         {
-          "line": 16,
+          "line": 11,
           "call": "import add_piece_paths"
         },
         {
-          "line": 77,
+          "line": 71,
           "call": "add_piece_paths"
         }
       ]
@@ -527,20 +581,29 @@
           "call": "add_piece_paths"
         },
         {
-          "line": 166,
+          "line": 229,
           "call": "add_piece_paths"
         },
         {
-          "line": 359,
+          "line": 422,
           "call": "add_piece_paths"
         },
         {
-          "line": 373,
+          "line": 436,
           "call": "add_piece_paths"
         },
         {
-          "line": 389,
+          "line": 452,
           "call": "add_piece_paths"
+        }
+      ]
+    },
+    {
+      "path": "backend/bago_core/evidence_authorized.py",
+      "mutations": [
+        {
+          "line": 10,
+          "call": "sys.path.insert"
         }
       ]
     },
@@ -548,15 +611,15 @@
       "path": "backend/bago_core/evidence_cli.py",
       "mutations": [
         {
-          "line": 25,
+          "line": 23,
           "call": "import add_piece_paths"
         },
         {
-          "line": 29,
+          "line": 27,
           "call": "add_piece_paths"
         },
         {
-          "line": 23,
+          "line": 21,
           "call": "sys.path.insert"
         }
       ]
@@ -626,7 +689,7 @@
       "path": "backend/bago_core/server_effects.py",
       "mutations": [
         {
-          "line": 20,
+          "line": 22,
           "call": "sys.path.insert"
         }
       ]
@@ -786,6 +849,15 @@
       "mutations": [
         {
           "line": 9,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/tools/agent_kit_cli.py",
+      "mutations": [
+        {
+          "line": 13,
           "call": "sys.path.insert"
         }
       ]

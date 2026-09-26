@@ -198,13 +198,16 @@ class AuditTrail:
         self.path = Path(path)
 
     def append(self, event: Mapping[str, object]) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        from bago_core.atomic_json import append_text_durable
+
         payload = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             **dict(event),
         }
-        with self.path.open("a", encoding="utf-8", newline="\n") as stream:
-            stream.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
+        append_text_durable(
+            self.path,
+            json.dumps(payload, ensure_ascii=False, default=str) + "\n",
+        )
 
 
 def record_to_dict(record: EvidenceRecord) -> dict:
