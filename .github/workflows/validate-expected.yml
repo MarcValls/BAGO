@@ -39,4 +39,4 @@ jobs:
         working-directory: backend
         run: python bago_core/cli.py validate
       - name: Backend full test inventory
-        run: python backend/scripts/run_backend_test_inventory.py
+        run: python -m pytest backend/tests -q
