@@ -20,7 +20,7 @@
 | Python en Canonical CI | `3.14` | `.github/workflows/canonical-ci.yml` |
 | Node.js | `>=22.12.0` | `package.json` |
 | npm | `>=10.0.0` | `frontend/package.json` |
-| Effect Registry | `active` · v`1.23.0` · 59 efectos | `bago.effect-registry.v1.json` |
+| Effect Registry | `active` · v`1.24.0` · 60 efectos | `bago.effect-registry.v1.json` |
 | Authorization Boundary | `IMPLEMENTED_SLICE · CRIT_READY` | `user_authorization_provenance.v1.md` |
 | ExecutionGateway | `P2_P3_IMPLEMENTED_SLICE · CRIT_READY` | `execution_gateway.v2.md` |
 | Scheduler + DelegationGrant | `P4_IMPLEMENTED · RETEST_READY` | `scheduler_delegation.v1.md` |

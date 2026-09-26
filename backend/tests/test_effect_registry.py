@@ -10,7 +10,7 @@ import effect_registry
 def test_effect_registry_loads_canonical_contract() -> None:
     registry = effect_registry.load_effect_registry()
     assert registry.contract == "bago.effect-registry.v1"
-    assert registry.version == "1.23.0"
+    assert registry.version == "1.24.0"
     assert registry.status == "active"
     assert len(registry.effects) >= 20
     assert len(registry.digest) == 64

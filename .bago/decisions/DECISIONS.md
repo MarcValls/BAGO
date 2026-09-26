@@ -2,6 +2,20 @@
 
 Record architectural or product decisions that affect canon here.
 
+## 2026-09-26 — Roles del repositorio tienen owner propio
+
+- `role_factory.create_role()` construye una solicitud `role.definition.create`
+  para una familia/nombre exactos y el digest previo del manifiesto. El CLI
+  requiere desafío y Permit; el adapter separado valida raíz, enlaces, nombre,
+  familia y deriva del manifiesto antes de escribir el rol y su índice.
+- La creación no usa `state.write`: ese owner persiste estado de usuario, mientras
+  que estas definiciones pertenecen al repositorio. Un fallo de publicación del
+  manifiesto retira el archivo de rol creado durante la operación.
+- Evidencia en worktree: 9 pruebas focales PASS, compile y diff-check PASS;
+  inventario `2327 / 64 runtime-unbound / 0 unclassified`, con
+  `--strict-classification` PASS. `--strict-runtime`, suite backend completa y
+  revisión independiente permanecen OPEN.
+
 ## 2026-09-25 — Toolboxes materializan su carpeta por `state.write`
 
 - `toolsmith.save_toolbox()` ya no hace `mkdir` en paralelo. La escritura JSON

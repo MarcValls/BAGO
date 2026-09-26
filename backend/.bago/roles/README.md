@@ -34,6 +34,9 @@ cd .bago/roles
 python role_factory.py create --family especialistas --name performance_auditor
 ```
 
+La creación solicita aprobación en el terminal para el rol y el manifiesto
+concretos antes de escribirlos mediante `role.definition.create`.
+
 Esto genera:
 - `.bago/roles/especialistas/PERFORMANCE_AUDITOR.md` (archivo vacío con estructura)
 - Entrada en `manifest.json`

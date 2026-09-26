@@ -1,6 +1,6 @@
 {
   "contract": "bago.effect-registry.v1",
-  "version": "1.23.0",
+  "version": "1.24.0",
   "status": "active",
   "principles": [
     "Every material or persistent effect must have a canonical effect_id.",
@@ -440,6 +440,19 @@
       "supports_dry_run": true,
       "receipt_required": true,
       "default_scope": "persistent"
+    },
+    {
+      "id": "role.definition.create",
+      "family": "role",
+      "risk_level": "E3",
+      "mutates": true,
+      "external": false,
+      "destructive": false,
+      "authorization_mode": "explicit",
+      "delegable": false,
+      "supports_dry_run": false,
+      "receipt_required": true,
+      "default_scope": "workspace"
     },
     {
       "id": "agent.definition.delete",

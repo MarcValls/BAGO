@@ -105,6 +105,7 @@ from execution_adapters.evidence_bundle import EvidenceBundleGenerateEffectAdapt
 from execution_adapters.archive_rollback import SystemInstallArchiveRollbackEffectAdapter
 from execution_adapters.runtime_state import RuntimeStateBootstrapEffectAdapter
 from execution_adapters.database_write import DatabaseWriteEffectAdapter
+from execution_adapters.role_definition import RoleDefinitionCreateEffectAdapter
 
 
 def build_default_effect_adapter_registry() -> EffectAdapterRegistry:
@@ -150,6 +151,7 @@ def build_default_effect_adapter_registry() -> EffectAdapterRegistry:
     registry.register(SystemInstallArchiveRollbackEffectAdapter())
     registry.register(RuntimeStateBootstrapEffectAdapter())
     registry.register(DatabaseWriteEffectAdapter())
+    registry.register(RoleDefinitionCreateEffectAdapter())
     return registry
 
 
