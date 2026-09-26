@@ -10,10 +10,8 @@
         "intent": {
           "type": "string",
           "enum": [
-            "health_check", "scan", "status", "list_tools", "explain",
-            "ideas", "registry", "context", "npath_query",
-            "task_create", "task_done", "cosecha", "siembra_seed",
-            "autonomous_cycle", "heal", "db_migrate"
+            "health_check", "scan", "status", "list_tools", "context",
+            "task_create", "task_done", "task_handoff", "project_init", "heal"
           ]
         },
         "context": {
@@ -44,7 +42,7 @@
           "type": "object",
           "required": ["adapter"],
           "properties": {
-            "adapter": {"type": "string", "enum": ["local", "ollama", "mcp", "copilot", "codex", "cloud", "test"]},
+            "adapter": {"type": "string", "enum": ["local", "ollama", "mcp", "codex", "cloud"]},
             "model": {"type": "string"},
             "session_id": {"type": "string"}
           }

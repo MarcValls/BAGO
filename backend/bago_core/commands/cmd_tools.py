@@ -105,6 +105,23 @@ def cmd_agent(args: argparse.Namespace) -> int:
     if root:
         argv += ["--root", root]
     subcmd = getattr(args, "agent_cmd", None)
+    if subcmd == "dispatch":
+        if root:
+            print("El workspace del despacho lo determina la sesión activa; no se admite --root.", file=sys.stderr)
+            return 2
+        from bago_core.resolver import load_module_from_path
+
+        gateway_path = BAGO_ROOT / ".bago" / "agents" / "agent_gateway.py"
+        gateway = load_module_from_path("bago_agent_gateway_cli", gateway_path)
+        gateway_args = ["dispatch", str(getattr(args, "intent", ""))]
+        gateway_args.extend(["--adapter", str(getattr(args, "adapter", "local"))])
+        for value in getattr(args, "command_args", []) or []:
+            gateway_args.append(f"--arg={value}")
+        for flag in ("dry_run", "unsafe", "as_json"):
+            if getattr(args, flag, False):
+                gateway_args.append({"dry_run": "--dry-run", "unsafe": "--unsafe", "as_json": "--json"}[flag])
+        gateway_args.extend(["--timeout", str(getattr(args, "timeout", 30))])
+        return gateway.main(gateway_args)
     if subcmd == "route":
         mod = _load_tool_module("agent_router", "agent_router.py")
         task = getattr(args, "task", "") or ""

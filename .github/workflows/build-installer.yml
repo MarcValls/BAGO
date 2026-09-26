@@ -6,6 +6,9 @@ on:
       version:
         description: 'Version tag (e.g., v4.9.0)'
         required: true
+      source_ref:
+        description: 'Git branch, tag, or commit to package (defaults to the selected workflow ref)'
+        required: false
   push:
     branches:
       - main
@@ -38,6 +41,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+
+      - name: Resolve checked out source identity
+        id: candidate
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          EVENT_REF_NAME: ${{ github.ref_name }}
+        run: |
+          $sha = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $sha -notmatch '^[0-9a-f]{40}$') { throw "Could not resolve checked out commit SHA" }
+          $ref = $env:SOURCE_REF.Trim()
+          if (-not $ref) { $ref = $env:EVENT_REF_NAME }
+          if ($ref -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$') { throw "Selected source ref contains unsupported characters" }
+          "git_sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "git_ref=$ref" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Packaging ref '$ref' at exact commit $sha"
+        shell: pwsh
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -80,10 +101,13 @@ jobs:
 
       - name: Build canonical installer
         working-directory: releases
+        env:
+          SOURCE_GIT_REF: ${{ steps.candidate.outputs.git_ref }}
+          SOURCE_GIT_SHA: ${{ steps.candidate.outputs.git_sha }}
         run: |
           Write-Host "Building canonical embedded-payload installer..."
           $version = $env:BAGO_VERSION
-          & .\build-installer.ps1 -SkipBuild -Version $version -GitRef $env:GITHUB_REF_NAME -GitSha $env:GITHUB_SHA -NsisMakensis $env:NSIS_MAKENSIS
+          & .\build-installer.ps1 -SkipBuild -Version $version -GitRef $env:SOURCE_GIT_REF -GitSha $env:SOURCE_GIT_SHA -NsisMakensis $env:NSIS_MAKENSIS
 
           if ($LASTEXITCODE -ne 0) {
             Write-Host "ERROR: canonical installer build failed"

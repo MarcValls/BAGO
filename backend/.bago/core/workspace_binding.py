@@ -62,6 +62,12 @@ def resolve_framework_root() -> Path:
     return repo_root / ".bago"
 
 
+def resolve_runtime_root(framework_root: str | Path | None = None) -> Path:
+    """Derive the Python runtime root from the canonical framework binding."""
+    framework = Path(framework_root or resolve_framework_root()).expanduser().resolve(strict=True)
+    return framework.parent if framework.name.lower() == ".bago" else framework
+
+
 def resolve_project_root(project_root: str | Path | None = None) -> Path:
     """Resolve the real project checkout root."""
     if project_root is None or str(project_root).strip() == "":

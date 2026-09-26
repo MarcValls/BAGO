@@ -229,7 +229,17 @@ def test_check_uses_cached_release_when_github_is_temporarily_offline(isolated: 
 def test_prepare_download_verifies_sha_and_payload(isolated: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     payload = _bundle()
     monkeypatch.setattr(updater, "_request_json", lambda _url: _release(payload))
-    monkeypatch.setattr(updater.urllib.request, "build_opener", lambda *_args, **_kwargs: _FixtureOpener(payload))
+
+    def download_through_release_owner(*, url: str, sha256: str, size: int, filename: str) -> dict:
+        assert url == "https://github.com/MarcValls/BAGO/releases/download/v4.8.5/distribution.zip"
+        assert sha256 == hashlib.sha256(payload).hexdigest()
+        assert size == len(payload)
+        target = Path(updater._update_root()) / filename
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(payload)
+        return {"ok": True, "path": str(target), "sha256": sha256}
+
+    monkeypatch.setattr(updater, "download_release_bundle", download_through_release_owner)
 
     started = updater.start_update("v4.8.5")
     state = _wait_for("ready")

@@ -350,6 +350,16 @@ def add_ops_parsers(sub: argparse._SubParsersAction) -> None:
     agent_parser = sub.add_parser("agent", help="Lista, planifica y ejecuta roles del catálogo de agentes")
     agent_parser.add_argument("--root", default="")
     agent_sub = agent_parser.add_subparsers(dest="agent_cmd")
+    agent_dispatch = agent_sub.add_parser(
+        "dispatch", help="Ejecuta una intención de agente con aprobación segura del Gateway",
+    )
+    agent_dispatch.add_argument("intent", help="Intent canónica registrada por AgentGateway")
+    agent_dispatch.add_argument("--adapter", default="local", choices=["local", "ollama"])
+    agent_dispatch.add_argument("--arg", dest="command_args", action="append", default=[], help="Argumento exacto para el comando BAGO (repetible)")
+    agent_dispatch.add_argument("--dry-run", action="store_true")
+    agent_dispatch.add_argument("--unsafe", action="store_true")
+    agent_dispatch.add_argument("--timeout", type=int, default=30)
+    agent_dispatch.add_argument("--json", action="store_true", dest="as_json")
     agent_spawn = agent_sub.add_parser("spawn", help="Crea un agente")
     agent_spawn.add_argument("--root", default=argparse.SUPPRESS, help="Raiz del proyecto (default: cwd)")
     agent_spawn.add_argument("agent_id")
