@@ -2,6 +2,28 @@
 
 Record architectural or product decisions that affect canon here.
 
+## 2026-09-26 — AgentGateway CLI commands use the process owner
+
+- `agent_gateway.py` no longer launches BAGO with `subprocess.run`. Its local
+  adapter sends the canonical launcher module, exact argv, active session,
+  workspace, timeout and current launcher digest through `process.execute`.
+  Execution requires a direct TTY challenge and a consumed Permit; absent
+  session, absent TTY, rejected authorization, or invalid argv blocks before
+  spawn. Ollama may validate the canonical intent argv, but its response is
+  never interpreted as executable command text.
+- The CLI dispatch restores the canonical active `SessionManager`. Cloud
+  serialization explicitly omits that in-process authority object.
+- Evidence: agent command + agent gateway + ExecutionGateway suites: 66 passed;
+  `py_compile` and `git diff --check` pass. Inventory: `2329` total / `63`
+  runtime-unbound / `0` unclassified; strict classification passes and strict
+  runtime remains open. This is a working-tree block, not a final candidate.
+- The new CLI import shifted one AST inventory line. The generated
+  `import_migration_inventory.v1.json` was refreshed; import-consolidation and
+  effect-sink-inventory suites then passed (36 tests).
+- Boundary: this interface deliberately requires an interactive local TTY;
+  non-interactive callers fail closed until they have a governed interactive
+  approval surface.
+
 ## 2026-09-26 — Roles del repositorio tienen owner propio
 
 - `role_factory.create_role()` construye una solicitud `role.definition.create`

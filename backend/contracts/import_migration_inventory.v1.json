@@ -9,7 +9,7 @@
       "path": "backend/.bago/agents/agent_gateway.py",
       "mutations": [
         {
-          "line": 50,
+          "line": 48,
           "call": "sys.path.insert"
         }
       ]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import subprocess
 import sys
 
 AGENT_GATEWAY_PATH = Path(__file__).resolve().parents[1] / ".bago" / "agents" / "agent_gateway.py"
@@ -39,7 +40,7 @@ def test_neural_bus_events_use_server_state_append_owner(monkeypatch, tmp_path):
 def test_codex_health_checks_path_without_spawning_process(monkeypatch):
     calls = []
     monkeypatch.setattr(agent_gateway.shutil, "which", lambda name: calls.append(name) or r"C:\Tools\codex.exe")
-    monkeypatch.setattr(agent_gateway.subprocess, "run", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not spawn")))
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not spawn")))
 
     assert agent_gateway.CodexAdapter().health() is True
     assert calls == ["codex"]
