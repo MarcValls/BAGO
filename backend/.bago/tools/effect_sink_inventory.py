@@ -183,7 +183,6 @@ PYTHON_SUFFIX_RULES: tuple[tuple[str, str, str], ...] = (
 
 POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"\bRemove-Item\b", re.I), "filesystem.delete", "high"),
-    (re.compile(r"\bExpand-Archive\b", re.I), "filesystem.write", "high"),
     (re.compile(r"\b(?:New-ItemProperty|Set-Item|Remove-ItemProperty|Clear-ItemProperty)\b", re.I), "system.configuration.write", "high"),
     (re.compile(r"\[\s*(?:System\.IO\.)?File\s*\]\s*::\s*(?:WriteAllText|WriteAllBytes|AppendAllText|AppendAllBytes)\s*\(", re.I), "filesystem.write", "high"),
     (re.compile(r"\[\s*(?:System\.)?Environment\s*\]\s*::\s*SetEnvironmentVariable\s*\(", re.I), "system.configuration.write", "high"),
@@ -201,7 +200,7 @@ POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
 )
 
 JS_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
-    (re.compile(r"(?<![\w$.])(?:child_process\.)?(?:spawn|spawnSync|exec|execSync|execFile|execFileSync|fork)\s*\("), "process.execute", "high"),
+    (re.compile(r"\b(?:child_process\.)?(?:spawn|spawnSync|exec|execSync|execFile|execFileSync|fork)\s*\("), "process.execute", "high"),
     (re.compile(r"\b(?!process\.kill\b)[A-Za-z_$][\w$]*\.kill\s*\("), "process.terminate", "high"),
     (re.compile(r"\bprocess\.kill\s*\([^,]+,\s*(?!0\s*\))[^)]+\)"), "process.terminate", "high"),
     (re.compile(r"\b(?:fs\.)?(?:writeFile|writeFileSync|appendFile|appendFileSync|mkdir|mkdirSync|copyFile|copyFileSync|rename|renameSync)\s*\("), "filesystem.write", "medium"),

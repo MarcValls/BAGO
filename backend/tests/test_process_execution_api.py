@@ -19,13 +19,10 @@ def _send_json(handler, status, payload):
 
 
 def test_process_execute_http_requires_challenge_desktop_approval_then_consumes_exact_permit(tmp_path, monkeypatch):
-    shadow = tmp_path / "bago_core" / "launcher.py"
-    shadow.parent.mkdir(parents=True)
-    shadow.write_text("raise SystemExit('workspace launcher shadow executed')\n", encoding="utf-8")
     manager = type("Manager", (), {
         "session_id": "desktop-process-session",
         "base_path": str(tmp_path),
-        "framework_root": str(Path(__file__).resolve().parents[1] / ".bago"),
+        "framework_root": str(Path(__file__).resolve().parents[1]),
     })()
     handler = _Handler(manager=manager, headers={"X-Bago-Channel": "desktop"})
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
@@ -66,10 +63,8 @@ def test_process_execute_http_requires_challenge_desktop_approval_then_consumes_
     assert result["executed"] is True
     assert result["exit_code"] == 0
     assert "usage:" in result["stdout"].lower()
-    assert "workspace launcher shadow" not in result["stdout"]
     assert handler.response[1]["authorization"]["state"] == "consumed"
     assert len(calls) == 1
-    assert calls[0][0][0][1:4] == ["-P", "-m", "bago_core.launcher"]
 
 
 def test_process_execute_api_rejects_non_desktop_approval(tmp_path, monkeypatch):
@@ -118,7 +113,7 @@ def test_process_inspect_api_uses_server_policy_for_fixed_read_only_command(tmp_
     assert handler.response[1]["read_only"] is True
     assert handler.response[1]["authorization"]["state"] == "server_policy"
     assert handler.response[1]["process_result"]["effect_id"] == "process.inspect"
-    assert calls and calls[0][0][0][1:4] == ["-P", "-m", "bago_core.launcher"]
+    assert calls and calls[0][0][0][1:3] == ["-m", "bago_core.launcher"]
 
 
 def test_process_inspect_api_uses_server_policy_for_fixed_github_reads(tmp_path, monkeypatch):

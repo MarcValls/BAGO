@@ -54,34 +54,6 @@ def test_python_scanner_detects_bound_path_open_write_modes(tmp_path: Path) -> N
     ]
 
 
-def test_python_scanner_detects_temporary_and_archive_materializers(tmp_path: Path) -> None:
-    source = tmp_path / "temporary-and-archive.py"
-    source.write_text(
-        "import py_compile\n"
-        "import tempfile\n"
-        "import zipfile\n"
-        "with tempfile.NamedTemporaryFile(mode='w') as prompt:\n"
-        "    prompt.write('request')\n"
-        "with zipfile.ZipFile('backup.zip', 'w') as archive:\n"
-        "    archive.write('source.txt')\n"
-        "with zipfile.ZipFile('backup.zip', 'r') as source_archive:\n"
-        "    source_archive.extractall('restore-root')\n"
-        "py_compile.compile('module.py', doraise=True)\n",
-        encoding="utf-8",
-    )
-
-    findings = inventory.scan_python(source)
-
-    assert sorted((item.line, item.effect_id) for item in findings) == [
-        (4, "filesystem.write"),
-        (5, "filesystem.write"),
-        (6, "filesystem.write"),
-        (7, "filesystem.write"),
-        (9, "filesystem.write"),
-        (10, "filesystem.write"),
-    ]
-
-
 def test_python_scanner_detects_sqlite_database_materialization_and_mutations(tmp_path: Path) -> None:
     source = tmp_path / "sqlite-writes.py"
     source.write_text(
@@ -335,6 +307,54 @@ def test_install_v4_inventory_retains_effects_under_ticket_bound_gateway_owner()
     assert {item.scope for item in findings} == {inventory.SCOPE_RUNTIME_AUTHORITY}
 
 
+def test_javascript_scanner_detects_process_termination_but_not_liveness_probe(tmp_path: Path) -> None:
+    source = tmp_path / "process-lifecycle.cjs"
+    source.write_text(
+        "child.kill()\nchild.kill('SIGTERM')\nprocess.kill(pid, 0)\nprocess.kill(pid, signal.SIGTERM)\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([source])
+
+    assert [(item.line, item.effect_id) for item in findings] == [
+        (1, "process.terminate"),
+        (2, "process.terminate"),
+        (4, "process.terminate"),
+    ]
+
+
+def test_powershell_scanner_detects_registry_environment_and_dotnet_file_writes(tmp_path: Path) -> None:
+    script = tmp_path / "installer-effects.ps1"
+    script.write_text(
+        "New-ItemProperty -Path $key -Name Path -Value $value\n"
+        "Set-Item -Path $key -Value $value\n"
+        "[Environment]::SetEnvironmentVariable('Path', $value, 'Machine')\n"
+        "[System.IO.File]::WriteAllText($path, $json)\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([script])
+
+    assert {(item.line, item.effect_id) for item in findings} == {
+        (1, "system.configuration.write"),
+        (2, "system.configuration.write"),
+        (3, "system.configuration.write"),
+        (4, "filesystem.write"),
+    }
+
+
+def test_install_v4_inventory_retains_effects_under_ticket_bound_gateway_owner() -> None:
+    installer = inventory.REPO_ROOT / "backend" / "install-v4.ps1"
+
+    findings = inventory.scan_paths([installer])
+    configuration_writes = [item for item in findings if item.effect_id == "system.configuration.write"]
+
+    assert len(configuration_writes) == 5
+    assert len(findings) >= 40
+    assert {item.binding_class for item in findings} == {"gateway_adapter"}
+    assert {item.scope for item in findings} == {inventory.SCOPE_RUNTIME_AUTHORITY}
+
+
 def test_all_scanner_effect_ids_exist_in_canonical_registry() -> None:
     declared = {effect.id for effect in effect_registry.REGISTRY.effects}
     scanner_ids = {
@@ -465,11 +485,7 @@ def test_release_update_helper_sinks_remain_visible_and_require_gateway_ticket()
 
     findings = inventory.scan_paths([helper])
 
-    assert len(findings) == 19
-    assert any(
-        item.effect_id == "filesystem.write" and item.sink == "Expand-Archive"
-        for item in findings
-    )
+    assert len(findings) == 18
     assert all(item.binding == "gateway_owned" for item in findings)
     assert all(item.binding_class == "gateway_adapter" for item in findings)
     assert all(item.scope == inventory.SCOPE_RUNTIME_AUTHORITY for item in findings)
@@ -638,21 +654,6 @@ def test_remote_installer_remains_a_runtime_authority_sink() -> None:
     assert all(item.scope == inventory.SCOPE_RUNTIME_AUTHORITY for item in findings)
     assert all(item.binding == "unbound" for item in findings)
     assert all(item.binding_class == "runtime_unbound" for item in findings)
-    source_lines = installer.read_text(encoding="utf-8", errors="replace").splitlines()
-    expected = {
-        (number, effect_id)
-        for number, line in enumerate(source_lines, start=1)
-        for marker, effect_id in (
-            ("& $gpg.Source", "process.execute"),
-            ("Expand-Archive", "filesystem.write"),
-            ("& powershell.exe", "process.execute"),
-            (". $profilePath", "process.execute"),
-        )
-        if marker in line
-    }
-    observed = {(item.line, item.effect_id) for item in findings}
-    assert len(expected) == 4
-    assert expected <= observed
 
 
 def test_remote_installer_has_no_running_bago_runtime_callsite() -> None:

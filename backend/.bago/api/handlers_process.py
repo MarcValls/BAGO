@@ -79,15 +79,12 @@ def handle_execute(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> N
     trusted_root = Path(python_root).expanduser().resolve()
     module_digest = ""
     if target_kind in {"module", "script"}:
+        module_file = trusted_root.joinpath(*trusted_program.split(".")) if target_kind == "module" else trusted_root / trusted_program
+        if target_kind == "module":
+            module_file = module_file.with_suffix(".py")
         try:
-            from workspace_binding import resolve_runtime_root
-
-            trusted_root = resolve_runtime_root(trusted_root)
-            module_file = trusted_root.joinpath(*trusted_program.split(".")) if target_kind == "module" else trusted_root / trusted_program
-            if target_kind == "module":
-                module_file = module_file.with_suffix(".py")
             module_digest = hashlib.sha256(module_file.read_bytes()).hexdigest()
-        except (OSError, RuntimeError):
+        except OSError:
             send_json(handler, 503, {"ok": False, "error": "Programa BAGO no disponible en el runtime confiable"})
             return
     effect_id = "process.inspect" if read_only_inspection else ("process.terminate" if target_kind == "terminate" else "process.execute")
@@ -199,3 +196,4 @@ def handle_execute(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> N
     except ExecutionGatewayError as exc:
         code = str(getattr(exc, "code", "") or "")
         send_json(handler, 403 if code.startswith("process_execution_") else 409, {"ok": False, "error": str(exc), "code": code})
+

@@ -9,7 +9,7 @@
       "path": "backend/.bago/agents/agent_gateway.py",
       "mutations": [
         {
-          "line": 49,
+          "line": 48,
           "call": "sys.path.insert"
         }
       ]
@@ -581,19 +581,19 @@
           "call": "add_piece_paths"
         },
         {
-          "line": 246,
+          "line": 229,
           "call": "add_piece_paths"
         },
         {
-          "line": 439,
+          "line": 422,
           "call": "add_piece_paths"
         },
         {
-          "line": 453,
+          "line": 436,
           "call": "add_piece_paths"
         },
         {
-          "line": 469,
+          "line": 452,
           "call": "add_piece_paths"
         }
       ]

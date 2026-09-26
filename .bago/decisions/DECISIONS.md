@@ -2,40 +2,6 @@
 
 Record architectural or product decisions that affect canon here.
 
-## 2026-09-26 — AgentGateway queda disponible en el CLI principal
-
-- `bago agent dispatch <intent> [--adapter local|ollama] [--arg VALUE ...]`
-  es la interfaz visible. Cada `--arg` es un elemento de argv y el challenge
-  muestra la línea exacta. `cmd_agent` carga el gateway existente y le reenvía
-  argumentos; no crea otro dueño de procesos ni Permits. `--root` se rechaza:
-  la sesión activa determina el workspace.
-- `SessionManager.framework_root` apunta a `.bago`. Se unifica el paso desde
-  esa autoridad al runtime Python en `workspace_binding.resolve_runtime_root()`;
-  request y Process adapter comparten la función. El adapter revalida módulo,
-  digest, argv y raíz justo antes del proceso. La interfaz exige TTY y Permit
-  consumido. Solo se aceptan los adapters `local` y `ollama`; Ollama solo
-  valida el intent/argv canónico y nunca aporta texto ejecutable. El Gateway
-  rechaza adapters no registrados e intents fuera de su capability; intents
-  mutables/dangerous se bloquean para remoto antes de health/network calls.
-  El módulo de ejecución se carga por ruta estática, no por `sys.path` dinámico.
-- El endpoint desktop de proceso usa también `resolve_runtime_root`; la raíz de
-  limpieza/terminación mantiene su identidad y no se amplía al runtime.
-- El registro único de intents contiene diez comandos que se validan contra el
-  parser real del launcher. Las clases readonly/mutating se derivan de ese
-  registro; el enum del contrato JSON se comprueba para intents y adapters.
-  El parser público usa `dest=command_args`; repetidos `--arg` se propagan como
-  elementos separados. Se rechazan flags de cambio de workspace y abreviaturas
-  argparse como `--roo`.
-- Evidencia actual: suite focal del adaptador/proceso/workspace: 106 passed en
-  19.56s; `py_compile` y `git diff --check` PASS. Inventario global:
-  `2329 / 62 runtime-unbound / 0 unclassified`; strict-classification PASS y
-  strict-runtime FAIL/OPEN por los 62 sinks. No se ejecutó un comando material
-  desde la sesión real. Revisión independiente final pendiente.
-- La revisión independiente previa detectó `--arg` perdido, aliases de
-  comandos inválidos, `LocalAdapter.health()` roto, bypass de raíz por
-  abreviatura y drift del enum de adapters. Las cinco correcciones están
-  aplicadas; no promover a `VERIFIED` hasta nueva revisión sobre este estado.
-
 ## 2026-09-26 — Doctor reutiliza la autoridad de versión CLI
 
 - El chequeo de `cli.py --version` en `cmd_doctor` lee `bago_core.__version__`,
@@ -1976,19 +1942,3 @@ Record architectural or product decisions that affect canon here.
   Inventario: 2317 total / 69 runtime-unbound / 0 sin clasificar;
   strict-runtime FAIL/OPEN. Duración de cambio reconstruida ~7m, excluyendo
   pruebas y gates.
-
-## 2026-09-26 — El runtime compilado se sincroniza sin reconstruir el instalador
-
-- Decisión: `releases/build-installer.ps1 -RuntimeOnly -SkipBuild` reconstruye
-  `releases/compiled/runtime` desde el checkout local, copia los builds
-  existentes de frontend y Electron y valida el payload sin recompilar NSIS.
-  `backend/release/` se excluye del runtime porque es un snapshot de paquete
-  derivado y `package_v4.py` ya excluye ese árbol. El workflow manual acepta
-  `source_ref` y registra el SHA exacto resuelto por checkout; el constructor
-  no fetch-ea ramas por su cuenta.
-- Evidencia: ejecución local para 4.11.1 devolvió `ok=true` y validó 10
-  requisitos del payload; los 13 archivos backend modificados coincidieron
-  por SHA-256 entre source y `compiled/runtime`, y `backend/release` quedó
-  ausente. El hash del instalador existente permaneció igual. YAML del
-  workflow parseado y `git diff --check` PASS. No se construyó un nuevo setup
-  NSIS ni se cerró ningún sink runtime.

@@ -22,11 +22,8 @@ def execute_agent_command(
     if any(not value or "\x00" in value or len(value) > 4096 for value in clean_argv):
         raise ValueError("Agent command argv contains an invalid argument")
 
-    from workspace_binding import resolve_runtime_root
-
     framework_root = Path(str(getattr(manager, "framework_root", "") or "")).expanduser().resolve(strict=True)
-    runtime_root = resolve_runtime_root(framework_root)
-    launcher = runtime_root / "bago_core" / "launcher.py"
+    launcher = framework_root / "bago_core" / "launcher.py"
     if not launcher.is_file():
         raise RuntimeError("Active BAGO launcher is unavailable")
     cwd = Path(str(getattr(manager, "base_path", "") or "")).expanduser().resolve(strict=True)
@@ -44,7 +41,7 @@ def execute_agent_command(
         source_surface="cli.agent.dispatch",
         target={
             "python_module": "bago_core.launcher",
-            "python_root": str(runtime_root),
+            "python_root": str(framework_root),
             "python_module_sha256": hashlib.sha256(launcher.read_bytes()).hexdigest(),
             "cwd": str(cwd),
             "timeout_seconds": min(max(int(timeout), 1), 1800),

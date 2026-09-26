@@ -49,16 +49,7 @@ for _p in [str(_BAGO_ROOT), str(_TOOLS_DIR), str(_AGENTS_DIR), str(_DYN_AGENTS),
         sys.path.insert(0, _p)
 
 from bago_core.server_effects import append_text_durable, gateway_urlopen
-
-_EXECUTION_SPEC = _ilu.spec_from_file_location(
-    "bago_static_agent_command_execution", _AGENTS_DIR / "agent_command_execution.py",
-)
-if _EXECUTION_SPEC is None or _EXECUTION_SPEC.loader is None:
-    raise RuntimeError("Canonical agent command execution interface is unavailable")
-_EXECUTION_MODULE = _ilu.module_from_spec(_EXECUTION_SPEC)
-sys.modules[_EXECUTION_SPEC.name] = _EXECUTION_MODULE
-_EXECUTION_SPEC.loader.exec_module(_EXECUTION_MODULE)
-execute_agent_command = _EXECUTION_MODULE.execute_agent_command
+from agent_command_execution import execute_agent_command
 
 # ── Static Guard — separación motor / dinámica ───────────────────────────────
 try:
@@ -216,22 +207,17 @@ class LocalAdapter(BaseAgentAdapter):
 
     @staticmethod
     def command_argv(request: AgentRequest) -> list[str]:
-        command_spec = _INTENT_TO_CMD.get(request.intent)
-        if not command_spec:
+        command = _INTENT_TO_CMD.get(request.intent)
+        if not command:
             raise ValueError(f"No command mapped for intent '{request.intent}'")
-        command, _risk = command_spec
         raw_extra = request.payload.get("args", [])
         if raw_extra is None:
             raw_extra = []
         if not isinstance(raw_extra, list):
             raise ValueError("Agent command arguments must be a list")
         extra = [str(value) for value in raw_extra]
-        if any(
-            (name := value.split("=", 1)[0].casefold()).startswith("--")
-            and any(flag.startswith(name) for flag in _WORKSPACE_OVERRIDE_FLAGS)
-            for value in extra
-        ):
-            raise ValueError("Agent command cannot override the active session workspace")
+        if request.intent in DANGEROUS_INTENTS and not request.unsafe:
+            extra = ["--dry-run", *extra]
         return [*command, *extra]
 
     def capability(self) -> AdapterCapability:
@@ -706,7 +692,6 @@ def main(argv: list[str] | None = None) -> int:
         req = AgentRequest(
             intent=args.intent,
             source={"adapter": args.adapter},
-            payload={"args": args.arg},
             execution_manager=manager,
             options={
                 "dry_run": args.dry_run,

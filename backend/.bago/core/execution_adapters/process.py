@@ -16,7 +16,6 @@ from typing import Any
 from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
 from execution_request import ExecutionRequest
 from execution_claims import process_working_directory
-from workspace_binding import resolve_runtime_root
 
 
 class ProcessExecutionEffectAdapter:
@@ -236,10 +235,11 @@ class ProcessExecutionEffectAdapter:
                     "Python script process target is not approved",
                     code="process_execution_script_invalid",
                 )
+            framework_root = Path(str(getattr(manager, "framework_root", "") or "")).expanduser()
             try:
-                runtime_root = resolve_runtime_root(getattr(manager, "framework_root", ""))
-                script_file = runtime_root.joinpath(*python_script.split("/"))
-                if str(target.get("python_root") or "") != str(runtime_root) or not script_file.is_file():
+                framework_root = framework_root.resolve(strict=True)
+                script_file = framework_root.joinpath(*python_script.split("/"))
+                if str(target.get("python_root") or "") != str(framework_root) or not script_file.is_file():
                     raise OSError("script file is missing")
                 expected_digest = str(target.get("python_module_sha256") or "")
                 actual_digest = hashlib.sha256(script_file.read_bytes()).hexdigest()
@@ -255,7 +255,7 @@ class ProcessExecutionEffectAdapter:
             inherited_pythonpath = os.environ.get("PYTHONPATH", "")
             child_env = dict(os.environ)
             child_env["PYTHONPATH"] = os.pathsep.join(
-                item for item in (str(runtime_root), inherited_pythonpath) if item
+                item for item in (str(framework_root), inherited_pythonpath) if item
             )
             child_env["PYTHONUTF8"] = "1"
             child_env["PYTHONIOENCODING"] = "utf-8"
@@ -271,11 +271,12 @@ class ProcessExecutionEffectAdapter:
                     "Python module process requires argv",
                     code="process_execution_request_invalid",
                 )
+            framework_root = Path(str(getattr(manager, "framework_root", "") or "")).expanduser()
             try:
-                runtime_root = resolve_runtime_root(getattr(manager, "framework_root", ""))
-                module_path = runtime_root.joinpath(*python_module.split("."))
+                framework_root = framework_root.resolve(strict=True)
+                module_path = framework_root.joinpath(*python_module.split("."))
                 module_file = module_path.with_suffix(".py")
-                if str(target.get("python_root") or "") != str(runtime_root) or not module_file.is_file():
+                if str(target.get("python_root") or "") != str(framework_root) or not module_file.is_file():
                     raise OSError("module file is missing")
                 expected_digest = str(target.get("python_module_sha256") or "")
                 actual_digest = hashlib.sha256(module_file.read_bytes()).hexdigest()
@@ -287,14 +288,11 @@ class ProcessExecutionEffectAdapter:
                     code="process_execution_module_unavailable",
                 ) from exc
             executable = sys.executable
-            # `python -m` normally puts cwd first on sys.path. A workspace can
-            # contain a shadow `bago_core` package, so use Python's safe-path
-            # mode; runtime_root is explicitly first in PYTHONPATH below.
-            argv = ["-P", "-m", python_module, *[str(value) for value in raw_argv]]
+            argv = ["-m", python_module, *[str(value) for value in raw_argv]]
             inherited_pythonpath = os.environ.get("PYTHONPATH", "")
             child_env = dict(os.environ)
             child_env["PYTHONPATH"] = os.pathsep.join(
-                item for item in (str(runtime_root), inherited_pythonpath) if item
+                item for item in (str(framework_root), inherited_pythonpath) if item
             )
             child_env["PYTHONUTF8"] = "1"
             child_env["PYTHONIOENCODING"] = "utf-8"
