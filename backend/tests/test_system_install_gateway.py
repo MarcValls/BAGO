@@ -343,6 +343,8 @@ def test_install_helper_rejects_missing_authorization_before_self_elevation() ->
         [powershell, "-NoProfile", "-File", str(installer)],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=15,
         check=False,
     )
