@@ -22,11 +22,34 @@ from bago_core.agent_kit.errors import AgentDefinitionError, AgentNotFound, Cata
 from bago_core.agent_kit.models import AgentDefinition
 
 
+def _repository_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _bundled_catalog_candidates() -> tuple[Path, ...]:
+    repo_root = _repository_root()
+    return (
+        repo_root / ".github" / "agents",
+        repo_root / ".codex" / "agents",
+    )
+
+
+def _catalog_roots(catalog: Path) -> tuple[Path, ...]:
+    repo_root = _repository_root().resolve()
+    if catalog.resolve() == repo_root:
+        roots = tuple(candidate for candidate in _bundled_catalog_candidates() if candidate.is_dir())
+        if roots:
+            return roots
+    return (catalog,)
+
+
 def default_catalog_path() -> Path:
-    """Resolve the external catalog without binding BAGO to one user profile."""
+    """Resolve the live default catalog, preferring tracked repo agents."""
     configured = os.environ.get("BAGO_AGENT_CATALOG", "").strip()
     if configured:
         return Path(configured).expanduser()
+    if any(candidate.is_dir() for candidate in _bundled_catalog_candidates()):
+        return _repository_root()
     return Path.home() / "BAGO_AGENTIC_DATA_LAB" / "agents"
 
 
@@ -62,9 +85,10 @@ def _find_definition_file(catalog: Path, agent_id: str) -> tuple[str, Path] | No
             id_underscore=_id_underscore(agent_id),
             id_dash=_id_dash(agent_id),
         )
-        for found in catalog.rglob(candidate_name):
-            if found.is_file():
-                return kind, found
+        for root in _catalog_roots(catalog):
+            for found in root.rglob(candidate_name):
+                if found.is_file():
+                    return kind, found
     return None
 
 
@@ -193,22 +217,23 @@ def list_agents(catalog_path: Path | str | None = None) -> list[AgentDefinition]
     seen: set[str] = set()
 
     for kind, glob in (("toml", "*.toml"), ("agent_md", "*.agent.md"), ("agent_json", "*.agent.json")):
-        for path in catalog.rglob(glob):
-            if not path.is_file():
-                continue
-            try:
-                if kind == "toml":
-                    raw = _parse_toml(path)
-                elif kind == "agent_json":
-                    raw = _parse_agent_json(path)
-                else:
-                    raw = _parse_frontmatter(path)
-                agent = _normalize(raw, path, kind)
-            except AgentDefinitionError:
-                continue
-            if agent.id in seen:
-                continue
-            seen.add(agent.id)
-            agents.append(agent)
+        for root in _catalog_roots(catalog):
+            for path in root.rglob(glob):
+                if not path.is_file():
+                    continue
+                try:
+                    if kind == "toml":
+                        raw = _parse_toml(path)
+                    elif kind == "agent_json":
+                        raw = _parse_agent_json(path)
+                    else:
+                        raw = _parse_frontmatter(path)
+                    agent = _normalize(raw, path, kind)
+                except AgentDefinitionError:
+                    continue
+                if agent.id in seen:
+                    continue
+                seen.add(agent.id)
+                agents.append(agent)
 
     return sorted(agents, key=lambda a: a.id)

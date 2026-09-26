@@ -53,6 +53,9 @@ class _DummyCreds:
     def __init__(self, *args, **kwargs):
         pass
 
+    def bind_session_manager(self, _manager) -> None:
+        return None
+
     def required_keys(self, provider: str) -> list[str]:
         return []
 

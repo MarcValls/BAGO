@@ -170,7 +170,7 @@ def test_plan_execution_records_claim_identity_and_fencing_evidence(tmp_path, mo
     assert outcome["execution_claim_id"]
     assert outcome["execution_resource_key"].endswith("notes\\claimed.txt")
     assert outcome["execution_fencing_token"] == "1"
-    assert outcome["execution_claim_durability"] == "process-local"
+    assert outcome["execution_claim_durability"] == "durable-local"
     assert any(item.startswith("execution_fencing_token:1") for item in outcome["evidence"])
 
 
@@ -238,9 +238,10 @@ def test_gateway_rejects_expired_claim_before_material_child_effect(tmp_path, mo
     )
 
     assert result["ok"] is False
-    assert result["block_code"] == "pipeline_outcome_unknown"
+    assert result["block_code"] == "execution_claim_stale"
     outcome = next(iter(plan.governed_work["outcomes"].values()))
-    assert outcome["outcome_status"] == "OUTCOME_UNKNOWN"
+    assert outcome["outcome_status"] == "FAILED"
+    assert "block_code:execution_claim_stale" in outcome["evidence"]
     assert not (tmp_path / "notes" / "stale-claim.txt").exists()
 
 

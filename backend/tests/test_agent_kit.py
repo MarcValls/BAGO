@@ -34,9 +34,15 @@ class TestCatalog:
         monkeypatch.setenv("BAGO_AGENT_CATALOG", str(configured))
         assert catalog.default_catalog_path() == configured
 
-    def test_catalog_default_uses_profile_relative_lab_path(self, monkeypatch):
+    def test_catalog_default_prefers_repo_bundled_agents(self, monkeypatch):
         from bago_core.agent_kit import catalog
         monkeypatch.delenv("BAGO_AGENT_CATALOG", raising=False)
+        assert catalog.default_catalog_path() == Path(__file__).resolve().parents[2]
+
+    def test_catalog_default_uses_profile_relative_lab_path_when_repo_bundle_missing(self, monkeypatch):
+        from bago_core.agent_kit import catalog
+        monkeypatch.delenv("BAGO_AGENT_CATALOG", raising=False)
+        monkeypatch.setattr(catalog, "_bundled_catalog_candidates", lambda: ())
         assert catalog.default_catalog_path() == Path.home() / "BAGO_AGENTIC_DATA_LAB" / "agents"
 
     def test_agent_json_definitions_are_discovered_and_normalized(self, tmp_path):

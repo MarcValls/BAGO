@@ -353,6 +353,7 @@ def cmd_exec(args: argparse.Namespace) -> int:
         resolved_base_path = SessionManager._validate_project_root(base_path, require_identity=False)
     except Exception:
         resolved_base_path = _headless_project_root()
+        resolved_base_path.mkdir(parents=True, exist_ok=True)
     mgr = SessionManager(
         base_path=str(resolved_base_path),
         provider=provider,
