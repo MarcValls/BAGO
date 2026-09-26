@@ -54,6 +54,34 @@ def test_python_scanner_detects_bound_path_open_write_modes(tmp_path: Path) -> N
     ]
 
 
+def test_python_scanner_detects_temporary_and_archive_materializers(tmp_path: Path) -> None:
+    source = tmp_path / "temporary-and-archive.py"
+    source.write_text(
+        "import py_compile\n"
+        "import tempfile\n"
+        "import zipfile\n"
+        "with tempfile.NamedTemporaryFile(mode='w') as prompt:\n"
+        "    prompt.write('request')\n"
+        "with zipfile.ZipFile('backup.zip', 'w') as archive:\n"
+        "    archive.write('source.txt')\n"
+        "with zipfile.ZipFile('backup.zip', 'r') as source_archive:\n"
+        "    source_archive.extractall('restore-root')\n"
+        "py_compile.compile('module.py', doraise=True)\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_python(source)
+
+    assert sorted((item.line, item.effect_id) for item in findings) == [
+        (4, "filesystem.write"),
+        (5, "filesystem.write"),
+        (6, "filesystem.write"),
+        (7, "filesystem.write"),
+        (9, "filesystem.write"),
+        (10, "filesystem.write"),
+    ]
+
+
 def test_python_scanner_detects_sqlite_database_materialization_and_mutations(tmp_path: Path) -> None:
     source = tmp_path / "sqlite-writes.py"
     source.write_text(
@@ -97,7 +125,10 @@ def test_python_scanner_excludes_explicit_readonly_sqlite_uri(tmp_path: Path) ->
 def test_powershell_scanner_classifies_process_and_delete(tmp_path: Path) -> None:
     script = tmp_path / "sample.ps1"
     script.write_text(
-        "Start-Process powershell.exe\nRemove-Item -Recurse -Force $target\n",
+        "Start-Process powershell.exe\n"
+        "Remove-Item -Recurse -Force $target\n"
+        "Invoke-WebRequest -Uri $url -OutFile $download\n"
+        "Invoke-RestMethod -Uri $url -Method POST -Body $body\n",
         encoding="utf-8",
     )
 
@@ -105,6 +136,31 @@ def test_powershell_scanner_classifies_process_and_delete(tmp_path: Path) -> Non
     effects = {item.effect_id for item in findings}
     assert "process.execute" in effects
     assert "filesystem.delete" in effects
+    assert {item.effect_id for item in findings if item.line == 3} == {
+        "filesystem.write",
+        "network.read",
+    }
+    assert any(item.effect_id == "network.external_write" and item.line == 4 for item in findings)
+
+
+def test_powershell_scanner_detects_call_operator_dot_source_and_archive_write(tmp_path: Path) -> None:
+    script = tmp_path / "remote-install.ps1"
+    script.write_text(
+        "& $gpg.Source --batch --verify $signature $bundle\n"
+        "Expand-Archive -Path $bundle -DestinationPath $staging -Force\n"
+        "& powershell.exe -ExecutionPolicy Bypass -File $installer\n"
+        ". $profilePath\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([script])
+
+    assert {(item.line, item.effect_id) for item in findings} == {
+        (1, "process.execute"),
+        (2, "filesystem.write"),
+        (3, "process.execute"),
+        (4, "process.execute"),
+    }
 
 
 def test_javascript_scanner_detects_process_termination_but_not_liveness_probe(tmp_path: Path) -> None:
@@ -121,6 +177,130 @@ def test_javascript_scanner_detects_process_termination_but_not_liveness_probe(t
         (2, "process.terminate"),
         (4, "process.terminate"),
     ]
+
+
+def test_javascript_scanner_detects_network_and_stream_writes(tmp_path: Path) -> None:
+    source = tmp_path / "network-and-streams.cjs"
+    source.write_text(
+        "fetch('http://127.0.0.1:8080/health')\n"
+        "fetch(url, {\n"
+        "  ...requestInit,\n"
+        "})\n"
+        "fetch(url, { method: 'GET' })\n"
+        "fetch(url, { method: 'POST' })\n"
+        "https.request(url, { method: selectedMethod })\n"
+        "net.createConnection({ host: '127.0.0.1', port: 8080 })\n"
+        "https.request(url, options)\n"
+        "fs.createWriteStream(target)\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([source])
+
+    assert [(item.line, item.effect_id) for item in findings] == [
+        (1, "network.read"),
+        (2, "network.external_write"),
+        (5, "network.read"),
+        (6, "network.external_write"),
+        (7, "network.external_write"),
+        (8, "network.read"),
+        (9, "network.external_write"),
+        (10, "filesystem.write"),
+    ]
+
+
+def test_javascript_scanner_does_not_mistake_regexp_exec_for_process_launch(tmp_path: Path) -> None:
+    source = tmp_path / "regex.exec.ts"
+    source.write_text("const match = expression.exec(line);\n", encoding="utf-8")
+
+    assert inventory.scan_paths([source]) == []
+
+
+def test_shell_and_cmd_scanners_detect_launcher_effects(tmp_path: Path) -> None:
+    shell = tmp_path / "launcher.sh"
+    shell.write_text(
+        "mkdir -p .run\n"
+        "nohup python -m bago_core.launcher serve > backend.log 2>&1 &\n"
+        "curl -fsS http://127.0.0.1:8080/health\n"
+        "kill -9 1234\n"
+        "rm -f backend.pid\n",
+        encoding="utf-8",
+    )
+    batch = tmp_path / "launcher.cmd"
+    batch.write_text(
+        "start \"\" powershell -File bago.ps1\n"
+        "mkdir .run\n"
+        "del backend.pid\n"
+        "reg add HKCU\\Software\\BAGO\n",
+        encoding="utf-8",
+    )
+
+    shell_findings = inventory.scan_paths([shell])
+    batch_findings = inventory.scan_paths([batch])
+
+    assert [(item.line, item.effect_id) for item in shell_findings] == [
+        (1, "filesystem.write"),
+        (2, "process.execute"),
+        (2, "filesystem.write"),
+        (3, "process.execute"),
+        (4, "process.terminate"),
+        (5, "filesystem.delete"),
+    ]
+    assert [(item.line, item.effect_id) for item in batch_findings] == [
+        (1, "process.execute"),
+        (2, "filesystem.write"),
+        (3, "filesystem.delete"),
+        (4, "system.configuration.write"),
+    ]
+
+
+def test_vbscript_and_nsis_scanners_detect_installer_effects(tmp_path: Path) -> None:
+    launcher = tmp_path / "install.vbs"
+    launcher.write_text(
+        "' objShell.Run is only a comment\n"
+        "objShell.Run batchFile, 1, True\n"
+        "objFSO.CreateTextFile(target, True)\n"
+        "objShell.RegWrite key, value\n",
+        encoding="utf-8",
+    )
+    installer = tmp_path / "installer.nsi"
+    installer.write_text(
+        "; DeleteRegKey HKCU legacy\n"
+        "ExecWait 'powershell.exe -File install.ps1'\n"
+        "File /oname=payload.zip payload.zip\n"
+        "WriteRegStr HKCU Software\\BAGO Version 1\n"
+        "RMDir /r $INSTDIR\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([launcher, installer])
+
+    assert sorted((Path(item.path).name, item.line, item.effect_id) for item in findings) == [
+        ("install.vbs", 2, "process.execute"),
+        ("install.vbs", 3, "filesystem.write"),
+        ("install.vbs", 4, "system.configuration.write"),
+        ("installer.nsi", 2, "process.execute"),
+        ("installer.nsi", 3, "filesystem.write"),
+        ("installer.nsi", 4, "system.configuration.write"),
+        ("installer.nsi", 5, "filesystem.delete"),
+    ]
+
+
+def test_default_inventory_roots_include_runtime_entrypoints_and_release_scripts() -> None:
+    relative_roots = {inventory._relative(path) for path in inventory.DEFAULT_ROOTS}
+
+    assert "releases" in relative_roots
+    assert "frontend" in relative_roots
+    assert "ARRANCAR_BAGO.bat" in relative_roots
+    assert "DETENER_BAGO.bat" in relative_roots
+    assert "install-remote.ps1" in relative_roots
+    assert inventory._scope_for(inventory.REPO_ROOT / "ARRANCAR_BAGO.bat") == inventory.SCOPE_RUNTIME_AUTHORITY
+    assert inventory._scope_for(inventory.REPO_ROOT / "update-release-v4.8.4.sh") == inventory.SCOPE_BUILD_RELEASE_ADMIN
+    assert inventory._scope_for(inventory.REPO_ROOT / "releases" / "compiled" / "backend" / "main.py") == inventory.SCOPE_DERIVED_RELEASE_SNAPSHOT
+    assert inventory._scope_for(inventory.REPO_ROOT / "releases" / "install-embedded-payload.ps1") == inventory.SCOPE_RUNTIME_AUTHORITY
+    assert inventory._scope_for(inventory.REPO_ROOT / "releases" / "bago-installer.nsi") == inventory.SCOPE_RUNTIME_AUTHORITY
+    assert inventory._scope_for(inventory.REPO_ROOT / "frontend" / "src" / "api" / "client.ts") == inventory.SCOPE_RUNTIME_CLIENT_TRANSPORT
+    assert inventory._scope_for(inventory.REPO_ROOT / "frontend" / "capture_screenshots.mjs") == inventory.SCOPE_BUILD_RELEASE_ADMIN
 
 
 def test_powershell_scanner_detects_registry_environment_and_dotnet_file_writes(tmp_path: Path) -> None:
@@ -169,6 +349,14 @@ def test_all_scanner_effect_ids_exist_in_canonical_registry() -> None:
     scanner_ids |= {
         effect_id
         for _, effect_id, _ in inventory.JS_RULES
+    }
+    scanner_ids |= {
+        effect_id
+        for _, effect_id, _ in inventory.SHELL_RULES
+    }
+    scanner_ids |= {
+        effect_id
+        for _, effect_id, _ in inventory.CMD_RULES
     }
     assert scanner_ids <= declared
 
@@ -277,7 +465,11 @@ def test_release_update_helper_sinks_remain_visible_and_require_gateway_ticket()
 
     findings = inventory.scan_paths([helper])
 
-    assert len(findings) == 18
+    assert len(findings) == 19
+    assert any(
+        item.effect_id == "filesystem.write" and item.sink == "Expand-Archive"
+        for item in findings
+    )
     assert all(item.binding == "gateway_owned" for item in findings)
     assert all(item.binding_class == "gateway_adapter" for item in findings)
     assert all(item.scope == inventory.SCOPE_RUNTIME_AUTHORITY for item in findings)
@@ -446,6 +638,21 @@ def test_remote_installer_remains_a_runtime_authority_sink() -> None:
     assert all(item.scope == inventory.SCOPE_RUNTIME_AUTHORITY for item in findings)
     assert all(item.binding == "unbound" for item in findings)
     assert all(item.binding_class == "runtime_unbound" for item in findings)
+    source_lines = installer.read_text(encoding="utf-8", errors="replace").splitlines()
+    expected = {
+        (number, effect_id)
+        for number, line in enumerate(source_lines, start=1)
+        for marker, effect_id in (
+            ("& $gpg.Source", "process.execute"),
+            ("Expand-Archive", "filesystem.write"),
+            ("& powershell.exe", "process.execute"),
+            (". $profilePath", "process.execute"),
+        )
+        if marker in line
+    }
+    observed = {(item.line, item.effect_id) for item in findings}
+    assert len(expected) == 4
+    assert expected <= observed
 
 
 def test_remote_installer_has_no_running_bago_runtime_callsite() -> None:

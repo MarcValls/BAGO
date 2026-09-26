@@ -12,9 +12,10 @@ breaking CI. ``--strict`` is the runtime closure gate: it exits non-zero while
 runtime sinks remain unbound. ``--strict-classification`` is the inventory
 completeness gate; it fails if a finding has no explicit scope or disposition.
 
-The scanner covers Python plus high-signal PowerShell/JS process/filesystem
-patterns. It intentionally prefers false-positive audit candidates over silent
-effect sinks.
+The scanner covers high-signal material-effect patterns in the executable
+languages used by the runtime and installer entrypoints. It intentionally
+prefers visible audit candidates over silent effect sinks; it is not a proof of
+complete language coverage.
 """
 
 from __future__ import annotations
@@ -37,6 +38,13 @@ DEFAULT_ROOTS = (
     REPO_ROOT / "backend",
     REPO_ROOT / "scripts",
     REPO_ROOT / "electron-viewer",
+    REPO_ROOT / "frontend",
+    REPO_ROOT / "releases",
+    REPO_ROOT / "ARRANCAR_BAGO.bat",
+    REPO_ROOT / "DETENER_BAGO.bat",
+    REPO_ROOT / "install-remote.ps1",
+    REPO_ROOT / "update-release-v4.8.4.ps1",
+    REPO_ROOT / "update-release-v4.8.4.sh",
 )
 EXCLUDED_DIRS = {
     ".git",
@@ -112,6 +120,7 @@ EXECUTION_GATEWAY_PATH = "backend/.bago/core/execution_gateway.py"
 
 SCOPE_RUNTIME_AUTHORITY = "runtime_authority"
 SCOPE_RUNTIME_TOOL_PENDING = "runtime_tool_pending"
+SCOPE_RUNTIME_CLIENT_TRANSPORT = "runtime_client_transport"
 SCOPE_TEST = "test"
 SCOPE_BUILD_RELEASE_ADMIN = "build_release_admin"
 SCOPE_DERIVED_RELEASE_SNAPSHOT = "derived_release_snapshot"
@@ -121,6 +130,7 @@ NON_RUNTIME_SCOPES = frozenset({
     SCOPE_TEST,
     SCOPE_BUILD_RELEASE_ADMIN,
     SCOPE_DERIVED_RELEASE_SNAPSHOT,
+    SCOPE_RUNTIME_CLIENT_TRANSPORT,
 })
 
 # High-signal Python call suffixes. Suffix matching is intentional because Path
@@ -146,6 +156,11 @@ PYTHON_SUFFIX_RULES: tuple[tuple[str, str, str], ...] = (
     ("shutil.copy2", "filesystem.write", "high"),
     ("shutil.copyfile", "filesystem.write", "high"),
     ("shutil.copytree", "filesystem.write", "high"),
+    ("py_compile.compile", "filesystem.write", "medium"),
+    ("tempfile.NamedTemporaryFile", "filesystem.write", "high"),
+    ("tempfile.TemporaryFile", "filesystem.write", "high"),
+    ("tempfile.mkstemp", "filesystem.write", "high"),
+    ("tempfile.mkdtemp", "filesystem.write", "high"),
     ("subprocess.run", "process.execute", "high"),
     ("subprocess.Popen", "process.execute", "high"),
     ("subprocess.call", "process.execute", "high"),
@@ -168,21 +183,65 @@ PYTHON_SUFFIX_RULES: tuple[tuple[str, str, str], ...] = (
 
 POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"\bRemove-Item\b", re.I), "filesystem.delete", "high"),
+    (re.compile(r"\bExpand-Archive\b", re.I), "filesystem.write", "high"),
     (re.compile(r"\b(?:New-ItemProperty|Set-Item|Remove-ItemProperty|Clear-ItemProperty)\b", re.I), "system.configuration.write", "high"),
     (re.compile(r"\[\s*(?:System\.IO\.)?File\s*\]\s*::\s*(?:WriteAllText|WriteAllBytes|AppendAllText|AppendAllBytes)\s*\(", re.I), "filesystem.write", "high"),
     (re.compile(r"\[\s*(?:System\.)?Environment\s*\]\s*::\s*SetEnvironmentVariable\s*\(", re.I), "system.configuration.write", "high"),
     (re.compile(r"\b(?:Set-Content|Add-Content|Out-File|Copy-Item|Move-Item|New-Item)\b", re.I), "filesystem.write", "medium"),
     (re.compile(r"\bStart-Process\b", re.I), "process.execute", "high"),
-    (re.compile(r"\b(?:Invoke-WebRequest|Invoke-RestMethod)\b.*\b-Method\s+(?:POST|PUT|PATCH|DELETE)\b", re.I), "network.external_write", "high"),
+    # PowerShell's call operator can invoke external programs via literal or
+    # computed command names; dot-sourcing executes another script in-process.
+    # Keep both visible as process effects instead of assuming Start-Process
+    # is the only process-launch form.
+    (re.compile(r"(?m)^\s*&\s*(?:\$[A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*|[A-Za-z_][\w.-]*)(?=\s|$)"), "process.execute", "high"),
+    (re.compile(r"(?m)^\s*\.\s+(?:\$[A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*|'[^']+'|\"[^\"]+\")"), "process.execute", "high"),
+    (re.compile(r"\b(?:Invoke-WebRequest|Invoke-RestMethod)\b.*\s-Method\s+(?:POST|PUT|PATCH|DELETE)\b", re.I), "network.external_write", "high"),
+    (re.compile(r"\b(?:Invoke-WebRequest|Invoke-RestMethod)\b.*\s-OutFile\b", re.I), "filesystem.write", "high"),
     (re.compile(r"\b(?:Invoke-WebRequest|Invoke-RestMethod)\b", re.I), "network.read", "medium"),
 )
 
 JS_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
-    (re.compile(r"\b(?:child_process\.)?(?:spawn|spawnSync|exec|execSync|execFile|execFileSync|fork)\s*\("), "process.execute", "high"),
+    (re.compile(r"(?<![\w$.])(?:child_process\.)?(?:spawn|spawnSync|exec|execSync|execFile|execFileSync|fork)\s*\("), "process.execute", "high"),
     (re.compile(r"\b(?!process\.kill\b)[A-Za-z_$][\w$]*\.kill\s*\("), "process.terminate", "high"),
     (re.compile(r"\bprocess\.kill\s*\([^,]+,\s*(?!0\s*\))[^)]+\)"), "process.terminate", "high"),
     (re.compile(r"\b(?:fs\.)?(?:writeFile|writeFileSync|appendFile|appendFileSync|mkdir|mkdirSync|copyFile|copyFileSync|rename|renameSync)\s*\("), "filesystem.write", "medium"),
     (re.compile(r"\b(?:fs\.)?(?:unlink|unlinkSync|rm|rmSync|rmdir|rmdirSync)\s*\("), "filesystem.delete", "high"),
+    (re.compile(r"\b(?:fs\.)?createWriteStream\s*\("), "filesystem.write", "high"),
+    (re.compile(r"\bnet\.(?:connect|createConnection)\s*\("), "network.read", "medium"),
+)
+
+VBSCRIPT_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (re.compile(r"\b(?:WScript\.Shell|objShell|shell)\.(?:Run|Exec|ShellExecute)(?:\s*\(|\s+)", re.I), "process.execute", "high"),
+    (re.compile(r"\.(?:CreateTextFile|CreateFolder|CopyFile|MoveFile)\s*\(", re.I), "filesystem.write", "high"),
+    (re.compile(r"\.(?:DeleteFile|DeleteFolder)\s*\(", re.I), "filesystem.delete", "high"),
+    (re.compile(r"\.(?:RegWrite|RegDelete)(?:\s*\(|\s+)", re.I), "system.configuration.write", "high"),
+)
+
+NSIS_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (re.compile(r"^\s*(?:Exec|ExecWait|ExecShell)\b", re.I), "process.execute", "high"),
+    (re.compile(r"^\s*(?:File|SetOutPath|CopyFiles|Rename|CreateDirectory|CreateShortcut|WriteUninstaller)\b", re.I), "filesystem.write", "high"),
+    (re.compile(r"^\s*(?:Delete|RMDir)\b", re.I), "filesystem.delete", "high"),
+    (re.compile(r"^\s*(?:WriteReg\w*|DeleteRegKey|DeleteRegValue)\b", re.I), "system.configuration.write", "high"),
+)
+
+# Shell and cmd are launcher languages in the BAGO runtime/build tree. These
+# rules are intentionally high-signal; dynamic command construction still
+# requires source review and must not be mistaken for complete static proof.
+SHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (re.compile(r"\b(?:exec|nohup|bash|sh|cmd|powershell|pwsh|pythonw?|python3|node|npm|npx|electron|gh|gpg|curl|wget|taskkill)\b"), "process.execute", "high"),
+    (re.compile(r"\bkill\s+(?!-0\b)"), "process.terminate", "high"),
+    (re.compile(r"\b(?:mkdir|mktemp|touch|cp|mv|install)\b"), "filesystem.write", "medium"),
+    (re.compile(r"\b(?:rm|rmdir|unlink)\b"), "filesystem.delete", "high"),
+    (re.compile(r"(?:^|[^>])>{1,2}\s*(?:\S+)"), "filesystem.write", "medium"),
+)
+
+CMD_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (re.compile(r"^\s*(?:start|call)\s+|^\s*(?:powershell|pwsh|pythonw?|python3?|node|npm|npx|cmd|wsl|certutil|gh|gpg)\b", re.I), "process.execute", "high"),
+    (re.compile(r"\b(?:taskkill|tskill)\b", re.I), "process.terminate", "high"),
+    (re.compile(r"^\s*(?:del|erase|rmdir)\b", re.I), "filesystem.delete", "high"),
+    (re.compile(r"^\s*(?:mkdir|md|copy|xcopy|move)\b|\bcertutil\b.*>\s*", re.I), "filesystem.write", "medium"),
+    (re.compile(r"^\s*reg\s+(?:add|delete)\b|^\s*setx\b", re.I), "system.configuration.write", "high"),
+    (re.compile(r">>{1,2}\s*\S+"), "filesystem.write", "medium"),
 )
 
 
@@ -220,10 +279,28 @@ def _scope_for(path: Path) -> str:
 
     rel = _relative(path)
     parts = set(rel.split("/"))
+    if rel in {
+        "ARRANCAR_BAGO.bat",
+        "DETENER_BAGO.bat",
+        "install-remote.ps1",
+    }:
+        return SCOPE_RUNTIME_AUTHORITY
+    if rel in {"update-release-v4.8.4.ps1", "update-release-v4.8.4.sh"}:
+        return SCOPE_BUILD_RELEASE_ADMIN
+    if rel.startswith(("releases/compiled/", "releases/ci-artifact/")):
+        return SCOPE_DERIVED_RELEASE_SNAPSHOT
+    if rel.startswith("releases/"):
+        if Path(rel).name.startswith(("build-", "resolve-")):
+            return SCOPE_BUILD_RELEASE_ADMIN
+        return SCOPE_RUNTIME_AUTHORITY
     if rel.startswith("backend/release/"):
         return SCOPE_DERIVED_RELEASE_SNAPSHOT
     if "tests" in parts or rel.startswith("backend/tests_local/"):
         return SCOPE_TEST
+    if rel in {"frontend/capture_screenshots.mjs"} or rel.startswith("frontend/scripts/"):
+        return SCOPE_BUILD_RELEASE_ADMIN
+    if rel.startswith("frontend/"):
+        return SCOPE_RUNTIME_CLIENT_TRANSPORT
     if (
         rel.startswith("scripts/")
         or rel.startswith("backend/scripts/")
@@ -390,6 +467,72 @@ def _classify_python_call(call: ast.Call) -> tuple[str, str] | None:
     return None
 
 
+def _archive_handle_names(tree: ast.AST) -> set[str]:
+    """Find simple local names bound to ZipFile objects for write/extract calls."""
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.With):
+            items = node.items
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            value = node.value
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            items = []
+            if isinstance(value, ast.Call) and _qualified_name(value.func).endswith("ZipFile"):
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        names.add(target.id)
+            continue
+        else:
+            continue
+        for item in items:
+            context = item.context_expr
+            if not isinstance(context, ast.Call) or not _qualified_name(context.func).endswith("ZipFile"):
+                continue
+            if isinstance(item.optional_vars, ast.Name):
+                names.add(item.optional_vars.id)
+    return names
+
+
+def _temporary_file_handle_names(tree: ast.AST) -> set[str]:
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.With):
+            items = node.items
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            value = node.value
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            items = []
+            if isinstance(value, ast.Call) and _qualified_name(value.func).endswith("NamedTemporaryFile"):
+                for target in targets:
+                    if isinstance(target, ast.Name):
+                        names.add(target.id)
+            continue
+        else:
+            continue
+        for item in items:
+            context = item.context_expr
+            if not isinstance(context, ast.Call) or not _qualified_name(context.func).endswith("NamedTemporaryFile"):
+                continue
+            if isinstance(item.optional_vars, ast.Name):
+                names.add(item.optional_vars.id)
+    return names
+
+
+def _literal_zipfile_write(call: ast.Call) -> tuple[str, str] | None:
+    name = _qualified_name(call.func)
+    if not name.endswith("ZipFile"):
+        return None
+    mode: str | None = None
+    if len(call.args) > 1 and isinstance(call.args[1], ast.Constant) and isinstance(call.args[1].value, str):
+        mode = call.args[1].value
+    for keyword in call.keywords:
+        if keyword.arg == "mode" and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+            mode = keyword.value.value
+    if mode and any(flag in mode for flag in ("w", "x", "a")):
+        return ("filesystem.write", "high")
+    return None
+
+
 def _line_excerpt(lines: list[str], line: int) -> str:
     if 1 <= line <= len(lines):
         return " ".join(lines[line - 1].strip().split())[:240]
@@ -425,12 +568,23 @@ def scan_python(path: Path) -> list[SinkFinding]:
     except (OSError, SyntaxError):
         return []
     lines = source.splitlines()
+    archive_handles = _archive_handle_names(tree)
+    temporary_file_handles = _temporary_file_handle_names(tree)
     gateway_owned_adapter_ranges = _gateway_owned_adapter_ranges(path, tree)
     findings: list[SinkFinding] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         classification = _classify_python_call(node)
+        call_name = _qualified_name(node.func)
+        if classification is None:
+            if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+                if node.func.value.id in archive_handles and node.func.attr in {"write", "writestr", "extract", "extractall"}:
+                    classification = ("filesystem.write", "high")
+                elif node.func.value.id in temporary_file_handles and node.func.attr == "write":
+                    classification = ("filesystem.write", "high")
+            if classification is None:
+                classification = _literal_zipfile_write(node)
         if classification is None:
             continue
         effect_id, confidence = classification
@@ -445,7 +599,7 @@ def scan_python(path: Path) -> list[SinkFinding]:
                 line=int(getattr(node, "lineno", 0) or 0),
                 column=int(getattr(node, "col_offset", 0) or 0),
                 language="python",
-                sink=_qualified_name(node.func) or "<call>",
+                sink=call_name or "<call>",
                 effect_id=effect_id,
                 confidence=confidence,
                 binding=binding,
@@ -458,6 +612,65 @@ def scan_python(path: Path) -> list[SinkFinding]:
     return findings
 
 
+def _js_call_context(lines: list[str], line_index: int, opening_paren: int) -> str:
+    """Collect one bounded JavaScript call across lines with string awareness."""
+    depth = 0
+    quote = ""
+    escaped = False
+    pieces: list[str] = []
+    for row, current in enumerate(lines[line_index:min(line_index + 40, len(lines))]):
+        for offset, char in enumerate(current):
+            if row == 0 and offset < opening_paren:
+                continue
+            pieces.append(char)
+            if quote:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = ""
+                continue
+            if char in {"'", '"', "`"}:
+                quote = char
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    return "".join(pieces)
+        pieces.append("\n")
+    return "".join(pieces)
+
+
+def _js_second_argument(call: str) -> str | None:
+    """Return a JS call's second argument without splitting nested commas."""
+    depth = 0
+    quote = ""
+    escaped = False
+    start = -1
+    for index, char in enumerate(call):
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = ""
+            continue
+        if char in {"'", '"', "`"}:
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            if depth == 1 and start >= 0:
+                return call[start:index].strip()
+            depth -= 1
+        elif char == "," and depth == 1 and start < 0:
+            start = index + 1
+    return None
+
+
 def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str], str, str]]) -> list[SinkFinding]:
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
@@ -468,6 +681,39 @@ def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str],
         stripped = line.strip()
         if not stripped or stripped.startswith(("#", "//")):
             continue
+        if (language == "vbscript" and stripped.startswith("'")) or (
+            language == "nsis" and stripped.startswith(";")
+        ) or (language == "cmd" and re.match(r"(?i)^(?:rem\b|::)", stripped)):
+            continue
+        if language == "javascript":
+            network_match = re.search(r"\b(fetch|(?:https?|http)\.request)\s*\(", line)
+            if network_match:
+                call = _js_call_context(lines, number - 1, network_match.end() - 1)
+                second_argument = _js_second_argument(call)
+                methods = re.findall(r"\bmethod\s*:\s*([^,}\s]+)", second_argument or "")
+                has_spread = bool(re.search(r"\.\.\.\s*[A-Za-z_$][\w$]*", second_argument or ""))
+                dynamic_options = bool(second_argument and not second_argument.lstrip().startswith("{"))
+                mutating_method = any(
+                    value.strip("'\"` ").upper() not in {"GET", "HEAD"}
+                    for value in methods
+                )
+                effect_id = "network.external_write" if mutating_method or has_spread or dynamic_options else "network.read"
+                confidence = "high" if any(value.strip("'\"` ").upper() in {"POST", "PUT", "PATCH", "DELETE"} for value in methods) else "medium"
+                binding, binding_class, binding_reason = _ownership_for(path)
+                findings.append(SinkFinding(
+                    path=_relative(path),
+                    line=number,
+                    column=network_match.start(),
+                    language=language,
+                    sink=network_match.group(1),
+                    effect_id=effect_id,
+                    confidence=confidence,
+                    binding=binding,
+                    scope=_scope_for(path),
+                    binding_class=binding_class,
+                    binding_reason=binding_reason,
+                    excerpt=" ".join(stripped.split())[:240],
+                ))
         for pattern, effect_id, confidence in rules:
             match = pattern.search(line)
             if not match:
@@ -509,7 +755,7 @@ def _iter_files(roots: Iterable[Path]) -> Iterable[Path]:
                 continue
             if any(part in EXCLUDED_DIRS for part in path.parts):
                 continue
-            if path.suffix.lower() in {".py", ".ps1", ".js", ".cjs", ".mjs"}:
+            if path.suffix.lower() in {".py", ".ps1", ".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx", ".cmd", ".bat", ".sh", ".vbs", ".nsi"} or path.name == "bago":
                 yield path
 
 
@@ -521,8 +767,16 @@ def scan_paths(roots: Iterable[Path]) -> list[SinkFinding]:
             findings.extend(scan_python(path))
         elif suffix == ".ps1":
             findings.extend(_scan_text(path, "powershell", POWERSHELL_RULES))
-        elif suffix in {".js", ".cjs", ".mjs"}:
+        elif suffix in {".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx"}:
             findings.extend(_scan_text(path, "javascript", JS_RULES))
+        elif suffix in {".cmd", ".bat"}:
+            findings.extend(_scan_text(path, "cmd", CMD_RULES))
+        elif suffix == ".vbs":
+            findings.extend(_scan_text(path, "vbscript", VBSCRIPT_RULES))
+        elif suffix == ".nsi":
+            findings.extend(_scan_text(path, "nsis", NSIS_RULES))
+        elif suffix == ".sh" or path.name == "bago":
+            findings.extend(_scan_text(path, "shell", SHELL_RULES))
     return sorted(findings, key=lambda item: (item.path, item.line, item.column, item.effect_id))
 
 

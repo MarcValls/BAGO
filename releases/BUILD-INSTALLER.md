@@ -7,7 +7,31 @@ cd releases
 .\build-installer.ps1
 ```
 
-Esto compilará **bago-4.9.0-setup.exe** con BAGO.exe embebido.
+Esto lee `release_version.txt`, prepara el runtime, y compila el instalador
+con BAGO.exe embebido.
+
+Para refrescar únicamente `compiled/runtime` después de un bloque de cambios,
+sin tocar el ZIP ni el instalador existentes:
+
+```powershell
+cd releases
+.\build-installer.ps1 -RuntimeOnly -SkipBuild -Version (Get-Content ..\release_version.txt -Raw).Trim()
+```
+
+Este modo aplica las mismas exclusiones, copia los builds existentes de
+frontend y Electron, y valida el payload global. `-SkipBuild` requiere que
+ambos builds ya existan y correspondan a la versión canónica; sin esa opción,
+el script los construye antes de actualizar el runtime.
+
+Para construir runtime y setup desde un checkout concreto, usa el empaquetador
+completo con `-GitRef`, `-GitSha` y `-NsisMakensis`. No apuntes el empaquetador
+a una rama remota durante la copia: Actions puede seleccionar `source_ref`,
+hacer checkout de ese ref y fijar el SHA resuelto como identidad del candidato.
+
+En GitHub Actions, `workflow_dispatch` acepta `source_ref` (rama, tag o SHA).
+El workflow registra el SHA exacto resuelto después del checkout y ese SHA es
+el que queda embebido en el instalador. Si se omite, usa el ref seleccionado
+al lanzar el workflow.
 
 ## Prerequisitos
 

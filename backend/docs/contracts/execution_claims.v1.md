@@ -94,6 +94,56 @@ before spawning. Direct process callers outside this governed pipeline are not
 covered by this claim integration and remain visible to the global runtime
 sink inventory.
 
+## Safe agent adapter dispatch
+
+The public CLI exposes the existing AgentGateway through
+`bago agent dispatch <intent> [--adapter local|ollama] [--arg VALUE ...]`.
+Each repeated `--arg` is one exact argv element; values beginning with `-`
+use `--arg=--option`. The CLI forwards intent and options to the Gateway
+parser; it does not construct a second
+process request or authorization path. The Gateway restores the canonical
+active `SessionManager`, and the session supplies the workspace and session
+identity. `--root` is rejected for dispatch so a caller cannot replace that
+binding. This command surface accepts only the `local` and `ollama` adapters;
+remote MCP, Codex, and Cloud adapters cannot be selected for command execution.
+
+`LocalAdapter` maps only the canonical intent table to BAGO argv. `OllamaAdapter`
+may approve that intent by returning its fixed `direct` sentinel, but model
+text is never parsed as executable argv. The dispatch requires a direct TTY;
+the exact command, workspace, session, launcher module path and digest are
+bound to `process.execute`. `AuthorizationBoundary` consumes the Permit before
+spawn, and `ProcessExecutionEffectAdapter` revalidates the current launcher
+digest and exact argv with `shell=False`. Python's safe-path `-P` option
+prevents the workspace cwd from shadowing the validated launcher module; the
+trusted runtime root remains first in the child `PYTHONPATH`.
+
+The canonical table currently supports these intents: `health_check`, `scan`,
+`status`, `list_tools`, `context`, `task_create`, `task_done`, `task_handoff`,
+`project_init`, and `heal`. Read-only and mutating risk classes are derived from
+this table. Unknown intents fail closed. Extra arguments cannot select a
+different command or workspace; workspace override flags and their argparse
+abbreviations are rejected. The JSON contract's intent and adapter enums are
+checked against this registry in tests.
+
+The Gateway also rejects unregistered adapters and intents absent from the
+adapter's declared capabilities. Mutable and dangerous intents are blocked
+before adapter capability checks or network health probes unless the adapter
+is `local` or `ollama`; this prevents remote `/execute` calls from bypassing
+the direct process Permit. A dynamic agent cannot shadow the static execution
+authority: it is loaded by exact path from `.bago/agents`.
+
+`SessionManager.framework_root` is canonically the `.bago` directory. The
+single `workspace_binding.resolve_runtime_root()` resolver derives its parent
+as the Python runtime root; the request builder, Process adapter, and desktop
+HTTP process endpoint use this resolver, then validate the exact module file
+and digest. There is no caller-supplied runtime root. Non-interactive
+execution, a missing active session, invalid intent/argv, or a stale launcher
+binding blocks before spawn.
+
+Execution claims remain coordination only; the direct TTY Permit is the
+authorization authority. This agent CLI surface is not a claim that the global
+runtime sink inventory is closed.
+
 The existing per-plan `RLock` remains for mutable PlanEngine and plan state.
 This implementation does not coordinate project/workspace/credential sinks or
 other unclaimed effects.
