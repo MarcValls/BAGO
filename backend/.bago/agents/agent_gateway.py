@@ -207,9 +207,10 @@ class LocalAdapter(BaseAgentAdapter):
 
     @staticmethod
     def command_argv(request: AgentRequest) -> list[str]:
-        command = _INTENT_TO_CMD.get(request.intent)
-        if not command:
+        intent_spec = _INTENT_TO_CMD.get(request.intent)
+        if not intent_spec:
             raise ValueError(f"No command mapped for intent '{request.intent}'")
+        command, _risk = intent_spec
         raw_extra = request.payload.get("args", [])
         if raw_extra is None:
             raw_extra = []

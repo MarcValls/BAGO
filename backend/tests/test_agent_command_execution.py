@@ -140,7 +140,7 @@ def test_local_adapter_routes_fixed_intent_argv_through_gateway_interface(monkey
     result = agent_gateway.LocalAdapter().execute(request)
 
     assert result.success is True
-    assert calls == [(["status", "--json"], {"intent": "status", "manager": manager, "timeout": 30})]
+    assert calls == [(["node", "status", "--json"], {"intent": "status", "manager": manager, "timeout": 30})]
 
 
 def test_ollama_cannot_supply_or_expand_executable_argv(monkeypatch):
@@ -173,4 +173,4 @@ def test_ollama_direct_uses_only_canonical_local_intent_command(monkeypatch):
     ))
 
     assert result.success is True
-    assert calls == [(["status", "--json"], {"intent": "status", "manager": manager, "timeout": 30})]
+    assert calls == [(["node", "status", "--json"], {"intent": "status", "manager": manager, "timeout": 30})]
