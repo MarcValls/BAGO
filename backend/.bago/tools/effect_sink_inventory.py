@@ -40,6 +40,7 @@ DEFAULT_ROOTS = (
     REPO_ROOT / "electron-viewer",
     REPO_ROOT / "frontend",
     REPO_ROOT / "releases",
+    REPO_ROOT / "manager" / "android",
     REPO_ROOT / "ARRANCAR_BAGO.bat",
     REPO_ROOT / "DETENER_BAGO.bat",
     REPO_ROOT / "install-remote.ps1",
@@ -133,6 +134,14 @@ NON_RUNTIME_SCOPES = frozenset({
     SCOPE_RUNTIME_CLIENT_TRANSPORT,
 })
 
+# These backend/scripts files are reachable from runtime launchers or the
+# legacy manager UI. The directory is otherwise treated as build/release admin.
+RUNTIME_BACKEND_SCRIPT_ENTRYPOINTS = frozenset({
+    "backend/scripts/bago_supervisor.py",
+    "backend/scripts/bago_supervisor.pyw",
+    "backend/scripts/publish_release.py",
+})
+
 # High-signal Python call suffixes. Suffix matching is intentional because Path
 # instances are often local variables, not literal pathlib.Path expressions.
 PYTHON_SUFFIX_RULES: tuple[tuple[str, str, str], ...] = (
@@ -183,6 +192,7 @@ PYTHON_SUFFIX_RULES: tuple[tuple[str, str, str], ...] = (
 
 POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"\bRemove-Item\b", re.I), "filesystem.delete", "high"),
+    (re.compile(r"\bExpand-Archive\b", re.I), "filesystem.write", "high"),
     (re.compile(r"\b(?:New-ItemProperty|Set-Item|Remove-ItemProperty|Clear-ItemProperty)\b", re.I), "system.configuration.write", "high"),
     (re.compile(r"\[\s*(?:System\.IO\.)?File\s*\]\s*::\s*(?:WriteAllText|WriteAllBytes|AppendAllText|AppendAllBytes)\s*\(", re.I), "filesystem.write", "high"),
     (re.compile(r"\[\s*(?:System\.)?Environment\s*\]\s*::\s*SetEnvironmentVariable\s*\(", re.I), "system.configuration.write", "high"),
@@ -200,13 +210,19 @@ POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
 )
 
 JS_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
-    (re.compile(r"\b(?:child_process\.)?(?:spawn|spawnSync|exec|execSync|execFile|execFileSync|fork)\s*\("), "process.execute", "high"),
+    (re.compile(r"(?<![\w$.])(?:child_process\.)?(?:spawn|spawnSync|exec|execSync|execFile|execFileSync|fork)\s*\("), "process.execute", "high"),
     (re.compile(r"\b(?!process\.kill\b)[A-Za-z_$][\w$]*\.kill\s*\("), "process.terminate", "high"),
     (re.compile(r"\bprocess\.kill\s*\([^,]+,\s*(?!0\s*\))[^)]+\)"), "process.terminate", "high"),
     (re.compile(r"\b(?:fs\.)?(?:writeFile|writeFileSync|appendFile|appendFileSync|mkdir|mkdirSync|copyFile|copyFileSync|rename|renameSync)\s*\("), "filesystem.write", "medium"),
     (re.compile(r"\b(?:fs\.)?(?:unlink|unlinkSync|rm|rmSync|rmdir|rmdirSync)\s*\("), "filesystem.delete", "high"),
     (re.compile(r"\b(?:fs\.)?createWriteStream\s*\("), "filesystem.write", "high"),
+    (re.compile(r"\b(?:window\.)?(?:localStorage|sessionStorage)\.setItem\s*\("), "state.write", "high"),
+    (re.compile(r"\b(?:window\.)?(?:localStorage|sessionStorage)\.(?:removeItem|clear)\s*\("), "state.delete", "high"),
     (re.compile(r"\bnet\.(?:connect|createConnection)\s*\("), "network.read", "medium"),
+)
+
+HTML_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (re.compile(r"<(?:script|iframe|img|link)\b(?=[^>]*\b(?:src|href)\s*=\s*['\"]https?://)[^>]*>", re.I), "network.read", "high"),
 )
 
 VBSCRIPT_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
@@ -288,6 +304,8 @@ def _scope_for(path: Path) -> str:
         return SCOPE_BUILD_RELEASE_ADMIN
     if rel.startswith(("releases/compiled/", "releases/ci-artifact/")):
         return SCOPE_DERIVED_RELEASE_SNAPSHOT
+    if rel.startswith("manager/android/"):
+        return SCOPE_RUNTIME_AUTHORITY
     if rel.startswith("releases/"):
         if Path(rel).name.startswith(("build-", "resolve-")):
             return SCOPE_BUILD_RELEASE_ADMIN
@@ -300,6 +318,8 @@ def _scope_for(path: Path) -> str:
         return SCOPE_BUILD_RELEASE_ADMIN
     if rel.startswith("frontend/"):
         return SCOPE_RUNTIME_CLIENT_TRANSPORT
+    if rel in RUNTIME_BACKEND_SCRIPT_ENTRYPOINTS:
+        return SCOPE_RUNTIME_AUTHORITY
     if (
         rel.startswith("scripts/")
         or rel.startswith("backend/scripts/")
@@ -313,9 +333,17 @@ def _scope_for(path: Path) -> str:
     return SCOPE_UNCLASSIFIED
 
 
+def _scope_for_effect(path: Path, effect_id: str | None = None) -> str:
+    scope = _scope_for(path)
+    if scope == SCOPE_RUNTIME_CLIENT_TRANSPORT and effect_id in {"state.write", "state.delete"}:
+        return SCOPE_RUNTIME_AUTHORITY
+    return scope
+
+
 def _ownership_for(
     path: Path,
     *,
+    effect_id: str | None = None,
     gateway_owned_adapter: bool = False,
 ) -> tuple[str, str, str]:
     rel = _relative(path)
@@ -331,7 +359,7 @@ def _ownership_for(
             "gateway_adapter",
             "server-owned EffectAdapter materializes this sink",
         )
-    scope = _scope_for(path)
+    scope = _scope_for_effect(path, effect_id)
     if scope in NON_RUNTIME_SCOPES:
         return (
             "unbound",
@@ -590,6 +618,7 @@ def scan_python(path: Path) -> list[SinkFinding]:
         line = int(getattr(node, "lineno", 0) or 0)
         binding, binding_class, binding_reason = _ownership_for(
             path,
+            effect_id=effect_id,
             gateway_owned_adapter=_is_in_ranges(line, gateway_owned_adapter_ranges),
         )
         findings.append(
@@ -602,7 +631,7 @@ def scan_python(path: Path) -> list[SinkFinding]:
                 effect_id=effect_id,
                 confidence=confidence,
                 binding=binding,
-                scope=_scope_for(path),
+                scope=_scope_for_effect(path, effect_id),
                 binding_class=binding_class,
                 binding_reason=binding_reason,
                 excerpt=_line_excerpt(lines, line),
@@ -684,7 +713,7 @@ def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str],
             language == "nsis" and stripped.startswith(";")
         ) or (language == "cmd" and re.match(r"(?i)^(?:rem\b|::)", stripped)):
             continue
-        if language == "javascript":
+        if language in {"javascript", "html"}:
             network_match = re.search(r"\b(fetch|(?:https?|http)\.request)\s*\(", line)
             if network_match:
                 call = _js_call_context(lines, number - 1, network_match.end() - 1)
@@ -698,7 +727,7 @@ def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str],
                 )
                 effect_id = "network.external_write" if mutating_method or has_spread or dynamic_options else "network.read"
                 confidence = "high" if any(value.strip("'\"` ").upper() in {"POST", "PUT", "PATCH", "DELETE"} for value in methods) else "medium"
-                binding, binding_class, binding_reason = _ownership_for(path)
+                binding, binding_class, binding_reason = _ownership_for(path, effect_id=effect_id)
                 findings.append(SinkFinding(
                     path=_relative(path),
                     line=number,
@@ -708,7 +737,7 @@ def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str],
                     effect_id=effect_id,
                     confidence=confidence,
                     binding=binding,
-                    scope=_scope_for(path),
+                    scope=_scope_for_effect(path, effect_id),
                     binding_class=binding_class,
                     binding_reason=binding_reason,
                     excerpt=" ".join(stripped.split())[:240],
@@ -717,11 +746,11 @@ def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str],
             match = pattern.search(line)
             if not match:
                 continue
-            if language == "javascript" and effect_id == "process.terminate" and re.search(
+            if language in {"javascript", "html"} and effect_id == "process.terminate" and re.search(
                 r"\bprocess\.kill\s*\([^,]+,\s*0\s*\)", line
             ):
                 continue
-            binding, binding_class, binding_reason = _ownership_for(path)
+            binding, binding_class, binding_reason = _ownership_for(path, effect_id=effect_id)
             findings.append(
                 SinkFinding(
                     path=_relative(path),
@@ -732,7 +761,7 @@ def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str],
                     effect_id=effect_id,
                     confidence=confidence,
                     binding=binding,
-                    scope=_scope_for(path),
+                    scope=_scope_for_effect(path, effect_id),
                     binding_class=binding_class,
                     binding_reason=binding_reason,
                     excerpt=" ".join(stripped.split())[:240],
@@ -754,7 +783,7 @@ def _iter_files(roots: Iterable[Path]) -> Iterable[Path]:
                 continue
             if any(part in EXCLUDED_DIRS for part in path.parts):
                 continue
-            if path.suffix.lower() in {".py", ".ps1", ".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx", ".cmd", ".bat", ".sh", ".vbs", ".nsi"} or path.name == "bago":
+            if path.suffix.lower() in {".py", ".pyw", ".ps1", ".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx", ".html", ".htm", ".cmd", ".bat", ".sh", ".vbs", ".nsi"} or path.name == "bago":
                 yield path
 
 
@@ -762,12 +791,14 @@ def scan_paths(roots: Iterable[Path]) -> list[SinkFinding]:
     findings: list[SinkFinding] = []
     for path in _iter_files(roots):
         suffix = path.suffix.lower()
-        if suffix == ".py":
+        if suffix in {".py", ".pyw"}:
             findings.extend(scan_python(path))
         elif suffix == ".ps1":
             findings.extend(_scan_text(path, "powershell", POWERSHELL_RULES))
         elif suffix in {".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx"}:
             findings.extend(_scan_text(path, "javascript", JS_RULES))
+        elif suffix in {".html", ".htm"}:
+            findings.extend(_scan_text(path, "html", (*HTML_RULES, *JS_RULES)))
         elif suffix in {".cmd", ".bat"}:
             findings.extend(_scan_text(path, "cmd", CMD_RULES))
         elif suffix == ".vbs":

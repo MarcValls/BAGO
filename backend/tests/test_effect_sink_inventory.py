@@ -31,6 +31,64 @@ def test_python_scanner_classifies_material_sinks(tmp_path: Path) -> None:
     assert "network.external_write" in effects
 
 
+def test_inventory_scans_pythonw_entrypoints(tmp_path: Path) -> None:
+    source = tmp_path / "silent_supervisor.pyw"
+    source.write_text(
+        "import os\n"
+        "os.makedirs('state', exist_ok=True)\n"
+        "with open('state/supervisor.err', 'a', encoding='utf-8') as stream:\n"
+        "    stream.write('failed')\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([tmp_path])
+
+    assert [(item.line, item.effect_id) for item in findings] == [
+        (2, "filesystem.write"),
+        (3, "filesystem.write"),
+    ]
+
+
+def test_html_inventory_detects_external_scripts_browser_state_and_network(tmp_path: Path) -> None:
+    source = tmp_path / "mini-manager.html"
+    source.write_text(
+        '<script src="https://cdn.example.invalid/library.js"></script>\n'
+        "<script>localStorage.setItem('config', '{}')</script>\n"
+        "<script>fetch(url, { method: 'POST' })</script>\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([tmp_path])
+
+    assert [(item.line, item.effect_id) for item in findings] == [
+        (1, "network.read"),
+        (2, "state.write"),
+        (3, "network.external_write"),
+    ]
+
+
+def test_android_manager_effects_are_in_runtime_scope() -> None:
+    source = inventory.REPO_ROOT / "manager" / "android" / "android.js"
+
+    findings = inventory.scan_paths([source])
+
+    assert {item.scope for item in findings} == {inventory.SCOPE_RUNTIME_AUTHORITY}
+    assert any(item.effect_id == "state.write" for item in findings)
+    assert any(item.effect_id == "network.read" for item in findings)
+    assert any(item.effect_id == "network.external_write" for item in findings)
+
+
+def test_browser_state_writes_are_runtime_effects_but_api_transport_is_not() -> None:
+    frontend = inventory.REPO_ROOT / "frontend" / "src" / "local-state.ts"
+
+    state_binding = inventory._ownership_for(frontend, effect_id="state.write")
+    transport_binding = inventory._ownership_for(frontend, effect_id="network.read")
+
+    assert inventory._scope_for_effect(frontend, "state.write") == inventory.SCOPE_RUNTIME_AUTHORITY
+    assert state_binding[1] == "runtime_unbound"
+    assert transport_binding[1] == "nonruntime_effect"
+
+
 def test_python_scanner_detects_bound_path_open_write_modes(tmp_path: Path) -> None:
     source = tmp_path / "path-open-modes.py"
     source.write_text(
@@ -266,6 +324,10 @@ def test_default_inventory_roots_include_runtime_entrypoints_and_release_scripts
     assert "ARRANCAR_BAGO.bat" in relative_roots
     assert "DETENER_BAGO.bat" in relative_roots
     assert "install-remote.ps1" in relative_roots
+    assert "manager/android" in relative_roots
+    assert inventory._scope_for(inventory.REPO_ROOT / "backend/scripts/bago_supervisor.py") == inventory.SCOPE_RUNTIME_AUTHORITY
+    assert inventory._scope_for(inventory.REPO_ROOT / "backend/scripts/bago_supervisor.pyw") == inventory.SCOPE_RUNTIME_AUTHORITY
+    assert inventory._scope_for(inventory.REPO_ROOT / "backend/scripts/publish_release.py") == inventory.SCOPE_RUNTIME_AUTHORITY
     assert inventory._scope_for(inventory.REPO_ROOT / "ARRANCAR_BAGO.bat") == inventory.SCOPE_RUNTIME_AUTHORITY
     assert inventory._scope_for(inventory.REPO_ROOT / "update-release-v4.8.4.sh") == inventory.SCOPE_BUILD_RELEASE_ADMIN
     assert inventory._scope_for(inventory.REPO_ROOT / "releases" / "compiled" / "backend" / "main.py") == inventory.SCOPE_DERIVED_RELEASE_SNAPSHOT
@@ -485,7 +547,7 @@ def test_release_update_helper_sinks_remain_visible_and_require_gateway_ticket()
 
     findings = inventory.scan_paths([helper])
 
-    assert len(findings) == 18
+    assert len(findings) == 19
     assert all(item.binding == "gateway_owned" for item in findings)
     assert all(item.binding_class == "gateway_adapter" for item in findings)
     assert all(item.scope == inventory.SCOPE_RUNTIME_AUTHORITY for item in findings)
