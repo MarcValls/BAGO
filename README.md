@@ -246,6 +246,15 @@ Usa la release correspondiente en [GitHub Releases](https://github.com/MarcValls
 
 La línea 4.11.1 incorporó el fix del rollback del instalador: el NSIS finaliza una instalación sana con `-Finalize`, limpia el backup `.BAGO-rollback` solo tras éxito completo y falla cerrado si esa limpieza no puede completarse.
 
+Para refrescar `releases/compiled/runtime` tras un bloque de cambios sin
+reconstruir el instalador, usa `releases/build-installer.ps1 -RuntimeOnly`;
+este modo conserva el ZIP y el setup existentes y requiere los builds actuales
+de frontend y Electron, salvo que se solicite también su compilación. El
+workflow manual **Build BAGO Installer** admite `source_ref` (rama, tag o
+SHA): hace checkout de esa referencia y registra el SHA exacto resuelto en el
+instalador. La identidad empaquetada corresponde a ese checkout, no a una
+rama que pueda avanzar durante la copia.
+
 ### Desde fuentes
 
 ```powershell
