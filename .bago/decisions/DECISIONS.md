@@ -16,7 +16,8 @@ Record architectural or product decisions that affect canon here.
 - Evidence: agent command + agent gateway + ExecutionGateway suites: 66 passed;
   `py_compile` and `git diff --check` pass. Inventory: `2329` total / `63`
   runtime-unbound / `0` unclassified; strict classification passes and strict
-  runtime remains open. This is a working-tree block, not a final candidate.
+  runtime remains open. The block is committed, but it is not a final candidate
+  for the global gate while runtime sinks remain.
 - The new CLI import shifted one AST inventory line. The generated
   `import_migration_inventory.v1.json` was refreshed; import-consolidation and
   effect-sink-inventory suites then passed (36 tests).
