@@ -1,16 +1,47 @@
 """Process-wide BAGO instance lock for startup coordination."""
 from __future__ import annotations
 
+import ctypes
 import os
+import sys
 import time
 from pathlib import Path
 
 from bago_core.user_state_paths import bago_lock_file, ensure_user_roots
 
 
+def _is_pid_alive_windows(pid: int) -> bool:
+    process_query_limited_information = 0x1000
+    still_active = 259
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+    kernel32.OpenProcess.restype = ctypes.c_void_p
+    kernel32.GetExitCodeProcess.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32)]
+    kernel32.GetExitCodeProcess.restype = ctypes.c_int
+    kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+    kernel32.CloseHandle.restype = ctypes.c_int
+    ctypes.set_last_error(0)
+
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        last_error = ctypes.get_last_error()
+        return last_error == 5
+
+    try:
+        exit_code = ctypes.c_uint32()
+        if kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return exit_code.value == still_active
+        return True
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 def is_pid_alive(pid: int) -> bool:
     if pid <= 0:
         return False
+    if sys.platform == "win32":
+        return _is_pid_alive_windows(pid)
     try:
         os.kill(pid, 0)
         return True
