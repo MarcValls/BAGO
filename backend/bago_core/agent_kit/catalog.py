@@ -104,14 +104,76 @@ def _parse_agent_json(path: Path) -> dict[str, Any]:
     return raw
 
 
+_FRONTMATTER_RE = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n?(.*)\Z", re.DOTALL)
+
+
+def _coerce_frontmatter_scalar(raw: str) -> Any:
+    value = raw.strip()
+    if not value:
+        return ""
+    lowered = value.lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    if lowered in {"null", "none"}:
+        return None
+    if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+        return value[1:-1]
+    if re.fullmatch(r"[+-]?\d+", value):
+        try:
+            return int(value)
+        except ValueError:
+            return value
+    if re.fullmatch(r"[+-]?\d+\.\d+", value):
+        try:
+            return float(value)
+        except ValueError:
+            return value
+    return value
+
+
+def _parse_simple_frontmatter(front: str) -> dict[str, Any]:
+    data: dict[str, Any] = {}
+    current_list_key: str | None = None
+
+    for lineno, raw in enumerate(front.splitlines(), start=1):
+        line = raw.rstrip()
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("- "):
+            if current_list_key is None:
+                raise AgentDefinitionError(f"unsupported frontmatter list item at line {lineno}")
+            value = _coerce_frontmatter_scalar(stripped[2:])
+            existing = data.get(current_list_key)
+            if not isinstance(existing, list):
+                raise AgentDefinitionError(f"frontmatter key {current_list_key!r} is not a list at line {lineno}")
+            existing.append(value)
+            continue
+        if ":" not in line:
+            raise AgentDefinitionError(f"unsupported frontmatter content at line {lineno}")
+        key, value = line.split(":", 1)
+        key = key.strip()
+        if not key:
+            raise AgentDefinitionError(f"missing frontmatter key at line {lineno}")
+        value = value.strip()
+        if not value:
+            data[key] = []
+            current_list_key = key
+            continue
+        data[key] = _coerce_frontmatter_scalar(value)
+        current_list_key = None
+
+    return data
+
+
 def _parse_frontmatter(path: Path) -> dict[str, Any]:
     text = path.read_text(encoding="utf-8")
-    if not text.startswith("---"):
+    match = _FRONTMATTER_RE.match(text)
+    if match is None:
         return {}
-    try:
-        _, front, body = text.split("---", 2)
-    except ValueError:
-        return {}
+    front, body = match.groups()
     data: dict[str, Any] = {}
     if yaml is not None:
         try:
@@ -123,6 +185,8 @@ def _parse_frontmatter(path: Path) -> dict[str, Any]:
             data = tomllib.loads(front)
         except Exception:
             pass
+    if not data:
+        data = _parse_simple_frontmatter(front)
     data["_body"] = body.strip()
     return data
 

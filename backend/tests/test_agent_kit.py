@@ -70,6 +70,18 @@ class TestCatalog:
         assert agent.source_path
         assert agent.source_path.exists()
 
+    def test_agent_markdown_frontmatter_loads_without_pyyaml(self, monkeypatch):
+        from bago_core.agent_kit import catalog
+
+        monkeypatch.setattr(catalog, "yaml", None)
+        agent = catalog.load_agent(CATALOG, "bago_assistant")
+
+        assert agent.id == "bago_assistant"
+        assert agent.metadata["target"] == "github-copilot"
+        assert agent.metadata["tools"] == ["read", "search", "agent"]
+        assert agent.metadata["disable-model-invocation"] is False
+        assert agent.metadata["user-invocable"] is True
+
     def test_architecture_auditor_is_read_only(self):
         agent = load_agent(CATALOG, "bago_architecture_auditor")
         assert agent.is_read_only
