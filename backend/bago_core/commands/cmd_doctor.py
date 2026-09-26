@@ -83,6 +83,13 @@ def _active_runtime_version_status(canonical_root: Path, active_root: Path) -> t
     return True, f"v{active}: {active_root}"
 
 
+def _cli_entrypoint_version() -> str:
+    """Read the same version value used by ``bago_core.cli._entry``."""
+    from bago_core import __version__
+
+    return str(__version__)
+
+
 def cmd_doctor(args: argparse.Namespace) -> int:
     as_json = getattr(args, "json", False)
     checks: list[dict] = []
@@ -119,11 +126,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                 data = json.loads(text)
                 versions.add(data.get("version", data.get("current", "")))
             elif label == "cli.py --version":
-                result = subprocess.run(
-                    [sys.executable, str(path), "--version"],
-                    capture_output=True, text=True, timeout=10,
-                )
-                v = result.stdout.strip().replace("bago ", "")
+                v = _cli_entrypoint_version()
                 if v:
                     versions.add(v)
             else:

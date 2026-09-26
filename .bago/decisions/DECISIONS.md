@@ -2,6 +2,17 @@
 
 Record architectural or product decisions that affect canon here.
 
+## 2026-09-26 — Doctor reutiliza la autoridad de versión CLI
+
+- El chequeo de `cli.py --version` en `cmd_doctor` lee `bago_core.__version__`,
+  el mismo valor de `bago_core.cli._entry`, en proceso. Se elimina el subprocess
+  duplicado sin cambiar la autoridad comparada.
+- El subprocess del smoke de `bridge.py` permanece como sink runtime pendiente;
+  no se considera cerrado ni reclasificado.
+- Evidencia: `test_canonical_frontend.py` 6 passed, `py_compile` y diff-check
+  PASS. Inventario: `2328 / 62 runtime-unbound / 0 unclassified`;
+  strict-classification PASS y strict-runtime sigue OPEN.
+
 ## 2026-09-26 — AgentGateway CLI commands use the process owner
 
 - `agent_gateway.py` no longer launches BAGO with `subprocess.run`. Its local
