@@ -2,8 +2,8 @@
   "contract": "bago.import-migration-inventory.v1",
   "version": "1.0.0",
   "generated_from": "AST scan: executable sys.path.insert/append calls and add_piece_paths usage over versioned backend sources (tests, __pycache__ and git-ignored build/output trees excluded)",
-  "total_files": 76,
-  "total_mutations": 117,
+  "total_files": 77,
+  "total_mutations": 118,
   "files": [
     {
       "path": "backend/.bago/agents/agent_gateway.py",
@@ -377,6 +377,15 @@
       "mutations": [
         {
           "line": 28,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
+      "path": "backend/.bago/roles/role_factory.py",
+      "mutations": [
+        {
+          "line": 194,
           "call": "sys.path.insert"
         }
       ]
