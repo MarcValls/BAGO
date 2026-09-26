@@ -51,7 +51,7 @@ jobs:
 
       - name: Install and validate candidate
         run: |
-          python -m pip install pytest==9.0.3 pytest-subtests==0.15.0 numpy==2.4.4 tzdata
+          python -m pip install pytest==9.0.3 pytest-subtests==0.15.0 numpy==2.4.4 prompt_toolkit==3.0.52 tzdata
           npm ci
           npm run build
           npm run typecheck
