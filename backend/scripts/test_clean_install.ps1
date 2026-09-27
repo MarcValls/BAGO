@@ -5,7 +5,8 @@ param([switch]$Keep)
 $ErrorActionPreference = "Stop"
 $sourceRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $gatewayRunner = Join-Path $sourceRoot "scripts\run_clean_install_gateway.py"
-$tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd("\")
+$tempBase = if ($env:GITHUB_ACTIONS -eq "true" -and $env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [System.IO.Path]::GetTempPath() }
+$tempRoot = [System.IO.Path]::GetFullPath($tempBase).TrimEnd("\")
 $workRoot = Join-Path $tempRoot ("bago-clean-install-" + [Guid]::NewGuid().ToString("N"))
 $installRoot = Join-Path $workRoot "installed"
 $userRoot = Join-Path $workRoot "user"
