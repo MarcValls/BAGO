@@ -14,6 +14,7 @@ $stateRoot = Join-Path $workRoot "state"
 $backupRoot = Join-Path $workRoot "backups"
 $previousUserRoot = $env:BAGO_USER_ROOT
 $previousStateRoot = $env:BAGO_STATE_ROOT
+$previousPythonPath = $env:PYTHONPATH
 
 try {
     New-Item -ItemType Directory -Path $userRoot -Force | Out-Null
@@ -32,6 +33,7 @@ try {
 
     $env:BAGO_USER_ROOT = $userRoot
     $env:BAGO_STATE_ROOT = $stateRoot
+    $env:PYTHONPATH = "$sourceRoot;$sourceRoot\.bago\core"
     $python = (Get-Command python.exe -ErrorAction Stop | Select-Object -First 1).Source
     & $python $gatewayRunner `
         --action install `
@@ -91,6 +93,11 @@ try {
 
     Write-Host "clean-install:PASS version=$installedVersion root=$installRoot" -ForegroundColor Green
 } finally {
+    if ($null -eq $previousPythonPath) {
+        Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+    } else {
+        $env:PYTHONPATH = $previousPythonPath
+    }
     if ($null -eq $previousStateRoot) {
         Remove-Item Env:BAGO_STATE_ROOT -ErrorAction SilentlyContinue
     } else {
