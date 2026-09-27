@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import threading
 from datetime import datetime, timezone
@@ -50,7 +49,7 @@ class BagoContext:
     - Canonical path resolution (root, tools_dir, bago_bin …)
     - Lazy state load + atomic patch writes
     - Structured log (bago_context.log)
-    - Subprocess wrapper for bago sub-commands
+    - Fail-closed compatibility wrapper for retired subprocess execution
     - In-process + file-based event bus
     """
 
@@ -124,20 +123,13 @@ class BagoContext:
 
     def run_tool(self, cmd: str, args: list[str] = (), timeout: int = 60) -> tuple[int, str]:
         """
-        Run `bago <cmd> [args]` as a subprocess.
-        Returns (returncode, combined_output).
+        Retain the old API name but fail closed: process execution must enter
+        through an explicitly authorized ExecutionGateway operation.
         """
-        try:
-            result = subprocess.run(
-                [sys.executable, str(self.bago_bin), cmd, *args],
-                capture_output=True, text=True, timeout=timeout,
-                cwd=str(self.root), stdin=subprocess.DEVNULL,
-            )
-            return result.returncode, result.stdout + result.stderr
-        except subprocess.TimeoutExpired:
-            return -1, f"Timeout after {timeout}s"
-        except Exception as exc:
-            return -1, str(exc)
+        raise RuntimeError(
+            "BagoContext.run_tool is disabled; use an explicitly authorized "
+            "ExecutionGateway process operation"
+        )
 
     # ── Event bus ──────────────────────────────────────────────────────────────
 
@@ -193,7 +185,14 @@ class BagoContext:
                 except Exception:
                     pass
             if clear and events:
-                _EVENTS_PATH.unlink()
+                from bago_core.server_effects import write_text_atomic
+
+                write_text_atomic(
+                    _EVENTS_PATH,
+                    "",
+                    trusted_root=self.root,
+                    source_surface="bago_context.events.flush",
+                )
         except Exception:
             pass
         return events

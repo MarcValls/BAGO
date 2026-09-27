@@ -1432,7 +1432,7 @@ export function ControlSections(props: Props) {
           || availablePlans.find((item) => String(item.status || '').toLowerCase() === 'pending');
         const planId = String(planData?.id || planData?.plan_id || matchedPlan?.id || matchedPlan?.plan_id || '').trim();
         if (!planId) throw new Error('No se encontró un plan ejecutable para este paso. Vuelve a generar el plan antes de iniciarlo.');
-        const result = await props.client.executePlan(planId, { stop_on_failure: true });
+        const result = await props.client.executePlan(planId, { stop_on_failure: true }, { confirmed: true });
         if (result.ok === false) throw new Error(String(result.error || 'El backend no pudo iniciar el plan.'));
         setPendingStep(null);
         props.onRefresh();

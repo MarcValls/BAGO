@@ -19,7 +19,7 @@ Estos contratos describen el comportamiento que el repositorio debe poder demost
 
 ```powershell
 python test_e2e.py
-python bago_core\cli.py evidence --test
+python -m pytest tests\test_evidence_bundle_gateway.py -q
 python bago_core\cli.py evidence --mode simulated --objective community-knowledge --output docs\evidence\ui_shell_current --overwrite
 python -m pytest tests\test_plan_engine_contract.py -q
 ```

@@ -64,6 +64,27 @@ def test_reflexive_rules_contract_validation_rejects_invalid_data():
     assert any(item["name"] == "missing_contract_version" for item in report["errors"])
 
 
+def test_reflexive_audit_defers_directory_creation_and_writes_through_gateway(tmp_path):
+    from reflexive_audit_ledger import ReflexiveAuditLedger  # noqa: E402
+
+    state_root = tmp_path / "state"
+    ledger = ReflexiveAuditLedger(state_root)
+    assert not state_root.exists()
+
+    result = ledger.append(
+        session_id="gateway-audit-test",
+        provider="test-provider",
+        model="test-model",
+        receipt_id="receipt-1",
+        analysis={"question_id": "question-1"},
+        response_content="response",
+    )
+
+    assert result["audit_id"]
+    assert ledger.path.is_file()
+    assert ledger.tail(1)[0]["receipt_id"] == "receipt-1"
+
+
 def test_interpret_command_is_registered_and_returns_contract():
     import commands  # noqa: E402
 

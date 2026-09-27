@@ -4,6 +4,7 @@ import importlib
 from pathlib import Path
 from types import SimpleNamespace
 
+
 class FakeConfig:
     def __init__(self, providers: dict | None = None):
         self.providers = providers or {}
@@ -25,6 +26,28 @@ class FakeCredentials:
     @staticmethod
     def required_keys(_provider: str) -> list[str]:
         return []
+
+
+class FakeGatewaySecretStore:
+    def __init__(self, root: Path, initial: dict[str, str] | None = None):
+        self.root = Path(root)
+        self.root.mkdir(parents=True, exist_ok=True)
+        for key, value in (initial or {}).items():
+            self.path_for_key(key).write_bytes(self.protect_secret(value))
+
+    def path_for_key(self, key: str) -> Path:
+        safe = key.lower().replace("_", "-").replace("/", "-")
+        return self.root / f"{safe}.bin"
+
+    @staticmethod
+    def protect_secret(value: str) -> bytes:
+        return value.encode("utf-8")
+
+    def get_secret(self, key: str) -> str | None:
+        path = self.path_for_key(key)
+        if not path.exists():
+            return None
+        return path.read_bytes().decode("utf-8")
 
 
 def test_adapter_config_reads_registered_secret_and_default_model(monkeypatch, tmp_path):
@@ -85,11 +108,9 @@ def test_configure_requires_strong_gateway_authorization_without_disclosing_secr
         invalidate_providers_cache=lambda: None,
     )
     captured: list[tuple[int, dict]] = []
-    stored: dict[str, str] = {}
-    store = SimpleNamespace(
-        set_secret=lambda key, value: stored.__setitem__(key, value),
-        delete_secret=lambda key: stored.pop(key, None) is not None,
-    )
+    secret_key = "providers/openrouter/api_key"
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
+    store = FakeGatewaySecretStore(tmp_path / "user" / "secrets")
     handler = SimpleNamespace(headers={"X-Bago-Channel": "ui-react"})
     secret = "must-not-leak"
     base_body = {
@@ -104,14 +125,14 @@ def test_configure_requires_strong_gateway_authorization_without_disclosing_secr
     monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
-    monkeypatch.setattr(handlers, "_has_provider_secret", lambda _provider: bool(stored))
+    monkeypatch.setattr(handlers, "_has_provider_secret", lambda provider: store.get_secret(f"providers/{provider}/api_key") is not None)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: captured.append((status, body)))
 
     handlers.handle_configure(handler, {**base_body, "authorization_action": "challenge"})
     challenge = captured[-1][1]["authorization"]["challenge"]
     assert captured[-1][0] == 200
     assert config.saved == []
-    assert stored == {}
+    assert store.get_secret(secret_key) is None
     assert secret not in str(captured[-1][1])
 
     handlers.handle_configure(handler, {
@@ -123,7 +144,7 @@ def test_configure_requires_strong_gateway_authorization_without_disclosing_secr
     permit = captured[-1][1]["authorization"]["permit"]["token"]
     assert captured[-1][0] == 200
     assert config.saved == []
-    assert stored == {}
+    assert store.get_secret(secret_key) is None
     assert secret not in str(captured[-1][1])
 
     handlers.handle_configure(handler, {
@@ -137,7 +158,7 @@ def test_configure_requires_strong_gateway_authorization_without_disclosing_secr
     assert persisted["enabled"] is True
     assert persisted["default_model"] == "openai/gpt-4.1-mini"
     assert "api_key" not in persisted
-    assert stored == {"providers/openrouter/api_key": secret}
+    assert store.get_secret(secret_key) == secret
     assert secret not in str(captured[-1][1])
     assert captured[-1][1]["config"]["has_secret"] is True
     assert captured[-1][1]["credential_receipt"]["effect_id"] == "credential.write"
@@ -156,11 +177,9 @@ def test_configure_rejects_tampered_fingerprint_and_noninteractive_approval(monk
         invalidate_providers_cache=lambda: None,
     )
     responses: list[tuple[int, dict]] = []
-    stored: dict[str, str] = {}
-    store = SimpleNamespace(
-        set_secret=lambda key, value: stored.__setitem__(key, value),
-        delete_secret=lambda key: stored.pop(key, None) is not None,
-    )
+    secret_key = "providers/openrouter/api_key"
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
+    store = FakeGatewaySecretStore(tmp_path / "user" / "secrets")
     common = {
         "provider": "openrouter",
         "enabled": True,
@@ -171,7 +190,7 @@ def test_configure_rejects_tampered_fingerprint_and_noninteractive_approval(monk
     monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
-    monkeypatch.setattr(handlers, "_has_provider_secret", lambda _provider: bool(stored))
+    monkeypatch.setattr(handlers, "_has_provider_secret", lambda provider: store.get_secret(f"providers/{provider}/api_key") is not None)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
 
     noninteractive = SimpleNamespace(headers={"X-Bago-Channel": "api"})
@@ -185,7 +204,7 @@ def test_configure_rejects_tampered_fingerprint_and_noninteractive_approval(monk
     })
     assert responses[-1][0] == 403
     assert responses[-1][1]["code"] == "authorization_user_origin_unverified"
-    assert stored == {}
+    assert store.get_secret(secret_key) is None
     assert config.saved == []
 
     interactive = SimpleNamespace(headers={"X-Bago-Channel": "ui-react"})
@@ -204,7 +223,7 @@ def test_configure_rejects_tampered_fingerprint_and_noninteractive_approval(monk
     })
     assert responses[-1][0] == 409
     assert responses[-1][1]["code"] == "authorization_operation_mismatch"
-    assert stored == {}
+    assert store.get_secret(secret_key) is None
     assert config.saved == []
 
 
@@ -220,11 +239,9 @@ def test_configure_clear_secret_executes_only_after_approval(monkeypatch, tmp_pa
         invalidate_providers_cache=lambda: None,
     )
     responses: list[tuple[int, dict]] = []
-    stored = {"providers/openrouter/api_key": "existing-secret"}
-    store = SimpleNamespace(
-        set_secret=lambda key, value: stored.__setitem__(key, value),
-        delete_secret=lambda key: stored.pop(key, None) is not None,
-    )
+    secret_key = "providers/openrouter/api_key"
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
+    store = FakeGatewaySecretStore(tmp_path / "user" / "secrets", {secret_key: "existing-secret"})
     handler = SimpleNamespace(headers={"X-Bago-Channel": "ui-react"})
     common = {
         "provider": "openrouter",
@@ -234,12 +251,12 @@ def test_configure_clear_secret_executes_only_after_approval(monkeypatch, tmp_pa
     monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
-    monkeypatch.setattr(handlers, "_has_provider_secret", lambda _provider: bool(stored))
+    monkeypatch.setattr(handlers, "_has_provider_secret", lambda provider: store.get_secret(f"providers/{provider}/api_key") is not None)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
 
     handlers.handle_configure(handler, {**common, "authorization_action": "challenge"})
     challenge = responses[-1][1]["authorization"]["challenge"]
-    assert stored
+    assert store.get_secret(secret_key) == "existing-secret"
     assert config.saved == []
     handlers.handle_configure(handler, {
         **common,
@@ -248,7 +265,7 @@ def test_configure_clear_secret_executes_only_after_approval(monkeypatch, tmp_pa
         "user_decision": "approve",
     })
     permit = responses[-1][1]["authorization"]["permit"]["token"]
-    assert stored
+    assert store.get_secret(secret_key) == "existing-secret"
     assert config.saved == []
     handlers.handle_configure(handler, {
         **common,
@@ -257,7 +274,7 @@ def test_configure_clear_secret_executes_only_after_approval(monkeypatch, tmp_pa
     })
 
     assert responses[-1][0] == 200
-    assert stored == {}
+    assert store.get_secret(secret_key) is None
     assert "secret_ref" not in config.providers["openrouter"]
     assert "existing-secret" not in str(responses[-1][1])
 
@@ -356,11 +373,9 @@ def test_configure_legitimate_nonsecret_update_with_secret_set_succeeds(monkeypa
         invalidate_providers_cache=lambda: None,
     )
     responses: list[tuple[int, dict]] = []
-    stored: dict[str, str] = {}
-    store = SimpleNamespace(
-        set_secret=lambda key, value: stored.__setitem__(key, value),
-        delete_secret=lambda key: stored.pop(key, None) is not None,
-    )
+    secret_key = "providers/openrouter/api_key"
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
+    store = FakeGatewaySecretStore(tmp_path / "user" / "secrets")
     handler = SimpleNamespace(headers={"X-Bago-Channel": "ui-react"})
     secret = "legit-secret"
     common = {
@@ -373,7 +388,7 @@ def test_configure_legitimate_nonsecret_update_with_secret_set_succeeds(monkeypa
     monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
-    monkeypatch.setattr(handlers, "_has_provider_secret", lambda _provider: bool(stored))
+    monkeypatch.setattr(handlers, "_has_provider_secret", lambda provider: store.get_secret(f"providers/{provider}/api_key") is not None)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
 
     handlers.handle_configure(handler, {**common, "authorization_action": "challenge"})
@@ -396,7 +411,7 @@ def test_configure_legitimate_nonsecret_update_with_secret_set_succeeds(monkeypa
     assert persisted["enabled"] is True
     assert persisted["default_model"] == "openai/gpt-4.1-mini"
     assert "api_key" not in persisted
-    assert stored == {"providers/openrouter/api_key": secret}
+    assert store.get_secret(secret_key) == secret
     assert secret not in str(responses[-1][1])
 
 
@@ -424,11 +439,9 @@ def test_configure_blocks_on_live_backend_drift_between_approval_and_execute(mon
         invalidate_providers_cache=lambda: None,
     )
     responses: list[tuple[int, dict]] = []
-    stored: dict[str, str] = {}
-    store = SimpleNamespace(
-        set_secret=lambda key, value: stored.__setitem__(key, value),
-        delete_secret=lambda key: stored.pop(key, None) is not None,
-    )
+    secret_key = "providers/openrouter/api_key"
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
+    store = FakeGatewaySecretStore(tmp_path / "user" / "secrets")
     handler = SimpleNamespace(headers={"X-Bago-Channel": "ui-react"})
     secret = "must-not-be-persisted"
     common = {
@@ -440,7 +453,7 @@ def test_configure_blocks_on_live_backend_drift_between_approval_and_execute(mon
     monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
-    monkeypatch.setattr(handlers, "_has_provider_secret", lambda _provider: bool(stored))
+    monkeypatch.setattr(handlers, "_has_provider_secret", lambda provider: store.get_secret(f"providers/{provider}/api_key") is not None)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
 
     handlers.handle_configure(handler, {**common, "authorization_action": "challenge"})
@@ -461,7 +474,7 @@ def test_configure_blocks_on_live_backend_drift_between_approval_and_execute(mon
 
     assert responses[-1][0] == 403
     assert responses[-1][1]["code"] == "credential_write_configuration_changed"
-    assert stored == {}
+    assert store.get_secret(secret_key) is None
     assert config.saved == []
     assert secret not in str(responses[-1][1])
 

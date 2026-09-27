@@ -9,6 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync, execSync, spawn } = require('child_process');
 const http = require('http');
+const { createDiagnosticLogClient } = require('./diagnostic-log-client.cjs');
+const diagnosticLog = createDiagnosticLogClient();
 
 // ── Robust console logging in the main process ───────────────────────────────
 // Windows Electron can throw EPIPE when writing to a closed stdout/stderr
@@ -150,20 +152,8 @@ function getServicePs1Path() {
   return runtime ? runtime.servicePs1 : '';
 }
 
-function getRunDir() {
-  const runtime = getRuntimePaths();
-  return runtime ? runtime.runDir : path.join(app.getPath('userData'), '.run');
-}
-
-function getRequestLogPath() {
-  return path.join(getRunDir(), 'electron-requests.log');
-}
-
 function bootLog(message) {
-  try {
-    const logPath = path.join(app.getPath('userData'), 'boot.log');
-    fs.appendFileSync(logPath, `${new Date().toISOString()} ${message}\n`);
-  } catch {}
+  diagnosticLog.append('boot', `${new Date().toISOString()} ${message}`);
 }
 
 const UI_URL = 'http://127.0.0.1:8080/';
@@ -180,7 +170,7 @@ function requestPath(rawUrl) {
 }
 
 function appendRequestLog(line) {
-  fs.appendFile(getRequestLogPath(), `${line}\n`, () => {});
+  diagnosticLog.append('request', line);
 }
 
 function runRuntimeService(cmd) {
@@ -410,7 +400,6 @@ app.whenReady().then(async () => {
   // En modo empaquetado arrancamos el backend local; en desarrollo lo
   // arrancamos también si no hay nada respondiendo en 127.0.0.1:8080.
   if (app.isPackaged) {
-    try { fs.mkdirSync(runtime.runDir, { recursive: true }); } catch {}
     const started = runRuntimeService('backend');
     if (!started) {
       dialog.showErrorBox('BAGO: error de arranque', 'No se pudo iniciar el backend (dev.ps1 start).');
@@ -422,6 +411,7 @@ app.whenReady().then(async () => {
   }
   const healthy = await waitForBackendHealth(HEALTH_URL, 30000);
   BACKEND_HEALTHY = healthy;
+  if (healthy) await diagnosticLog.flush();
   if (app.isPackaged && !healthy) {
     dialog.showErrorBox('BAGO: backend no disponible', 'El backend no respondió en /health dentro del tiempo esperado.');
     runRuntimeService('stop');

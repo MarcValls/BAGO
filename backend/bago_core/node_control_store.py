@@ -96,17 +96,15 @@ def piece_manifest(piece: dict[str, Any]) -> dict[str, Any]:
     }
 
 def materialize_piece_store(pieces: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    root = piece_store_root()
     created: list[dict[str, Any]] = []
-    root.mkdir(parents=True, exist_ok=True)
-    for category_dir in piece_store_dirs():
-        category_dir.mkdir(parents=True, exist_ok=True)
 
     for piece in pieces:
         piece_path = Path(piece["store_path"])
-        piece_path.mkdir(parents=True, exist_ok=True)
         manifest_path = piece_path / "manifest.json"
         if not manifest_path.exists():
+            # The registered state writer materializes the parent directories
+            # as part of the manifest write; do not create them as a parallel
+            # filesystem authority here.
             json_write(manifest_path, piece_manifest(piece))
         created.append(
             {

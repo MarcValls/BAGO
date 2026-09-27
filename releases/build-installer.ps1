@@ -1,14 +1,12 @@
 [CmdletBinding()]
 param(
     [switch]$SkipBuild,
+    [switch]$RuntimeOnly,
     [Parameter(Mandatory = $true)]
     [string]$Version,
-    [Parameter(Mandatory = $true)]
-    [string]$GitRef,
-    [Parameter(Mandatory = $true)]
-    [string]$GitSha,
-    [Parameter(Mandatory = $true)]
-    [string]$NsisMakensis,
+    [string]$GitRef = "",
+    [string]$GitSha = "",
+    [string]$NsisMakensis = "",
     [switch]$DeferSidecar
 )
 
@@ -24,11 +22,16 @@ if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
 if ($Version -ne $canonicalVersion) {
     throw "Version solicitada '$Version' no coincide con release_version.txt '$canonicalVersion'."
 }
-if ($GitSha -notmatch '^[0-9a-f]{40}$') {
-    throw "GitSha inválido: '$GitSha'."
-}
-if (-not (Test-Path -LiteralPath $NsisMakensis)) {
-    throw "NSIS makensis.exe no encontrado en la ruta fijada: '$NsisMakensis'."
+if (-not $RuntimeOnly) {
+    if ($GitRef -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$') {
+        throw "GitRef inválido: '$GitRef'."
+    }
+    if ($GitSha -notmatch '^[0-9a-f]{40}$') {
+        throw "GitSha inválido: '$GitSha'."
+    }
+    if (-not (Test-Path -LiteralPath $NsisMakensis)) {
+        throw "NSIS makensis.exe no encontrado en la ruta fijada: '$NsisMakensis'."
+    }
 }
 $version = $Version
 $runtimeDir = Join-Path $scriptDir "compiled\runtime"
@@ -50,6 +53,11 @@ function Test-ExcludedPath {
     $normalized = $RelativePath.Replace("/", "\").TrimStart("\")
     if ($normalized.StartsWith("ui-react\dist\", [System.StringComparison]::OrdinalIgnoreCase)) {
         return $false
+    }
+    # `backend/release` is a generated package snapshot, not runtime source.
+    # `package_v4.py` excludes this same tree to prevent recursive payload copies.
+    if ($normalized.StartsWith("release\", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
     }
     $parts = $normalized.Split("\", [System.StringSplitOptions]::RemoveEmptyEntries)
     foreach ($part in $parts) {
@@ -114,15 +122,26 @@ Copy-Item -LiteralPath $frontendDist -Destination $runtimeUiDist -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot "scripts\validate_global_payload.ps1") -Destination (Join-Path $runtimeDir "scripts\validate_global_payload.ps1") -Force
 Copy-Item -LiteralPath $viewerSource -Destination (Join-Path $runtimeDir "electron-viewer") -Recurse -Force
 
+Write-Host "[4/5] Validando payload..."
+& (Join-Path $repoRoot "scripts\validate_global_payload.ps1") -Root $runtimeDir -ExpectedVersion $version
+
+if ($RuntimeOnly) {
+    [ordered]@{
+        ok = $true
+        runtime = $runtimeDir
+        version = $version
+        runtime_only = $true
+        installer_built = $false
+    } | ConvertTo-Json -Compress
+    exit 0
+}
+
 Write-Host "[3b/5] Comprimiendo payload offline..."
 if (Test-Path -LiteralPath $zipFile) { Remove-Item -LiteralPath $zipFile -Force }
 Add-ZipContents -ZipPath $zipFile -SourceDir $runtimeDir
 $zipHash = (Get-FileHash -LiteralPath $zipFile -Algorithm SHA256).Hash
 $zipHashLine = "$zipHash  $([System.IO.Path]::GetFileName($zipFile))"
 Set-Content -LiteralPath "$zipFile.sha256" -Value $zipHashLine -Encoding ASCII
-
-Write-Host "[4/5] Validando payload..."
-& (Join-Path $repoRoot "scripts\validate_global_payload.ps1") -Root $runtimeDir -ExpectedVersion $version
 
 Write-Host "[5/5] Compilando NSIS..."
 Push-Location $scriptDir

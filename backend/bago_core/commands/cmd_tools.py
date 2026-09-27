@@ -105,6 +105,23 @@ def cmd_agent(args: argparse.Namespace) -> int:
     if root:
         argv += ["--root", root]
     subcmd = getattr(args, "agent_cmd", None)
+    if subcmd == "dispatch":
+        if root:
+            print("El workspace del despacho lo determina la sesión activa; no se admite --root.", file=sys.stderr)
+            return 2
+        from bago_core.resolver import load_module_from_path
+
+        gateway_path = BAGO_ROOT / ".bago" / "agents" / "agent_gateway.py"
+        gateway = load_module_from_path("bago_agent_gateway_cli", gateway_path)
+        gateway_args = ["dispatch", str(getattr(args, "intent", ""))]
+        gateway_args.extend(["--adapter", str(getattr(args, "adapter", "local"))])
+        for value in getattr(args, "command_args", []) or []:
+            gateway_args.append(f"--arg={value}")
+        for flag in ("dry_run", "unsafe", "as_json"):
+            if getattr(args, flag, False):
+                gateway_args.append({"dry_run": "--dry-run", "unsafe": "--unsafe", "as_json": "--json"}[flag])
+        gateway_args.extend(["--timeout", str(getattr(args, "timeout", 30))])
+        return gateway.main(gateway_args)
     if subcmd == "route":
         mod = _load_tool_module("agent_router", "agent_router.py")
         task = getattr(args, "task", "") or ""
@@ -125,6 +142,69 @@ def cmd_agent(args: argparse.Namespace) -> int:
         if not task and not getattr(args, "task_words", []):
             argv += ["--help"]
         return mod.main(argv)
+
+    # Delegate agent-pack list/run/describe to the portable agent kit.
+    if subcmd in {"list", "describe", "run", "plan"}:
+        from bago_core.resolver import load_module_from_path
+        kit = load_module_from_path("agent_kit_cli", Path(__file__).resolve().parents[2] / "tools" / "agent_kit_cli.py")
+        if subcmd == "list":
+            list_argv = ["list"]
+            if getattr(args, "catalog", ""):
+                list_argv += ["--catalog", args.catalog]
+            if getattr(args, "json", False):
+                list_argv.append("--json")
+            return kit.main(list_argv)
+        if subcmd == "describe":
+            describe_argv = ["describe", getattr(args, "agent_id", "")]
+            if getattr(args, "catalog", ""):
+                describe_argv += ["--catalog", args.catalog]
+            return kit.main(describe_argv)
+        if subcmd == "run":
+            run_argv = ["run", getattr(args, "agent_id", "")]
+            if getattr(args, "catalog", ""):
+                run_argv += ["--catalog", args.catalog]
+            if root:
+                run_argv += ["--root", root]
+            mode = getattr(args, "mode", "run") or "run"
+            run_argv += ["--mode", mode]
+            if getattr(args, "provider", ""):
+                run_argv += ["--provider", args.provider]
+            if getattr(args, "model", ""):
+                run_argv += ["--model", args.model]
+            if getattr(args, "use_bago_provider", False):
+                run_argv.append("--use-bago-provider")
+            if getattr(args, "base_url", ""):
+                run_argv += ["--base-url", args.base_url]
+            if getattr(args, "api_key", ""):
+                run_argv += ["--api-key", args.api_key]
+            if getattr(args, "temperature", None) is not None:
+                run_argv += ["--temperature", str(args.temperature)]
+            if getattr(args, "max_tokens", None) is not None:
+                run_argv += ["--max-tokens", str(args.max_tokens)]
+            if getattr(args, "no_dry_run", False):
+                run_argv.append("--no-dry-run")
+            for word in getattr(args, "task_words", []) or []:
+                run_argv.append(word)
+            return kit.main(run_argv)
+        if subcmd == "plan":
+            plan_argv = ["plan"]
+            if getattr(args, "catalog", ""):
+                plan_argv += ["--catalog", args.catalog]
+            if root:
+                plan_argv += ["--root", root]
+            for flag, value in (("--provider", getattr(args, "provider", "")), ("--model", getattr(args, "model", "")), ("--base-url", getattr(args, "base_url", "")), ("--api-key", getattr(args, "api_key", ""))):
+                if value:
+                    plan_argv += [flag, value]
+            if getattr(args, "use_bago_provider", False):
+                plan_argv.append("--use-bago-provider")
+            if getattr(args, "temperature", None) is not None:
+                plan_argv += ["--temperature", str(args.temperature)]
+            if getattr(args, "max_tokens", None) is not None:
+                plan_argv += ["--max-tokens", str(args.max_tokens)]
+            if getattr(args, "no_dry_run", False):
+                plan_argv.append("--no-dry-run")
+            plan_argv.extend(getattr(args, "task_words", []) or [])
+            return kit.main(plan_argv)
 
     mod = _load_tool_module("spiral_agent", "spiral_agent.py")
     if subcmd == "spawn":

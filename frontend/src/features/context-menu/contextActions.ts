@@ -133,13 +133,7 @@ export function createContextActions(selection: SelectionRecord, deps: ContextAc
       actions.push(
         { id: 'open-workspace', label: isDirectory ? 'Ir a carpeta' : 'Abrir en workspace', icon: isDirectory ? 'folder' : 'file', onClick: () => deps.openWorkspaceFileFromMenu(path, isDirectory ? 'directory' : 'file'), disabled: !path },
         { id: 'attach-context', label: isDirectory ? 'Adjuntar carpeta a contexto' : 'Adjuntar archivo a contexto', icon: 'attach', onClick: () => {
-          if (!isDirectory) {
-            void deps.runContextCommand(`/context attach ${path}`);
-            return;
-          }
-          void deps.confirm({ title: 'Adjuntar carpeta', description: `La carpeta puede incorporar muchos archivos al contexto.\n\n${path}`, confirmLabel: 'Adjuntar carpeta' }).then((confirmed) => {
-            if (confirmed) void deps.runContextCommand(`/context attach ${path}`);
-          });
+          void deps.runContextCommand(`/context attach ${path}`);
         }, disabled: !path || !deps.snapshot?.permissions.canInspectContext },
         { id: 'plan-from-file', label: 'Planificar sobre este elemento', icon: 'pipeline', onClick: () => draftCommand(`/plan Revisar ${path}`), disabled: !path },
         { id: 'open-evidence', label: 'Abrir Evidencia', icon: 'evidence', onClick: () => deps.navigate('evidence') }

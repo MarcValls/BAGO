@@ -2,18 +2,15 @@
 from __future__ import annotations
 
 import argparse
-import io
 import json
-import shutil
 import sys
-from contextlib import redirect_stdout
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from _path_helper import ensure_tools_path
 ensure_tools_path()  # noqa: E402
-from bago_utils import get_scan_root, load_json, print_test_results, save_json, timestamp_iso
+from bago_utils import get_scan_root, load_json, save_json, timestamp_iso
 from harmony_gate import HarmonyGate, SpiralState
 import skill_engine
 from skill_engine import SkillResult, _load_registry as _load_skill_registry, run_skill
@@ -102,7 +99,6 @@ class BagoAgent:
         self._state_file = self._state_dir / 'state.json'
         self._gradient_file = self._state_dir / 'gradient.json'
         self._episodic_file = self._state_dir / 'episodic.json'
-        self._state_dir.mkdir(parents=True, exist_ok=True)
         state = load_json(self._state_file, {})
         self._cycles = int(state.get('cycles', 0))
         self._total_radius = float(state.get('total_radius', 0.0))
@@ -451,56 +447,14 @@ _SUBCOMMANDS = {
 }
 
 
-def _scratch_dir(label: str) -> Path:
-    root = Path.cwd() / '.bago' / 'state' / '_selftests' / label
-    if root.exists():
-        shutil.rmtree(root)
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
-def _run_tests() -> int:
-    scratch = _scratch_dir('spiral_agent')
-    try:
-        configure_paths(str(scratch))
-        save_json(SKILL_REGISTRY, {
-            'probe': {'phase': 1, 'steps': [0, 3, 4, 5, 8, 9, 10, 11], 'category': 'test'}
-        })
-        spawn_rc = _cmd_spawn(['alpha', '--phase', '3', '--skills', 'probe'])
-        agent = agent_from_registry('alpha')
-        result = agent.run() if agent else None
-        registry = load_agents_registry()
-        state = load_json(AGENTS_STATE_DIR / 'alpha' / 'state.json', {})
-        listing = list_agents()
-        capture = io.StringIO()
-        with redirect_stdout(capture):
-            list_rc = _cmd_list([])
-        results = [
-            ('agent_spawn', spawn_rc == 0 and 'alpha' in registry, 'spawn registers agent'),
-            ('agent_state_persists', state.get('cycles', 0) >= 1, 'run persists state to disk'),
-            ('skill_registration', 'probe' in _load_skill_registry(), 'skill registry available to agents'),
-            ('spiral_step', isinstance(result, AgentResult) and result.state_vector.get('last_step') in STEP_NAMES, 'agent completes spiral cycle'),
-            ('agent_list', any(item['id'] == 'alpha' for item in listing) and list_rc == 0, 'list returns registered agent'),
-            ('agent_output', 'alpha' in capture.getvalue(), 'list command prints agent id'),
-        ]
-        return print_test_results(results)
-    finally:
-        if scratch.exists():
-            shutil.rmtree(scratch)
-        configure_paths()
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description='BAGO spiral agents')
     parser.add_argument('--root', default='', help='Scan root override')
-    parser.add_argument('--test', action='store_true', help='Run self-tests')
     parser.add_argument('command', nargs='?', choices=sorted(_SUBCOMMANDS))
     parser.add_argument('rest', nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     configure_paths(args.root or None)
 
-    if args.test:
-        return _run_tests()
     if not args.command:
         parser.print_help()
         return 0

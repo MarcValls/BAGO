@@ -35,19 +35,14 @@ DYNAMIC_AGENTS_DIR = _BAGO / "state" / "agents"
 DYNAMIC_MANIFEST   = DYNAMIC_AGENTS_DIR / "manifest.json"
 
 
-def _ensure_dynamic_dir() -> None:
-    DYNAMIC_AGENTS_DIR.mkdir(parents=True, exist_ok=True)
-
-
 def dynamic_path(name: str) -> Path:
     if not name or not name.replace("_", "").replace("-", "").isalnum():
         raise ValueError(f"agent_factory: nombre inválido {name!r}")
-    _ensure_dynamic_dir()
     return DYNAMIC_AGENTS_DIR / f"{name}.py"
 
 
 def _empty_manifest() -> dict:
-    return {"schema": 1, "agents": []}
+    return {"schema": 1, "agents": {}}
 
 
 def dynamic_manifest() -> dict:
@@ -64,10 +59,12 @@ def load_manifest() -> dict:
 
 
 def save_manifest(manifest: dict) -> None:
-    _ensure_dynamic_dir()
-    DYNAMIC_MANIFEST.write_text(
+    from bago_core.server_effects import write_agent_definition
+
+    write_agent_definition(
+        DYNAMIC_MANIFEST,
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
+        trusted_root=DYNAMIC_AGENTS_DIR.parent,
     )
 
 
@@ -315,8 +312,9 @@ def create_agent(name: str, category: str, description: str, rules: list[str]) -
     # Guarda archivo en directorio DINÁMICO (nunca en el motor estático)
     agent_path = guard.dynamic_path(name)
     try:
-        agent_path.write_text(code, encoding="utf-8")
-        agent_path.chmod(0o755)
+        from bago_core.server_effects import write_agent_definition
+
+        write_agent_definition(agent_path, code, trusted_root=DYNAMIC_AGENTS_DIR.parent)
         print(f"✅ Agente creado: {name}  →  {agent_path}")
     except Exception as e:
         print(f"❌ Error creando agente: {e}", file=sys.stderr)

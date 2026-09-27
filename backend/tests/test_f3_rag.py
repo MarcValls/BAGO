@@ -22,6 +22,29 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 _BAGO_CORE = REPO_ROOT / ".bago" / "core"
 
 
+def _seed_knowledge(manager, content: str) -> int:
+    from database_write_request import build_memory_database_request
+    from execution_adapter_contract import ExecutionContext
+    from execution_adapters.database_write import DatabaseWriteEffectAdapter
+
+    request = build_memory_database_request(
+        manager,
+        operation="knowledge.add",
+        arguments={"content": content},
+        source_surface="test.rag.fixture",
+    )
+    authorization = {
+        "state": "consumed",
+        "effect_id": request.effect_id,
+        "operation_fingerprint": request.fingerprint,
+        "session_id": request.session_id,
+    }
+    return DatabaseWriteEffectAdapter().execute(
+        request,
+        ExecutionContext(manager=manager, services={"_authorization": authorization}),
+    )["memory_id"]
+
+
 def test_rag_retrieve_returns_keyword_matches():
     """_rag_retrieve must find content from KnowledgeBase via keyword search."""
     from session_manager import SessionManager
@@ -35,8 +58,8 @@ def test_rag_retrieve_returns_keyword_matches():
             state_root=td,
         )
         try:
-            mgr.knowledge.add("BAGO uses SQLite for session storage", source_session=mgr.session_id)
-            mgr.knowledge.add("The model adapter normalizes messages", source_session=mgr.session_id)
+            _seed_knowledge(mgr, "BAGO uses SQLite for session storage")
+            _seed_knowledge(mgr, "The model adapter normalizes messages")
 
             fragments = mgr._rag_retrieve("SQLite")
             assert len(fragments) >= 1
@@ -100,8 +123,8 @@ def test_rag_retrieve_deduplicates():
         )
         try:
             content = "Duplicate content about Python testing"
-            mgr.knowledge.add(content, source_session=mgr.session_id)
-            mgr.knowledge.add(content, source_session=mgr.session_id)
+            _seed_knowledge(mgr, content)
+            _seed_knowledge(mgr, content)
 
             fragments = mgr._rag_retrieve("Python testing")
             # Both keyword matches return same content, dedup should reduce to 1
@@ -125,7 +148,7 @@ def test_rag_retrieve_respects_limit():
         )
         try:
             for i in range(5):
-                mgr.knowledge.add(f"Unique fact number {i} about testing", source_session=mgr.session_id)
+                _seed_knowledge(mgr, f"Unique fact number {i} about testing")
 
             fragments = mgr._rag_retrieve("testing", limit=2)
             assert len(fragments) <= 2

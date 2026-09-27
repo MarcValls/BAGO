@@ -108,43 +108,69 @@ function psCommand(script){
   }
   return 'powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand '+btoa(bin);
 }
-function localFilePathFromUrl(relativePath){
-  try{
-    const href=(typeof window!=='undefined'&&window.location&&window.location.href)||'';
-    if(!href)return '';
-    const url=new URL(relativePath,href);
-    if(url.protocol!=='file:')return '';
-    const pathname=decodeURIComponent(url.pathname||'');
-    if(/^\/[A-Za-z]:/.test(pathname))return pathname.slice(1).replace(/\//g,'\\');
-    return pathname.replace(/\//g,'\\');
-  }catch{
-    return '';
-  }
-}
 function installCommand(tag,target){
+  return 'BAGO_RELEASE_JOB:'+encodeURIComponent(JSON.stringify({tag:String(tag||''),target:String(target||'')}));
+}
+function watchReleaseJob(api, jobId){
+  return new Promise((resolve,reject)=>{
+    let finished=false;
+    let unsubscribe=()=>{};
+    const timer=setInterval(poll,750);
+    const cleanup=()=>{finished=true;clearInterval(timer);unsubscribe();};
+    const accept=job=>{
+      if(!job||job.id!==jobId||finished)return;
+      if(job.state==='ready'){cleanup();resolve(job);}
+      else if(['failed','cancelled'].includes(job.state)){cleanup();reject(new Error(job.error||`Release job ${job.state}`));}
+    };
+    if(typeof api.onReleaseJobChanged==='function')unsubscribe=api.onReleaseJobChanged(accept)||unsubscribe;
+    async function poll(){
+      if(finished)return;
+      try{const jobs=await api.listReleaseJobs();accept((Array.isArray(jobs)?jobs:[]).find(item=>item&&item.id===jobId));}
+      catch(error){cleanup();reject(error);}
+    }
+    poll();
+  });
+}
+async function installReleaseThroughGateway(tag,target){
   const api=electronApi();
-  if(api&&pmLegacyBridgeReady(api,'buildInstallCommand','buildInstallCommand')&&api.buildInstallCommand){
-    return api.buildInstallCommand(tag,target,'Express');
+  if(!api||typeof api.startReleaseJob!=='function'||typeof api.installReleaseJob!=='function'){
+    throw new Error('La instalación de releases requiere el Manager Electron con el flujo system.install.apply.');
   }
-  if(api){
-    return psCommand('Write-Error '+psSingle('buildInstallCommand no disponible en Electron'));
+  const release=releaseItems.find(item=>String(item.tag_name||'')===String(tag||''));
+  if(!release)throw new Error(`No se encontró la release ${tag} en la lista verificada del Manager.`);
+  const job=await api.startReleaseJob({release,target,action:'install',mode:'Express',require_signature:false});
+  if(!job||!job.id)throw new Error('El backend no creó el release job.');
+  showToast(`Preparando ${tag} mediante ExecutionGateway…`,true);
+  await watchReleaseJob(api,job.id);
+  const result=await api.installReleaseJob(job.id);
+  showToast(result&&result.state==='completed'?`Release ${tag} instalada.`:`Instalación ${tag} finalizada con estado ${result&&result.state||'desconocido'}.`,!!(result&&result.state==='completed'));
+}
+function dispatchManagerCommand(command){
+  const prefix='BAGO_RELEASE_JOB:';
+  if(String(command||'').startsWith(prefix)){
+    try{const request=JSON.parse(decodeURIComponent(String(command).slice(prefix.length)));installReleaseThroughGateway(request.tag,request.target).catch(error=>showToast('No se pudo instalar la release: '+error.message,false));}
+    catch(error){showToast('Solicitud de release inválida: '+error.message,false);}
+    return;
   }
-  const installScript=localFilePathFromUrl('../install-remote.ps1');
-  if(!installScript){
-    return psCommand('Write-Error '+psSingle('No se pudo resolver install-remote.ps1 local. Usa el Manager empaquetado o lanza el instalador local.'));
+  const uninstallPrefix='BAGO_INSTALL_UNINSTALL:';
+  if(String(command||'').startsWith(uninstallPrefix)){
+    const api=electronApi();
+    if(!api||typeof api.installAction!=='function'){
+      showToast('La desinstalación requiere el Manager Electron con ExecutionGateway.',false);
+      return;
+    }
+    try{
+      const request=JSON.parse(decodeURIComponent(String(command).slice(uninstallPrefix.length)));
+      api.installAction({action:'uninstall',targetDir:request.target,purgeState:false})
+        .then(result=>showToast(result&&result.ok?'BAGO desinstalado.':'Desinstalación cancelada.',!!(result&&result.ok)))
+        .catch(error=>showToast('No se pudo desinstalar BAGO: '+error.message,false));
+    }catch(error){showToast('Solicitud de desinstalación inválida: '+error.message,false);}
+    return;
   }
-  const tagArg=tag? ' -Tag '+psSingle(tag) : '';
-  return psCommand('& '+psSingle(installScript)+tagArg+' -InstallDir '+psSingle(target)+' -Mode Express');
+  runCommand(command);
 }
 function uninstallCommand(target){
-  const api=electronApi();
-  if(api&&pmLegacyBridgeReady(api,'buildUninstallCommand','buildUninstallCommand')&&api.buildUninstallCommand){
-    return api.buildUninstallCommand(target,false);
-  }
-  if(api){
-    return psCommand('Write-Error '+psSingle('buildUninstallCommand no disponible en Electron'));
-  }
-  return psCommand('& '+psSingle(target+'\\uninstall-bago.ps1')+' -InstallDir '+psSingle(target));
+  return 'BAGO_INSTALL_UNINSTALL:'+encodeURIComponent(JSON.stringify({target}));
 }
 function roleCommand(role,target){
   const api=electronApi();
@@ -337,7 +363,7 @@ function renderReleaseList(){
     btn.addEventListener('click',()=>{
       const tag = btn.getAttribute('data-release')||'';
       const target = btn.getAttribute('data-target')||'C:\\Program Files\\BAGO';
-      runCommand(installCommand(tag,target));
+      dispatchManagerCommand(installCommand(tag,target));
     });
   });
   releaseList.querySelectorAll('button.copy').forEach(btn=>{
@@ -539,7 +565,7 @@ function attachCardHandlers(){
   installBox.querySelectorAll('button.run').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const cmd=btn.getAttribute('data-cmd')||'';
-      runCommand(cmd);
+      dispatchManagerCommand(cmd);
     });
   });
 }

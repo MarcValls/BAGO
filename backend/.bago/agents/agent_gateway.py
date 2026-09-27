@@ -23,9 +23,10 @@ Uso desde Python:
 from __future__ import annotations
 
 import argparse
+import importlib.util as _ilu
 import json
 import os
-import subprocess
+import shutil
 import sys
 import time
 from abc import ABC, abstractmethod
@@ -39,7 +40,6 @@ _THIS        = Path(__file__).resolve()
 _AGENTS_DIR  = _THIS.parent                                      # motor estático
 _BAGO_DIR    = _AGENTS_DIR.parent
 _BAGO_ROOT   = Path(os.environ.get("BAGO_PADRE_PATH") or _BAGO_DIR.parent)
-_BAGO_BIN    = _BAGO_ROOT / "bago"
 _STATE_DIR   = _BAGO_DIR / "state"
 _TOOLS_DIR   = _BAGO_DIR / "tools"
 _DYN_AGENTS  = _STATE_DIR / "agents"                             # agentes dinámicos
@@ -48,10 +48,10 @@ for _p in [str(_BAGO_ROOT), str(_TOOLS_DIR), str(_AGENTS_DIR), str(_DYN_AGENTS),
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from bago_core.server_effects import gateway_urlopen
+from bago_core.server_effects import append_text_durable, gateway_urlopen
+from agent_command_execution import execute_agent_command
 
 # ── Static Guard — separación motor / dinámica ───────────────────────────────
-import importlib.util as _ilu
 try:
     _gs = _ilu.spec_from_file_location("agent_static_guard", _TOOLS_DIR / "agent_static_guard.py")
     _gm = _ilu.module_from_spec(_gs)   # type: ignore
@@ -62,36 +62,27 @@ except Exception:
 
 # ── Allowlist de intenciones ───────────────────────────────────────────────────
 
-READONLY_INTENTS = {
-    "health_check", "scan", "status", "list_tools", "explain",
-    "ideas", "registry", "context", "npath_query",
+# One explicit intent registry owns supported command vectors and risk.
+# The command prefix is fixed; caller values can fill positional/option values,
+# but cannot redirect execution to another workspace.
+_INTENT_TO_CMD: dict[str, tuple[list[str], str]] = {
+    "health_check": (["doctor", "--json"], "readonly"),
+    "scan": (["scan", "security"], "readonly"),
+    "status": (["node", "status"], "readonly"),
+    "list_tools": (["inventory", "--format", "json"], "readonly"),
+    "context": (["context", "inspect"], "readonly"),
+    "task_create": (["orchestrate", "create", "--task"], "mutating"),
+    "task_done": (["orchestrate", "close"], "mutating"),
+    "task_handoff": (["orchestrate", "handoff"], "mutating"),
+    "project_init": (["project", "init"], "mutating"),
+    "heal": (["scan", "heal"], "mutating"),
 }
-MUTATING_INTENTS = {
-    "task_create", "task_done", "cosecha", "siembra_seed",
-}
-DANGEROUS_INTENTS = {
-    "autonomous_cycle", "heal", "db_migrate",
-}
-ALL_ALLOWED_INTENTS = READONLY_INTENTS | MUTATING_INTENTS | DANGEROUS_INTENTS
-
-# Mapa intent → comando bago
-_INTENT_TO_CMD: dict[str, list[str]] = {
-    "health_check":    ["health"],
-    "scan":            ["audit", "scan"],
-    "status":          ["status"],
-    "list_tools":      ["registry"],
-    "explain":         ["why"],
-    "ideas":           ["ideas"],
-    "registry":        ["registry"],
-    "context":         ["context"],
-    "npath_query":     ["npath", "query"],
-    "task_create":     ["task"],
-    "task_done":       ["task", "--done"],
-    "cosecha":         ["session", "harvest"],
-    "siembra_seed":    ["siembra", "seed"],
-    "autonomous_cycle":["autonomous", "--dry-run"],  # default dry-run
-    "heal":            ["audit", "heal"],
-    "db_migrate":      ["db", "migrate"],
+READONLY_INTENTS = {intent for intent, (_, risk) in _INTENT_TO_CMD.items() if risk == "readonly"}
+MUTATING_INTENTS = {intent for intent, (_, risk) in _INTENT_TO_CMD.items() if risk == "mutating"}
+DANGEROUS_INTENTS: set[str] = set()
+ALL_ALLOWED_INTENTS = set(_INTENT_TO_CMD)
+_WORKSPACE_OVERRIDE_FLAGS = {
+    "--root", "--base-path", "--cwd", "--workspace", "--workspace-root", "--project-root",
 }
 
 # ── Data classes ───────────────────────────────────────────────────────────────
@@ -103,6 +94,7 @@ class AgentRequest:
     context: dict = field(default_factory=dict)
     payload: dict = field(default_factory=dict)
     options: dict = field(default_factory=dict)
+    execution_manager: Any = field(default=None, repr=False, compare=False)
 
     @property
     def dry_run(self) -> bool:
@@ -167,21 +159,22 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _run_bago(*args: str, timeout: int = 30, dry_run: bool = False) -> tuple[int, str]:
-    """Run `bago <args>` and return (returncode, combined_output)."""
-    cmd = [sys.executable, str(_BAGO_BIN), *args]
-    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+def _run_bago(
+    *args: str,
+    timeout: int = 30,
+    dry_run: bool = False,
+    manager: Any = None,
+    intent: str = "",
+) -> tuple[int, str]:
+    """Run one BAGO argv through process.execute and a direct TTY Permit."""
     try:
-        r = subprocess.run(
-            cmd, capture_output=True, text=True,
-            encoding="utf-8", errors="replace",
-            timeout=timeout, cwd=str(_BAGO_ROOT), env=env,
+        result = execute_agent_command(
+            list(args), intent=intent or "agent", manager=manager, timeout=timeout,
         )
-        return r.returncode, (r.stdout + r.stderr)
-    except subprocess.TimeoutExpired:
-        return -1, f"[TIMEOUT] bago {' '.join(args)} exceeded {timeout}s"
+        output = str(result.get("stdout") or "") + str(result.get("stderr") or "")
+        return int(result.get("exit_code", 1)), output
     except Exception as exc:
-        return -1, f"[ERROR] {exc}"
+        return -1, f"[BLOCKED] {type(exc).__name__}: {exc}"
 
 # ── Base adapter ──────────────────────────────────────────────────────────────
 
@@ -212,6 +205,22 @@ class LocalAdapter(BaseAgentAdapter):
     name = "local"
     cost_hint = "free/local"
 
+    @staticmethod
+    def command_argv(request: AgentRequest) -> list[str]:
+        intent_spec = _INTENT_TO_CMD.get(request.intent)
+        if not intent_spec:
+            raise ValueError(f"No command mapped for intent '{request.intent}'")
+        command, _risk = intent_spec
+        raw_extra = request.payload.get("args", [])
+        if raw_extra is None:
+            raw_extra = []
+        if not isinstance(raw_extra, list):
+            raise ValueError("Agent command arguments must be a list")
+        extra = [str(value) for value in raw_extra]
+        if request.intent in DANGEROUS_INTENTS and not request.unsafe:
+            extra = ["--dry-run", *extra]
+        return [*command, *extra]
+
     def capability(self) -> AdapterCapability:
         return AdapterCapability(
             name=self.name,
@@ -222,18 +231,18 @@ class LocalAdapter(BaseAgentAdapter):
         )
 
     def health(self) -> bool:
-        return _BAGO_BIN.exists()
+        return (_THIS.parents[2] / "bago_core" / "launcher.py").is_file()
 
     def execute(self, request: AgentRequest) -> AgentResult:
         t0 = time.time()
-        cmd = _INTENT_TO_CMD.get(request.intent)
-        if not cmd:
-            return AgentResult(False, request.intent, self.name,
-                               error=f"No command mapped for intent '{request.intent}'")
-        extra = list(request.payload.get("args") or [])
-        if request.intent in DANGEROUS_INTENTS and not request.unsafe:
-            extra = ["--dry-run"] + extra
-        rc, out = _run_bago(*cmd, *extra, timeout=request.timeout)
+        try:
+            argv = self.command_argv(request)
+        except ValueError as exc:
+            return AgentResult(False, request.intent, self.name, error=str(exc))
+        rc, out = _run_bago(
+            *argv, timeout=request.timeout,
+            manager=request.execution_manager, intent=request.intent,
+        )
         return AgentResult(
             success=(rc == 0),
             intent=request.intent,
@@ -299,18 +308,24 @@ class OllamaAdapter(BaseAgentAdapter):
             return AgentResult(False, request.intent, self.name,
                                error="Ollama no disponible. Usa 'bago llm start' para iniciarlo.")
 
-        # Construir prompt para que el LLM decida qué bago tool usar
+        # Ollama may validate the canonical command, but cannot create argv.
+        try:
+            expected_argv = LocalAdapter.command_argv(request)
+        except ValueError as exc:
+            return AgentResult(False, request.intent, self.name, error=str(exc))
         prompt = (
-            f"Eres BAGO AI. Intención recibida: '{request.intent}'.\n"
+            "Valida que la intención y el payload correspondan exactamente al argv canónico. "
+            "No inventes ni cambies comandos o argumentos. Responde exactamente 'direct' "
+            "si coincide; en cualquier otro caso responde 'deny'.\n"
+            f"Intent: {request.intent}\n"
             f"Contexto: {json.dumps(request.context, ensure_ascii=False)}\n"
-            f"Payload extra: {json.dumps(request.payload, ensure_ascii=False)}\n"
-            f"Responde SOLO con el comando bago a ejecutar (sin 'bago' delante), "
-            f"o 'direct' si la intención ya está mapeada. Ejemplo: 'health --report'"
+            f"Payload: {json.dumps(request.payload, ensure_ascii=False)}\n"
+            f"ARGV canónico: {json.dumps(expected_argv, ensure_ascii=False)}"
         )
         llm_response = self._call_ollama(prompt, timeout=request.timeout)
 
-        # Si dice 'direct' o no es parseable, usar mapeo directo
-        if not llm_response or "direct" in llm_response.lower():
+        # Only the exact sentinel may dispatch the canonical, Permit-bound argv.
+        if llm_response.strip().casefold() == "direct":
             local = LocalAdapter()
             result = local.execute(request)
             result.adapter = self.name
@@ -319,14 +334,9 @@ class OllamaAdapter(BaseAgentAdapter):
             return result
 
         # Usar la respuesta del LLM como comando
-        llm_cmd = llm_response.strip().split()
-        rc, out = _run_bago(*llm_cmd, timeout=request.timeout)
         return AgentResult(
-            success=(rc == 0),
-            intent=request.intent,
-            adapter=self.name,
-            output=out,
-            exit_code=rc,
+            False, request.intent, self.name,
+            error="Ollama no validó el argv canónico; ejecución bloqueada antes del proceso.",
             duration_ms=int((time.time() - t0) * 1000),
             cost_hint=self.cost_hint,
         )
@@ -378,11 +388,7 @@ class CodexAdapter(BaseAgentAdapter):
         )
 
     def health(self) -> bool:
-        try:
-            r = subprocess.run(["codex", "--version"], capture_output=True, timeout=3)
-            return r.returncode == 0
-        except Exception:
-            return False
+        return shutil.which("codex") is not None
 
     def execute(self, request: AgentRequest) -> AgentResult:
         t0 = time.time()
@@ -438,7 +444,13 @@ class CloudAdapter(BaseAgentAdapter):
             return AgentResult(False, request.intent, self.name,
                                error=f"Cloud agent no disponible. Configura BAGO_CLOUD_URL.")
         import urllib.request, urllib.error
-        payload = json.dumps(request.__dict__, default=str).encode()
+        payload = json.dumps({
+            "intent": request.intent,
+            "source": request.source,
+            "context": request.context,
+            "payload": request.payload,
+            "options": request.options,
+        }, default=str).encode()
         req = urllib.request.Request(
             f"{self.url}/execute",
             data=payload,
@@ -535,7 +547,20 @@ class AgentGateway:
         # Obtener adapter
         adapter = AdapterRegistry.get(request.adapter_name)
         if not adapter:
-            adapter = AdapterRegistry.get("local")
+            self._emit_event("agent.blocked", request, error="adapter_not_registered")
+            return AgentResult(False, request.intent, request.adapter_name,
+                               error=f"Adapter '{request.adapter_name}' no está registrado")
+
+        if request.intent in MUTATING_INTENTS | DANGEROUS_INTENTS and adapter.name not in {"local", "ollama"}:
+            self._emit_event("agent.blocked", request, error="adapter_not_permit_bound_for_mutation")
+            return AgentResult(False, request.intent, adapter.name,
+                               error=f"Adapter '{adapter.name}' no puede ejecutar intents mutables")
+
+        capabilities = adapter.capability().supported_intents
+        if request.intent not in capabilities:
+            self._emit_event("agent.blocked", request, error="intent_not_supported_by_adapter")
+            return AgentResult(False, request.intent, adapter.name,
+                               error=f"Adapter '{adapter.name}' no admite el intent '{request.intent}'")
 
         self._emit_event("agent.request", request)
 
@@ -564,8 +589,13 @@ class AgentGateway:
         # Intentar emitir al Neural Bus si está disponible
         try:
             neural_log = _STATE_DIR / "neural_events.jsonl"
-            with open(neural_log, "a", encoding="utf-8") as f:
-                f.write(json.dumps(event, ensure_ascii=False) + "\n")
+            append_text_durable(
+                neural_log,
+                json.dumps(event, ensure_ascii=False) + "\n",
+                trusted_root=_STATE_DIR,
+                source_surface="agent.gateway.event",
+                session_id=f"agent-gateway:{_STATE_DIR.resolve()}",
+            )
         except Exception:
             pass
 
@@ -586,7 +616,7 @@ class AgentGateway:
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
         prog="bago agent",
         description="BAGO Multi-Agent Gateway — orquesta herramientas BAGO desde cualquier agente",
@@ -599,16 +629,17 @@ def main() -> int:
     # dispatch
     dp = sub.add_parser("dispatch", help="Despachar una intención a un adapter")
     dp.add_argument("intent", choices=sorted(ALL_ALLOWED_INTENTS))
-    dp.add_argument("--adapter", default="local", choices=["local", "ollama", "mcp", "codex", "cloud"])
+    dp.add_argument("--adapter", default="local", choices=["local", "ollama"])
     dp.add_argument("--dry-run", action="store_true")
     dp.add_argument("--unsafe", action="store_true")
     dp.add_argument("--timeout", type=int, default=30)
     dp.add_argument("--json", action="store_true", dest="as_json")
+    dp.add_argument("--arg", action="append", default=[], help="Argumento exacto para el comando BAGO (repetible)")
 
     # list
     sub.add_parser("list", help="Listar adapters y sus capacidades")
 
-    args = p.parse_args()
+    args = p.parse_args(argv)
     gw = AgentGateway()
 
     if args.cmd == "status":
@@ -640,26 +671,49 @@ def main() -> int:
         return 0
 
     if args.cmd == "dispatch":
+        if not sys.stdin.isatty():
+            print("El despacho de comandos de agente requiere un TTY interactivo para pedir el Permit.", file=sys.stderr)
+            return 1
+        from bago_core.user_state_paths import state_root
+        from session_manager import SessionManager
+        from session_registry import active_session_id
+
+        active_state_root = state_root()
+        session_id = active_session_id(active_state_root)
+        if not session_id:
+            print("No hay sesión BAGO activa; crea o activa una sesión antes de despachar un comando.", file=sys.stderr)
+            return 1
+        try:
+            manager = SessionManager.load(
+                session_id, state_root=str(active_state_root),
+            )
+        except Exception as exc:
+            print(f"No se pudo restaurar la sesión activa: {exc}", file=sys.stderr)
+            return 1
         req = AgentRequest(
             intent=args.intent,
             source={"adapter": args.adapter},
+            execution_manager=manager,
             options={
                 "dry_run": args.dry_run,
                 "unsafe": args.unsafe,
                 "timeout": args.timeout,
             },
         )
-        result = gw.dispatch(req)
-        if args.as_json:
-            print(json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
-        else:
-            icon = "✅" if result.success else "❌"
-            print(f"{icon} [{result.adapter}] {result.intent} ({result.duration_ms}ms)")
-            if result.output:
-                print(result.output)
-            if result.error:
-                print(f"Error: {result.error}", file=sys.stderr)
-        return 0 if result.success else 1
+        try:
+            result = gw.dispatch(req)
+            if args.as_json:
+                print(json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
+            else:
+                icon = "✅" if result.success else "❌"
+                print(f"{icon} [{result.adapter}] {result.intent} ({result.duration_ms}ms)")
+                if result.output:
+                    print(result.output)
+                if result.error:
+                    print(f"Error: {result.error}", file=sys.stderr)
+            return 0 if result.success else 1
+        finally:
+            manager.close()
 
     p.print_help()
     return 0

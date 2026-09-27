@@ -166,8 +166,10 @@ def test_builder_resolves_installer_version_from_canonical_authority() -> None:
     assert '$version = "' not in builder, "builder must not hard-code a mutable product version"
     assert "-SkipBuild -Version $version" in workflow
     assert "[Parameter(Mandatory = $true)]" in builder
-    assert '-GitRef $env:GITHUB_REF_NAME' in workflow
-    assert '-GitSha $env:GITHUB_SHA' in workflow
+    assert '-GitRef $env:SOURCE_GIT_REF' in workflow
+    assert '-GitSha $env:SOURCE_GIT_SHA' in workflow
+    assert 'ref: ${{ inputs.source_ref || github.sha }}' in workflow
+    assert 'git rev-parse HEAD' in workflow
     assert 'Join-Path $repoRoot "frontend\\dist"' in builder
     assert "Copy-Item -LiteralPath $frontendDist -Destination $runtimeUiDist -Recurse -Force" in builder
     assert "release_version.txt" in workflow, (

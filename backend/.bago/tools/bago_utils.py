@@ -27,6 +27,11 @@ from pathlib import Path
 import json
 import sys
 from datetime import datetime, timezone
+import hashlib
+
+CORE_DIR = Path(__file__).resolve().parents[1] / "core"
+if str(CORE_DIR) not in sys.path:
+    sys.path.insert(0, str(CORE_DIR))
 
 
 def get_bago_root() -> Path:
@@ -40,10 +45,8 @@ def get_repo_root() -> Path:
 
 
 def get_state_dir() -> Path:
-    """Obtiene/crea directorio de estado."""
-    state_dir = get_bago_root() / "state"
-    state_dir.mkdir(exist_ok=True)
-    return state_dir
+    """Resuelve el directorio de estado sin materializarlo."""
+    return get_bago_root() / "state"
 
 
 def load_json(path: Path, default: dict = None) -> dict:
@@ -57,10 +60,40 @@ def load_json(path: Path, default: dict = None) -> dict:
 
 
 def save_json(path: Path, data: dict, indent: int = 2) -> bool:
-    """Guarda dict como JSON. Retorna True si éxito."""
+    """Persiste JSON bajo el ``.bago`` del proyecto por el ExecutionGateway."""
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=indent, ensure_ascii=False), encoding="utf-8")
+        from execution_adapter_contract import ExecutionContext
+        from execution_gateway import ExecutionGateway
+        from execution_request import build_execution_request
+
+        target = Path(path).expanduser().absolute()
+        bago_root = next((parent for parent in target.parents if parent.name.lower() == ".bago"), None)
+        if bago_root is None:
+            return False
+        root = bago_root.resolve()
+        resolved_target = target.resolve(strict=False)
+        try:
+            resolved_target.relative_to(root)
+        except ValueError:
+            return False
+        identity = hashlib.sha256(str(root).casefold().encode("utf-8")).hexdigest()
+        request = build_execution_request(
+            effect_id="state.write",
+            actor_kind="system",
+            principal_id=f"bago-shared-state:{identity}",
+            session_id=f"bago-shared-state:{identity}",
+            source_surface="server.bago_utils.save_json",
+            target={
+                "allowed_root": str(root),
+                "path": str(resolved_target),
+                "operation": "replace_text",
+            },
+            arguments={"content": json.dumps(data, indent=indent, ensure_ascii=False)},
+        )
+        ExecutionGateway().execute_server_owned(
+            request=request,
+            context=ExecutionContext(services={"_server_allowed_root": str(root)}),
+        )
         return True
     except Exception:
         return False
@@ -139,24 +172,7 @@ def save_global_state(data: dict) -> bool:
     return save_json(get_state_dir() / "global_state.json", data)
 
 
-def ensure_subdir(subdir_name: str) -> Path:
-    """Crea y retorna subdirectorio en state/."""
-    path = get_state_dir() / subdir_name
-    path.mkdir(exist_ok=True)
-    return path
-
-
-
-def _self_test():
-    """Autotest mínimo — verifica arranque limpio del módulo."""
-    from pathlib import Path as _P
-    assert _P(__file__).exists(), "fichero no encontrado"
-    print("  1/1 tests pasaron")
-
 if __name__ == "__main__":
-    if "--test" in sys.argv:
-        _self_test()
-        raise SystemExit(0)
     print("bago_utils.py — Shared utilities")
     print(f"  BAGO root: {get_bago_root()}")
     print(f"  Repo root: {get_repo_root()}")

@@ -19,6 +19,7 @@ export interface WorkspaceLinkResult {
 }
 
 export interface BagoElectronBridge {
+  runAuthorizedProcess?: (operation: 'github_cli' | 'git_identity', args: string[]) => Promise<{ ok?: boolean; canceled?: boolean; exit_code?: number; stdout?: string; stderr?: string }>;
   readClipboardText?: () => Promise<string> | string;
   readClipboardPayload?: () => Promise<{ text?: string; imageDataUrl?: string; imageMimeType?: string; imageBytes?: number; error?: string }> | { text?: string; imageDataUrl?: string; imageMimeType?: string; imageBytes?: number; error?: string };
   writeClipboardText?: (text: string) => Promise<void> | void;

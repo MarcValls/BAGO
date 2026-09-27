@@ -23,7 +23,7 @@ if str(CHAT_DIR) not in sys.path:
     sys.path.insert(0, str(CHAT_DIR))
 
 import renderer as R
-from bago_core.server_effects import gateway_urlopen
+from bago_core.server_effects import gateway_urlopen, write_config_text_atomic
 from commands import MENU_SECTIONS, menu_state_for_manager
 from switch_engine import SwitchEngine
 from repl_startup import CONFIG_EDITABLE
@@ -730,13 +730,15 @@ class BagoReplMenuMixin:
             return True
         if idx == 2:
             _bind(detected_root)
-            data = mod.init_project(detected_root)
-            print(R.ok(f"Proyecto inicializado: {data['bago_dir']}"))
+            result = mod.cmd_init(str(detected_root))
+            if result != 0:
+                print(R.warn("No se pudo inicializar el proyecto."))
             return True
         if idx == 3:
             _bind(detected_root)
-            data = mod.link_project(detected_root)
-            print(R.ok(f"Proyecto vinculado: {data['root']} ({data['link_mode']})"))
+            result = mod.cmd_link(str(detected_root))
+            if result != 0:
+                print(R.warn("No se pudo vincular el proyecto."))
             return True
         if idx == 4:
             try:
@@ -1114,14 +1116,17 @@ class BagoReplMenuMixin:
                         return True
                     deleted: list[int] = []
                     failed: list[int] = []
-                    for memory_id in sorted(staged_delete):
-                        try:
-                            if self.mgr.knowledge.delete(memory_id):
-                                deleted.append(memory_id)
-                            else:
-                                failed.append(memory_id)
-                        except Exception:
-                            failed.append(memory_id)
+                    try:
+                        from bago_core.memory_database import execute_memory_database_cli
+                        result = execute_memory_database_cli(
+                            self.mgr,
+                            "knowledge.delete_many",
+                            {"memory_ids": sorted(staged_delete)},
+                        )
+                        deleted = sorted(staged_delete)[:int(result.get("deleted_count", 0))]
+                        failed = sorted(set(staged_delete) - set(deleted))
+                    except Exception:
+                        failed = sorted(staged_delete)
                     print(R.ok(f"✓ Eliminados: {len(deleted)}"))
                     if deleted:
                         print(R.dim("  IDs: " + ", ".join(str(mid) for mid in deleted[:8])))
@@ -1294,8 +1299,14 @@ class BagoReplMenuMixin:
 
     def _ui_save_config(self, cfg: dict) -> None:
         path = self._ui_config_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+        root = Path(__file__).resolve().parents[2]
+        write_config_text_atomic(
+            path,
+            json.dumps(cfg, indent=2, ensure_ascii=False),
+            trusted_root=root,
+            source_surface="chat.repl.ui-config",
+            session_id=str(getattr(self.mgr, "session_id", "") or ""),
+        )
 
     def _ui_wizard(self) -> bool:
         if not self._wizard_tty_ok("/ui [tema|layout|version|branding]"):

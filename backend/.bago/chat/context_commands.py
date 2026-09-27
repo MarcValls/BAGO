@@ -36,11 +36,11 @@ def cmd_context(mgr: Any, engine: Any, args: list[str]) -> dict:
         return {"ok": True, "message": "\n".join(lines), "data": data}
 
     if subcmd == "attach":
-        paths = positional[1:] if len(positional) > 1 else []
-        if hasattr(mgr, "attach_context"):
-            data = mgr.attach_context(paths)
-            return {"ok": bool(data.get("ok")), "message": data.get("message", "Contexto adjuntado"), "data": data}
-        return {"ok": False, "message": "La sesión no expone attach_context()."}
+        return {
+            "ok": False,
+            "authorization_required": True,
+            "message": "Adjuntar contexto requiere autorización explícita mediante POST /context/attach.",
+        }
 
     if subcmd == "measure":
         data = mgr.measure_context()

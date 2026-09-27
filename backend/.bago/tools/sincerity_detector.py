@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import shutil
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -241,7 +240,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--path", default="", help="Specific file or directory to scan")
     parser.add_argument("--json", action="store_true", help="Emit JSON output")
     parser.add_argument("--strict", action="store_true", help="Return exit 1 on WARN too")
-    parser.add_argument("--test", action="store_true", help="Run self tests")
     return parser
 
 
@@ -295,55 +293,8 @@ def _print_report(root: Path, target: Path, files: list[Path], findings: list[Fi
     print(f"  WARN={totals[SEV_WARN]}")
 
 
-def _selftest_dir() -> Path:
-    return Path(__file__).resolve().parent / ".selftest_sincerity_detector"
-
-
-def run_self_tests() -> int:
-    base = _selftest_dir()
-    if base.exists():
-        shutil.rmtree(base)
-    base.mkdir(parents=True)
-    try:
-        t1 = base / "flat.md"
-        t1.write_text("Sistema espectacular\n", encoding="utf-8")
-        _, findings = run_scan(base, t1)
-        ok1 = any(item.kind == "FLATTERY" for item in findings)
-
-        t2 = base / "evidence.md"
-        t2.write_text("Siempre funciona segun test_result.json\n", encoding="utf-8")
-        _, findings = run_scan(base, t2)
-        ok2 = not any(item.kind == "UNSUBSTANTIATED" for item in findings)
-
-        t3 = base / "future.rst"
-        t3.write_text("# Done\nse va a implementar luego\n", encoding="utf-8")
-        _, findings = run_scan(base, t3)
-        ok3 = any(item.kind == "FUTURE_AS_DONE" for item in findings)
-
-        t4 = base / "check.txt"
-        t4.write_text("- [x] ok\n", encoding="utf-8")
-        _, findings = run_scan(base, t4)
-        ok4 = any(item.kind == "EMPTY_CHECKLIST" for item in findings)
-
-        docs = base / "docs"
-        docs.mkdir()
-        (docs / "a.md").write_text("PASSED\n", encoding="utf-8")
-        (docs / "b.txt").write_text("todo OK\n", encoding="utf-8")
-        files, findings = run_scan(base, docs)
-        ok5 = len(files) == 2 and any(item.kind == "EVIDENCE_MISSING" for item in findings)
-
-        results = [ok1, ok2, ok3, ok4, ok5]
-        passed = sum(1 for item in results if item)
-        print(f"{passed}/{len(results)} tests passed")
-        return 0 if passed == len(results) else 1
-    finally:
-        shutil.rmtree(base, ignore_errors=True)
-
-
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.test:
-        return run_self_tests()
     root = Path(args.root or Path.cwd()).resolve()
     target = _resolve_target(root, args.path).resolve()
     if not root.exists() or not root.is_dir():

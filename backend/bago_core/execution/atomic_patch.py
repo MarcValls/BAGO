@@ -1,92 +1,33 @@
-"""BAGO Code Forge 3B - atomic patch application.
+"""Authorized client for applying and restoring workspace patch batches.
 
-Step 15 of the BAGO Code Forge 3B pipeline. The repair loop hands the
-execution layer a :class:`bago_core.codegen.repair_loop.RepairVerdict`
-plus a tuple of accepted :class:`Patch` objects. This module is the
-**only** place BAGO writes the patches back to the user's workspace.
-
-Atomicity is achieved with a two-phase commit:
-
-1. **Snapshot** - the affected files are copied into a backup
-   directory and their pre-patch contents are hashed.
-2. **Apply** - each patch is applied by replacing the affected
-   files. If anything raises during the apply phase, the snapshot is
-   used to roll back the workspace to its original state.
-3. **Commit** - the snapshot is kept (default) or removed, depending
-   on the caller's policy.
-
-The module never touches the staging area; it only operates on the
-real workspace.
-
-Design rules (R0-R10):
-
-- R0: <200 lines.
-- R1: :class:`AppliedPatch` is a frozen dataclass. The rollback
-  handle is opaque to callers.
-- R2: deterministic. Given the same patches + workspace, the result
-  is identical.
-- R3: a failed apply always rolls back; a partial write is
-  forbidden. ``PatchApplyError`` carries a stable ``code`` so the
-  evidence bundle can audit the failure.
-- R4: forbidden paths (``DEFAULT_FORBIDDEN_PATHS``) are rejected
-  before any disk write. The apply call never even opens the file.
-- R8: no subprocess. Patch application is pure file I/O.
+Patch calculation and workspace I/O belong to the registered ``project.write``
+adapter. This module only constructs the canonical request and dispatches it
+through ExecutionGateway; it contains no filesystem materializer.
 """
 from __future__ import annotations
 
-import hashlib
-import os
-import shutil
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from ..codegen.patch_parser import Patch
 
 
-# Stable error codes. The evidence bundle dispatches on these.
 PATCH_OK = "ok"
-PATCH_FORBIDDEN_PATH = "forbidden_path"
-PATCH_PATH_OUTSIDE_WORKSPACE = "path_outside_workspace"
-PATCH_BINARY_FILE = "binary_file"
-PATCH_APPLY_IO_ERROR = "apply_io_error"
-PATCH_ROLLBACK_FAILED = "rollback_failed"
+PATCH_FORBIDDEN_PATH = "workspace_patch_forbidden_path"
+PATCH_PATH_OUTSIDE_WORKSPACE = "workspace_patch_out_of_scope"
+PATCH_BINARY_FILE = "workspace_patch_binary_file"
+PATCH_APPLY_IO_ERROR = "workspace_patch_apply_failed"
+PATCH_ROLLBACK_FAILED = "workspace_patch_rollback_failed"
 
-
-# Forbidden paths. Mirrors ``task_compiler.DEFAULT_FORBIDDEN_PATHS``;
-# duplicated here so the execution layer doesn't have to import the
-# compiler just to refuse a write.
 DEFAULT_FORBIDDEN_PATHS: tuple[str, ...] = (
-    ".git",
-    ".env",
-    "state",
-    "dist",
-    "release",
-    "__pycache__",
-    ".bago",
-    "node_modules",
-    ".venv",
-    "venv",
+    ".git", ".env", "state", "dist", "release", "__pycache__", ".bago",
+    "node_modules", ".venv", "venv",
 )
 
 
 @dataclass(frozen=True)
 class AppliedPatch:
-    """Record of one patch successfully written to disk.
-
-    Attributes
-    ----------
-    path:
-        Workspace-relative path that was written.
-    hash_before:
-        SHA-256 hex digest of the file before the patch.
-    hash_after:
-        SHA-256 hex digest of the file after the patch.
-    bytes_written:
-        Number of bytes the new file contains.
-    """
-
     path: str
     hash_before: str
     hash_after: str
@@ -103,8 +44,6 @@ class AppliedPatch:
 
 @dataclass(frozen=True)
 class PatchApplyResult:
-    """Aggregate result of an atomic apply."""
-
     status: str
     applied: tuple[AppliedPatch, ...] = ()
     rollback_snapshot: str = ""
@@ -120,7 +59,7 @@ class PatchApplyResult:
     def to_dict(self) -> dict[str, object]:
         return {
             "status": self.status,
-            "applied": [a.to_dict() for a in self.applied],
+            "applied": [item.to_dict() for item in self.applied],
             "rollback_snapshot": self.rollback_snapshot,
             "error_code": self.error_code,
             "error_message": self.error_message,
@@ -130,306 +69,108 @@ class PatchApplyResult:
 
 
 class PatchApplyError(RuntimeError):
-    """Raised by ``apply_patch_atomically`` when the apply fails.
-
-    The workspace is guaranteed to be in its original state when the
-    exception is raised.
-    """
-
     def __init__(self, code: str, message: str) -> None:
         super().__init__(f"{code}: {message}")
         self.code = code
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _sha256(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
-
-
-def _normalise_relpath(path: str) -> str:
-    """Strip POSIX/Windows separators into forward slashes and remove
-    any leading ``./`` so the comparison against the forbidden list is
-    consistent.
-    """
-    normalised = path.replace("\\", "/")
-    while normalised.startswith("./"):
-        normalised = normalised[2:]
-    return normalised
-
-
-def _is_forbidden(path: str, forbidden: tuple[str, ...]) -> bool:
-    normalised = _normalise_relpath(path)
-    parts = normalised.split("/")
-    for segment in parts:
-        if segment in forbidden:
-            return True
-    return False
-
-
-def _resolve_safe(
-    workspace: Path, relative: str
-) -> Path:
-    """Resolve ``relative`` against ``workspace`` while refusing to
-    escape via ``..``.
-    """
-    target = (workspace / relative).resolve()
-    workspace_resolved = workspace.resolve()
-    try:
-        target.relative_to(workspace_resolved)
-    except ValueError as exc:
-        raise PatchApplyError(
-            PATCH_PATH_OUTSIDE_WORKSPACE,
-            f"path escapes workspace: {relative!r}",
-        ) from exc
-    return target
-
-
-def _read_text(path: Path) -> str:
-    """Read a file as UTF-8 text, returning "" on missing/binary."""
-    if not path.is_file():
-        return ""
-    try:
-        return path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        # Treat as binary. The atomic apply refuses to round-trip
-        # binary files; the caller should have rerouted them.
-        raise PatchApplyError(
-            PATCH_BINARY_FILE,
-            f"refusing to apply patch over a binary file: {path}",
-        )
-    except OSError as exc:
-        raise PatchApplyError(
-            PATCH_APPLY_IO_ERROR,
-            f"read failed: {exc}",
-        ) from exc
-
-
-def _reconstruct_file(old_body: str, patch: Patch) -> str:
-    """Apply ``patch`` to ``old_body`` in memory.
-
-    This is a deliberately small implementation that handles the same
-    subset of unified diff the model is allowed to emit. It mirrors
-    the in-memory helper used by the repair loop; the two are
-    duplicated here so the execution layer does not depend on the
-    codegen package.
-    """
-    lines = old_body.splitlines(keepends=False) if old_body else []
-    for hunk in patch.hunks:
-        # The hunk header's ``old_start`` points into the pre-image;
-        # ``new_start`` points into the post-image. We work against
-        # the pre-image and translate ``new_start`` back to the
-        # pre-image by skipping over deletions already applied.
-        idx = max(0, hunk.old_start - 1)
-        for line in hunk.lines:
-            if line.marker == " ":
-                if idx >= len(lines) or lines[idx] != line.text:
-                    raise PatchApplyError(
-                        PATCH_APPLY_IO_ERROR,
-                        f"context mismatch at line {hunk.old_start}",
-                    )
-                idx += 1
-            elif line.marker == "-":
-                if idx >= len(lines) or lines[idx] != line.text:
-                    raise PatchApplyError(
-                        PATCH_APPLY_IO_ERROR,
-                        f"deletion mismatch at line {hunk.old_start}",
-                    )
-                del lines[idx]
-            elif line.marker == "+":
-                lines.insert(idx, line.text)
-                idx += 1
-            elif line.marker == "\\":
-                continue
-            else:  # pragma: no cover - parser already rejects
-                raise PatchApplyError(
-                    PATCH_APPLY_IO_ERROR,
-                    f"unknown marker {line.marker!r}",
-                )
-    body = "\n".join(lines)
-    if lines and old_body.endswith("\n") and not body.endswith("\n"):
-        body += "\n"
-    return body
-
-
-# ---------------------------------------------------------------------------
-# Public entry points
-# ---------------------------------------------------------------------------
+def _failure(exc: Exception) -> PatchApplyResult:
+    code = str(getattr(exc, "code", "workspace_patch_dispatch_failed"))
+    return PatchApplyResult(status="failed", error_code=code, error_message=str(exc))
 
 
 def apply_patch_atomically(
     patches: Iterable[Patch],
     *,
     workspace_root: str | Path,
-    forbidden_paths: tuple[str, ...] = DEFAULT_FORBIDDEN_PATHS,
+    manager: Any = None,
+    permit_token: str = "",
     keep_snapshot: bool = True,
 ) -> PatchApplyResult:
-    """Apply every patch in sequence with rollback on failure.
+    """Apply a pre-authorized batch through the shared ``project.write`` owner.
 
-    Parameters
-    ----------
-    patches:
-        Iterable of :class:`Patch` objects. The apply proceeds in
-        iteration order; the first failure rolls back the entire
-        batch.
-    workspace_root:
-        Absolute path to the user's real workspace.
-    forbidden_paths:
-        Path segments the apply must refuse. Compared segment-wise so
-        ``state/foo.json`` is forbidden when ``state`` is in the list.
-    keep_snapshot:
-        If ``True`` (default), the rollback directory is kept under
-        ``<workspace>/.bago/snapshots/<ts>_<rand>/`` so the user can
-        manually revert even after a successful apply. If ``False``,
-        the snapshot is removed on success.
+    Obtain and approve the operation-bound Permit through
+    ``POST /project/patch`` before calling this client. Snapshot retention is
+    mandatory so a failed validation can be explicitly rolled back later.
     """
-    started = _now_ms()
-    workspace = Path(workspace_root).resolve()
-    if not workspace.is_dir():
-        raise PatchApplyError(
-            PATCH_APPLY_IO_ERROR,
-            f"workspace does not exist: {workspace}",
-        )
-
-    snapshot_dir = _create_snapshot_dir(workspace)
-    applied: list[AppliedPatch] = []
-    patch_list = list(patches)
-
-    try:
-        for patch in patch_list:
-            if _is_forbidden(patch.new_path, forbidden_paths):
-                raise PatchApplyError(
-                    PATCH_FORBIDDEN_PATH,
-                    f"patch targets forbidden path: {patch.new_path}",
-                )
-            target = _resolve_safe(workspace, patch.new_path)
-            old_body = _read_text(target)
-            new_body = _reconstruct_file(old_body, patch)
-            # Snapshot the pre-image before writing the new one.
-            _snapshot_file(snapshot_dir, patch.new_path, old_body)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(new_body, encoding="utf-8")
-            applied.append(
-                AppliedPatch(
-                    path=patch.new_path,
-                    hash_before=_sha256(old_body),
-                    hash_after=_sha256(new_body),
-                    bytes_written=len(new_body.encode("utf-8")),
-                )
-            )
-    except PatchApplyError as exc:
-        # Rollback every file we already wrote, then either keep or
-        # discard the snapshot directory.
-        rollback_patch(snapshot_dir, workspace)
-        if not keep_snapshot:
-            shutil.rmtree(snapshot_dir, ignore_errors=True)
-        return PatchApplyResult(
-            status="failed",
-            applied=tuple(applied),
-            rollback_snapshot=str(snapshot_dir),
-            error_code=exc.code,
-            error_message=str(exc),
-            duration_ms=_now_ms() - started,
-        )
-    except OSError as exc:
-        rollback_patch(snapshot_dir, workspace)
-        if not keep_snapshot:
-            shutil.rmtree(snapshot_dir, ignore_errors=True)
-        return PatchApplyResult(
-            status="failed",
-            applied=tuple(applied),
-            rollback_snapshot=str(snapshot_dir),
-            error_code=PATCH_APPLY_IO_ERROR,
-            error_message=str(exc),
-            duration_ms=_now_ms() - started,
-        )
-
     if not keep_snapshot:
-        shutil.rmtree(snapshot_dir, ignore_errors=True)
-        snapshot_dir_str = ""
-    else:
-        snapshot_dir_str = str(snapshot_dir)
+        return PatchApplyResult(
+            status="failed",
+            error_code="workspace_patch_snapshot_required",
+            error_message="Authorized patch batches must retain their rollback snapshot.",
+        )
+    if manager is None or not str(permit_token or "").strip():
+        return PatchApplyResult(
+            status="failed",
+            error_code="workspace_patch_permit_required",
+            error_message="Workspace patch requires SessionManager context and an approved Permit.",
+        )
+    if Path(workspace_root).expanduser().resolve() != Path(str(getattr(manager, "project_root", ""))).expanduser().resolve():
+        return PatchApplyResult(
+            status="failed",
+            error_code="project_write_root_mismatch",
+            error_message="Workspace patch root does not match the active project root.",
+        )
+    try:
+        from execution_adapter_contract import ExecutionContext
+        from execution_adapters.project import ProjectWriteEffectAdapter
+        from execution_gateway import ExecutionGateway
 
-    return PatchApplyResult(
-        status=PATCH_OK,
-        applied=tuple(applied),
-        rollback_snapshot=snapshot_dir_str,
-        duration_ms=_now_ms() - started,
+        diffs = [patch.raw for patch in patches]
+        request = ProjectWriteEffectAdapter.build_patch_request(manager, diffs)
+        receipt, _authorization = ExecutionGateway().execute(
+            permit_token=permit_token,
+            request=request,
+            context=ExecutionContext(manager=manager),
+        )
+        operation = dict(receipt.get("result") or {})
+        applied = tuple(
+            AppliedPatch(
+                path=str(item.get("path") or ""),
+                hash_before=str(item.get("before_sha256") or ""),
+                hash_after=str(item.get("after_sha256") or ""),
+                bytes_written=int(item.get("bytes_written") or 0),
+            )
+            for item in operation.get("applied", [])
+        )
+        return PatchApplyResult(
+            status=PATCH_OK,
+            applied=applied,
+            rollback_snapshot=str(operation.get("snapshot") or ""),
+            extra={"receipt_id": receipt.get("receipt_id", "")},
+        )
+    except Exception as exc:
+        return _failure(exc)
+
+
+def rollback_patch(
+    snapshot_dir: str | Path,
+    workspace_root: str | Path,
+    *,
+    manager: Any = None,
+    permit_token: str = "",
+) -> dict[str, Any]:
+    """Restore one exact patch snapshot through the same project.write owner."""
+    if manager is None or not str(permit_token or "").strip():
+        raise PatchApplyError("workspace_patch_permit_required", "Patch rollback requires SessionManager context and an approved Permit.")
+    if Path(workspace_root).expanduser().resolve() != Path(str(getattr(manager, "project_root", ""))).expanduser().resolve():
+        raise PatchApplyError("project_write_root_mismatch", "Rollback workspace does not match the active project root.")
+    from execution_adapter_contract import ExecutionContext
+    from execution_adapters.project import ProjectWriteEffectAdapter
+    from execution_gateway import ExecutionGateway
+
+    request = ProjectWriteEffectAdapter.build_patch_rollback_request(manager, str(snapshot_dir))
+    receipt, _authorization = ExecutionGateway().execute(
+        permit_token=permit_token,
+        request=request,
+        context=ExecutionContext(manager=manager),
     )
-
-
-def rollback_patch(snapshot_dir: str | Path, workspace_root: str | Path) -> None:
-    """Restore every file in ``snapshot_dir`` back to ``workspace_root``.
-
-    The snapshot directory is laid out as ``<path>.bago-snap/<rel>``
-    where ``<rel>`` mirrors the original workspace tree. Missing
-    files (i.e. files the patch created) are removed from the
-    workspace. Files the patch did not touch are left alone.
-    """
-    snapshot = Path(snapshot_dir)
-    workspace = Path(workspace_root).resolve()
-    if not snapshot.is_dir():
-        return
-    for entry in sorted(snapshot.rglob("*")):
-        if not entry.is_file():
-            continue
-        rel = entry.relative_to(snapshot)
-        target = (workspace / rel).resolve()
-        try:
-            target.relative_to(workspace)
-        except ValueError:
-            # Snapshot somehow escaped the workspace. Treat as fatal
-            # but never raise; we are already in a failure path.
-            continue
-        try:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(entry, target)
-        except OSError:
-            # Best effort; if a single file cannot be restored we
-            # continue with the rest. The caller will surface a
-            # ``PATCH_ROLLBACK_FAILED`` error.
-            continue
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
-def _now_ms() -> int:
-    return int(time.time() * 1000)
-
-
-def _create_snapshot_dir(workspace: Path) -> Path:
-    """Allocate a private snapshot directory under ``.bago/snapshots``."""
-    bago_dir = workspace / ".bago"
-    snapshots_dir = bago_dir / "snapshots"
-    snapshots_dir.mkdir(parents=True, exist_ok=True)
-    suffix = f"{_now_ms()}_{os.getpid()}_{os.urandom(2).hex()}.bago-snap"
-    return snapshots_dir / suffix
-
-
-def _snapshot_file(snapshot_dir: Path, relative_path: str, body: str) -> None:
-    """Write ``body`` to ``snapshot_dir / relative_path``."""
-    target = snapshot_dir / relative_path
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(body, encoding="utf-8")
+    return dict(receipt.get("result") or {})
 
 
 __all__ = [
-    "AppliedPatch",
-    "DEFAULT_FORBIDDEN_PATHS",
-    "PATCH_APPLY_IO_ERROR",
-    "PATCH_BINARY_FILE",
-    "PATCH_FORBIDDEN_PATH",
-    "PATCH_OK",
-    "PATCH_PATH_OUTSIDE_WORKSPACE",
-    "PATCH_ROLLBACK_FAILED",
-    "PatchApplyError",
-    "PatchApplyResult",
-    "apply_patch_atomically",
-    "rollback_patch",
+    "AppliedPatch", "DEFAULT_FORBIDDEN_PATHS", "PATCH_APPLY_IO_ERROR",
+    "PATCH_BINARY_FILE", "PATCH_FORBIDDEN_PATH", "PATCH_OK",
+    "PATCH_PATH_OUTSIDE_WORKSPACE", "PATCH_ROLLBACK_FAILED", "PatchApplyError",
+    "PatchApplyResult", "apply_patch_atomically", "rollback_patch",
 ]

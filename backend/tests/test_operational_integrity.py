@@ -81,6 +81,8 @@ def test_conflicts_and_audit_trail_are_explicit(tmp_path):
         ("tests",),
     )
     assert conflicts[0]["field"] == "tests"
-    trail_path = tmp_path / "audit.jsonl"
+    trail_path = tmp_path / "logs" / "audit.jsonl"
+    assert not trail_path.parent.exists()
     AuditTrail(trail_path).append({"finding": "BAGO-AUD-001", "state": "OPEN"})
+    assert trail_path.parent.is_dir()
     assert "BAGO-AUD-001" in trail_path.read_text(encoding="utf-8")

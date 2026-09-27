@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -442,6 +443,60 @@ class DelegationGrantRegistry:
                 "effect_id": request.effect_id,
                 "schedule_id": str(record.get("schedule_id") or ""),
             }
+
+    @contextmanager
+    def freshness_lease(
+        self,
+        grant_id: str,
+        *,
+        principal_id: str,
+        policy_version: str,
+    ):
+        """Hold delegated authority stable while one claimed child materializes.
+
+        A claimed run may legitimately leave the grant in exhausted state.
+        That does not invalidate a Permit already issued from that claim. The
+        lease therefore rejects revocation, expiry, policy drift and principal
+        drift, while allowing active or exhausted records for an already-issued
+        child Permit.
+
+        The registry lock remains held for the duration of the lease so
+        revoke() linearizes either before the material effect (and blocks it) or
+        after that effect completes.
+        """
+
+        clean_grant_id = str(grant_id or "").strip()
+        if not clean_grant_id:
+            raise DelegationError("DelegationGrant id is required", code="delegation_id_required")
+        with _LOCK:
+            payload = self._read()
+            record = payload["grants"].get(clean_grant_id)
+            if not isinstance(record, dict):
+                raise DelegationError("DelegationGrant not found", code="delegation_not_found")
+
+            state = str(record.get("state") or "")
+            if state == "revoked":
+                raise DelegationError("DelegationGrant is revoked", code="delegation_revoked")
+            expires_at = _parse_iso(record.get("expires_at"))
+            if expires_at <= _now():
+                record["state"] = "expired"
+                self._write(payload)
+                raise DelegationError("DelegationGrant is expired", code="delegation_expired")
+            if state not in {"active", "exhausted"}:
+                raise DelegationError("DelegationGrant is not executable", code="delegation_not_active")
+            if str(record.get("principal_id") or "") != str(principal_id or ""):
+                raise DelegationError(
+                    "Delegation principal changed after Permit issuance",
+                    code="delegation_principal_mismatch",
+                )
+            grant_policy = str(record.get("policy_version") or "")
+            if grant_policy != str(policy_version or "") or grant_policy != REGISTRY.digest:
+                raise DelegationError(
+                    "Delegation policy changed after Permit issuance",
+                    code="delegation_policy_stale",
+                )
+
+            yield dict(record)
 
     def revoke(self, grant_id: str, *, reason: str = "") -> dict[str, Any]:
         with _LOCK:

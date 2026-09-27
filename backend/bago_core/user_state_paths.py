@@ -125,7 +125,8 @@ def _backup_sidecars(zip_path: Path) -> list[Path]:
     ]
 
 
-def prune_backups_root(root: Path | None = None, *, dry_run: bool = False) -> list[Path]:
+def backup_prune_candidates(root: Path | None = None) -> list[Path]:
+    """Return retention candidates without deleting backup data."""
     backup_dir = root or backups_root()
     if not backup_dir.exists():
         return []
@@ -150,15 +151,7 @@ def prune_backups_root(root: Path | None = None, *, dry_run: bool = False) -> li
             continue
         if not oversized and archive in keep:
             continue
-        for target in [archive, *_backup_sidecars(archive)]:
-            if not target.exists():
-                continue
-            if dry_run:
-                print(f"[dry-run] would remove {target}")
-            else:
-                target.unlink()
-                print(f"removed {target}")
-            removed.append(target)
+        removed.extend(target for target in [archive, *_backup_sidecars(archive)] if target.exists())
     return removed
 
 
@@ -187,6 +180,8 @@ def supervisor_stop_file() -> Path:
 
 
 def ensure_user_roots() -> None:
-    for path in (user_root(), runtime_root(), state_root(), cache_root(), backups_root()):
-        path.mkdir(parents=True, exist_ok=True)
-    prune_backups_root(backups_root())
+    from bago_core.server_effects import ensure_user_directory
+
+    root = user_root()
+    for path in (root, runtime_root(), state_root(), cache_root(), backups_root()):
+        ensure_user_directory(path, trusted_root=root)

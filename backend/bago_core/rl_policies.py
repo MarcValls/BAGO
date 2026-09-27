@@ -91,7 +91,8 @@ class BCPolicy:
         return float(-npx.log(max(probs[action], 1e-8)) * float(reward))
 
     def save(self, path: Path) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        from bago_core.server_effects import write_text_atomic
+
         payload = {
             "n_actions": self.n_actions,
             "n_features": self.n_features,
@@ -99,7 +100,13 @@ class BCPolicy:
             "W": self.W.tolist(),
             "bias": self.bias.tolist(),
         }
-        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        write_text_atomic(
+            path,
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            trusted_root=state_root(),
+            source_surface="rl.bc_policy",
+            session_id="rl-bc-policy",
+        )
 
     @classmethod
     def load(cls, path: Path) -> "BCPolicy":
@@ -208,7 +215,7 @@ def synthesize_transitions_from_history(base_path: str | Path, n_features: int =
         return 0
 
     try:
-        conn = sqlite3.connect(str(store_db))
+        conn = sqlite3.connect(f"{store_db.as_uri()}?mode=ro", uri=True)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute(
@@ -245,10 +252,15 @@ def synthesize_transitions_from_history(base_path: str | Path, n_features: int =
     if not events:
         return 0
 
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with log_path.open("a", encoding="utf-8") as fh:
-        for ev in events:
-            fh.write(json.dumps(ev, ensure_ascii=False) + "\n")
+    from bago_core.server_effects import append_text_durable
+
+    append_text_durable(
+        log_path,
+        "".join(json.dumps(ev, ensure_ascii=False) + "\n" for ev in events),
+        trusted_root=state_root(),
+        source_surface="rl.transitions.history",
+        session_id="rl-transition-history",
+    )
     return len(events)
 
 def train_bc_policy(base_path: str | Path, n_actions: int, n_features: int) -> dict[str, Any]:

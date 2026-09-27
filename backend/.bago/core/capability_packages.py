@@ -117,17 +117,21 @@ def list_example_packages() -> list[dict[str, Any]]:
 
 
 def install_example_package(package_id: str) -> dict[str, Any]:
+    _ = package_id
+    raise CapabilityPackageError(
+        "Example package import requires an operation-bound ExecutionGateway Permit",
+        code="authorization_required",
+    )
+
+
+def example_package_archive(package_id: str) -> tuple[str, str]:
     clean_id = str(package_id or "").strip()
     for package_dir in sorted(item for item in examples_root().iterdir() if item.is_dir()):
         archive = _example_archive(package_dir)
         loaded = load_archive(archive)
         if loaded.manifest["id"] != clean_id:
             continue
-        return import_package(
-            content_base64=base64.b64encode(archive).decode("ascii"),
-            file_name=f"{package_dir.name}.bago.zip",
-            confirm_trust=False,
-        )
+        return base64.b64encode(archive).decode("ascii"), f"{package_dir.name}.bago.zip"
     raise CapabilityPackageError(f"Ejemplo no encontrado: {clean_id}", code="not_found")
 
 
@@ -380,91 +384,21 @@ def inspect_package(*, content_base64: str, file_name: str) -> dict[str, Any]:
 
 
 def import_package(*, content_base64: str, file_name: str, confirm_trust: bool = False) -> dict[str, Any]:
-    # Retained for wire compatibility; import-time confirmation never grants activation trust.
-    _ = confirm_trust
-    try:
-        archive = _decode_archive(content_base64=content_base64, file_name=file_name)
-        loaded = load_archive(archive)
-    except PackageContractError as exc:
-        raise CapabilityPackageError(str(exc), code=exc.code) from exc
-    manifest = loaded.manifest
-    digest = hashlib.sha256(archive).hexdigest()
-    root = packages_root()
-    staging_root = root / ".staging"
-    staging_root.mkdir(parents=True, exist_ok=True)
+    """Fail closed: materialization is available only from the gateway owner."""
+    _ = content_base64, file_name, confirm_trust
+    raise CapabilityPackageError(
+        "Package import requires an operation-bound ExecutionGateway Permit",
+        code="authorization_required",
+    )
 
-    with tempfile.TemporaryDirectory(prefix="import-", dir=staging_root) as temporary:
-        temporary_path = Path(temporary) / "package"
-        temporary_path.mkdir()
-        for relative, content in loaded.payload.items():
-            target_path = temporary_path / Path(*PurePosixPath(relative).parts)
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            target_path.write_bytes(content)
-        if not loaded.legacy_source:
-            (temporary_path / "bago.package.json").write_bytes(canonical_json(manifest))
-        if manifest["kind"] == "capability" and manifest["execution_mode"] == "executable":
-            _installed_capability_manifest(
-                {"legacy_source": loaded.legacy_source},
-                temporary_path,
-                manifest,
-            )
-        capability_id = manifest["id"]
-        version = manifest["version"]
-        target = root / "packages" / capability_id / version
-        warnings = list(loaded.warnings)
-        trust_required = bool(
-            manifest["kind"] == "pipeline"
-            or manifest["execution_mode"] == "executable"
-            or manifest["permissions"]
-        )
-        if trust_required:
-            warnings.append("El paquete está importado pero requiere confirmación de confianza antes de activarse.")
-        metadata = {
-            "id": capability_id,
-            "name": manifest["name"],
-            "version": version,
-            "description": manifest["description"],
-            "kind": manifest["kind"],
-            "execution_mode": manifest["execution_mode"],
-            "digest": digest,
-            "digest_state": loaded.digest_state,
-            "signature_state": loaded.signature_state,
-            "legacy_source": loaded.legacy_source,
-            "warnings": warnings,
-            "trust_state": "untrusted",
-            "trust_required": trust_required,
-            "package_manifest": manifest,
-            "source_file": Path(file_name).name[:180],
-            "installed_at": _now(),
-        }
-        _write_json_atomic(temporary_path / ".bago-package.json", metadata)
-        with _LOCK:
-            registry = _load_registry()
-            existing = registry["packages"].get(capability_id)
-            if target.exists():
-                existing_meta = _read_json(target / ".bago-package.json", {})
-                if existing_meta.get("digest") != digest:
-                    raise CapabilityPackageError(
-                        f"Ya existe {capability_id}@{version} con contenido diferente",
-                        code="version_conflict",
-                    )
-                return {"ok": True, "already_installed": True, "package": _public_record(existing or metadata)}
-            target.parent.mkdir(parents=True, exist_ok=True)
-            temporary_path.rename(target)
-            record = {
-                **metadata,
-                "enabled": False,
-                "trust_state": "untrusted",
-                "trusted_permissions": [],
-                "config": {},
-                "last_status": "not_started",
-                "last_receipt_id": None,
-                "last_run_at": None,
-            }
-            registry["packages"][capability_id] = record
-            _save_registry(registry)
-    return {"ok": True, "already_installed": False, "package": _public_record(record)}
 
+def _materialize_import(*, content_base64: str, file_name: str, confirm_trust: bool = False) -> dict[str, Any]:
+    from types import SimpleNamespace
+    from execution_adapters.capability_import import CapabilityPackageImportEffectAdapter
+    return CapabilityPackageImportEffectAdapter._materialize_authorized(
+        storage=SimpleNamespace(**globals()), content_base64=content_base64,
+        file_name=file_name, confirm_trust=confirm_trust,
+    )
 
 def export_package(package_id: str) -> dict[str, Any]:
     """Return a deterministic canonical ZIP for an installed package."""
@@ -655,6 +589,22 @@ def execute_package(
     approved_permissions: Any,
     timeout_s: int | None = None,
 ) -> dict[str, Any]:
+    _ = capability_id, inputs, confirmed, approved_permissions, timeout_s
+    raise CapabilityPackageError(
+        "Capability execution requires an operation-bound ExecutionGateway Permit",
+        code="authorization_required",
+    )
+
+
+def _execute_package(
+    capability_id: str,
+    *,
+    inputs: Any,
+    confirmed: bool,
+    approved_permissions: Any,
+    process_executor: Any = None,
+    timeout_s: int | None = None,
+) -> dict[str, Any]:
     package = get_package(capability_id)
     if package["kind"] != "capability" or package["execution_mode"] != "executable":
         raise CapabilityPackageError("El paquete no es una capacidad ejecutable", code="not_executable")
@@ -702,7 +652,9 @@ def execute_package(
     stderr = ""
     error = ""
     try:
-        completed = subprocess.run(
+        if not callable(process_executor):
+            raise CapabilityPackageError("Capability process executor is gateway-owned", code="authorization_required")
+        completed = process_executor(
             [sys.executable, str(entrypoint)],
             input=encoded_input,
             text=True,
@@ -891,6 +843,7 @@ def _invoke_pipeline_step(
     confirmed: bool,
     approved_permissions: Any,
     manager: Any,
+    process_executor: Any,
 ) -> dict[str, Any]:
     step_type = step["type"]
     if step_type == "noop":
@@ -906,22 +859,24 @@ def _invoke_pipeline_step(
     if step_type == "capability":
         if referenced["kind"] != "capability":
             raise CapabilityPackageError(f"{step['uses']} no es una capacidad", code="wrong_kind")
-        child = execute_package(
+        child = _execute_package(
             str(step["uses"]),
             inputs=parameters,
             confirmed=confirmed,
             approved_permissions=approved_permissions,
+            process_executor=process_executor,
             timeout_s=step.get("timeout_s"),
         )
     else:
         if referenced["kind"] != "pipeline":
             raise CapabilityPackageError(f"{step['uses']} no es un pipeline", code="wrong_kind")
-        child = execute_pipeline_package(
+        child = _execute_pipeline_package(
             str(step["uses"]),
             inputs=parameters,
             confirmed=confirmed,
             approved_permissions=approved_permissions,
             manager=manager,
+            process_executor=process_executor,
         )
     receipt = child.get("receipt", {}) if isinstance(child, dict) else {}
     return {
@@ -979,6 +934,21 @@ def execute_pipeline_package(
     approved_permissions: Any,
     manager: Any,
 ) -> dict[str, Any]:
+    _ = package_id, inputs, confirmed, approved_permissions, manager
+    raise CapabilityPackageError(
+        "Pipeline execution requires an operation-bound ExecutionGateway Permit",
+        code="authorization_required",
+    )
+
+
+def _execute_pipeline_package(
+    package_id: str,
+    inputs: Any,
+    confirmed: bool,
+    approved_permissions: Any,
+    manager: Any,
+    process_executor: Any = None,
+) -> dict[str, Any]:
     """Execute an enabled imported pipeline and persist its receipt."""
     package = get_package(package_id)
     if package["kind"] != "pipeline":
@@ -1034,7 +1004,9 @@ def execute_pipeline_package(
             encoded_input = json.dumps(payload, ensure_ascii=False)
             timeout_s = int(definition["runtime"]["timeout_s"])
             try:
-                completed = subprocess.run(
+                if not callable(process_executor):
+                    raise CapabilityPackageError("Pipeline process executor is gateway-owned", code="authorization_required")
+                completed = process_executor(
                     [sys.executable, str(entrypoint)],
                     input=encoded_input,
                     text=True,
@@ -1136,6 +1108,7 @@ def execute_pipeline_package(
                         confirmed=confirmed,
                         approved_permissions=approved_permissions,
                         manager=manager,
+                        process_executor=process_executor,
                     )
                     step_status = "succeeded" if invocation["ok"] else "failed"
                     if invocation["ok"]:

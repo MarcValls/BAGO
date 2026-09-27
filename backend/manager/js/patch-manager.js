@@ -746,7 +746,7 @@ function pmRenderJobs(){
   container.innerHTML=releaseJobs.map(job=>{
     const progress=job.progress||{},percent=Math.max(0,Math.min(100,Number(progress.percent||0)));
     const actions=[];
-    if(!['ready','completed','cancelled','failed','rolled-back'].includes(job.state))actions.push('<button data-pm-job-action="cancel" data-id="'+escapeHtml(job.id)+'">Cancelar</button>');
+    if(!['ready','installing','rolling-back','completed','cancelled','failed','rolled-back'].includes(job.state))actions.push('<button data-pm-job-action="cancel" data-id="'+escapeHtml(job.id)+'">Cancelar</button>');
     if(['cancelled','failed'].includes(job.state))actions.push('<button data-pm-job-action="resume" data-id="'+escapeHtml(job.id)+'">Reanudar</button>');
     if(job.state==='ready')actions.push('<button data-pm-job-action="install" data-id="'+escapeHtml(job.id)+'">Instalar verificado</button>');
     if(job.rollback_available)actions.push('<button data-pm-job-action="rollback" data-id="'+escapeHtml(job.id)+'">Rollback</button>');
@@ -770,7 +770,6 @@ async function pmJobAction(action,id){
     if(action==='cancel')await api.cancelReleaseJob(id);
     if(action==='resume')await api.resumeReleaseJob(id);
     if(action==='install'){
-      if(!window.confirm('Instalar el bundle verificado? Se creará backup atómico antes de modificar el destino.'))return;
       await api.installReleaseJob(id);
     }
     if(action==='rollback'){
@@ -779,8 +778,8 @@ async function pmJobAction(action,id){
     }
     if(action==='delete'){
       if(!api.deleteReleaseJob)throw new Error('deleteReleaseJob no disponible');
-      if(!window.confirm('Archivar el trabajo persistido?\n\n'+id))return;
-      await api.deleteReleaseJob(id);
+      const archived=await api.deleteReleaseJob(id);
+      if(archived&&archived.canceled)return;
       pmSelectedJobId='';
     }
     await pmLoadJobs();

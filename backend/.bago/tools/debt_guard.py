@@ -25,8 +25,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +49,57 @@ try:
     _SCANNER_AVAILABLE = True
 except ImportError:
     _SCANNER_AVAILABLE = False
+
+_BACKEND_ROOT = _THIS_DIR.parents[1]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+from bago_core.cli_execution import execute_cli_effect
+from execution_request import build_execution_request
+
+
+def _repository_session_id(root: Path) -> str:
+    canonical = root.resolve(strict=True)
+    return "repository:" + hashlib.sha256(str(canonical).encode("utf-8")).hexdigest()[:20]
+
+
+def _execute_repository_mutation(
+    root: Path,
+    *,
+    resource: str,
+    operation: str,
+    content: str | None,
+    before_bytes: bytes,
+) -> dict[str, Any]:
+    canonical = root.resolve(strict=True)
+    target: dict[str, Any] = {
+        "repository_root": str(canonical),
+        "resource": resource,
+        "operation": operation,
+        "before_sha256": hashlib.sha256(before_bytes).hexdigest() if before_bytes else "",
+    }
+    if content is not None:
+        target["content"] = content
+        target["after_sha256"] = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    request = build_execution_request(
+        effect_id="repository.guard.manage",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=_repository_session_id(canonical),
+        source_surface=f"cli.debt_guard.{resource}.{operation}",
+        target=target,
+        arguments={},
+        scope="workspace",
+    )
+    result, _authorization = execute_cli_effect(
+        request,
+        confirmation_text=(
+            f"{operation} debt guard {resource} en {canonical}; "
+            f"contenido sha256 {target.get('after_sha256', 'delete')}"
+        ),
+    )
+    if not isinstance(result, dict) or result.get("ok") is not True:
+        raise RuntimeError("Repository guard mutation returned no success receipt")
+    return result
 
 GUARD_VERSION = "1.0.0"
 
@@ -107,8 +158,12 @@ def load_config(root: Path) -> dict[str, Any]:
 
 def save_config(root: Path, config: dict[str, Any]) -> None:
     path = _config_path(root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
+    before = path.read_bytes() if path.is_file() else b""
+    content = json.dumps(config, indent=2, ensure_ascii=False)
+    _execute_repository_mutation(
+        root, resource="config", operation="write", content=content,
+        before_bytes=before,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -117,21 +172,36 @@ def save_config(root: Path, config: dict[str, Any]) -> None:
 
 def _staged_python_files(root: Path) -> list[Path]:
     """Devuelve los .py staged (git diff --cached)."""
-    try:
-        result = subprocess.run(
-            ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
-            capture_output=True, text=True, cwd=str(root), timeout=10,
-        )
-        files = []
-        for line in result.stdout.splitlines():
-            line = line.strip()
-            if line.endswith(".py"):
-                full = root / line
-                if full.exists():
-                    files.append(full)
-        return files
-    except Exception:
-        return []
+    canonical = root.resolve(strict=True)
+    request = build_execution_request(
+        effect_id="repository.inspect",
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=_repository_session_id(canonical),
+        source_surface="cli.debt_guard.staged_files",
+        target={"operation": "staged_files", "repository_root": str(canonical)},
+        arguments={},
+        scope="workspace",
+    )
+    result, _authorization = execute_cli_effect(
+        request, confirmation_text=f"leer los archivos staged para Debt Guard en {canonical}"
+    )
+    if not isinstance(result, dict) or result.get("ok") is not True:
+        raise RuntimeError("Repository inspection returned no success receipt")
+    files = []
+    for line in str(result.get("stdout") or "").split("\0"):
+        if line.endswith(".py"):
+            candidate = canonical / line
+            if candidate.is_symlink():
+                continue
+            try:
+                full = candidate.resolve(strict=True)
+                full.relative_to(canonical)
+            except (OSError, ValueError):
+                continue
+            if full.is_file():
+                files.append(full)
+    return files
 
 
 def _is_excluded(path: Path, root: Path, exclude_paths: list[str]) -> bool:
@@ -237,8 +307,9 @@ def cmd_install(root: Path) -> int:
     guard_path = str(_THIS_DIR / "debt_guard.py").replace("\\", "/")
 
     # Si ya existe un hook, añadir al final sin romperlo
-    if hook.exists():
-        content = hook.read_text(encoding="utf-8")
+    before_bytes = hook.read_bytes() if hook.is_file() else b""
+    if before_bytes:
+        content = before_bytes.decode("utf-8")
         if HOOK_MARKER in content:
             print("[Guard] Hook ya instalado.")
             return 0
@@ -247,16 +318,12 @@ def cmd_install(root: Path) -> int:
             marker=HOOK_MARKER, guard_path=guard_path,
         )
     else:
-        hook.parent.mkdir(parents=True, exist_ok=True)
         new_content = _HOOK_SCRIPT.format(marker=HOOK_MARKER, guard_path=guard_path)
 
-    hook.write_text(new_content, encoding="utf-8")
-    # chmod +x (no-op en Windows pero correcto en Unix)
-    try:
-        hook.chmod(0o755)
-    except Exception:
-        pass
-
+    _execute_repository_mutation(
+        root, resource="hook", operation="write", content=new_content,
+        before_bytes=before_bytes,
+    )
     print(f"[Guard] Hook instalado en {hook}")
     print(f"[Guard] Cada 'git commit' ejecutará debt_guard.py check")
     return 0
@@ -268,7 +335,8 @@ def cmd_uninstall(root: Path) -> int:
         print("[Guard] No hay hook instalado.")
         return 0
 
-    content = hook.read_text(encoding="utf-8")
+    before_bytes = hook.read_bytes()
+    content = before_bytes.decode("utf-8")
     if HOOK_MARKER not in content:
         print("[Guard] El hook existente no fue instalado por BAGO. No se toca.")
         return 0
@@ -289,10 +357,16 @@ def cmd_uninstall(root: Path) -> int:
     new_content = "\n".join(new_lines).rstrip() + "\n"
 
     if new_content.strip() in ("#!/bin/sh", ""):
-        hook.unlink()
+        _execute_repository_mutation(
+            root, resource="hook", operation="delete", content=None,
+            before_bytes=before_bytes,
+        )
         print("[Guard] Hook eliminado completamente.")
     else:
-        hook.write_text(new_content, encoding="utf-8")
+        _execute_repository_mutation(
+            root, resource="hook", operation="write", content=new_content,
+            before_bytes=before_bytes,
+        )
         print("[Guard] Bloque BAGO eliminado del hook existente.")
     return 0
 
@@ -450,7 +524,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.test:
-        return _run_tests()
+        print("Las pruebas viven en backend/tests/test_debt_guard.py; ejecútalas con pytest.", file=sys.stderr)
+        return 2
 
     root   = get_scan_root(args.root or None)
     config = load_config(root)
@@ -472,91 +547,6 @@ def main(argv: list[str] | None = None) -> int:
     else:
         # Invocado sin subcomando = modo hook (check staged)
         return cmd_check(root, all_files=False, config=config)
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  TESTS INTERNOS
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _run_tests() -> int:
-    import tempfile
-
-    passed = 0
-    failed = 0
-
-    def ok(name: str, cond: bool) -> None:
-        nonlocal passed, failed
-        if cond:
-            print(f"  PASS  {name}")
-            passed += 1
-        else:
-            print(f"  FAIL  {name}")
-            failed += 1
-
-    with tempfile.TemporaryDirectory() as td:
-        root = Path(td)
-
-        # Config load/save round-trip
-        cfg = load_config(root)
-        ok("load_config devuelve dict", isinstance(cfg, dict))
-        ok("config tiene rules", "rules" in cfg)
-        save_config(root, cfg)
-        cfg2 = load_config(root)
-        ok("save/load round-trip", cfg2["rules"] == cfg["rules"])
-
-        # D01 config: active y block por defecto
-        ok("D01 activa por defecto",  cfg["rules"]["D01"]["active"] is True)
-        ok("D01 bloquea por defecto", cfg["rules"]["D01"]["action"] == "block")
-
-        # D06 config: active y block
-        ok("D06 activa por defecto",  cfg["rules"]["D06"]["active"] is True)
-        ok("D06 bloquea por defecto", cfg["rules"]["D06"]["action"] == "block")
-
-        # D09 desactivada por defecto (demasiado ruidosa)
-        ok("D09 inactiva por defecto", cfg["rules"]["D09"]["active"] is False)
-
-        # exclude_paths: .bago/tools/ excluido
-        ok("exclude_paths tiene .bago/tools/", ".bago/tools/" in cfg["exclude_paths"])
-
-        # check sobre archivo limpio → sin bloqueados
-        if _SCANNER_AVAILABLE:
-            clean = root / "clean.py"
-            clean.write_text("def hello() -> str:\n    return 'hi'\n", encoding="utf-8")
-            blocked, warned = _check_files([clean], root, cfg)
-            ok("archivo limpio → sin bloqueados", len(blocked) == 0)
-
-            # check sobre archivo con D01 (anonymous parser)
-            dirty = root / "dirty.py"
-            dirty.write_text("sub.add_parser('foo', help='x')\n", encoding="utf-8")
-            blocked2, _ = _check_files([dirty], root, cfg)
-            ok("D01 anonymous parser → bloqueado", any(f.code == "D01" for f in blocked2))
-
-            # check sobre archivo con D06 (silent exception)
-            dirty2 = root / "dirty2.py"
-            dirty2.write_text(
-                "try:\n    x = 1\nexcept Exception:\n    pass\n",
-                encoding="utf-8",
-            )
-            blocked3, _ = _check_files([dirty2], root, cfg)
-            ok("D06 silent exception → bloqueado", any(f.code == "D06" for f in blocked3))
-
-            # excluido por exclude_paths
-            excluded_dir = root / ".bago" / "tools"
-            excluded_dir.mkdir(parents=True, exist_ok=True)
-            excl_file = excluded_dir / "sonda.py"
-            excl_file.write_text("sub.add_parser('foo')\n", encoding="utf-8")
-            blocked4, _ = _check_files([excl_file], root, cfg)
-            ok(".bago/tools/ excluido de checks", len(blocked4) == 0)
-
-        # cmd_status no falla
-        import io
-        from contextlib import redirect_stdout
-        with redirect_stdout(io.StringIO()):
-            rc = cmd_status(root, cfg)
-        ok("cmd_status devuelve 0", rc == 0)
-
-    print(f"\n  {'ALL PASS' if failed == 0 else f'{failed} FAILED'}  ({passed}/{passed+failed})")
-    return 0 if failed == 0 else 1
 
 
 if __name__ == "__main__":

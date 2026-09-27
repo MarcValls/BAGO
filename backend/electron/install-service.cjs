@@ -9,7 +9,9 @@ function createInstallService(ctx) {
     ICON_PATH,
     resolveBagoRuntimeRoot,
     findPackagedRuntimeRoot,
-    getDependencyService
+    prepareSystemInstall,
+    prepareSystemSourceUpdate,
+    prepareSystemUninstall
   } = ctx;
 
   const PREFS_PATH = path.join(app.getPath('userData'), 'bago-manager-prefs.json');
@@ -86,26 +88,21 @@ function createInstallService(ctx) {
     return lines.join('\n');
   }
 
-  async function runGitPull(sourceRoot, branch) {
-    const branchName = String(branch || 'main').trim() || 'main';
-    return new Promise((resolve, reject) => {
-      const child = require('child_process').spawn('git', ['-C', sourceRoot, 'pull', '--ff-only', 'origin', branchName], {
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', d => { stdout += d; });
-      child.stderr.on('data', d => { stderr += d; });
-      child.on('exit', code => {
-        if (code === 0) {
-          resolve({ stdout, stderr, branch: branchName });
-        } else {
-          reject(new Error((stderr || stdout || `git pull terminó con código ${code}`).trim()));
-        }
-      });
-      child.on('error', reject);
+  async function applyInstallThroughGateway({ action, sourceRoot, installDir, mode = 'Express', configuration }) {
+    if (typeof prepareSystemInstall !== 'function') throw new Error('system.install.apply no está conectado al Manager.');
+    const execute = await prepareSystemInstall({
+      action,
+      tag: action,
+      source_root: sourceRoot,
+      helper_path: path.join(sourceRoot, 'install-v4.ps1'),
+      install_dir: installDir,
+      package_sha256: '',
+      mode,
+      options: {},
+      ...(configuration ? { configuration } : {})
     });
+    if (!execute) return null;
+    return execute();
   }
 
   async function ensureBagoInstalled() {
@@ -146,10 +143,10 @@ function createInstallService(ctx) {
       let installResult = null;
       emitInstallState({ phase: 'installing', installDir });
       try {
-        installResult = await getDependencyService().runInstallScript(packagedRoot, installDir);
-        const parsed = parseInstallResult(installResult && installResult.stdout);
-        if (parsed && parsed.installed_to) {
-          installDir = parsed.installed_to;
+        installResult = await applyInstallThroughGateway({ action: 'install', sourceRoot: packagedRoot, installDir });
+        if (!installResult) {
+          emitInstallState({ phase: 'cancelled', installDir });
+          return '';
         }
       } catch (err) {
         emitInstallState({ phase: 'failed', error: String(err && err.message || err), installDir });
@@ -159,7 +156,7 @@ function createInstallService(ctx) {
       emitInstallState({ phase: 'ready', runtime: verified, installDir });
       await dialog.showMessageBox({
         type: 'info', buttons: ['OK'], title: 'Instalación completada',
-        message: 'BAGO se instaló correctamente.', detail: buildInstallDetail(verified, parseInstallResult(installResult && installResult.stdout))
+          message: 'BAGO se instaló correctamente.', detail: buildInstallDetail(verified, null)
       });
       return verified;
     }
@@ -196,22 +193,24 @@ function createInstallService(ctx) {
         }
         case 1: {
           emitInstallState({ phase: 'repairing', installDir: runtimeRoot });
-          const repairResult = await getDependencyService().runInstallScript(packagedRoot, runtimeRoot, ['-RepairOnly'], 'Reparando configuración…');
+          const repairResult = await applyInstallThroughGateway({ action: 'repair', sourceRoot: packagedRoot, installDir: runtimeRoot });
+          if (!repairResult) { emitInstallState({ phase: 'cancelled', runtime: runtimeRoot, installDir: runtimeRoot }); return runtimeRoot; }
           emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: runtimeRoot });
           await dialog.showMessageBox({
             type: 'info', buttons: ['OK'], title: 'Reparación completada',
-            message: 'La configuración de BAGO se reparó correctamente.', detail: buildInstallDetail(runtimeRoot, parseInstallResult(repairResult && repairResult.stdout))
+            message: 'La configuración de BAGO se reparó correctamente.', detail: buildInstallDetail(runtimeRoot, null)
           });
           return runtimeRoot;
         }
         case 2: {
           emitInstallState({ phase: 'reinstalling', installDir: runtimeRoot });
-          const reinstallResult = await getDependencyService().runInstallScript(packagedRoot, runtimeRoot, [], 'Reinstalando BAGO…');
+          const reinstallResult = await applyInstallThroughGateway({ action: 'reinstall', sourceRoot: packagedRoot, installDir: runtimeRoot });
+          if (!reinstallResult) { emitInstallState({ phase: 'cancelled', runtime: runtimeRoot, installDir: runtimeRoot }); return runtimeRoot; }
           const verified = resolveBagoRuntimeRoot();
           emitInstallState({ phase: 'ready', runtime: verified, installDir: runtimeRoot });
           await dialog.showMessageBox({
             type: 'info', buttons: ['OK'], title: 'Reinstalación completada',
-            message: 'BAGO se reinstaló correctamente.', detail: buildInstallDetail(verified, parseInstallResult(reinstallResult && reinstallResult.stdout))
+            message: 'BAGO se reinstaló correctamente.', detail: buildInstallDetail(verified, null)
           });
           return verified;
         }
@@ -232,11 +231,12 @@ function createInstallService(ctx) {
           }
           const newDir = filePaths[0];
           emitInstallState({ phase: 'installing', installDir: newDir });
-          const copyResult = await getDependencyService().runInstallScript(packagedRoot, newDir, [], 'Instalando nueva copia…');
+          const copyResult = await applyInstallThroughGateway({ action: 'new-copy', sourceRoot: packagedRoot, installDir: newDir });
+          if (!copyResult) { emitInstallState({ phase: 'cancelled', runtime: runtimeRoot, installDir: newDir }); return runtimeRoot; }
           emitInstallState({ phase: 'ready', runtime: runtimeRoot, installDir: newDir });
           await dialog.showMessageBox({
             type: 'info', buttons: ['OK'], title: 'Nueva copia completada',
-            message: 'La nueva copia de BAGO se instaló correctamente.', detail: buildInstallDetail(newDir, parseInstallResult(copyResult && copyResult.stdout))
+            message: 'La nueva copia de BAGO se instaló correctamente.', detail: buildInstallDetail(newDir, null)
           });
           return runtimeRoot;
         }
@@ -269,7 +269,8 @@ function createInstallService(ctx) {
       }
       emitInstallState({ phase: 'repairing', installDir });
       try {
-        await getDependencyService().runInstallScript(runtimePack, installDir, ['-RepairOnly'], 'Reparando configuración…');
+        const receipt = await applyInstallThroughGateway({ action: 'repair', sourceRoot: runtimePack, installDir });
+        if (!receipt) return { ok: false, cancelled: true, action, installDir };
       } finally {
         emitInstallState({ phase: 'ready', installDir });
       }
@@ -282,7 +283,8 @@ function createInstallService(ctx) {
       }
       emitInstallState({ phase: 'reinstalling', installDir });
       try {
-        await getDependencyService().runInstallScript(runtimePack, installDir, [], 'Reinstalando BAGO…');
+        const receipt = await applyInstallThroughGateway({ action: 'reinstall', sourceRoot: runtimePack, installDir });
+        if (!receipt) return { ok: false, cancelled: true, action, installDir };
       } finally {
         emitInstallState({ phase: 'ready', installDir });
       }
@@ -293,7 +295,8 @@ function createInstallService(ctx) {
       if (!installDir) throw new Error('Se requiere targetDir para nueva copia.');
       emitInstallState({ phase: 'installing', installDir });
       try {
-        await getDependencyService().runInstallScript(runtimePack, installDir, [], 'Instalando nueva copia…');
+        const receipt = await applyInstallThroughGateway({ action: 'new-copy', sourceRoot: runtimePack, installDir });
+        if (!receipt) return { ok: false, cancelled: true, action, installDir };
       } finally {
         emitInstallState({ phase: 'ready', installDir });
       }
@@ -310,10 +313,13 @@ function createInstallService(ctx) {
         try { installDir = resolveBagoRuntimeRoot(); } catch (e) { throw new Error('No hay instalación detectada para actualizar: ' + e.message); }
       }
       const branchName = String(branch || 'main').trim() || 'main';
-      await runGitPull(cleanSource, branchName);
+      if (typeof prepareSystemSourceUpdate !== 'function') throw new Error('system.source.update no está conectado al Manager.');
+      const sourceReceipt = await prepareSystemSourceUpdate({ source_root: cleanSource, branch: branchName });
+      if (!sourceReceipt) return { ok: false, cancelled: true, action, installDir, sourceRoot: cleanSource, branch: branchName };
       emitInstallState({ phase: 'reinstalling', installDir });
       try {
-        await getDependencyService().runInstallScript(cleanSource, installDir, [], `Actualizando desde fuente/branch (${branchName})…`);
+        const receipt = await applyInstallThroughGateway({ action: 'source-update', sourceRoot: cleanSource, installDir });
+        if (!receipt) return { ok: false, cancelled: true, action, installDir, sourceRoot: cleanSource, branch: branchName };
       } finally {
         emitInstallState({ phase: 'ready', installDir });
       }
@@ -323,9 +329,12 @@ function createInstallService(ctx) {
       if (!installDir) {
         try { installDir = resolveBagoRuntimeRoot(); } catch (e) { throw new Error('No hay instalación detectada para desinstalar: ' + e.message); }
       }
+      installDir = path.resolve(installDir);
       emitInstallState({ phase: 'uninstalling', installDir });
       try {
-        await getDependencyService().runUninstallScript(installDir, purgeState ? ['-PurgeState'] : [], 'Desinstalando BAGO…');
+        if (typeof prepareSystemUninstall !== 'function') throw new Error('system.install.uninstall no está conectado al Manager.');
+        const receipt = await prepareSystemUninstall({ install_dir: installDir, purge_state: !!purgeState });
+        if (!receipt) return { ok: false, cancelled: true, action, installDir };
       } finally {
         emitInstallState({ phase: 'ready', installDir: '' });
       }
@@ -338,7 +347,6 @@ function createInstallService(ctx) {
     emitInstallState,
     getInstallState,
     defaultInstallDir,
-    runGitPull,
     ensureBagoInstalled,
     performInstallAction
   };

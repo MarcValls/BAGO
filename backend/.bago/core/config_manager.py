@@ -107,7 +107,6 @@ class ConfigManager:
         # user's global config through state_read_candidates().
         self._explicit_state_root = bool(str(state_root or "").strip())
         self.config_dir = resolve_state_root(state_root)
-        self.config_dir.mkdir(parents=True, exist_ok=True)
         self.config_path = self.config_dir / "config.json"
         self.config_source_path = self.config_path
         self._data: dict[str, Any] = {}

@@ -3,7 +3,7 @@
 This document captures the structural architecture of BAGO v4.
 Operational state, live surfaces, and UI authority live in `docs/system-overview.md`, `docs/live-surfaces.md`, and `docs/ui-canonical-contract.md`.
 
-BAGO v4.10.0 is a session-first control plane.
+BAGO v4.11.1 is a session-first control plane.
 Product boundary lives in `docs/MVP.md`.
 
 ## Authority Model

@@ -23,6 +23,7 @@
     },
     "files": [
       "main.cjs",
+      "diagnostic-log-client.cjs",
       "preload.cjs",
       "bago.ico",
       "package.json"

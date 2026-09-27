@@ -1,14 +1,18 @@
+const crypto = require('crypto');
+const { createSystemInstallClient } = require('./system-install-client.cjs');
+const { createManagerSettingsClient } = require('./manager-settings-client.cjs');
+const { createProjectWriteClient } = require('./project-write-client.cjs');
+const { createProcessExecutionClient } = require('./process-execution-client.cjs');
+
 function createRuntimeService(ctx) {
   const {
     app,
     dialog,
     shell,
-    execFile,
     spawn,
     fs,
     net,
     path,
-    os,
     BrowserWindow,
     ROOT_DIR,
     ICON_PATH,
@@ -16,15 +20,130 @@ function createRuntimeService(ctx) {
     CHAT_START_PORT,
     resolveBagoRuntimeRoot,
     resolveUiDist,
-    resolveBundledRuntimeRoot,
     resolveInstalledRuntimeRoot,
     resolveDevelopmentRuntimeRoot,
-    resolvePythonCommand,
-    runVisiblePowerShell
+    resolvePythonCommand
   } = ctx;
 
   const MUTATING_NODE_COMMANDS = new Set(['connect', 'disconnect', 'set-mode']);
   const MANAGER_HTML = path.join(ROOT_DIR, 'manager', 'index.html');
+  const systemInstallClient = createSystemInstallClient({
+    apiBase: async () => {
+      const state = await ensureWebChatServer();
+      return `http://${state.host}:${state.port}`;
+    },
+    confirm: async operation => {
+      if (!dialog || typeof dialog.showMessageBox !== 'function') throw new Error('No hay confirmación desktop disponible.');
+      const rollback = operation.type === 'rollback';
+      const sourceUpdate = operation.type === 'source-update';
+      const uninstall = operation.type === 'uninstall';
+      const credential = operation.type === 'credential';
+      const installAction = String(operation.action || 'release-job');
+      const installLabels = {
+        install: 'instalar BAGO',
+        repair: 'reparar configuración de BAGO',
+        reinstall: 'reinstalar BAGO',
+        'new-copy': 'crear una copia de BAGO',
+        'source-update': 'actualizar BAGO desde la fuente seleccionada',
+        'release-job': 'instalar una release verificada'
+      };
+      const installLabel = installLabels[installAction] || 'aplicar instalación BAGO';
+      const result = await dialog.showMessageBox({
+        type: 'warning',
+        buttons: [rollback ? 'Restaurar runtime' : (sourceUpdate ? 'Actualizar fuente' : (uninstall ? 'Desinstalar BAGO' : (credential ? 'Guardar credencial' : 'Continuar'))), 'Cancelar'],
+        defaultId: 1,
+        cancelId: 1,
+        title: rollback ? 'Autorizar rollback de BAGO' : (sourceUpdate ? 'Autorizar actualización de fuente' : (uninstall ? 'Autorizar desinstalación de BAGO' : (credential ? 'Autorizar credencial del proveedor' : 'Autorizar instalación de BAGO'))),
+        message: credential
+          ? `¿Guardar la credencial API del proveedor ${operation.provider}?`
+          : rollback
+          ? `${operation.automatic ? 'La instalación no superó la validación. ' : ''}Restaurar el runtime de ${operation.installDir}?`
+          : sourceUpdate
+            ? `¿Actualizar ${operation.sourceRoot} desde ${operation.originUrl}, rama ${operation.branch}?`
+          : uninstall
+            ? `¿Desinstalar BAGO de ${operation.installDir}?`
+          : `¿Autorizar ${installLabel}${operation.tag && installAction === 'release-job' ? ` ${operation.tag}` : ''} en ${operation.installDir}?`,
+        detail: credential
+          ? `La credencial se guardará en el almacén protegido del backend. Configuración ligada: ${operation.configurationDigest}`
+          : rollback
+          ? [`Backup: ${operation.backupPath || '(instalación nueva)'}`, `Datos desplazados: ${operation.displacedPath}`].join('\n')
+          : sourceUpdate
+            ? [`HEAD aprobado: ${operation.expectedHead}`, `SHA-256 del origen: ${operation.originSha256}`, 'Después de actualizar la fuente se pedirá una autorización independiente para instalarla.'].join('\n')
+          : uninstall
+            ? [`Backup ZIP en: ${operation.backupRoot}`, operation.purgeState ? `También se borrará el estado: ${operation.userStateDir}` : `Se conservará el estado: ${operation.userStateDir}`, `Árbol aprobado SHA-256: ${operation.treeSha256}`, `CLI de desinstalación SHA-256: ${operation.cliSha256}`, 'La desinstalación requiere una autorización fuerte y puede solicitar UAC.'].join('\n')
+          : [
+              `Árbol de fuente SHA-256: ${operation.sourceTreeSha256}`,
+              `Helper SHA-256: ${operation.helperSha256}`,
+              operation.packageSha256 ? `Bundle SHA-256: ${operation.packageSha256}` : '',
+              `Configuración aprobada SHA-256: ${operation.configurationDigest}`,
+              `Modo: ${operation.mode}`,
+              installAction === 'install' || installAction === 'new-copy'
+                ? 'La instalación empieza con providers desactivados y sin credenciales.'
+                : 'La acción está ligada a la configuración actualmente instalada.'
+            ].filter(Boolean).join('\n')
+      });
+      return result.response === 0;
+    }
+  });
+  const managerSettingsClient = createManagerSettingsClient({
+    apiBase: async () => {
+      const state = await ensureWebChatServer();
+      return `http://${state.host}:${state.port}`;
+    },
+    confirm: async target => {
+      if (!dialog || typeof dialog.showMessageBox !== 'function') throw new Error('No hay confirmación desktop disponible.');
+      const isSelection = target.resource === 'install_selection';
+      const result = await dialog.showMessageBox({
+        type: 'warning', buttons: ['Guardar', 'Cancelar'], defaultId: 1, cancelId: 1,
+        title: 'Autorizar configuración del Manager',
+        message: isSelection ? `¿Asignar ${target.install_dir} al rol ${target.role}?` : '¿Guardar el registro de cadenas del Manager?',
+        detail: isSelection
+          ? `Launcher SHA-256: ${target.launcher_sha256}\nDestino de configuración: ${target.path}`
+          : `${target.chain_count} cadenas (${(target.chain_ids || []).join(', ')}) · SHA-256: ${target.chains_sha256}\nDestino de configuración: ${target.path}`
+      });
+      return result.response === 0;
+    }
+  });
+  const processExecutionClient = createProcessExecutionClient({
+    apiBase: async () => {
+      const state = await ensureWebChatServer({ skipSessionSync: true });
+      return `http://${state.host}:${state.port}`;
+    },
+    confirm: async operation => {
+      if (!dialog || typeof dialog.showMessageBox !== 'function') throw new Error('No hay confirmación desktop disponible.');
+      const result = await dialog.showMessageBox({
+        type: 'warning', buttons: ['Ejecutar', 'Cancelar'], defaultId: 1, cancelId: 1,
+        title: 'Autorizar ejecución BAGO',
+        message: `¿Ejecutar la operación ${operation.operation}?`,
+        detail: [
+          `Programa/efecto: ${operation.python_module || operation.python_script || operation.operation}`,
+          `Sesión activa: ${operation.sessionId}`,
+          `Directorio: ${operation.cwd}`,
+          operation.cleanup_roots ? `Raíces BAGO autorizadas: ${operation.cleanup_roots.join(', ')}` : '',
+          operation.process_id ? `Proceso webchat PID: ${operation.process_id} · puerto: ${operation.port} · runtime: ${operation.python_root}` : '',
+          `Argumentos exactos: ${operation.argv.map(value => JSON.stringify(value)).join(' ') || '(ninguno)'}`,
+          `Timeout: ${operation.timeout_seconds}s`
+        ].join('\\n')
+      });
+      return result.response === 0;
+    }
+  });
+  const projectWriteClient = createProjectWriteClient({
+    apiBase: async () => {
+      const state = await ensureWebChatServer();
+      return `http://${state.host}:${state.port}`;
+    },
+    confirm: async target => {
+      if (!dialog || typeof dialog.showMessageBox !== 'function') throw new Error('No hay confirmación desktop disponible.');
+      const result = await dialog.showMessageBox({
+        type: 'warning', buttons: ['Vincular', 'Cancelar'], defaultId: 1, cancelId: 1,
+        title: 'Autorizar vínculo del proyecto',
+        message: `¿Vincular el proyecto ${target.requested_root}?`,
+        detail: `Destino aprobado: ${target.path}\nRaíz confiable: ${target.allowed_root}\nSHA-256 de identidad: ${target.root_digest}`
+      });
+      return result.response === 0;
+    }
+  });
 
   let activeNodeMutation = null;
   let webChatProcess = null;
@@ -131,13 +250,14 @@ function createRuntimeService(ctx) {
     const bridges = Array.isArray(options.bridges)
       ? options.bridges.map(value => String(value || '').trim()).filter(Boolean)
       : [];
-    if (sessionId && provider) {
+    if (!options.skipSessionSync && sessionId && provider) {
       const sessionArgs = ['apply', '--session-id', sessionId, '--provider', provider];
       if (model) sessionArgs.push('--model', model);
       if (bridges.length) sessionArgs.push('--bridges', bridges.join(','));
       sessionArgs.push('--force');
       try {
-        await runBagoSession(sessionArgs);
+        const synced = await runBagoSession(sessionArgs);
+        if (synced.canceled) throw new Error('Apertura cancelada por el usuario.');
       } catch (error) {
         throw new Error(`No se pudo sincronizar la sesión activa antes de abrir el chat: ${error.message}`);
       }
@@ -233,6 +353,121 @@ function createRuntimeService(ctx) {
     throw new Error('No se pudo arrancar BAGO web chat en un puerto local libre');
   }
 
+  async function verifyReleaseSignature(signaturePath, bundlePath) {
+    if (!webChatState) throw new Error('BAGO API local no está activa');
+    const response = await fetch(`http://${webChatState.host}:${webChatState.port}/release/jobs/verify-signature`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signature_path: signaturePath, bundle_path: bundlePath })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) throw new Error(result.error || `Verificación de firma rechazada (HTTP ${response.status})`);
+    return result;
+  }
+
+  async function stageReleaseBundle(jobId, bundlePath) {
+    if (!webChatState) throw new Error('BAGO API local no está activa');
+    const response = await fetch(`http://${webChatState.host}:${webChatState.port}/release/jobs/stage-bundle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: jobId, bundle_path: bundlePath })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) throw new Error(result.error || `Preparación del bundle rechazada (HTTP ${response.status})`);
+    return result;
+  }
+
+  async function downloadReleaseAsset(operation, signal) {
+    if (!webChatState) await ensureWebChatServer();
+    if (!webChatState) throw new Error('BAGO API local no está activa');
+    const response = await fetch(`http://${webChatState.host}:${webChatState.port}/release/jobs/download-asset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+      body: JSON.stringify(operation)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) {
+      const error = new Error(result.error || `Descarga del asset rechazada (HTTP ${response.status})`);
+      error.code = result.code || '';
+      throw error;
+    }
+    return result;
+  }
+
+  async function persistReleaseJob(job) {
+    if (!webChatState) throw new Error('BAGO API local no está activa');
+    const response = await fetch(`http://${webChatState.host}:${webChatState.port}/release/jobs/persist`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: job.id, state: job })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) throw new Error(result.error || `Persistencia del job rechazada (HTTP ${response.status})`);
+    return result;
+  }
+
+  async function appendReleaseJobLog(jobId, record) {
+    if (!webChatState) throw new Error('BAGO API local no está activa');
+    const response = await fetch(`http://${webChatState.host}:${webChatState.port}/release/jobs/append-log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: jobId, record })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) throw new Error(result.error || `Append del log rechazado (HTTP ${response.status})`);
+    return result;
+  }
+
+  async function archiveReleaseJob(jobId, archivedAt) {
+    if (!webChatState) throw new Error('BAGO API local no está activa');
+    const interactionId = `release-job-archive:${jobId}:${crypto.randomUUID()}`;
+    const base = { job_id: jobId, archived_at: archivedAt, interaction_id: interactionId };
+    const requestArchive = async extra => {
+      const response = await fetch(`http://${webChatState.host}:${webChatState.port}/release/jobs/archive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Bago-Channel': 'desktop' },
+        body: JSON.stringify({ ...base, ...extra })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.error || `Archivado rechazado (HTTP ${response.status})`);
+      return result;
+    };
+    const challengeResult = await requestArchive({ authorization_action: 'challenge' });
+    const challenge = challengeResult.authorization && challengeResult.authorization.challenge;
+    if (!challenge || !challenge.challenge_id) throw new Error('El gateway no devolvió el challenge de archivado.');
+    const approval = await requestArchive({
+      authorization_action: 'approve', challenge_id: challenge.challenge_id, user_decision: 'approve'
+    });
+    const permit = approval.authorization && approval.authorization.permit;
+    if (!permit || !permit.token) throw new Error('AuthorizationBoundary no devolvió un Permit de archivado.');
+    return await requestArchive({ authorization_action: 'execute', authorization_permit: permit.token });
+  }
+
+  function prepareSystemInstall(operation) {
+    return systemInstallClient.prepare(operation);
+  }
+
+  function prepareSystemSourceUpdate(operation) {
+    return systemInstallClient.prepareSourceUpdate(operation);
+  }
+
+  function prepareSystemUninstall(operation) {
+    return systemInstallClient.prepareUninstall(operation);
+  }
+
+  function prepareProviderCredential(operation) {
+    return systemInstallClient.prepareProviderCredential(operation);
+  }
+
+  function writeManagerSetting(operation) {
+    return managerSettingsClient.write(operation);
+  }
+
+  function rollbackSystemInstall(operation) {
+    return systemInstallClient.rollback(operation);
+  }
+
   async function openWebChat(options = {}) {
     const state = await ensureWebChatServer(options || {});
     if (webChatWindow && !webChatWindow.isDestroyed()) {
@@ -266,24 +501,31 @@ function createRuntimeService(ctx) {
     return { ...state, focused: false };
   }
 
-  function stopWebChatProcess() {
+  async function stopWebChatProcess() {
+    const child = webChatProcess;
+    if (child && child.exitCode === null && !child.killed) {
+      const result = await processExecutionClient.execute('stop_webchat', []);
+      if (result.canceled) return result;
+      if (result.termination_scheduled !== true || result.effect_id !== 'process.terminate') {
+        throw new Error('ExecutionGateway no confirmó el cierre autorizado del backend.');
+      }
+      if (child.exitCode === null && !child.killed) {
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('El backend no terminó después del efecto process.terminate.')), 5000);
+          child.once('exit', () => { clearTimeout(timer); resolve(); });
+          if (child.exitCode !== null || child.killed) { clearTimeout(timer); resolve(); }
+        });
+      }
+    }
     if (webChatWindow && !webChatWindow.isDestroyed()) {
       try { webChatWindow.removeAllListeners('closed'); } catch {}
       try { webChatWindow.close(); } catch {}
       try { webChatWindow.destroy(); } catch {}
       webChatWindow = null;
     }
-    if (webChatProcess && webChatProcess.exitCode === null && !webChatProcess.killed) {
-      try {
-        if (process.platform === 'win32' && webChatProcess.pid) {
-          spawn('taskkill.exe', ['/PID', String(webChatProcess.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }).unref();
-        } else {
-          webChatProcess.kill('SIGTERM');
-        }
-      } catch {}
-    }
     webChatProcess = null;
     webChatState = null;
+    return { ok: true };
   }
 
   async function chooseWorkspaceRoot(options = {}) {
@@ -302,42 +544,15 @@ function createRuntimeService(ctx) {
     return { ok: true, canceled: false, path: root, filePath: root, filePaths: [root] };
   }
 
-  function linkProjectRoot(root) {
-    return new Promise((resolve, reject) => {
-      const cleanRoot = String(root || '').trim();
-      if (!cleanRoot) {
-        reject(new Error('Ruta de workspace vacía'));
-        return;
-      }
-      const scriptCandidates = [
-        path.join(ROOT_DIR, '.bago', 'tools', 'project_memory.py'),
-        path.join(ROOT_DIR, '.gabo', 'tools', 'project_memory.py')
-      ];
-      const script = scriptCandidates.find(candidate => fs.existsSync(candidate));
-      if (!script) {
-        reject(new Error(`project_memory.py no encontrado en ${ROOT_DIR}`));
-        return;
-      }
-      execFile(
-        'python',
-        [script, '--root', cleanRoot, 'link'],
-        { cwd: ROOT_DIR, windowsHide: true, timeout: 15000, maxBuffer: 4 * 1024 * 1024 },
-        (error, stdout, stderr) => {
-          if (error) {
-            reject(new Error(`${error.message}${stderr ? ` · ${stderr.trim()}` : ''}`));
-            return;
-          }
-          resolve({
-            ok: true,
-            canceled: false,
-            path: cleanRoot,
-            root: cleanRoot,
-            message: `workspace vinculado: ${cleanRoot}`,
-            stdout: String(stdout || '').trim()
-          });
-        }
-      );
-    });
+  async function linkProjectRoot(root) {
+    const result = await projectWriteClient.link(root);
+    if (!result) return { ok: false, canceled: true, message: 'Vinculación cancelada' };
+    return {
+      ...result,
+      canceled: false,
+      path: String(result.data?.root || root || ''),
+      root: String(result.data?.root || root || '')
+    };
   }
 
   function openCliChat(options = {}) {
@@ -347,11 +562,12 @@ function createRuntimeService(ctx) {
     const provider = String(options.provider || '').trim();
     const model = String(options.model || '').trim();
     const sessionId = String(options.sessionId || '').trim();
-    if (sessionId && provider) {
+    if (!options.skipSessionSync && sessionId && provider) {
       const sessionArgs = ['apply', '--session-id', sessionId, '--provider', provider];
       if (model) sessionArgs.push('--model', model);
       sessionArgs.push('--force');
-      return runBagoSession(sessionArgs).then(() => {
+      return runBagoSession(sessionArgs).then(sync => {
+        if (sync.canceled) return { ok: false, canceled: true };
         const providerArgs = provider ? ` --provider ${psSingleArg(provider)}` : '';
         const modelArgs = model ? ` --model ${psSingleArg(model)}` : '';
         const python = pythonRuntime();
@@ -392,251 +608,60 @@ function createRuntimeService(ctx) {
     return nodeIndex >= 0 ? safe[nodeIndex + 1] || '' : '';
   }
 
-  function runBagoNode(args) {
-    return new Promise((resolve, reject) => {
-      const safe = (Array.isArray(args) ? args : []).map(a => String(a || ''));
-      let runtimeRoot;
-      try {
-        runtimeRoot = resolveBagoRuntimeRoot();
-      } catch (error) {
-        reject(error);
-        return;
-      }
-      const basePath = resolveDefaultBasePath(runtimeRoot);
-      const action = nodeAction(safe);
-      const mutating = MUTATING_NODE_COMMANDS.has(action);
-      if (mutating && activeNodeMutation) {
-        reject(new Error(`Mutacion bloqueada: ${activeNodeMutation.action} sigue activa`));
-        return;
-      }
-      if (mutating) {
-        activeNodeMutation = {
-          action,
-          started_at: new Date().toISOString(),
-          args: safe.slice()
-        };
-      }
-      const formatCmdArg = (arg) => {
-        const s = String(arg || '');
-        if (!/[\s'"&|<>^]/.test(s)) return s;
-        return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
-      };
-      const invocation = pythonArgs(['-m', 'bago_core.launcher', ...safe]);
-      const cmd = `${formatCmdArg(invocation.runtime.display)} ${invocation.args.map(formatCmdArg).join(' ')}`;
-      execFile(
-        invocation.runtime.command,
-        invocation.args,
-        { cwd: runtimeRoot, env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }, windowsHide: true, maxBuffer: 16 * 1024 * 1024 },
-        (error, stdout, stderr) => {
-          if (mutating) activeNodeMutation = null;
-          if (error) {
-            reject(new Error(`${error.message}${stderr ? ` · ${stderr.trim()}` : ''} · cwd=${runtimeRoot} · cmd=${cmd}`));
-            return;
-          }
-          resolve({ stdout, stderr, cmd, cwd: runtimeRoot });
-        }
-      );
-    });
+  async function runBagoNode(args) {
+    const safe = (Array.isArray(args) ? args : []).map(value => String(value ?? ''));
+    const action = nodeAction(safe);
+    const mutating = MUTATING_NODE_COMMANDS.has(action);
+    if (mutating && activeNodeMutation) throw new Error(`Mutacion bloqueada: ${activeNodeMutation.action} sigue activa`);
+    if (mutating) activeNodeMutation = { action, started_at: new Date().toISOString(), args: safe.slice() };
+    try {
+      const result = await processExecutionClient.execute('launcher', safe);
+      if (result.canceled) return result;
+      if (result.exit_code !== 0) throw new Error(`${result.stderr || `BAGO terminó con código ${result.exit_code}`} · cwd=${result.cwd}`);
+      return { stdout: result.stdout, stderr: result.stderr, cmd: `${result.python_module} ${safe.join(' ')}`, cwd: result.cwd };
+    } finally {
+      if (mutating) activeNodeMutation = null;
+    }
   }
 
   function runBagoSession(args) {
-    return new Promise((resolve, reject) => {
-      const safe = (Array.isArray(args) ? args : []).map(value => String(value || ''));
-      let runtimeRoot;
-      try {
-        runtimeRoot = resolveBagoRuntimeRoot();
-      } catch (error) {
-        reject(error);
-        return;
-      }
-      const basePath = resolveDefaultBasePath(runtimeRoot);
-      const invocation = pythonArgs(['-m', 'bago_core.session_control', '--base-path', basePath, ...safe]);
-      execFile(
-        invocation.runtime.command,
-        invocation.args,
-        { cwd: runtimeRoot, env: { ...process.env, PYTHONUTF8: '1', PYTHONIOENCODING: 'utf-8' }, windowsHide: true, timeout: 180000, maxBuffer: 16 * 1024 * 1024 },
-        (error, stdout, stderr) => {
-          let parsed;
-          try {
-            parsed = JSON.parse(String(stdout || '').trim());
-          } catch (parseError) {
-            reject(new Error(`SessionManager devolvio JSON invalido: ${parseError.message} · ${stderr || stdout}`));
-            return;
-          }
-          if (error || !parsed.ok) {
-            reject(new Error(String(parsed.error || stderr || error && error.message || 'SessionManager fallo')));
-            return;
-          }
-          resolve(parsed);
-        }
-      );
+    const safe = (Array.isArray(args) ? args : []).map(value => String(value ?? ''));
+    return processExecutionClient.execute('session_control', safe).then(result => {
+      if (result.canceled) return result;
+      let parsed;
+      try { parsed = JSON.parse(String(result.stdout || '').trim()); }
+      catch (error) { throw new Error(`SessionManager devolvió JSON inválido: ${error.message} · ${result.stderr || result.stdout}`); }
+      if (result.exit_code !== 0 || !parsed.ok) throw new Error(String(parsed.error || result.stderr || `SessionManager terminó con código ${result.exit_code}`));
+      return parsed;
     });
   }
 
   function runSupervisorCmd(args) {
-    return new Promise((resolve, reject) => {
-      let runtimeRoot;
+    return processExecutionClient.execute('supervisor', Array.isArray(args) ? args : []).then(result => {
+      if (result.canceled) return result;
+      if (result.exit_code !== 0) throw new Error(`${result.stderr || `Supervisor terminó con código ${result.exit_code}`} · cwd=${result.cwd}`);
+      const stdout = String(result.stdout || '');
       try {
-        runtimeRoot = resolveBagoRuntimeRoot();
-      } catch (error) {
-        reject(error);
-        return;
+        return { ok: true, data: JSON.parse(stdout.trim()), raw: stdout };
+      } catch {
+        return { ok: true, text: stdout.trim(), raw: stdout };
       }
-      const script = path.join(runtimeRoot, 'scripts', 'bago_supervisor.py');
-      if (!fs.existsSync(script)) {
-        reject(new Error('bago_supervisor.py no encontrado en ' + runtimeRoot));
-        return;
-      }
-      execFile(
-        'python',
-        [script, ...args],
-        { cwd: runtimeRoot, windowsHide: true, timeout: 15000, maxBuffer: 4 * 1024 * 1024 },
-        (error, stdout, stderr) => {
-          if (error) {
-            reject(new Error(`${error.message}${stderr ? ` · ${stderr.trim()}` : ''}`));
-            return;
-          }
-          try {
-            const parsed = JSON.parse(stdout.trim());
-            resolve({ ok: true, data: parsed, raw: stdout });
-          } catch {
-            resolve({ ok: true, text: stdout.trim(), raw: stdout });
-          }
-        }
-      );
     });
   }
 
   async function cleanupZombies() {
-    const managedPaths = [];
-    try { managedPaths.push(resolveBundledRuntimeRoot()); } catch {}
-    try { managedPaths.push(resolveInstalledRuntimeRoot()); } catch {}
-    try { managedPaths.push(path.join(os.homedir(), '.bago')); } catch {}
-    const allowList = managedPaths.filter(Boolean).map(p => p.replace(/\\/g, '\\\\').replace(/'/g, "''"));
-    const scriptMarkers = ['launcher.py', 'bago_webchat.py', 'bago_supervisor.py', 'bridge.py'];
-    const allowListJson = JSON.stringify(allowList);
-    const markersJson = JSON.stringify(scriptMarkers);
-    const command = `
-      $ports = @(11434, 8080, 8081, 8082, 8083);
-      $allowPaths = ${allowListJson} | Where-Object { $_ -and (Test-Path -LiteralPath $_) };
-      $scriptMarkers = ${markersJson};
-      $killed = 0;
-      $matched = @();
-      function Test-IsBagoProcess {
-        param([string]$cmd, [string]$name)
-        if (-not $cmd) { return $false }
-        foreach ($p in $allowPaths) { if ($cmd -like ('*' + $p + '*')) { return $true } }
-        foreach ($m in $scriptMarkers) { if ($cmd -like ('*' + $m)) { return $true } }
-        if ($cmd -match 'bago_core[\\\\\\.\\s]') { return $true }
-        if ($cmd -match 'bago[_-]?(webchat|supervisor|bridge|launcher|node_control)') { return $true }
-        return $false
-      }
-      foreach ($p in $ports) {
-        $conns = Get-NetTCPConnection -LocalPort $p -ErrorAction SilentlyContinue | Where-Object { $_.State -eq 'TimeWait' -or $_.State -eq 'CloseWait' -or $_.State -eq 'FinWait2' };
-        foreach ($c in $conns) {
-          try {
-            $proc = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $c.OwningProcess) -ErrorAction SilentlyContinue;
-            if ($proc -and (Test-IsBagoProcess -cmd $proc.CommandLine -name $proc.Name)) {
-              Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue;
-              $killed++;
-              $matched += [ordered]@{ pid = $c.OwningProcess; reason = 'stale-port'; cmd = $proc.CommandLine }
-            }
-          } catch {}
-        }
-      }
-      Get-CimInstance Win32_Process -Filter "Name='python.exe'" -ErrorAction SilentlyContinue | ForEach-Object {
-        try {
-          if (Test-IsBagoProcess -cmd $_.CommandLine -name $_.Name) {
-            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue;
-            $killed++;
-            $matched += [ordered]@{ pid = $_.ProcessId; reason = 'bago-process'; cmd = $_.CommandLine }
-          }
-        } catch {}
-      }
-      $payload = [ordered]@{ ok = $true; cleaned = $killed; matched = $matched; allowlist = $allowPaths }
-      Write-Output ($payload | ConvertTo-Json -Depth 4 -Compress)
-    `;
-    return new Promise((resolve, reject) => {
-      execFile(
-        'powershell.exe',
-        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command],
-        { windowsHide: true, timeout: 20000 },
-        (error, stdout) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-          try {
-            resolve(JSON.parse(stdout.trim()));
-          } catch {
-            resolve({ ok: true, text: stdout.trim() });
-          }
-        }
-      );
-    });
-  }
-
-  async function cleanupManagedRuntime() {
-    const cleanRoot = String(ROOT_DIR || '').replace(/\\/g, '\\\\').replace(/'/g, "''");
-    const command = `
-      $root = '${cleanRoot}';
-      $patterns = @(
-        ('-m bago_core.launcher'),
-        ('--base-path ' + $root),
-        ('bago_core\\\\launcher.py'),
-        ('bago_core/session_control'),
-        ('bago_webchat'),
-        ('--ui-dist ' + $root)
-      );
-      $pids = @();
-      Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-        $_.Name -in @('python.exe', 'pythonw.exe', 'node.exe') -and $_.CommandLine
-      } | ForEach-Object {
-        $cmd = $_.CommandLine;
-        $match = $false;
-        foreach ($pattern in $patterns) {
-          if ($cmd -like ('*' + $pattern + '*')) { $match = $true; break; }
-        }
-        if ($match) {
-          $pids += $_.ProcessId;
-        }
-      }
-      $pids = $pids | Select-Object -Unique;
-      foreach ($pid in $pids) {
-        try {
-          Start-Process -FilePath taskkill.exe -ArgumentList @('/PID', [string]$pid, '/T', '/F') -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue | Out-Null
-        } catch {}
-      }
-      [ordered]@{ ok = $true; cleaned = $pids.Count; pids = $pids } | ConvertTo-Json -Depth 4 -Compress
-    `;
-    return new Promise((resolve, reject) => {
-      execFile(
-        'powershell.exe',
-        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command],
-        { windowsHide: true, timeout: 20000 },
-        (error, stdout) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-          try {
-            resolve(JSON.parse(stdout.trim()));
-          } catch {
-            resolve({ ok: true, text: stdout.trim() });
-          }
-        }
-      );
-    });
+    return processExecutionClient.execute('cleanup_zombies', []);
   }
 
   async function shutdown() {
-    stopWebChatProcess();
-    try {
-      await cleanupManagedRuntime();
-    } catch {}
-    try {
-      await cleanupZombies();
-    } catch {}
+    return await stopWebChatProcess();
+  }
+
+  function runAuthorizedProcess(operation, argv) {
+    if (!['github_cli', 'git_identity'].includes(String(operation || ''))) {
+      throw new Error('Operación de proceso externo no permitida');
+    }
+    return processExecutionClient.execute(operation, Array.isArray(argv) ? argv : []);
   }
 
   function getManagerUrl() {
@@ -659,11 +684,24 @@ function createRuntimeService(ctx) {
   return {
     webChatStatus,
     ensureWebChatServer,
+    verifyReleaseSignature,
+    stageReleaseBundle,
+    downloadReleaseAsset,
+      persistReleaseJob,
+      appendReleaseJobLog,
+    archiveReleaseJob,
+    prepareSystemInstall,
+    prepareSystemSourceUpdate,
+    prepareSystemUninstall,
+    prepareProviderCredential,
+    writeManagerSetting,
+    rollbackSystemInstall,
     openWebChat,
     openCliChat,
     chooseWorkspaceRoot,
     linkProjectRoot,
     runBagoNode,
+    runAuthorizedProcess,
     runBagoSession,
     runSupervisorCmd,
     cleanupZombies,

@@ -36,6 +36,9 @@ def test_installer_is_safe_for_clean_and_repeat_installs() -> None:
     assert "auto_allow_tools = $false" in installer
     assert '$ok[$name] = [ordered]@{ ok = $false; detail = $_.Exception.Message }' in installer
     assert '"warn"' in installer
+    assert 'if (-not $RepairOnly -or -not (Test-Path -LiteralPath $installConfigPath -PathType Leaf))' in installer
+    assert 'if (-not $RepairOnly -or -not (Test-Path -LiteralPath $runtimeConfigPath -PathType Leaf))' in installer
+    assert 'if ($credentialStoreCfg.mode -ne "session" -and $secretStorePayload.Count -gt 0)' in installer
 
     launcher = (BACKEND_ROOT / "bago.ps1").read_text(encoding="utf-8")
     assert "Resolve-BagoPythonExecutable" in launcher

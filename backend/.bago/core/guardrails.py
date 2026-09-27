@@ -123,11 +123,17 @@ class ToolLogEntry:
 class ToolLogger:
     """Structured JSONL logger for tool executions."""
 
-    def __init__(self, log_path: str | os.PathLike[str] | None = None) -> None:
+    def __init__(
+        self,
+        log_path: str | os.PathLike[str] | None = None,
+        *,
+        trusted_root: str | os.PathLike[str] | None = None,
+    ) -> None:
         self.log_path = Path(log_path) if log_path else None
+        self.trusted_root = Path(trusted_root) if trusted_root else (
+            self.log_path.parent if self.log_path else None
+        )
         self.entries: list[ToolLogEntry] = []
-        if self.log_path:
-            self.log_path.parent.mkdir(parents=True, exist_ok=True)
 
     def log(
         self,
@@ -176,8 +182,15 @@ class ToolLogger:
             },
             ensure_ascii=False,
         )
-        with open(self.log_path, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
+        from bago_core.server_effects import append_text_durable
+
+        append_text_durable(
+            self.log_path,
+            line + "\n",
+            trusted_root=self.trusted_root,
+            source_surface="session.tool_log",
+            session_id=entry.session_id,
+        )
 
     def tool_names_executed(self) -> list[str]:
         """Return list of tool names that were successfully executed (not blocked)."""

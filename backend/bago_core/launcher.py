@@ -46,7 +46,7 @@ except ModuleNotFoundError:
     from bago_core.version import CURRENT as _BAGO_VERSION  # noqa: E402
 from bago_core.commands.cmd_chat import _load_install_config, cmd_chat, cmd_context, cmd_exec, cmd_llm  # noqa: E402
 from bago_core.commands.cmd_content import cmd_claim, cmd_config, cmd_evidence, cmd_manager, cmd_serve, cmd_api  # noqa: E402
-from bago_core.commands.cmd_lifecycle import cmd_install, cmd_uninstall  # noqa: E402
+from bago_core.commands.cmd_lifecycle import cmd_install, cmd_rollback_archive, cmd_uninstall  # noqa: E402
 from bago_core.commands.cmd_android import cmd_android  # noqa: E402
 from bago_core.commands.cmd_system import (  # noqa: E402
     cmd_appdata,
@@ -393,6 +393,7 @@ _DISPATCH_TABLE: dict[str, str] = {
     "exec":        "cmd_exec",
     "validate":    "cmd_validate",
     "install":     "cmd_install",
+    "rollback-archive": "cmd_rollback_archive",
     "uninstall":   "cmd_uninstall",
     "profiles":    "cmd_profiles",
     "claim":       "cmd_claim",
@@ -468,7 +469,6 @@ if __name__ == "__main__":
             assert main(["--base-path", td, "rl", "shadow", "on"]) == 0
             assert main(["--base-path", td, "rl", "train", "bc"]) == 0
             assert main(["--base-path", td, "rl", "eval"]) == 0
-            assert main(["--base-path", td, "evidence", "--test"]) == 0
             assert main(["--base-path", td, "install", "--dry-run"]) == 0
             tmp_install = Path(td) / "fake-install"
             tmp_install.mkdir()

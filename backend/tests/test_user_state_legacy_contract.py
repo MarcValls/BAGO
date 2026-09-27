@@ -5,6 +5,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from bago_core.user_state_paths import (
     STATE_ROOT_ENV,
     USER_ROOT_ENV,
@@ -86,6 +88,46 @@ def test_session_credentials_can_read_legacy_state_without_writing(monkeypatch, 
     assert not (canonical_state / "session-credentials.json").exists()
 
 
+def test_credential_manager_is_read_only_until_gateway_write(monkeypatch, tmp_path: Path) -> None:
+    credential_manager = importlib.import_module("credential_manager")
+    state_root = tmp_path / "state"
+    monkeypatch.setattr(credential_manager, "resolve_state_root", lambda _root=None: state_root)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-only-secret")
+    manager = credential_manager.CredentialManager(base_path=str(tmp_path), state_root=str(state_root))
+    assert manager.get("anthropic", "ANTHROPIC_API_KEY") == "env-only-secret"
+    assert not state_root.exists()
+
+    class Config:
+        def provider_config(self, _provider):
+            return {"enabled": True}
+
+    class Session:
+        session_id = "credential-test-session"
+        config = Config()
+
+    manager.bind_session_manager(Session())
+    captured = []
+    cli_execution = importlib.import_module("bago_core.cli_execution")
+    monkeypatch.setattr(
+        cli_execution,
+        "execute_cli_effect",
+        lambda request, **kwargs: captured.append((request, kwargs)) or ({"changed": True}, {}),
+    )
+    manager.set("anthropic", "ANTHROPIC_API_KEY", "new-secret")
+    request, kwargs = captured[0]
+    assert request.effect_id == "credential.write"
+    assert request.target["provider"] == "anthropic"
+    assert request.target["key"] == "api_key"
+    assert kwargs["manager"].session_id == "credential-test-session"
+
+    manager.store_mode = "session"
+    manager.set("anthropic", "ANTHROPIC_API_KEY", "volatile-secret")
+    assert len(captured) == 1
+    assert manager.get("anthropic", "ANTHROPIC_API_KEY") == "volatile-secret"
+    assert manager.delete("anthropic", "ANTHROPIC_API_KEY")
+    assert len(captured) == 1
+
+
 def test_secret_and_other_legacy_readers_keep_writes_canonical(monkeypatch, tmp_path: Path) -> None:
     home, canonical_user, canonical_state = _isolate_user_roots(monkeypatch, tmp_path)
     legacy_state = home / ".bago" / "state"
@@ -120,8 +162,12 @@ def test_secret_and_other_legacy_readers_keep_writes_canonical(monkeypatch, tmp_
     commands = importlib.import_module("commands")
 
     assert secret_store.SecretStore().get_secret("fixture") == "legacy-value"
-    secret_store.SecretStore().set_secret("canonical", "new-value")
-    assert (canonical_user / "secrets" / "canonical.bin").is_file()
+    with pytest.raises(RuntimeError, match="credential.write"):
+        secret_store.SecretStore().set_secret("canonical", "new-value")
+    with pytest.raises(RuntimeError, match="credential.write"):
+        secret_store.SecretStore().delete_secret("fixture")
+    assert not (canonical_user / "secrets" / "canonical.bin").exists()
+    assert (legacy_secrets / "fixture.bin").is_file()
     assert blacklist.get_blacklist()["models"] == ["legacy:model"]
     assert providers._load_active_models("ollama-local") == ["legacy:model"]
     assert auto._load_last_job()["legacy"] is True

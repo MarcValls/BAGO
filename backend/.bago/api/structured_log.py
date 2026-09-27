@@ -15,8 +15,6 @@ Output: JSON lines in the canonical user log root (5 MB, 3 backups kept).
 from __future__ import annotations
 
 import json
-import os
-import sys
 import threading
 import time
 from pathlib import Path
@@ -36,7 +34,8 @@ class StructuredLogger:
         if log_dir is None:
             log_dir = logs_root()
         self.log_dir = Path(log_dir)
-        self.log_dir.mkdir(parents=True, exist_ok=True)
+        if self.log_dir.expanduser().resolve() != logs_root().expanduser().resolve():
+            raise ValueError("Structured logs must use the canonical BAGO log root")
         self.log_path = self.log_dir / "bridge.jsonl"
         self.max_bytes = max_bytes
         self.backup_count = backup_count
@@ -46,27 +45,11 @@ class StructuredLogger:
         line = json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n"
         with self._lock:
             try:
-                if self.log_path.exists() and self.log_path.stat().st_size >= self.max_bytes:
-                    self._rotate()
-            except Exception:
-                pass
-            try:
-                with open(self.log_path, "a", encoding="utf-8") as f:
-                    f.write(line)
+                from bago_core.server_effects import append_structured_log
+
+                append_structured_log(line, max_bytes=self.max_bytes, backup_count=self.backup_count)
             except Exception:
                 pass  # Logging must never crash the server
-
-    def _rotate(self) -> None:
-        """Rotate: bridge.jsonl -> bridge.1.jsonl -> bridge.2.jsonl -> drop oldest."""
-        for i in range(self.backup_count - 1, 0, -1):
-            src = self.log_dir / f"bridge.{i}.jsonl"
-            dst = self.log_dir / f"bridge.{i + 1}.jsonl"
-            if src.exists():
-                if dst.exists():
-                    dst.unlink()
-                src.rename(dst)
-        if self.log_path.exists():
-            self.log_path.rename(self.log_dir / "bridge.1.jsonl")
 
     def _emit(self, level: str, event: str, **fields) -> None:
         entry = {

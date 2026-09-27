@@ -18,11 +18,11 @@ from pathlib import Path
 try:
     from prompt_toolkit import PromptSession
     from prompt_toolkit.formatted_text import ANSI
-    from prompt_toolkit.history import FileHistory
 except Exception:
     PromptSession = None  # type: ignore[assignment]
     ANSI = None  # type: ignore[assignment]
-    FileHistory = None  # type: ignore[assignment]
+
+from repl_history import GatewayFileHistory, save_readline_history
 
 # CANON[CHAT-004]: startup reads session state and renders it; it does not author it.
 # LEGACY[CHAT-L004]: keep local imports working when tests load the module by file path.
@@ -136,13 +136,18 @@ class BagoReplStartupMixin:
         try:
             import readline
             histfile = self.base_path / ".bago" / "state" / ".bago_history"
-            histfile.parent.mkdir(parents=True, exist_ok=True)
             try:
                 readline.read_history_file(str(histfile))
             except FileNotFoundError:
                 pass
             import atexit
-            atexit.register(readline.write_history_file, str(histfile))
+            atexit.register(
+                save_readline_history,
+                readline,
+                histfile,
+                trusted_root=self.base_path,
+                session_id=str(getattr(self.mgr, "session_id", "") or ""),
+            )
         except ImportError:
             pass
 
@@ -156,10 +161,12 @@ class BagoReplStartupMixin:
         if self._use_prompt_toolkit():
             try:
                 if self._chat_session is None:
-                    if history_enabled:
-                        self._chat_history_path.parent.mkdir(parents=True, exist_ok=True)
-                    if FileHistory is not None and history_enabled:
-                        history = FileHistory(str(self._chat_history_path))
+                    if GatewayFileHistory is not None and history_enabled:
+                        history = GatewayFileHistory(
+                            self._chat_history_path,
+                            trusted_root=self.state_root,
+                            session_id=str(getattr(self.mgr, "session_id", "") or ""),
+                        )
                     else:
                         history = None
                     self._chat_session = PromptSession(

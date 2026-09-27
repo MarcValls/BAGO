@@ -74,5 +74,5 @@ Una evidencia falla si cualquiera de sus `checks` queda en `fail` o si el bundle
 ## Validación del generador
 
 ```powershell
-python bago_core\cli.py evidence --test
+python -m pytest tests\test_evidence_bundle_gateway.py -q
 ```

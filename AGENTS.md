@@ -82,3 +82,62 @@ repository-local authority, or verified BAGO state.
   candidate is stale unless applicability is explicitly proved.
 - Do not claim complete test success when relevant suites were skipped or
   omitted.
+
+## Global runtime sink closure
+
+When the objective is to reduce `strict-runtime` or close effect sinks
+globally, Codex must complete a read-only partition before repairing any sink.
+Do not use the repeated `find one sink -> patch -> test` loop as the global
+remediation strategy.
+
+1. Freeze branch, HEAD, porcelain worktree status, changed paths and a
+   reproducible worktree fingerprint before scanning. Record scanner identity
+   and configuration plus the canonical effect-registry contract/version.
+2. Run the repository's official full sink inventory and strict gates on that
+   exact candidate. Do not reuse historical counts. Recheck HEAD and fingerprint
+   at the end; if either changes, stop and recapture instead of combining runs.
+3. Test scanner coverage separately from classification. A zero
+   `strict-classification` count means discovered sinks are classified; it does
+   not prove every material-effect form is scanned. Incomplete or inconsistent
+   coverage blocks planning closure.
+4. Trace every runtime-unbound finding from the decision-making caller through
+   its call chain to the material effect and affected resource. Partition by
+   common responsibility, correct owner and repair, not by line count or effect
+   type alone. Report compression as:
+
+   `sinks -> material callsites -> root causes -> repair clusters -> owners -> lanes`.
+
+5. Assign exactly one primary class to each sink: `REUSE`, `EXTEND`,
+   `NEW_OWNER`, `DELETE`, `RECLASSIFY` or `BLOCKED`. Apply the order
+   `REUSE -> EXTEND -> NEW_OWNER`; justify why existing owners cannot correctly
+   own an operation before proposing new infrastructure. Prove reachability
+   before `DELETE`. Prove exclusive ownership before `RECLASSIFY`, and keep the
+   sink visible to the scanner as `gateway_owned`.
+6. Build a dependency DAG and candidate parallel lanes. Treat authorization,
+   permits, `ExecutionGateway`, adapter/effect registries, claims, governed
+   pipeline, shared contracts and security tests as serialized integration
+   points whenever multiple lanes touch them. Do not recommend concurrent edits
+   to shared authority files.
+7. For every cluster, map only canonical authorization modes and assess
+   operation/session/resource identity, fingerprint, TOCTOU, retry, replay,
+   delegation and nested execution. Mark routes relevant to history, memory,
+   RL, learning, confidence, trusted state, cached decisions, retries,
+   reputation or prior success for a later habituation trace. Do not infer a
+   global habituation verdict during partition.
+
+The partition is `READ-ONLY`, `DRY-RUN`, with no code changes, patches, commits,
+refactors, registry changes or auto-fixes. On a P0, scanner gap, inconsistent
+inventory, changed candidate, unreproducible sink, unclassified material
+effect, conflicting owners or `ExecutionGateway` bypass, stop and document the
+evidence; do not repair it in the partition phase.
+
+Use `PASS_FOR_PLANNING` only when the snapshot and scanner coverage are sound,
+every runtime-unbound sink belongs to exactly one cluster, every cluster has a
+target owner, any `NEW_OWNER` is justified, and dependencies, shared-core
+conflicts and parallel lanes are complete. That verdict permits planning only;
+it does not claim repairs or acceptance. The next phase is
+`CRIT-BAGO-HABITUATION-01-RUNTIME-TRACE`. Do not start parallel repairs until
+that trace closes and the user explicitly authorizes implementation.
+
+Never optimize away findings with exclusions, ignore patterns, lowered
+confidence or code movement. The question is which authority owns each effect.

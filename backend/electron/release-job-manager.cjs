@@ -1,5 +1,4 @@
 const { EventEmitter } = require('events');
-const { spawn, execFile } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
@@ -28,10 +27,6 @@ function nowIso() {
 
 function safeName(value) {
   return String(value || 'asset').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 180);
-}
-
-function psQuote(value) {
-  return `'${String(value || '').replace(/'/g, "''")}'`;
 }
 
 function normalizeTag(value) {
@@ -212,20 +207,6 @@ function findSourceRoot(root, maxDepth = 4) {
   return '';
 }
 
-function execFilePromise(command, args, options = {}) {
-  return new Promise((resolve, reject) => {
-    execFile(command, args, options, (error, stdout, stderr) => {
-      if (error) {
-        error.stdout = stdout;
-        error.stderr = stderr;
-        reject(error);
-        return;
-      }
-      resolve({ stdout, stderr });
-    });
-  });
-}
-
 class ReleaseJobManager extends EventEmitter {
   constructor(options = {}) {
     super();
@@ -243,29 +224,44 @@ class ReleaseJobManager extends EventEmitter {
     ]);
     this.allowInsecureHosts = new Set(options.allowInsecureHosts || []);
     this.powerShell = options.powerShell || 'powershell.exe';
+    this.verifySignature = typeof options.verifySignature === 'function' ? options.verifySignature : null;
+    this.stageBundle = typeof options.stageBundle === 'function' ? options.stageBundle : null;
+    this.downloadAsset = typeof options.downloadAsset === 'function' ? options.downloadAsset : null;
+    this.persistJob = typeof options.persistJob === 'function' ? options.persistJob : null;
+    this.appendJobLog = typeof options.appendJobLog === 'function' ? options.appendJobLog : null;
+    this.archiveJob = typeof options.archiveJob === 'function' ? options.archiveJob : null;
+    this.prepareInstall = typeof options.prepareInstall === 'function' ? options.prepareInstall : null;
+    this.rollbackInstall = typeof options.rollbackInstall === 'function' ? options.rollbackInstall : null;
     this.jobs = new Map();
     this.activeLifecycleJob = '';
     this.runtime = new Map();
+    this.storageQueues = new Map();
+    this.recoveredJobs = [];
     this._init();
   }
 
   _init() {
-    for (const dir of [this.rootDir, this.jobsDir, this.cacheDir, this.stagingDir, this.logsDir]) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    for (const name of fs.readdirSync(this.jobsDir)) {
+    let names = [];
+    try { names = fs.readdirSync(this.jobsDir); } catch {}
+    for (const name of names) {
       if (!name.endsWith('.json')) continue;
       try {
         const job = JSON.parse(fs.readFileSync(path.join(this.jobsDir, name), 'utf8'));
-        if (ACTIVE_STATES.has(job.state)) {
+        const wasActive = ACTIVE_STATES.has(job.state);
+        if (wasActive) {
           job.state = 'cancelled';
           job.error = 'Interrumpido al cerrar el gestor; se puede reanudar.';
           job.updated_at = nowIso();
         }
         this.jobs.set(job.id, job);
-        this._persist(job);
+        if (wasActive) this.recoveredJobs.push(job);
       } catch {}
     }
+  }
+
+  async initialize() {
+    for (const job of this.recoveredJobs) await this._persist(job);
+    this.recoveredJobs = [];
   }
 
   _jobFile(id) {
@@ -276,48 +272,52 @@ class ReleaseJobManager extends EventEmitter {
     return JSON.parse(JSON.stringify(job));
   }
 
-  _persist(job) {
-    const file = this._jobFile(job.id);
-    const tmp = `${file}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(job, null, 2) + '\n', 'utf8');
-    fs.renameSync(tmp, file);
+  async _persist(job) {
+    if (!this.persistJob) throw new Error('No hay dispatch al adapter gateway de estado de release-job.');
+    return await this._serializeStorage(job.id, () => this._persistNow(job));
   }
 
-  _moveToArchive(source, destination) {
-    if (!source || !fs.existsSync(source)) return false;
-    fs.mkdirSync(path.dirname(destination), { recursive: true });
-    try {
-      fs.renameSync(source, destination);
-    } catch {
-      if (fs.statSync(source).isDirectory()) {
-        fs.cpSync(source, destination, { recursive: true });
-        fs.rmSync(source, { recursive: true, force: true });
-      } else {
-        fs.copyFileSync(source, destination);
-        fs.rmSync(source, { force: true });
-      }
-    }
-    return true;
+  async _persistNow(job) {
+    const state = this._public(job);
+    await this.persistJob(state);
+    return state;
   }
 
-  _emit(job) {
-    this._persist(job);
+  _serializeStorage(jobId, operation) {
+    const key = String(jobId || '');
+    const previous = this.storageQueues.get(key) || Promise.resolve();
+    const next = previous.catch(() => {}).then(operation);
+    this.storageQueues.set(key, next);
+    return next.finally(() => {
+      if (this.storageQueues.get(key) === next) this.storageQueues.delete(key);
+    });
+  }
+
+  async _emit(job) {
     const payload = this._public(job);
-    this.emit('changed', payload);
-    return payload;
+    return await this._serializeStorage(job.id, async () => {
+      await this.persistJob(payload);
+      this.emit('changed', payload);
+      return payload;
+    });
   }
 
-  _update(job, patch) {
+  async _update(job, patch) {
     Object.assign(job, patch, { updated_at: nowIso() });
-    return this._emit(job);
+    return await this._emit(job);
   }
 
-  _log(job, message, level = 'info') {
-    const line = JSON.stringify({ timestamp: nowIso(), level, message: String(message || '') });
-    fs.appendFileSync(job.log_file, line + '\n', 'utf8');
-    job.last_log = String(message || '');
-    job.updated_at = nowIso();
-    this._emit(job);
+  async _log(job, message, level = 'info') {
+    if (!this.appendJobLog) throw new Error('No hay dispatch al adapter gateway de log de release-job.');
+    return await this._serializeStorage(job.id, async () => {
+      await this.appendJobLog(job.id, { timestamp: nowIso(), level, message: String(message || '') });
+      job.last_log = String(message || '');
+      job.updated_at = nowIso();
+      const payload = this._public(job);
+      await this.persistJob(payload);
+      this.emit('changed', payload);
+      return payload;
+    });
   }
 
   _get(id) {
@@ -462,7 +462,7 @@ class ReleaseJobManager extends EventEmitter {
     };
   }
 
-  startPrepare(payload = {}) {
+  async startPrepare(payload = {}) {
     const release = payload.release || {};
     const contract = assetContract(release);
     if (!contract.bundle || !contract.checksum) {
@@ -497,13 +497,13 @@ class ReleaseJobManager extends EventEmitter {
       log_file: path.join(this.logsDir, `${id}.jsonl`)
     };
     this.jobs.set(id, job);
-    this._emit(job);
-    this._log(job, `Job creado para ${release.tag_name || contract.bundle.name} -> ${job.target}`);
+    await this._emit(job);
+    await this._log(job, `Job creado para ${release.tag_name || contract.bundle.name} -> ${job.target}`);
     this._runPrepare(job).catch(error => this._fail(job, error));
     return this._public(job);
   }
 
-  resume(id) {
+  async resume(id) {
     const job = this._get(id);
     if (!['cancelled', 'failed'].includes(job.state)) throw new Error(`El job ${id} no se puede reanudar desde ${job.state}.`);
     const preflight = this.preflight({
@@ -514,50 +514,42 @@ class ReleaseJobManager extends EventEmitter {
     });
     job.preflight = preflight;
     if (!preflight.ok) {
-      this._update(job, { state: 'failed', error: preflight.blockers.join(' ') });
-      this._log(job, `Reanudación bloqueada por preflight: ${job.error}`, 'warn');
+      await this._update(job, { state: 'failed', error: preflight.blockers.join(' ') });
+      await this._log(job, `Reanudación bloqueada por preflight: ${job.error}`, 'warn');
       throw new Error(job.error);
     }
     job.cancel_requested = false;
     job.error = '';
-    this._update(job, { state: 'queued', progress: { ...job.progress, phase: 'queued' } });
-    this._log(job, 'Job reanudado.');
+    await this._update(job, { state: 'queued', progress: { ...job.progress, phase: 'queued' } });
+    await this._log(job, 'Job reanudado.');
     this._runPrepare(job).catch(error => this._fail(job, error));
     return this._public(job);
   }
 
-  cancel(id) {
+  async cancel(id) {
     const job = this._get(id);
     if (TERMINAL_STATES.has(job.state)) return this._public(job);
+    if (job.state === 'installing') {
+      throw new Error('La instalación está ejecutándose bajo ExecutionGateway y no admite cancelación; espera su recibo o usa rollback.');
+    }
     job.cancel_requested = true;
     const runtime = this.runtime.get(job.id) || {};
+    await this._log(job, 'Cancelación solicitada.', 'warn');
     if (runtime.controller) runtime.controller.abort();
-    if (runtime.child) this._killTree(runtime.child.pid);
-    this._log(job, 'Cancelación solicitada.', 'warn');
     return this._public(job);
   }
 
-  deleteJob(id) {
+  async deleteJob(id) {
     const job = this._get(id);
     if (!TERMINAL_STATES.has(job.state)) {
       throw new Error(`El job ${id} no se puede eliminar mientras está en ${job.state}. Cancélalo primero.`);
     }
-    const archiveDir = path.join(this.rootDir, 'archive', 'deleted-jobs', safeName(job.id));
+    if (!this.archiveJob) throw new Error('No hay dispatch al adapter gateway de archivado de release-job.');
     const archivedAt = nowIso();
-    const archiveJob = {
-      ...this._public(job),
-      state: 'deleted',
-      deleted_at: archivedAt,
-      archived_at: archivedAt
-    };
-    fs.mkdirSync(archiveDir, { recursive: true });
-    fs.writeFileSync(path.join(archiveDir, 'job.json'), JSON.stringify(archiveJob, null, 2) + '\n', 'utf8');
-    this._moveToArchive(this._jobFile(job.id), path.join(archiveDir, 'job.active.json'));
-    this._moveToArchive(job.log_file, path.join(archiveDir, 'job.log.jsonl'));
+    const receipt = await this._serializeStorage(job.id, () => this.archiveJob(job.id, archivedAt));
     this.jobs.delete(job.id);
     this.runtime.delete(job.id);
-    const stagePath = path.join(this.stagingDir, safeName(job.id));
-    this._moveToArchive(stagePath, path.join(archiveDir, 'staging'));
+    const archiveDir = String(receipt && receipt.archive_dir || '');
     this.emit('changed', { id: job.id, deleted: true, archived_at: archivedAt, archive_dir: archiveDir, state: 'deleted' });
     return { ok: true, id: job.id, deleted: true, archived_at: archivedAt, archive_dir: archiveDir };
   }
@@ -574,32 +566,59 @@ class ReleaseJobManager extends EventEmitter {
     });
     job.preflight = preflight;
     if (!preflight.ok) {
-      this._update(job, { state: 'ready', error: preflight.blockers.join(' ') });
-      this._log(job, `Instalación bloqueada por preflight: ${job.error}`, 'warn');
+      await this._update(job, { state: 'ready', error: preflight.blockers.join(' ') });
+      await this._log(job, `Instalación bloqueada por preflight: ${job.error}`, 'warn');
       throw new Error(job.error);
     }
+    if (!this.prepareInstall) throw new Error('No hay dispatch autenticado a system.install.apply.');
+    const executeInstall = await this.prepareInstall({
+      action: 'release-job',
+      tag: String(job.release && job.release.tag_name || ''),
+      source_root: job.source_root,
+      helper_path: path.join(job.source_root, 'install-v4.ps1'),
+      install_dir: job.target,
+      mode: job.mode || 'Express',
+      package_sha256: String(job.verification && job.verification.actual_sha256 || '')
+    });
+    if (executeInstall === null) return this._public(job);
+    if (typeof executeInstall !== 'function') throw new Error('El sistema de autorización no preparó la ejecución del helper.');
     this.activeLifecycleJob = job.id;
     job.cancel_requested = false;
-    this._update(job, { state: 'installing', progress: { phase: 'installing', transferred: 0, total: 1, percent: 0 } });
-    this._log(job, `Instalación iniciada sobre ${job.target}.`);
+    await this._update(job, { state: 'installing', progress: { phase: 'installing', transferred: 0, total: 1, percent: 0 } });
+    await this._log(job, `Instalación iniciada sobre ${job.target}.`);
     try {
-      await this._prepareAtomicBackup(job);
-      await this._runInstaller(job);
+      const installReceipt = await this._runInstaller(job, executeInstall);
+      job.backup_path = String(installReceipt.backup_path || '');
+      job.created_target = !!installReceipt.created_target;
+      await this._emit(job);
       await this._validateInstalled(job);
-      this._update(job, {
+      await this._update(job, {
         state: 'completed',
-        rollback_available: !!job.backup_path || !!job.created_target,
+        rollback_available: !!job.backup_path || job.created_target,
         progress: { phase: 'completed', transferred: 1, total: 1, percent: 100 },
         error: ''
       });
-      this._log(job, `Instalación validada: ${job.target}.`);
+      await this._log(job, `Instalación validada: ${job.target}.`);
     } catch (error) {
-      this._log(job, `Instalación fallida: ${error.message}`, 'error');
-      await this._restoreAtomicBackup(job, true);
-      if (job.cancel_requested) {
-        this._update(job, { state: 'cancelled', error: 'Instalación cancelada y rollback aplicado.' });
+      await this._log(job, `Instalación fallida: ${error.message}`, 'error');
+      let recoveryError = '';
+      if (job.backup_path || job.created_target) {
+        try {
+          const restored = await this._restoreAtomicBackup(job, true);
+          if (!restored) job.rollback_available = true;
+        } catch (restoreError) {
+          recoveryError = restoreError && restoreError.message || String(restoreError);
+          job.rollback_available = true;
+        }
+      }
+      if (job.cancel_requested && !recoveryError) {
+        await this._update(job, { state: 'cancelled', error: 'Instalación cancelada; ExecutionGateway resolvió la recuperación del destino.' });
       } else {
-        this._update(job, { state: 'failed', error: `${error.message}; rollback aplicado.` });
+        await this._update(job, {
+          state: 'failed',
+          rollback_available: job.rollback_available,
+          error: recoveryError ? `${error.message}; rollback requiere reintento: ${recoveryError}` : error.message
+        });
       }
     } finally {
       this.activeLifecycleJob = '';
@@ -613,16 +632,27 @@ class ReleaseJobManager extends EventEmitter {
     if (!job.rollback_available) throw new Error(`El job ${id} no tiene rollback disponible.`);
     if (this.activeLifecycleJob) throw new Error(`Trabajo de ciclo de vida activo: ${this.activeLifecycleJob}`);
     this.activeLifecycleJob = job.id;
-    this._update(job, { state: 'rolling-back', progress: { phase: 'rolling-back', transferred: 0, total: 1, percent: 0 } });
+    await this._update(job, { state: 'rolling-back', progress: { phase: 'rolling-back', transferred: 0, total: 1, percent: 0 } });
     try {
-      await this._restoreAtomicBackup(job, false);
-      this._update(job, {
+      const restored = await this._restoreAtomicBackup(job, false);
+      if (!restored) {
+        await this._update(job, { state: 'completed', rollback_available: true, progress: { phase: 'completed', transferred: 1, total: 1, percent: 100 } });
+        return this._public(job);
+      }
+      await this._update(job, {
         state: 'rolled-back',
         rollback_available: false,
         progress: { phase: 'rolled-back', transferred: 1, total: 1, percent: 100 },
         error: ''
       });
-      this._log(job, `Rollback manual completado: ${job.target}.`, 'warn');
+      await this._log(job, `Rollback manual completado: ${job.target}.`, 'warn');
+    } catch (error) {
+      await this._update(job, {
+        state: 'failed',
+        rollback_available: true,
+        error: `Rollback no confirmado; puede reintentarse: ${error && error.message || error}`
+      });
+      throw error;
     } finally {
       this.activeLifecycleJob = '';
     }
@@ -651,29 +681,29 @@ class ReleaseJobManager extends EventEmitter {
 
   async _runPrepare(job) {
     const contract = assetContract(job.release);
-    const releaseDir = path.join(this.cacheDir, safeName(job.release.tag_name || 'release'));
-    fs.mkdirSync(releaseDir, { recursive: true });
-    const checksumPath = path.join(releaseDir, safeName(contract.checksum.name));
-    const bundlePath = path.join(releaseDir, safeName(contract.bundle.name));
-    const signaturePath = contract.signature ? path.join(releaseDir, safeName(contract.signature.name)) : '';
-    job.bundle_path = bundlePath;
+    let bundlePath = '';
+    let signaturePath = '';
     job.cancel_requested = false;
 
-    this._update(job, { state: 'downloading-checksum', progress: { phase: 'checksum', transferred: 0, total: Number(contract.checksum.size || 0), percent: 0 } });
-    await this._download(job, contract.checksum, checksumPath, false);
+    await this._update(job, { state: 'downloading-checksum', progress: { phase: 'checksum', transferred: 0, total: Number(contract.checksum.size || 0), percent: 0 } });
+    const checksumReceipt = await this._download(job, contract.checksum, 'checksum', false);
+    const checksumPath = checksumReceipt.path;
     const expected = parseExpectedSha256(fs.readFileSync(checksumPath, 'utf8'), contract.bundle.name);
     if (!expected) throw new Error('El asset SHA256 no contiene un hash válido.');
 
     if (contract.signature) {
-      this._update(job, { state: 'downloading-signature', progress: { phase: 'signature', transferred: 0, total: Number(contract.signature.size || 0), percent: 0 } });
-      await this._download(job, contract.signature, signaturePath, false);
+      await this._update(job, { state: 'downloading-signature', progress: { phase: 'signature', transferred: 0, total: Number(contract.signature.size || 0), percent: 0 } });
+      const signatureReceipt = await this._download(job, contract.signature, 'signature', false);
+      signaturePath = signatureReceipt.path;
     }
 
-    this._update(job, { state: 'downloading', progress: { phase: 'bundle', transferred: 0, total: Number(contract.bundle.size || 0), percent: 0 } });
-    await this._download(job, contract.bundle, bundlePath, true);
+    await this._update(job, { state: 'downloading', progress: { phase: 'bundle', transferred: 0, total: Number(contract.bundle.size || 0), percent: 0 } });
+    const bundleReceipt = await this._download(job, contract.bundle, 'bundle', true);
+    bundlePath = bundleReceipt.path;
+    job.bundle_path = bundlePath;
     if (job.cancel_requested) throw new Error('cancelled');
 
-    this._update(job, { state: 'verifying', progress: { phase: 'verifying', transferred: 0, total: 1, percent: 0 } });
+    await this._update(job, { state: 'verifying', progress: { phase: 'verifying', transferred: 0, total: 1, percent: 0 } });
     const actual = await this._sha256(bundlePath);
     const publishedDigest = String(contract.bundle.digest || '').replace(/^sha256:/i, '').toLowerCase();
     if (actual !== expected) throw new Error(`SHA256 no coincide: esperado ${expected}, obtenido ${actual}.`);
@@ -685,16 +715,13 @@ class ReleaseJobManager extends EventEmitter {
     if (magic[0] !== 0x50 || magic[1] !== 0x4b) throw new Error('El asset no tiene cabecera ZIP válida.');
     const signature = await this._verifySignature(job, signaturePath, bundlePath);
 
-    this._update(job, { state: 'staging', progress: { phase: 'staging', transferred: 0, total: 1, percent: 0 } });
+    await this._update(job, { state: 'staging', progress: { phase: 'staging', transferred: 0, total: 1, percent: 0 } });
     const stagePath = path.join(this.stagingDir, safeName(job.id));
-    if (fs.existsSync(stagePath)) fs.rmSync(stagePath, { recursive: true, force: true });
-    fs.mkdirSync(stagePath, { recursive: true });
-    await execFilePromise(this.powerShell, [
-      '-NoProfile',
-      '-ExecutionPolicy', 'Bypass',
-      '-Command',
-      `Expand-Archive -LiteralPath ${psQuote(bundlePath)} -DestinationPath ${psQuote(stagePath)} -Force`
-    ], { windowsHide: true, maxBuffer: 16 * 1024 * 1024 });
+    if (!this.stageBundle) throw new Error('No hay dispatch autenticado al adapter de staging del backend.');
+    const staged = await this.stageBundle(safeName(job.id), bundlePath);
+    if (!staged || !isInside(staged.staging_path, this.stagingDir) || pathKey(staged.staging_path) !== pathKey(stagePath)) {
+      throw new Error('El backend devolvió un destino de staging inesperado.');
+    }
     const sourceRoot = findSourceRoot(stagePath);
     if (!sourceRoot) throw new Error('El ZIP no contiene install-v4.ps1 y bago_core/launcher.py compatibles.');
     const stagedVersion = readVersion(sourceRoot);
@@ -722,64 +749,49 @@ class ReleaseJobManager extends EventEmitter {
         launcher: true
       }
     };
-    this._update(job, {
+    await this._update(job, {
       state: 'ready',
       error: '',
       progress: { phase: 'ready', transferred: 1, total: 1, percent: 100 }
     });
-    this._log(job, `Bundle verificado y preparado: ${contract.bundle.name}.`);
+    await this._log(job, `Bundle verificado y preparado: ${contract.bundle.name}.`);
   }
 
-  async _download(job, asset, finalPath, resume) {
-    const partPath = `${finalPath}.part`;
-    const existing = resume && fs.existsSync(partPath) ? fs.statSync(partPath).size : 0;
+  async _download(job, asset, assetKind, resume) {
+    if (!this.downloadAsset) throw new Error('No hay dispatch autenticado al owner de descargas release.download.');
     const controller = new AbortController();
     this.runtime.set(job.id, { ...(this.runtime.get(job.id) || {}), controller });
-    const headers = existing > 0 ? { Range: `bytes=${existing}-` } : {};
-    const response = await fetch(this._validateUrl(asset.browser_download_url), {
-      headers,
-      redirect: 'follow',
-      signal: controller.signal
-    });
-    this._validateUrl(response.url);
-    if (!response.ok && response.status !== 206) throw new Error(`Descarga HTTP ${response.status}: ${asset.name}`);
-    const appending = existing > 0 && response.status === 206;
-    if (!appending && fs.existsSync(partPath)) fs.rmSync(partPath, { force: true });
-    const start = appending ? existing : 0;
-    const headerLength = Number(response.headers.get('content-length') || 0);
-    const total = Number(asset.size || 0) || start + headerLength;
-    const stream = fs.createWriteStream(partPath, { flags: appending ? 'a' : 'w' });
-    const reader = response.body.getReader();
-    let transferred = start;
-    let lastEmitAt = 0;
-    let lastPercent = -1;
     try {
-      while (true) {
-        if (job.cancel_requested) throw new Error('cancelled');
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (!stream.write(Buffer.from(value))) {
-          await new Promise(resolve => stream.once('drain', resolve));
-        }
-        transferred += value.byteLength;
-        const percent = total ? Math.min(99, Math.floor(transferred * 100 / total)) : 0;
-        job.progress = { phase: job.progress.phase, transferred, total, percent };
-        job.updated_at = nowIso();
-        const now = Date.now();
-        if (percent !== lastPercent && now - lastEmitAt >= 120) {
-          lastEmitAt = now;
-          lastPercent = percent;
-          this._emit(job);
-        }
+      const filename = safeName(asset.name);
+      const result = await this.downloadAsset({
+        job_id: safeName(job.id),
+        filename,
+        asset_kind: assetKind,
+        url: this._validateUrl(asset.browser_download_url),
+        digest: String(asset.digest || '').replace(/^sha256:/i, '').toLowerCase(),
+        size: Number(asset.size || 0),
+        resume: !!resume
+      }, controller.signal);
+      const expectedPath = path.join(this.cacheDir, safeName(job.id), filename);
+      if (!result || result.effect_id !== 'release.download' ||
+          pathKey(result.path) !== pathKey(expectedPath) ||
+          !/^[a-f0-9]{64}$/.test(String(result.sha256 || '')) ||
+          Number(result.bytes_written) !== Number(asset.size)) {
+        throw new Error('El owner release.download devolvió un recibo de asset inválido.');
       }
-      await new Promise((resolve, reject) => stream.end(error => error ? reject(error) : resolve()));
-      if (fs.existsSync(finalPath)) fs.rmSync(finalPath, { force: true });
-      fs.renameSync(partPath, finalPath);
+      if (job.cancel_requested) throw new Error('cancelled');
+      job.progress = {
+        phase: job.progress.phase,
+        transferred: Number(result.bytes_written),
+        total: Number(asset.size),
+        percent: 100
+      };
+      await this._emit(job);
+      return { path: result.path, sha256: result.sha256, bytes_written: Number(result.bytes_written) };
     } catch (error) {
-      stream.destroy();
-      if (job.cancel_requested || error.name === 'AbortError' || error.message === 'cancelled') {
-        this._update(job, { state: 'cancelled', error: 'Descarga cancelada; archivo parcial conservado para reanudar.' });
-        this._log(job, `Descarga cancelada en ${transferred}/${total} bytes.`, 'warn');
+      if (job.cancel_requested || error.name === 'AbortError' || error.message === 'cancelled' || error.code === 'release_download_cancelled') {
+        await this._update(job, { state: 'cancelled', error: 'Descarga cancelada; archivo parcial conservado para reanudar.' });
+        await this._log(job, `Descarga cancelada: ${asset.name}.`, 'warn');
         throw new Error('cancelled');
       }
       throw error;
@@ -806,10 +818,8 @@ class ReleaseJobManager extends EventEmitter {
       return { status: 'not-published', required: false, tool: '' };
     }
     try {
-      await execFilePromise('gpg.exe', ['--batch', '--verify', signaturePath, bundlePath], {
-        windowsHide: true,
-        timeout: 30000
-      });
+      if (!this.verifySignature) throw new Error('No hay dispatch autenticado al adapter de firma del backend.');
+      await this.verifySignature(signaturePath, bundlePath);
       return { status: 'verified', required: !!job.require_signature, tool: 'gpg' };
     } catch (error) {
       if (job.require_signature) throw new Error(`Firma no verificable: ${error.message}`);
@@ -817,80 +827,13 @@ class ReleaseJobManager extends EventEmitter {
     }
   }
 
-  async _prepareAtomicBackup(job) {
-    const target = path.resolve(job.target);
-    if (this._unsafeTarget(target)) throw new Error(`Destino inseguro: ${target}`);
-    const backup = `${target}.bago-rollback-${safeName(job.id)}`;
-    const interrupted = `${target}.bago-interrupted-${safeName(job.id)}`;
-
-    // A surviving backup is authoritative recovery data from an earlier
-    // attempt. Never delete it while resuming the same job.
-    if (fs.existsSync(backup)) {
-      job.backup_path = backup;
-      job.rollback_available = true;
-      job.created_target = false;
-      job.install_phase = 'backup_recovered';
-      this._emit(job);
-      if (fs.existsSync(target)) {
-        if (fs.existsSync(interrupted)) {
-          throw new Error(`Reanudación bloqueada: ya existe staging interrumpido ${interrupted}`);
-        }
-        fs.renameSync(target, interrupted);
-        job.interrupted_target_path = interrupted;
-      }
-      job.install_phase = 'backup_ready';
-      this._log(job, `Backup de rollback recuperado: ${backup}.`);
-      return;
+  async _runInstaller(job, executeInstall) {
+    const result = await executeInstall();
+    if (!result || result.effect_id !== 'system.install.apply' || result.status !== 'completed') {
+      throw new Error('ExecutionGateway no confirmó la finalización de la instalación.');
     }
-
-    job.created_target = !fs.existsSync(target);
-    job.backup_path = job.created_target ? '' : backup;
-    job.rollback_available = !job.created_target;
-    job.install_phase = 'backup_planned';
-    this._emit(job); // Persist destructive intent before moving the target.
-    if (!job.created_target) {
-      fs.renameSync(target, backup);
-      job.install_phase = 'backup_ready';
-      this._log(job, `Backup atómico creado: ${backup}.`);
-      return;
-    }
-    job.install_phase = 'backup_not_required';
-    this._emit(job);
-  }
-
-  async _runInstaller(job) {
-    const script = path.join(job.source_root, 'install-v4.ps1');
-    const args = [
-      '-NoProfile',
-      '-ExecutionPolicy', 'Bypass',
-      '-File', script,
-      '-SourceRoot', job.source_root,
-      '-InstallDir', job.target,
-      '-Mode', job.mode || 'Express',
-      '-NoPathUpdate'
-    ];
-    await new Promise((resolve, reject) => {
-      const child = spawn(this.powerShell, args, {
-        cwd: job.source_root,
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe']
-      });
-      this.runtime.set(job.id, { ...(this.runtime.get(job.id) || {}), child });
-      const consume = (stream, level) => {
-        let pending = '';
-        stream.on('data', chunk => {
-          pending += String(chunk);
-          const lines = pending.split(/\r?\n/);
-          pending = lines.pop() || '';
-          lines.filter(Boolean).forEach(line => this._log(job, line, level));
-        });
-        stream.on('end', () => { if (pending) this._log(job, pending, level); });
-      };
-      consume(child.stdout, 'info');
-      consume(child.stderr, 'warn');
-      child.once('error', reject);
-      child.once('exit', code => code === 0 ? resolve() : reject(new Error(`Instalador terminó con código ${code}.`)));
-    });
+    await this._log(job, `system.install.apply completó el helper para ${job.target}.`);
+    return result;
   }
 
   async _validateInstalled(job) {
@@ -904,7 +847,7 @@ class ReleaseJobManager extends EventEmitter {
       throw new Error(`Versión instalada ${installedVersion} no coincide con ${job.release.tag_name}.`);
     }
     job.installed_version = installedVersion;
-    this._emit(job);
+    await this._emit(job);
   }
 
   async _restoreAtomicBackup(job, automatic) {
@@ -915,64 +858,39 @@ class ReleaseJobManager extends EventEmitter {
     const displaced = automatic || job.created_target
       ? `${target}.bago-failed-${safeName(job.id)}`
       : `${target}.bago-replaced-${safeName(job.id)}`;
-
+    if (!this.rollbackInstall) throw new Error('No hay dispatch autenticado a system.install.rollback.');
     job.backup_path = backup;
     job.restore_automatic = !!automatic;
-    job.restore_phase = job.restore_phase || 'restore_planned';
-    if (fs.existsSync(displaced)) job.replaced_path = displaced;
-    this._emit(job);
-    if (fs.existsSync(target)) {
-      if (backup && !fs.existsSync(backup) && ['backup_restore_planned', 'backup_restored'].includes(job.restore_phase)) {
-        job.restore_phase = 'backup_restored';
-        this._emit(job);
-      } else {
-        if (fs.existsSync(displaced)) {
-          throw new Error(`Rollback bloqueado: ya existe contenido recuperable en ${displaced}`);
-        }
-        job.replaced_path = displaced;
-        job.restore_phase = 'target_move_planned';
-        this._emit(job);
-        fs.renameSync(target, displaced);
-        job.restore_phase = 'target_preserved';
-        this._emit(job);
-      }
-    } else if (fs.existsSync(displaced) && job.restore_phase === 'target_move_planned') {
-      job.replaced_path = displaced;
-      job.restore_phase = 'target_preserved';
-      this._emit(job);
+    job.replaced_path = displaced;
+    job.restore_phase = 'gateway_rollback_requested';
+    await this._emit(job);
+    const result = await this.rollbackInstall({
+      install_dir: target,
+      backup_path: backup,
+      displaced_path: displaced,
+      tag: String(job.release && job.release.tag_name || ''),
+      automatic: !!automatic
+    });
+    if (result === null) return false;
+    if (!result || result.effect_id !== 'system.install.rollback' || result.status !== 'completed') {
+      throw new Error('ExecutionGateway no confirmó el rollback del release job.');
     }
-    if (backup && fs.existsSync(backup)) {
-      if (fs.existsSync(target)) throw new Error(`Rollback bloqueado: destino y backup coexisten en ${target}`);
-      job.restore_phase = 'backup_restore_planned';
-      this._emit(job);
-      fs.renameSync(backup, target);
-      job.restore_phase = 'backup_restored';
-      this._emit(job);
-      job.backup_path = '';
-    }
-    job.rollback_available = false;
     job.restore_phase = 'restore_complete';
-    this._emit(job);
+    job.backup_path = '';
+    job.rollback_available = false;
+    await this._emit(job);
+    return true;
   }
 
-  _killTree(pid) {
-    if (!pid) return;
-    if (process.platform === 'win32') {
-      try { spawn('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }); } catch {}
-      return;
-    }
-    try { process.kill(pid, 'SIGTERM'); } catch {}
-  }
-
-  _fail(job, error) {
+  async _fail(job, error) {
     if (job.state === 'cancelled') return;
     const message = error && error.message || String(error);
     if (message === 'cancelled' || job.cancel_requested) {
-      this._update(job, { state: 'cancelled', error: 'Trabajo cancelado; se puede reanudar.' });
+      await this._update(job, { state: 'cancelled', error: 'Trabajo cancelado; se puede reanudar.' });
       return;
     }
-    this._update(job, { state: 'failed', error: message });
-    this._log(job, message, 'error');
+    await this._update(job, { state: 'failed', error: message });
+    await this._log(job, message, 'error');
   }
 }
 

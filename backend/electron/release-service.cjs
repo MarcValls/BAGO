@@ -1,7 +1,7 @@
 const { ReleaseJobManager } = require('./release-job-manager.cjs');
 
 function createReleaseService(ctx) {
-  const { BrowserWindow, os, path, getDependencyService } = ctx;
+  const { BrowserWindow, os, path, getDependencyService, verifyReleaseSignature, stageReleaseBundle, downloadReleaseAsset, persistReleaseJob, appendReleaseJobLog, archiveReleaseJob, prepareSystemInstall, rollbackSystemInstall } = ctx;
   let releaseJobs = null;
 
   function resolveUserRoot() {
@@ -16,15 +16,24 @@ function createReleaseService(ctx) {
     return releaseJobs;
   }
 
-  function initReleaseJobs() {
+  async function initReleaseJobs() {
     releaseJobs = new ReleaseJobManager({
-      rootDir: path.join(resolveUserRoot(), 'manager', 'release-jobs')
+      rootDir: path.join(resolveUserRoot(), 'manager', 'release-jobs'),
+      verifySignature: verifyReleaseSignature,
+      stageBundle: stageReleaseBundle,
+      downloadAsset: downloadReleaseAsset,
+      persistJob: persistReleaseJob,
+      appendJobLog: appendReleaseJobLog,
+      archiveJob: archiveReleaseJob,
+      prepareInstall: prepareSystemInstall,
+      rollbackInstall: rollbackSystemInstall
     });
     releaseJobs.on('changed', job => {
       for (const win of BrowserWindow.getAllWindows()) {
         if (!win.isDestroyed()) win.webContents.send('bago:release-job-changed', job);
       }
     });
+    await releaseJobs.initialize();
   }
 
   function getState() {

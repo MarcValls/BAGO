@@ -27,10 +27,11 @@ from integrations.pi.errors import UnknownEvent
 from integrations.pi.preflight import preflight
 from integrations.pi.process_boundary import build_boundary, run_sidecar
 from integrations.pi.protocol import decode_event, encode_event, iter_events
+from conftest import run_fake_sidecar
 
 
 SIDE_CAR_SCRIPT = """
-import json, sys, time
+import json, os, sys, time
 
 req = json.loads(sys.stdin.readline())
 events = []
@@ -56,7 +57,7 @@ def emit(et, payload):
     sys.stdout.flush()
     return ev["event_hash"]
 
-emit("runtime_attested", {"home": "/tmp/ephemeral", "cwd": req["input"].get("cwd", "")})
+emit("runtime_attested", {"home": os.environ.get("HOME", ""), "cwd": req["input"].get("cwd", "")})
 emit("provider_attested", {"requested": req["requested_provider"], "effective": req["requested_provider"]})
 emit("model_output_delta", {"delta": "hello "})
 emit("model_output_delta", {"delta": "world"})
@@ -134,7 +135,7 @@ def test_sidecar_stream_roundtrip(tmp_path: Path, sidecar_script: Path) -> None:
         execution_id="exec-1",
         parent_home=tmp_path,
     )
-    result = run_sidecar(spec, stdin_payload=json.dumps(request) + "\n")
+    result = run_fake_sidecar(spec, stdin_payload=json.dumps(request) + "\n")
     assert result.returncode == 0
 
     events = list(iter_events(result.stdout.splitlines(), phase=0))
@@ -172,7 +173,7 @@ def test_sidecar_unknown_event_rejected(tmp_path: Path, sidecar_script: Path) ->
         execution_id="e",
         parent_home=tmp_path,
     )
-    result = run_sidecar(spec, stdin_payload=json.dumps(request) + "\n")
+    result = run_fake_sidecar(spec, stdin_payload=json.dumps(request) + "\n")
     assert result.returncode == 0
     lines = result.stdout.splitlines()
     # El primer evento custom_unknown_event dispara UnknownEvent.
@@ -189,14 +190,10 @@ def test_sidecar_uses_ephemeral_home(tmp_path: Path, sidecar_script: Path) -> No
         execution_id="e",
         parent_home=tmp_path,
     )
-    result = run_sidecar(spec, stdin_payload=json.dumps(request) + "\n")
-    assert spec.env["HOME"] == spec.home_dir
-    # El home debe ser un directorio bajo el parent_home.
-    assert Path(spec.home_dir).parent == tmp_path
-    # El HOME del proceso del sidecar es el efímero, no el del usuario.
-    user_home = str(Path.home())
-    assert spec.home_dir != user_home
-    # El stdout del sidecar contiene runtime_attested con home /tmp/...
-    # Sólo validamos que el evento llegó, no su contenido exacto.
+    result = run_fake_sidecar(spec, stdin_payload=json.dumps(request) + "\n")
+    assert "HOME" not in spec.env
     events = list(iter_events(result.stdout.splitlines(), phase=0))
     assert events[0].event_type == "runtime_attested"
+    test_home = Path(events[0].payload["home"])
+    assert test_home.parent == tmp_path
+    assert test_home != Path.home()

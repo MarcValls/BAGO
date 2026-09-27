@@ -2,19 +2,13 @@
 from __future__ import annotations
 
 import argparse
-import ctypes
 import os
 import shutil
-import stat
 import subprocess
 import sys
-import zipfile
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from bago_core.resolver import add_piece_paths
-from bago_core.user_state_paths import prune_backups_root
 from bago_core.workspace_paths import workspace_root
 
 BAGO_ROOT = Path(__file__).resolve().parents[2]
@@ -139,200 +133,61 @@ def cmd_install(args: argparse.Namespace) -> int:
         return 0
     return subprocess.call(command)
 
-def _normalize_path_entry(entry: str) -> str:
-    return entry.strip().rstrip("\\").lower()
-
-def _remove_install_from_path(install_path: str) -> str:
-    removed_scopes: list[str] = []
-    install_norm = _normalize_path_entry(install_path)
-    current = os.environ.get("Path", "")
-    entries = []
-    for entry in current.split(";"):
-        clean = entry.strip()
-        if clean and _normalize_path_entry(clean) != install_norm:
-            entries.append(clean)
-    os.environ["Path"] = ";".join(entries)
-
-    try:
-        import winreg  # type: ignore
-    except Exception:
-        return "process"
-
-    def _rewrite(scope_root: int) -> bool:
-        try:
-            with winreg.OpenKey(scope_root, "Environment", 0, winreg.KEY_READ | winreg.KEY_WRITE) as key:
-                value, reg_type = winreg.QueryValueEx(key, "Path")
-                kept = []
-                for entry in str(value or "").split(";"):
-                    clean = entry.strip()
-                    if clean and _normalize_path_entry(clean) != install_norm:
-                        kept.append(clean)
-                winreg.SetValueEx(key, "Path", 0, reg_type, ";".join(kept))
-            return True
-        except Exception:
-            return False
-
-    if _rewrite(winreg.HKEY_CURRENT_USER):
-        removed_scopes.append("user")
-    if _rewrite(winreg.HKEY_LOCAL_MACHINE):
-        removed_scopes.append("machine")
-    return "+".join(removed_scopes) if removed_scopes else "process"
-
-def _remove_registry_tree(winreg: Any, root: Any, subkey: str) -> None:
-    try:
-        with winreg.OpenKey(root, subkey, 0, winreg.KEY_READ | winreg.KEY_WRITE) as key:
-            index = 0
-            while True:
-                try:
-                    child = winreg.EnumKey(key, index)
-                except OSError:
-                    break
-                _remove_registry_tree(winreg, root, f"{subkey}\\{child}")
-                index += 1
-    except OSError:
-        return
-    try:
-        winreg.DeleteKey(root, subkey)
-    except OSError:
-        pass
-
-def _remove_bago_explorer_context_menu() -> bool:
-    if os.name != "nt":
-        return False
-    try:
-        import winreg  # type: ignore
-    except Exception:
-        return False
-    removed = False
-    for subkey in (
-        r"Software\Classes\Directory\shell\BAGO",
-        r"Software\Classes\Directory\Background\shell\BAGO",
-    ):
-        try:
-            _remove_registry_tree(winreg, winreg.HKEY_CURRENT_USER, subkey)
-            removed = True
-        except Exception:
-            pass
-    return removed
-
-def _zip_tree(source_dir: Path, zip_path: Path) -> None:
-    zip_path.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for path in source_dir.rglob("*"):
-            if path.is_file():
-                zf.write(path, path.relative_to(source_dir))
-
-def _is_windows_admin() -> bool:
-    if os.name != "nt":
-        return True
-    try:
-        return bool(ctypes.windll.shell32.IsUserAnAdmin())
-    except Exception:
-        return False
-
-def _is_under_path(path: Path, parent: str) -> bool:
-    if not parent:
-        return False
-    try:
-        path.resolve().relative_to(Path(parent).resolve())
-        return True
-    except Exception:
-        return False
-
-def _needs_uninstall_elevation(install_dir: Path) -> bool:
-    if os.name != "nt" or _is_windows_admin():
-        return False
-    protected_roots = [
-        _program_files_root(),
-        Path(os.environ.get("ProgramFiles(x86)", "").strip()) if os.environ.get("ProgramFiles(x86)", "").strip() else Path.home() / "AppData" / "Local" / "Programs" / "x86",
-    ]
-    return any(_is_under_path(install_dir, root) for root in protected_roots if root)
-
-def _ps_literal(value: str) -> str:
-    return "'" + value.replace("'", "''") + "'"
-
-def _relaunch_uninstall_elevated(args: argparse.Namespace, install_dir: Path) -> int:
-    ps = shutil.which("pwsh.exe") or shutil.which("powershell.exe") or "powershell.exe"
-    cli_path = BAGO_ROOT / "bago_core" / "cli.py"
-    argv = [
-        str(cli_path if cli_path.exists() else (BAGO_ROOT / "bago_core" / "launcher.py")),
-        "--base-path",
-        str(args.base_path),
-        "uninstall",
-        "--install-dir",
-        str(install_dir),
-        "--elevated-child",
-    ]
-    if args.backup_root:
-        argv += ["--backup-root", args.backup_root]
-    if args.user_state_dir:
-        argv += ["--user-state-dir", args.user_state_dir]
-    if args.purge_state:
-        argv.append("--purge-state")
-    arg_list = "@(" + ",".join(_ps_literal(item) for item in argv) + ")"
-    command = (
-        "$p = Start-Process -FilePath "
-        + _ps_literal(sys.executable)
-        + " -ArgumentList "
-        + arg_list
-        + " -Verb RunAs -Wait -PassThru; exit $p.ExitCode"
-    )
-    print("Elevacion    : requerida para borrar Program Files")
-    return subprocess.call([ps, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command])
-
-def _rmtree_writable(path: Path) -> None:
-    def _fix_permissions(func: Any, target: str, exc_info: Any) -> None:
-        try:
-            os.chmod(target, stat.S_IWRITE | stat.S_IREAD)
-            func(target)
-        except Exception:
-            raise exc_info[1]
-
-    shutil.rmtree(path, onerror=_fix_permissions)
-
 def cmd_uninstall(args: argparse.Namespace) -> int:
-    profile = _normalize_profile(args.profile) if getattr(args, "profile", "") else ""
-    install_dir = Path(args.install_dir) if args.install_dir else (_profile_install_dir(profile) if profile else _program_files_root() / "BAGO")
-    backup_root = Path(args.backup_root) if args.backup_root else (_profile_backup_root(profile) if profile else (_program_data_root() / "BAGO" / "backups"))
-    user_state_dir = Path(args.user_state_dir) if args.user_state_dir else (_profile_user_state_dir(profile) if profile else (_program_data_root() / "BAGO" / "user"))
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-
-    if not install_dir.exists():
-        print(f"[ERROR] No se encontro la instalacion: {install_dir}")
-        return 1
-
-    backup_tag = profile or "install"
-    backup_zip = backup_root / f"bago-{backup_tag}-uninstall-{stamp}.zip"
-    print("BAGO local uninstall")
-    print(f"Perfil       : {profile or 'none'}")
-    print(f"Destino      : {install_dir}")
-    print(f"Backup       : {backup_zip}")
-    print(f"Estado user  : {user_state_dir}")
-    print(f"Purga state  : {'si' if args.purge_state else 'no'}")
-    if args.dry_run:
-        print("Dry-run      : no ejecutado")
-        return 0
-
-    if _needs_uninstall_elevation(install_dir) and not args.elevated_child and not args.no_elevate:
-        return _relaunch_uninstall_elevated(args, install_dir)
+    from execution_adapters.install_uninstall_lifecycle import run_authorized_uninstall
 
     try:
-        _zip_tree(install_dir, backup_zip)
-        removed_scope = _remove_install_from_path(str(install_dir))
-        context_menu_removed = _remove_bago_explorer_context_menu()
-        if args.purge_state and user_state_dir.exists():
-            _rmtree_writable(user_state_dir)
-        _rmtree_writable(install_dir)
-    except PermissionError as exc:
-        print(f"[ERROR] Sin permisos para desinstalar: {exc}")
-        if os.name == "nt" and not _is_windows_admin():
-            print("Ejecuta PowerShell como administrador o usa el prompt UAC del comando sin --no-elevate.")
+        return run_authorized_uninstall(args)
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(f"[ERROR] No se pudo desinstalar BAGO: {exc}")
         return 1
-    except OSError as exc:
-        print(f"[ERROR] No se pudo completar la desinstalacion: {exc}")
+
+
+def cmd_rollback_archive(args: argparse.Namespace) -> int:
+    """Restore a named installer ZIP through the strong ExecutionGateway owner."""
+    from bago_core.cli_execution import execute_cli_effect
+    from execution_adapters.archive_rollback import SystemInstallArchiveRollbackEffectAdapter
+    from execution_request import build_execution_request
+
+    install_dir = str(getattr(args, "install_dir", "") or "").strip()
+    if not install_dir:
+        install_dir = os.environ.get("BAGO_INSTALL_DIR", "").strip() or str(_program_files_root() / "BAGO")
+    backup_root = str(getattr(args, "backup_root", "") or "").strip()
+    if not backup_root:
+        backup_root = str(_program_data_root() / "backups")
+    backup_zip = str(getattr(args, "backup_zip", "") or "").strip()
+    if not backup_zip:
+        candidates = sorted(Path(backup_root).glob("bago-programfiles-backup-*.zip"), key=lambda item: item.stat().st_mtime, reverse=True)
+        if not candidates:
+            print(f"[ERROR] No se encontraron backups BAGO en {backup_root}")
+            return 1
+        backup_zip = str(candidates[0])
+    try:
+        target = SystemInstallArchiveRollbackEffectAdapter.prepare_target(
+            install_dir, backup_root, backup_zip,
+            restore_backed_up_state=bool(getattr(args, "restore_backed_up_state", False)),
+        )
+        request = build_execution_request(
+            effect_id="system.install.archive.rollback",
+            actor_kind="user",
+            principal_id="interactive-local-user",
+            session_id=f"archive-rollback:{target['install_dir']}",
+            source_surface="cli.install.archive-rollback",
+            target=target,
+            arguments={},
+            scope="system",
+        )
+        result, _authorization = execute_cli_effect(
+            request,
+            confirmation_text=(
+                f"Restaurar {target['backup_zip']} sobre {target['install_dir']}; "
+                f"backup de seguridad: {target['safety_zip']}; "
+                f"restaurar estado archivado: {str(target['restore_backed_up_state']).lower()}"
+            ),
+        )
+    except Exception as exc:
+        print(f"[ERROR] Rollback bloqueado: {exc}")
         return 1
-    print(f"Backup creado: {backup_zip}")
-    prune_backups_root(backup_root)
-    print(f"PATH limpiado : {removed_scope}")
-    print(f"Menu contexto : {'si' if context_menu_removed else 'no'}")
+    print(f"[OK] Runtime restaurado: {result['restored_to']}")
+    print(f"[OK] Receipt: {result['receipt_id']}")
     return 0

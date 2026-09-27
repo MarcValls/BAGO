@@ -5,6 +5,10 @@ param(
     [Parameter(Mandatory = $true)][string]$StatePath,
     [Parameter(Mandatory = $true)][string]$ExpectedVersion,
     [Parameter(Mandatory = $true)][string]$ExpectedSha256,
+    [Parameter(Mandatory = $true)][string]$AuthorizationLedgerPath,
+    [Parameter(Mandatory = $true)][string]$AuthorizationTicketPath,
+    [Parameter(Mandatory = $true)][string]$AuthorizationTicketNonce,
+    [Parameter(Mandatory = $true)][string]$PermitId,
     [int]$BackendPid = 0,
     [switch]$Restart
 )
@@ -60,6 +64,120 @@ function Get-Sha256 {
     }
 }
 
+function Consume-AuthorizationTicket {
+    $expectedTicket = Join-Path (Split-Path -Parent $bundleFull) (".apply-" + $PermitId + ".json")
+    $ticketFull = [System.IO.Path]::GetFullPath($AuthorizationTicketPath)
+    if ($ticketFull -ne [System.IO.Path]::GetFullPath($expectedTicket) -or
+        -not (Test-Path -LiteralPath $ticketFull -PathType Leaf) -or
+        (((Get-Item -LiteralPath $ticketFull).Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+        throw "La actualización requiere un ticket de autorización emitido por ExecutionGateway."
+    }
+
+    try {
+        $ticket = Get-Content -LiteralPath $ticketFull -Raw -Encoding UTF8 | ConvertFrom-Json
+    }
+    catch {
+        throw "El ticket de autorización no se puede leer."
+    }
+    $target = $ticket.target
+    $ledgerPath = [System.IO.Path]::GetFullPath($AuthorizationLedgerPath)
+    if ($env:BAGO_STATE_ROOT) {
+        $canonicalStateRoot = [System.IO.Path]::GetFullPath($env:BAGO_STATE_ROOT)
+    }
+    elseif ($env:BAGO_USER_ROOT) {
+        $canonicalStateRoot = [System.IO.Path]::GetFullPath((Join-Path $env:BAGO_USER_ROOT "state"))
+    }
+    else {
+        $userRoot = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "BAGO" } else { Join-Path $env:USERPROFILE "AppData\Local\BAGO" }
+        $canonicalStateRoot = [System.IO.Path]::GetFullPath((Join-Path $userRoot "state"))
+    }
+    $canonicalLedger = [System.IO.Path]::GetFullPath((Join-Path $canonicalStateRoot "authorization\ledger.json"))
+    if ($ledgerPath -ne $canonicalLedger -or -not (Test-Path -LiteralPath $ledgerPath -PathType Leaf)) {
+        throw "La ruta del ledger de autorización no es canónica."
+    }
+    try {
+        $ledger = Get-Content -LiteralPath $ledgerPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    }
+    catch {
+        throw "El ledger de autorización no se puede leer."
+    }
+    $permitRecord = $null
+    foreach ($entry in $ledger.permits.PSObject.Properties) {
+        if ($entry.Value.permit_id -eq $PermitId) {
+            $permitRecord = $entry.Value
+            break
+        }
+    }
+    $request = $permitRecord.executed_request
+    $proof = $permitRecord.proof
+    $decision = $permitRecord.decision
+    $authorizedTarget = $request.target
+    if ($ticket.schema -ne "bago.system-update-helper-ticket.v1" -or
+        $ticket.permit_id -ne $PermitId -or
+        $ticket.nonce -ne $AuthorizationTicketNonce -or
+        $ticket.effect_id -ne "system.update.apply" -or
+        [string]::IsNullOrWhiteSpace([string]$ticket.session_id) -or
+        $ticket.operation_fingerprint -notmatch '^[a-f0-9]{64}$' -or
+        $permitRecord.state -ne "consumed" -or
+        $permitRecord.effect_id -ne "system.update.apply" -or
+        $permitRecord.session_id -ne $ticket.session_id -or
+        $permitRecord.operation_fingerprint -ne $ticket.operation_fingerprint -or
+        $request.effect_id -ne "system.update.apply" -or
+        $request.actor_kind -ne "user" -or
+        $request.principal_id -ne "interactive-local-user" -or
+        $request.source_surface -ne "api.release.apply" -or
+        $request.scope -ne "system" -or
+        $request.operation_fingerprint -ne $ticket.operation_fingerprint -or
+        $request.arguments_digest -ne "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a" -or
+        $proof.proof_id -ne $permitRecord.proof_id -or
+        $proof.effect_id -ne "system.update.apply" -or
+        $proof.operation_fingerprint -ne $ticket.operation_fingerprint -or
+        $proof.authenticated_session_id -ne $ticket.session_id -or
+        $proof.user_decision -ne "approve" -or
+        $proof.provenance.kind -ne "direct_user_interaction" -or
+        $proof.provenance.channel -notin @("ui-react", "desktop") -or
+        $decision.result -ne "allow" -or
+        $decision.proof_id -ne $proof.proof_id -or
+        $decision.operation_fingerprint -ne $ticket.operation_fingerprint -or
+        $decision.effect_id -ne "system.update.apply" -or
+        $target.authorization_ledger_path -ne $ledgerPath -or
+        $authorizedTarget.bundle_path -ne $target.bundle_path -or
+        $authorizedTarget.bundle_sha256 -ne $target.bundle_sha256 -or
+        $authorizedTarget.helper_path -ne $target.helper_path -or
+        $authorizedTarget.helper_sha256 -ne $target.helper_sha256 -or
+        $authorizedTarget.install_root -ne $target.install_root -or
+        $authorizedTarget.state_path -ne $target.state_path -or
+        $authorizedTarget.expected_version -ne $target.expected_version -or
+        $authorizedTarget.authorization_ledger_path -ne $ledgerPath -or
+        $authorizedTarget.backend_pid -ne $target.backend_pid -or
+        $authorizedTarget.restart -ne $target.restart -or
+        [System.IO.Path]::GetFullPath([string]$authorizedTarget.bundle_path) -ne $bundleFull -or
+        [System.IO.Path]::GetFullPath([string]$authorizedTarget.install_root) -ne $installFull -or
+        [System.IO.Path]::GetFullPath([string]$authorizedTarget.state_path) -ne $stateFull -or
+        [string]$authorizedTarget.expected_version -ne $ExpectedVersion -or
+        [int]$authorizedTarget.backend_pid -ne $BackendPid -or
+        [bool]$authorizedTarget.restart -ne [bool]$Restart -or
+        [System.IO.Path]::GetFullPath([string]$authorizedTarget.helper_path) -ne [System.IO.Path]::GetFullPath($PSCommandPath) -or
+        [string]$authorizedTarget.helper_sha256 -ne (Get-Sha256 -Path $PSCommandPath) -or
+        [System.IO.Path]::GetFullPath([string]$target.bundle_path) -ne $bundleFull -or
+        [string]$target.bundle_sha256 -ne $ExpectedSha256.ToLowerInvariant() -or
+        [System.IO.Path]::GetFullPath([string]$target.install_root) -ne $installFull -or
+        [System.IO.Path]::GetFullPath([string]$target.state_path) -ne $stateFull -or
+        [string]$target.expected_version -ne $ExpectedVersion -or
+        [int]$target.backend_pid -ne $BackendPid -or
+        [bool]$target.restart -ne [bool]$Restart -or
+        [System.IO.Path]::GetFullPath([string]$target.helper_path) -ne [System.IO.Path]::GetFullPath($PSCommandPath) -or
+        [string]$target.helper_sha256 -ne (Get-Sha256 -Path $PSCommandPath)) {
+        throw "El ticket no autoriza estos argumentos ni este helper."
+    }
+
+    $claimedTicket = $ticketFull + ".consumed"
+    if (Test-Path -LiteralPath $claimedTicket) {
+        throw "El ticket de autorización ya fue consumido."
+    }
+    Move-Item -LiteralPath $ticketFull -Destination $claimedTicket
+}
+
 $workRoot = Join-Path (Split-Path -Parent $stateFull) ("stage-" + [Guid]::NewGuid().ToString("N"))
 $extractRoot = Join-Path $workRoot "extract"
 $backupRoot = Join-Path $installFull ("backups\updates\" + $ExpectedVersion.TrimStart('v', 'V') + "-" + [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ"))
@@ -72,6 +190,11 @@ $viewerMoved = $false
 $newBackendInstalled = $false
 $newViewerInstalled = $false
 $processesStopped = $false
+
+# This check is deliberately outside the effect try/catch. An unauthorized
+# direct invocation must not write an error state, delete the bundle, or stage
+# files before it is rejected.
+Consume-AuthorizationTicket
 
 try {
     $rootPath = [System.IO.Path]::GetPathRoot($installFull).TrimEnd('\')

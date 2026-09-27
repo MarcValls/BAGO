@@ -113,6 +113,48 @@ def test_hybrid_retriever_prefers_exact_symbol_and_records_reason(tmp_path):
     assert working_set["evidence"][0]["reason"]
 
 
+def test_hybrid_retriever_reads_git_diff_through_gateway_for_active_session(tmp_path, monkeypatch):
+    import bago_core.server_effects as server_effects
+    from directory_context import HybridRetriever
+
+    manager = SimpleNamespace(
+        base_path=str(tmp_path),
+        project_root=str(tmp_path),
+        session_id="directory-context-session",
+    )
+    calls = []
+
+    def inspect(executable, argv, *, cwd, manager, timeout):
+        calls.append((executable, argv, Path(cwd), manager, timeout))
+        return {"exit_code": 0, "stdout": "src/changed.py\n"}
+
+    monkeypatch.setattr(server_effects, "inspect_process", inspect)
+    retriever = HybridRetriever(tmp_path, tmp_path / ".gabo/context", manager=manager)
+
+    assert retriever._git_diff_paths() == ["src/changed.py"]
+    assert calls == [(
+        "git",
+        ["-c", f"safe.directory={tmp_path.as_posix()}", "diff", "--name-only"],
+        tmp_path,
+        manager,
+        5,
+    )]
+
+
+def test_hybrid_retriever_without_active_session_skips_git_process(tmp_path, monkeypatch):
+    import bago_core.server_effects as server_effects
+    from directory_context import HybridRetriever
+
+    monkeypatch.setattr(
+        server_effects,
+        "inspect_process",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("no session owner")),
+    )
+    retriever = HybridRetriever(tmp_path, tmp_path / ".gabo/context")
+
+    assert retriever._git_diff_paths() == []
+
+
 def test_directory_watcher_refreshes_changed_file_incrementally(tmp_path):
     project = tmp_path / "project"
     context_root = project / ".gabo" / "context"

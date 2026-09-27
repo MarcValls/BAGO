@@ -23,7 +23,7 @@ Structural layers and runtime flows live in `docs/ARCHITECTURE.md`.
 | `.bago/core/credential_manager.py` | working | `python test_e2e.py` |
 | `.bago/core/switch_engine.py` | working | `python test_e2e.py` |
 | `.bago/core/context_compressor.py` | working | `python test_e2e.py` |
-| `bago_core/evidence_bundle.py` | working | `python bago_core\cli.py evidence --test` |
+| `bago_core/evidence_bundle.py` | working | `python -m pytest tests\test_evidence_bundle_gateway.py -q` |
 | `bago_core/claim_ledger.py` | working | `python bago_core\cli.py claim --help` |
 | `.bago/api/bridge.py` | working | `python .bago\api\bridge.py --test` |
 

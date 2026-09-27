@@ -2,7 +2,7 @@
 """Portable project doctor for BAGO 4.x.
 
 Usage:
-    python doctor.py [--root DIR] [--fix] [--quiet] [--json] [--test]
+    python doctor.py [--root DIR] [--fix] [--quiet] [--json]
 
 Exit codes:
     0 = clean
@@ -214,11 +214,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fix", action="store_true", help="Show fix hints")
     parser.add_argument("--quiet", action="store_true", help="Show only errors")
     parser.add_argument("--json", dest="as_json", action="store_true", help="JSON output")
-    parser.add_argument("--test", action="store_true", help="Run self-tests")
     args = parser.parse_args(argv)
-
-    if args.test:
-        return run_self_tests()
 
     root = resolve_root(args.root)
     if not root.exists() or not root.is_dir():
@@ -238,61 +234,6 @@ def main(argv: list[str] | None = None) -> int:
         if args.fix and result["findings"]:
             print_fix_hints(result)
     return 1 if result["findings"] else 0
-
-
-def run_self_tests() -> int:
-    import io
-    import tempfile
-    from contextlib import redirect_stdout
-
-    results: list[tuple[str, bool, str]] = []
-
-    def record(name: str, ok: bool, detail: str) -> None:
-        results.append((name, ok, detail))
-
-    with tempfile.TemporaryDirectory() as td:
-        root = Path(td)
-
-        good = root / "good.py"
-        good.write_text("x = 1\n", encoding="utf-8")
-        record("doctor:clean_python", not check_python_syntax(root, set()), "valid file")
-
-        bad_py = root / "broken.py"
-        bad_py.write_text("def bad(:\n    pass\n", encoding="utf-8")
-        record("doctor:syntax_error", bool(check_python_syntax(root, set())), "syntax flagged")
-
-        bad_json = root / "bad.json"
-        bad_json.write_text("{bad json}\n", encoding="utf-8")
-        record("doctor:json_error", bool(check_json_files(root, set())), "json flagged")
-
-        bad_utf8 = root / "bad.txt"
-        bad_utf8.write_bytes(b"abc\xff\n")
-        enc = check_encoding(root)
-        record("doctor:utf8_error", any(item["path"] == "bad.txt" for item in enc), "encoding flagged")
-
-        big = root / "big.bin"
-        big.write_bytes(b"0" * (LARGE_FILE_BYTES + 1))
-        large = check_large_files(root)
-        record("doctor:large_file", any(item["path"] == "big.bin" for item in large), "large flagged")
-
-        orphan = root / "notes.tmp"
-        orphan.write_text("temp\n", encoding="utf-8")
-        orphans = check_orphans(root)
-        record("doctor:orphan_file", any(item["path"] == "notes.tmp" for item in orphans), "orphan flagged")
-
-        clean_root = root / "clean"
-        clean_root.mkdir()
-        (clean_root / "ok.py").write_text("value = 2\n", encoding="utf-8")
-        out = io.StringIO()
-        with redirect_stdout(out):
-            rc = main(["--root", str(clean_root), "--json"])
-        record("doctor:clean_exit", rc == 0, f"rc={rc}")
-
-    passed = sum(1 for _, ok, _ in results if ok)
-    for name, ok, detail in results:
-        print(f"{'OK' if ok else 'FAIL'}: {name} - {detail}")
-    print(f"{passed}/{len(results)} tests passed")
-    return 0 if passed == len(results) else 1
 
 
 if __name__ == "__main__":

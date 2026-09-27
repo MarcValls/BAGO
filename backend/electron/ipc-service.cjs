@@ -45,6 +45,7 @@ function registerIpcHandlers({
   handle('bago:manager-health', () => getDependencyService().managerHealth());
   handle('bago:dependency-catalog', () => getDependencyService().dependencyCatalog());
   handle('bago:dependency-action', async (_event, payload) => getDependencyService().runDependencyAction(payload || {}));
+  handle('bago:manager-settings-write', async (_event, payload) => getRuntimeService().writeManagerSetting(payload || {}));
   handle('bago:install-preflight', (_event, payload) => getDependencyService().runInstallPreflight(payload && payload.targetDir));
   handle('bago:get-installs-root', () => INSTALLS_ROOT);
   handle('bago:fetch-releases', () => getReleaseService().fetchReleases());
@@ -65,12 +66,28 @@ function registerIpcHandlers({
   handle('bago:release-job-install', (_event, id) => getReleaseService().requireReleaseJobs().install(id));
   handle('bago:release-job-rollback', (_event, id) => getReleaseService().requireReleaseJobs().rollback(id));
   handle('bago:release-job-logs', (_event, id, limit) => getReleaseService().requireReleaseJobs().getLogs(id, limit));
-  handle('bago:release-job-delete', (_event, id) => getReleaseService().requireReleaseJobs().deleteJob(id));
+  handle('bago:release-job-delete', async (_event, id) => {
+    const jobId = String(id || '').trim();
+    if (!jobId) throw new Error('Falta el ID del trabajo de release.');
+    if (!dialog || typeof dialog.showMessageBox !== 'function') throw new Error('No hay diálogo de autorización disponible.');
+    const confirmation = await dialog.showMessageBox({
+      type: 'warning',
+      buttons: ['Archivar trabajo', 'Cancelar'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Archivar trabajo de release',
+      message: `¿Archivar el trabajo ${jobId}?`,
+      detail: 'El estado, los logs y los archivos preparados se moverán al archivo recuperable.'
+    });
+    if (confirmation.response !== 0) return { ok: false, canceled: true, id: jobId };
+    return await getReleaseService().requireReleaseJobs().deleteJob(jobId);
+  });
   handle('bago:project-audit', () => getAuditService().projectAudit());
   handle('bago:bago-audit', () => getAuditService().bagoAudit());
   handle('bago:event-ledger', (_event, limit) => getAuditService().eventLedger(limit));
   handle('bago:node-cmd', async (_event, args) => {
     const result = await getRuntimeService().runBagoNode(args);
+    if (result && result.canceled) return result;
     const wantsJson = Array.isArray(args) && args.includes('--json');
     if (wantsJson || String(result.stdout || '').trim().startsWith('{')) {
       try {
@@ -82,6 +99,9 @@ function registerIpcHandlers({
     }
     return { ok: true, text: result.stdout, cmd: result.cmd, cwd: result.cwd };
   });
+  handle('bago:authorized-process', (_event, operation, args) =>
+    getRuntimeService().runAuthorizedProcess(operation, args)
+  );
 }
 
 module.exports = {

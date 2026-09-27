@@ -119,12 +119,73 @@ async function main() {
       }
     ]
   };
+  const downloadAsset = async (operation, signal) => {
+    const response = await fetch(operation.url, { signal });
+    if (!response.ok && response.status !== 206) throw new Error(`fixture download failed: ${response.status}`);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    const finalPath = path.join(root, 'jobs-root', 'cache', operation.job_id, operation.filename);
+    fs.mkdirSync(path.dirname(finalPath), { recursive: true });
+    fs.writeFileSync(finalPath, bytes);
+    return {
+      ok: true,
+      effect_id: 'release.download',
+      path: finalPath,
+      sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
+      bytes_written: Number(operation.size)
+    };
+  };
   const manager = new ReleaseJobManager({
     rootDir: path.join(root, 'jobs-root'),
     allowedHosts: ['127.0.0.1'],
-    allowInsecureHosts: ['127.0.0.1']
+    persistJob: async job => {
+      const directory = path.join(root, 'jobs-root', 'jobs');
+      fs.mkdirSync(directory, { recursive: true });
+      fs.writeFileSync(path.join(directory, `${job.id.replace(/[^A-Za-z0-9._-]/g, '_')}.json`), `${JSON.stringify(job, null, 2)}\n`);
+    },
+    appendJobLog: async (jobId, record) => {
+      const directory = path.join(root, 'jobs-root', 'logs');
+      fs.mkdirSync(directory, { recursive: true });
+      fs.appendFileSync(path.join(directory, `${jobId}.jsonl`), `${JSON.stringify(record)}\n`);
+    },
+    prepareInstall: async operation => {
+      assert.strictEqual(operation.action, 'release-job');
+      assert.strictEqual(fs.existsSync(path.join(target, 'old.txt')), true, 'authorization preparation must precede backup');
+      assert.strictEqual(fs.existsSync(`${target}.bago-rollback-release-test`), false);
+      return async () => {
+        const backupPath = `${operation.install_dir}.bago-rollback-permit-gatewaytest`;
+        fs.cpSync(operation.install_dir, backupPath, { recursive: true });
+        fs.rmSync(operation.install_dir, { recursive: true, force: true });
+        fs.cpSync(operation.source_root, operation.install_dir, { recursive: true });
+        return { ok: true, effect_id: 'system.install.apply', status: 'completed', backup_path: backupPath };
+      };
+    },
+    rollbackInstall: async operation => {
+      assert.strictEqual(operation.install_dir, target);
+      assert.ok(operation.backup_path.endsWith('.bago-rollback-permit-gatewaytest'));
+      fs.renameSync(operation.install_dir, operation.displaced_path);
+      fs.renameSync(operation.backup_path, operation.install_dir);
+      return { ok: true, effect_id: 'system.install.rollback', status: 'completed' };
+    },
+    downloadAsset,
+    archiveJob: async (jobId, archivedAt) => {
+      const archiveDir = path.join(root, 'jobs-root', 'archive', 'deleted-jobs', jobId);
+      fs.mkdirSync(archiveDir, { recursive: true });
+      fs.writeFileSync(path.join(archiveDir, 'job.json'), JSON.stringify({ id: jobId, archived_at: archivedAt }));
+      return { ok: true, archive_dir: archiveDir };
+    },
+    allowInsecureHosts: ['127.0.0.1'],
+    stageBundle: async (jobId, sourceBundle) => {
+      const stagingPath = path.join(root, 'jobs-root', 'staging', jobId);
+      fs.mkdirSync(stagingPath, { recursive: true });
+      execFileSync('powershell.exe', [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+        `Expand-Archive -LiteralPath '${sourceBundle.replace(/'/g, "''")}' -DestinationPath '${stagingPath.replace(/'/g, "''")}' -Force`
+      ], { windowsHide: true });
+      return { staging_path: stagingPath };
+    }
   });
   try {
+    await manager.initialize();
     const preflight = manager.preflight({ release, target, action: 'update' });
     assert.strictEqual(preflight.ok, true);
     assert.strictEqual(preflight.impact.backup_required, true);
@@ -138,13 +199,13 @@ async function main() {
     assert.strictEqual(uninstallPreflight.impact.remove_runtime_only, true);
     assert.strictEqual(manager.preflight({ target: path.join(root, 'missing'), action: 'uninstall' }).ok, false);
 
-  const created = manager.startPrepare({ release, target, action: 'update' });
+  const created = await manager.startPrepare({ release, target, action: 'update' });
   await waitUntil(manager, job => job.id === created.id && job.state === 'downloading' && job.progress.transferred > 0);
-  manager.cancel(created.id);
+  await manager.cancel(created.id);
   const cancelled = await manager.waitFor(created.id, ['cancelled']);
   assert.strictEqual(cancelled.state, 'cancelled');
 
-    manager.resume(created.id);
+    await manager.resume(created.id);
     const ready = await manager.waitFor(created.id, ['ready'], 60000);
     assert.strictEqual(ready.verification.actual_sha256, sha256);
     assert.strictEqual(ready.compatibility.ok, true);
@@ -164,7 +225,7 @@ async function main() {
   assert.strictEqual(rolledBack.state, 'rolled-back');
   assert.strictEqual(fs.readFileSync(path.join(target, 'old.txt'), 'utf8'), 'old runtime\n');
   assert.ok(manager.getLogs(created.id).length > 0);
-  const deleted = manager.deleteJob(created.id);
+  const deleted = await manager.deleteJob(created.id);
   assert.strictEqual(deleted.deleted, true);
   assert.strictEqual(fs.existsSync(path.join(manager.rootDir, 'archive', 'deleted-jobs', created.id, 'job.json')), true);
   assert.strictEqual(manager.listJobs().some(job => job.id === created.id), false);
@@ -225,7 +286,7 @@ async function main() {
     error: '',
     log_file: path.join(root, 'future-job.jsonl')
   });
-  assert.throws(() => manager.resume('future-job'), /futura/);
+  await assert.rejects(() => manager.resume('future-job'), /futura/);
   await new Promise(resolve => futureServer.close(resolve));
 
   console.log(JSON.stringify({

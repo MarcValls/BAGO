@@ -12,7 +12,6 @@ catalog. Otherwise it falls back to querying the local Ollama daemon
 from __future__ import annotations
 
 import json
-import os
 import sys
 import time
 import urllib.request
@@ -79,9 +78,8 @@ def load_selection(state_root: Path) -> Selection:
 
 
 def save_selection(state_root: Path, sel: Selection) -> None:
-    """Atomically write the selection to disk (.tmp + os.replace)."""
+    """Persist the model selection through the canonical state writer."""
     p = _selection_path(state_root)
-    p.parent.mkdir(parents=True, exist_ok=True)
     data = {
         "entries": [
             {
@@ -99,9 +97,9 @@ def save_selection(state_root: Path, sel: Selection) -> None:
         "last_pick": sel.last_pick,
         "last_pick_at": sel.last_pick_at,
     }
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(str(tmp), str(p))
+    from bago_core.atomic_json import write_json_atomic
+
+    write_json_atomic(p, data)
 
 
 # ── Toggle / auto_switch helpers ─────────────────────────────────────────────

@@ -10,7 +10,7 @@ OUTPUT = ROOT / "docs" / "archive" / "evidence" / "release_4_8_1"
 
 def test_real_evidence_commands_reproduce_the_actual_output_path():
     commands = _validation_commands("real", "community-knowledge", OUTPUT, "copilot", "gpt-5.4-mini")
-    assert "python -m bago_core.evidence_cli --test" in commands
+    assert "python -m pytest tests/test_evidence_bundle_gateway.py -q" in commands
     assert 'docs/archive/evidence/release_4_8_1' in commands[-1]
     assert '--provider copilot --model "gpt-5.4-mini" --base-path .' in commands[-1]
 

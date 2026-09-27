@@ -27,7 +27,7 @@ _FALLBACK_TOOLS: dict = {
     "file-write": {
         "cmd": "file-write",
         "file": "file_write.py",
-        "description": "Write or create a file inside the active workspace. Required args: path (relative), content (string).",
+        "description": "Legacy direct writer is disabled. Use the active session /files/write authorization flow. Required args: path (relative), content (string).",
         "schema": {
             "type": "object",
             "properties": {

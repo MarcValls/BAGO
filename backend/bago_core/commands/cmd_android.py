@@ -266,8 +266,9 @@ def _build_layers_payload(
 
 def _write_layers_state(base_path: Path, payload: dict) -> Path:
     target = base_path / ANDROID_LAYERS_STATE
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    from bago_core.atomic_json import write_json_atomic
+
+    write_json_atomic(target, payload)
     return target
 
 

@@ -5,6 +5,8 @@ async function main() {
   const handlers = new Map();
   const ipcMain = { handle: (channel, handler) => handlers.set(channel, handler) };
   const writes = [];
+  const archiveConfirmations = [1, 0];
+  let archivedJobId = '';
   const image = {
     isEmpty: () => false,
     toPNG: () => Buffer.from('png'),
@@ -19,12 +21,12 @@ async function main() {
   registerIpcHandlers({
     ipcMain,
     clipboard,
-    dialog: {},
+    dialog: { showMessageBox: async () => ({ response: archiveConfirmations.shift() }) },
     INSTALLS_ROOT: '',
     getDependencyService: () => ({ managerHealth: noop, dependencyCatalog: noop, runDependencyAction: noop, runInstallPreflight: noop }),
     getRuntimeService: () => ({ runSupervisorCmd: noop, cleanupZombies: noop, openWebChat: noop, openCliChat: noop, webChatStatus: noop, shutdown: noop, getManagerUrl: noop, chooseWorkspaceRoot: noop, linkProjectRoot: noop, ensureWebChatServer: noop, runBagoSession: noop, runBagoNode: noop, getState: noop }),
     getInstallService: () => ({ getInstallState: noop, performInstallAction: noop }),
-    getReleaseService: () => ({ fetchReleases: noop, requireReleaseJobs: () => ({ listJobs: noop, preflight: noop, startPrepare: noop, cancel: noop, resume: noop, install: noop, rollback: noop, getLogs: noop, deleteJob: noop }) }),
+    getReleaseService: () => ({ fetchReleases: noop, requireReleaseJobs: () => ({ listJobs: noop, preflight: noop, startPrepare: noop, cancel: noop, resume: noop, install: noop, rollback: noop, getLogs: noop, deleteJob: async id => { archivedJobId = id; return { ok: true, id }; } }) }),
     getAuditService: () => ({ projectAudit: noop, bagoAudit: noop, eventLedger: noop })
   });
 
@@ -43,6 +45,11 @@ async function main() {
   });
   await handlers.get('bago:clipboard-write-text')({}, 42);
   assert.deepStrictEqual(writes, ['42']);
+  const archive = handlers.get('bago:release-job-delete');
+  assert.deepStrictEqual(await archive({}, 'release-cancel'), { ok: false, canceled: true, id: 'release-cancel' });
+  assert.strictEqual(archivedJobId, '');
+  assert.deepStrictEqual(await archive({}, 'release-confirm'), { ok: true, id: 'release-confirm' });
+  assert.strictEqual(archivedJobId, 'release-confirm');
   console.log(JSON.stringify({ ok: true, channels: 3, payload: 'text-image', coercion: 'string' }));
 }
 

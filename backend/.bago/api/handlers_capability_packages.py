@@ -67,17 +67,75 @@ def handle_examples(handler: "BaseHTTPRequestHandler") -> None:
 
 
 def handle_install_example(handler: "BaseHTTPRequestHandler", package_id: str, body: dict[str, Any]) -> None:
-    from capability_packages import install_example_package
-    _send(handler, lambda: install_example_package(package_id))
+    from capability_packages import example_package_archive
+    encoded, file_name = example_package_archive(package_id)
+    payload = dict(body or {})
+    payload.update({"content_base64": encoded, "file_name": file_name})
+    _handle_import_authorized(handler, payload)
 
 
 def handle_import(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
-    from capability_packages import import_package
-    _send(handler, lambda: import_package(
-        content_base64=str((body or {}).get("content_base64") or ""),
-        file_name=str((body or {}).get("file_name") or ""),
-        confirm_trust=(body or {}).get("confirm_trust") is True,
-    ))
+    _handle_import_authorized(handler, body or {})
+
+
+def _handle_import_authorized(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
+    from api_state import get_mgr
+    from authorization_boundary import AuthorizationBoundary, AuthorizationError
+    from execution_adapters.capability_import import CapabilityPackageImportEffectAdapter
+    from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
+    from execution_gateway import ExecutionGateway
+    from execution_request import ExecutionRequestError, build_execution_request
+    from api_serializers import send_json
+
+    manager = get_mgr(handler)
+    if manager is None or not str(getattr(manager, "session_id", "") or ""):
+        send_json(handler, 503, {"ok": False, "error": "Sesión de autorización no disponible", "code": "SESSION_MANAGER_MISSING"})
+        return
+    arguments = {
+        "file_name": str(body.get("file_name") or ""),
+        "content_base64": str(body.get("content_base64") or ""),
+    }
+    try:
+        target = CapabilityPackageImportEffectAdapter.prepare_target(arguments)
+        request = build_execution_request(
+            effect_id="capability.package.import", actor_kind="user",
+            principal_id="interactive-local-user", session_id=str(manager.session_id),
+            source_surface="api.capability_packages.import", target=target,
+            arguments=arguments, scope="persistent",
+        )
+        boundary = AuthorizationBoundary()
+        action = str(body.get("authorization_action") or "").strip().lower()
+        interaction_id = str(body.get("interaction_id") or "").strip()
+        if action == "challenge":
+            challenge = boundary.create_challenge(request, interaction_id=interaction_id)
+            send_json(handler, 200, {"ok": True, "authorization": {"state": "challenge", "challenge": challenge}})
+            return
+        if action == "approve":
+            if str(body.get("user_decision") or "").strip().lower() != "approve":
+                raise AuthorizationError("La decisión explícita debe ser approve", code="authorization_user_decision_required")
+            channel = str(getattr(handler, "headers", {}).get("X-Bago-Channel", "") or "")
+            result = boundary.approve_challenge(
+                challenge_id=str(body.get("challenge_id") or ""), interaction_id=interaction_id,
+                session_id=request.session_id, channel=channel,
+            )
+            send_json(handler, 200, {"ok": True, "authorization": {"state": "authorized", **result}})
+            return
+        if action != "execute":
+            raise AuthorizationError("authorization_action must be challenge, approve or execute", code="authorization_action_invalid")
+        result, authorization = ExecutionGateway(boundary).execute(
+            permit_token=str(body.get("authorization_permit") or ""), request=request,
+            context=ExecutionContext(manager=manager),
+        )
+        result["effect_id"] = "capability.package.import"
+        result["authorization"] = {"state": "consumed", "permit_id": authorization.get("permit_id"),
+                                   "operation_fingerprint": authorization.get("operation_fingerprint")}
+        send_json(handler, 200, result)
+    except AuthorizationError as exc:
+        send_json(handler, 409 if "challenge" in exc.code or "permit" in exc.code else 403,
+                  {"ok": False, "error": str(exc), "code": exc.code})
+    except (ExecutionRequestError, ExecutionGatewayError) as exc:
+        send_json(handler, 409 if isinstance(exc, ExecutionGatewayError) else 400,
+                  {"ok": False, "error": str(exc), "code": exc.code})
 
 
 def handle_inspect(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:

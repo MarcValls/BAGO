@@ -359,8 +359,8 @@ C:\Bago_v4> python bago_core\cli.py evidence --mode simulated --objective commun
 Comandos clave:
 
 ```bash
-# Validar el generador
-python bago_core\cli.py evidence --test
+# Validar el generador y su frontera de autorización
+python -m pytest tests\test_evidence_bundle_gateway.py -q
 
 # Generar evidencia simulada (sin provider externo)
 python bago_core\cli.py evidence --mode simulated --objective community-knowledge --output docs\evidence\example_bundle --overwrite
@@ -368,6 +368,21 @@ python bago_core\cli.py evidence --mode simulated --objective community-knowledg
 # Generar evidencia real con provider vivo
 python bago_core\cli.py evidence --mode real --provider ollama-local --model "llama3.2:3b" --output C:\temp\bago_real_bundle
 ```
+
+### Rollback de una copia ZIP
+
+`rollback-bago.ps1` ya no restaura directamente. La operación se realiza desde
+un terminal interactivo mediante `bago rollback-archive`; exige aprobación
+strong ligada al ZIP, instalación y huella actual. Por defecto conserva
+`.bago\state`, `.bago\logs`, `state` y `logs` del runtime actual. Usa
+`--restore-backed-up-state` para preferir esos directorios del ZIP.
+
+```powershell
+bago rollback-archive --backup-zip "C:\ProgramData\BAGO\backups\bago-programfiles-backup-<tag>.zip" --install-dir "C:\Program Files\BAGO" --backup-root "C:\ProgramData\BAGO\backups"
+```
+
+- `--backup-zip` puede omitirse para seleccionar el backup BAGO más reciente de la raíz indicada.
+- Antes de sustituir el runtime, el adapter crea un ZIP de seguridad bajo `--backup-root` y devuelve un receipt con SHA-256.
 
 Contratos relacionados:
 

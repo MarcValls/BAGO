@@ -48,6 +48,29 @@ class ClaimLedgerSplitTests(unittest.TestCase):
             self.assertFalse(ok)
             self.assertEqual(ledger.get(cid).status, "failed")
 
+    def test_claim_ledger_constructor_is_read_only_and_append_uses_state_writer(self) -> None:
+        from bago_core import atomic_json
+        from bago_core.claim_storage import ClaimLedger
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "new-root"
+            original = atomic_json.append_text_durable
+            calls = []
+
+            def capture(path, content):
+                self.assertFalse(path.parent.exists())
+                calls.append(path)
+                return original(path, content)
+
+            with patch.object(atomic_json, "append_text_durable", capture):
+                ledger = ClaimLedger(base_path=root)
+                self.assertFalse(root.exists())
+                claim_id = ledger.add(claim="state writer", basis="observation")
+
+            self.assertEqual(calls, [ledger.claims_file])
+            self.assertTrue(ledger.claims_file.is_file())
+            self.assertEqual(ledger.get(claim_id).claim, "state writer")
+
     def test_unbound_material_artifact_without_gate_receipt_cannot_verify(self) -> None:
         from bago_core.claim_storage import ClaimLedger
         from bago_core.operational_integrity import CandidateIdentity, EvidenceRecord
@@ -81,6 +104,7 @@ class ClaimLedgerSplitTests(unittest.TestCase):
         from bago_core.operational_integrity import CandidateIdentity, EvidenceRecord
         with tempfile.TemporaryDirectory() as td:
             ledger = ClaimLedger(base_path=td)
+            ledger.evidence_dir.mkdir(parents=True)
             ledger.claims_file.write_text("{broken\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "claims.jsonl corrupt"):
                 ledger.report()

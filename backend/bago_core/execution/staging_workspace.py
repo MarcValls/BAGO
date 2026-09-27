@@ -17,23 +17,20 @@ Design rules (R0-R10):
 - R1: :class:`WorkspaceSnapshot` and :class:`StagingWorkspace` are
   immutable dataclasses wrapping mutable state on disk.
 - R2: deterministic. Same source + same seed -> same staged tree.
-- R3: the staging area is always created under a unique directory
-  (``bago_staging_<ts>_<rand>``) and is always cleaned up on exit.
-- R4: symlinks are resolved to real files when the workspace is
-  copied; this prevents the validator from accidentally following a
-  malicious symlink into ``.git`` or ``.env``.
+- R3: the Gateway creates a unique staging identity under the canonical
+  temporary BAGO validation root and cleans it up on exit.
+- R4: symlink and junction entries are skipped by the owner so validation
+  cannot follow them into ``.git`` or ``.env``.
 - R8: the workspace never runs subprocess. Snapshot capture is a
   recursive copy; promotion is delegated to ``atomic_patch``.
 """
 from __future__ import annotations
 
-import os
-import shutil
 import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Iterable
 
 
 # Stable code returned by the staging area if a path is forbidden.
@@ -80,6 +77,8 @@ class WorkspaceSnapshot:
     staging_root: str
     created_at: float
     copied_paths: tuple[str, ...] = ()
+    staging_id: str = ""
+    label: str = "bago_staging"
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -87,6 +86,8 @@ class WorkspaceSnapshot:
             "staging_root": self.staging_root,
             "created_at": self.created_at,
             "copied_paths": list(self.copied_paths),
+            "staging_id": self.staging_id,
+            "label": self.label,
         }
 
 
@@ -146,10 +147,10 @@ class StagingWorkspace:
         if self._closed or not self._cleanup:
             object.__setattr__(self, "_closed", True)
             return
+        from bago_core.server_effects import cleanup_validation_workspace
+
+        cleanup_validation_workspace(self.snapshot.staging_id, label=self.snapshot.label)
         object.__setattr__(self, "_closed", True)
-        root = Path(self.snapshot.staging_root)
-        if root.is_dir():
-            shutil.rmtree(root, ignore_errors=True)
 
     def __enter__(self) -> "StagingWorkspace":
         return self
@@ -167,79 +168,6 @@ class StagingError(RuntimeError):
 
 
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _should_ignore(name: str, ignore: Iterable[str]) -> bool:
-    """Return ``True`` if a top-level directory/file must be skipped."""
-    return name in ignore
-
-
-def _safe_copytree(
-    source: Path,
-    destination: Path,
-    *,
-    ignore: tuple[str, ...],
-) -> list[str]:
-    """Recursively copy ``source`` into ``destination`` with symlinks
-    resolved.
-
-    Returns the sorted list of relative paths that were actually
-    written. The list excludes anything in ``ignore`` so the caller
-    can audit what made it into the staging area.
-    """
-    if not source.is_dir():
-        raise StagingError(
-            "staging_source_missing",
-            f"source workspace does not exist: {source}",
-        )
-
-    copied: list[str] = []
-    destination.mkdir(parents=True, exist_ok=False)
-
-    for entry in _walk_resolved(source):
-        rel = entry.relative_to(source)
-        parts = rel.parts
-        if parts and _should_ignore(parts[0], ignore):
-            continue
-        target = destination / rel
-        if entry.is_dir():
-            target.mkdir(parents=True, exist_ok=True)
-            copied.append(str(rel).replace(os.sep, "/"))
-            continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(entry, target, follow_symlinks=True)
-        copied.append(str(rel).replace(os.sep, "/"))
-    return sorted(set(copied))
-
-
-def _walk_resolved(root: Path):
-    """Yield every entry under ``root`` with symlinks resolved.
-
-    Walks manually rather than using ``os.walk(followlinks=True)``
-    because we also want to skip symlinked directories entirely.
-    """
-    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
-        current = Path(dirpath)
-        for dirname in list(dirnames):
-            full = current / dirname
-            if full.is_symlink():
-                # Skip symlinked subtrees entirely. This is the safe
-                # default: a symlink to ``.git`` or ``.env`` would
-                # otherwise let the validator read files the user
-                # deliberately kept out of the workspace.
-                dirnames.remove(dirname)
-                continue
-            yield full
-        for filename in filenames:
-            full = current / filename
-            if full.is_symlink():
-                continue
-            yield full
-
-
-# ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
 
@@ -253,32 +181,33 @@ def open_staging_workspace(
 ) -> StagingWorkspace:
     """Create a new staging workspace by copying ``source_root``.
 
-    The staging directory is created under ``parent_dir`` (defaults to
-    the system temp directory) with a unique name of the form
-    ``<label>_<unix_ms>_<rand>``. The directory is removed when the
-    returned :class:`StagingWorkspace` is closed.
+    The Gateway creates a unique directory below the canonical BAGO
+    validation staging root. A noncanonical ``parent_dir`` is rejected.
     """
-    source = Path(source_root).resolve()
-    ignore_set = tuple(dict.fromkeys(tuple(ignore) + _DEFAULT_IGNORE))
-    parent = Path(parent_dir) if parent_dir is not None else Path(tempfile.gettempdir())
-    parent.mkdir(parents=True, exist_ok=True)
-    timestamp = int(time.time() * 1000)
-    suffix = f"{timestamp}_{os.getpid()}_{os.urandom(2).hex()}"
-    staging_path = parent / f"{label}_{suffix}"
+    from bago_core.server_effects import stage_validation_workspace
 
+    source = Path(source_root).expanduser()
+    if not source.is_absolute():
+        source = Path.cwd() / source
+    ignore_set = tuple(dict.fromkeys(tuple(ignore) + _DEFAULT_IGNORE))
+    parent = Path(tempfile.gettempdir()).resolve() / "BAGO" / "validation"
+    if parent_dir is not None and Path(parent_dir).expanduser().resolve() != parent:
+        raise StagingError("staging_target_out_of_scope", "validation staging parent must be the canonical BAGO temp root")
     try:
-        copied = _safe_copytree(source, staging_path, ignore=ignore_set)
-    except FileExistsError as exc:
+        result = stage_validation_workspace(str(source), ignore=list(ignore_set), label=str(label))
+    except Exception as exc:
         raise StagingError(
-            "staging_already_exists",
-            f"staging path already exists: {staging_path}",
+            str(getattr(exc, "code", "validation_staging_failed")),
+            str(exc),
         ) from exc
 
     snapshot = WorkspaceSnapshot(
-        source_root=str(source),
-        staging_root=str(staging_path),
+        source_root=str(source.resolve()),
+        staging_root=str(result["staging_root"]),
         created_at=time.time(),
-        copied_paths=tuple(copied),
+        copied_paths=tuple(result["copied_paths"]),
+        staging_id=str(result["staging_id"]),
+        label=str(result["label"]),
     )
     return StagingWorkspace(snapshot=snapshot)
 

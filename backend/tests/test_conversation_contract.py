@@ -21,6 +21,13 @@ def test_legacy_history_is_exposed_as_main_without_rewrite(tmp_path):
     assert "conversation_id" not in context_path.read_text(encoding="utf-8")
 
 
+def test_loading_missing_session_does_not_materialize_empty_state_directory(tmp_path):
+    store = ContextStore.load("missing-session", base_dir=tmp_path)
+
+    assert store.sid == "missing-session"
+    assert not (tmp_path / "sessions" / "missing-session").exists()
+
+
 def test_conversations_keep_histories_isolated_and_persist_active(tmp_path):
     store = ContextStore.create_new(base_dir=tmp_path)
     store.append_user("mensaje principal")

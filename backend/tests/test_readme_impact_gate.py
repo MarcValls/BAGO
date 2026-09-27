@@ -6,11 +6,11 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "verify_readme_impact.py"
+SCRIPT = ROOT / "scripts" / "verify_readme_freshness.py"
 
 
 def _module():
-    spec = importlib.util.spec_from_file_location("verify_readme_impact", SCRIPT)
+    spec = importlib.util.spec_from_file_location("verify_readme_freshness", SCRIPT)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -31,7 +31,7 @@ def test_installation_change_requires_readme_update() -> None:
     errors = module.validate_impact(["releases/bago-installer.nsi"])
 
     assert errors
-    assert any("installation, release or lifecycle" in item for item in errors)
+    assert any("installation/release/distribution behavior" in item for item in errors)
 
 
 def test_readme_in_same_diff_satisfies_impact_gate() -> None:
@@ -64,6 +64,6 @@ def test_canonical_ci_wires_readme_impact_gate_with_full_history() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
     assert "fetch-depth: 0" in workflow
-    assert "python scripts/verify_readme_impact.py" in workflow
-    assert "README impact gate failed." in workflow
-    assert "scripts/verify_readme_impact.py" in readme
+    assert "python scripts/verify_readme_freshness.py" in workflow
+    assert "README truth or impact gate failed." in workflow
+    assert "scripts/verify_readme_freshness.py" in workflow

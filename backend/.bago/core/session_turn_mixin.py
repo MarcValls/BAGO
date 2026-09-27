@@ -57,29 +57,19 @@ def _requests_no_execution(text: str) -> bool:
     return bool(_NO_EXECUTION_RE.search(text or ""))
 
 
-def _extract_and_write_files(content: str, write_root: "Path") -> tuple[list[dict], str]:
-    """Extract [WRITE:path]content[/WRITE] blocks from content, write them to disk.
-    Returns (files_written, cleaned_content)."""
-    files_written: list[dict] = []
+def _present_write_blocks(content: str) -> str:
+    """Render legacy WRITE blocks as proposals without materializing files."""
     def _replacer(m: re.Match) -> str:
         rel_path = m.group(1).strip()
         file_content = m.group(2)
-        # strip trailing newline added by the marker
         if file_content.endswith("\n"):
             file_content = file_content[:-1]
-        try:
-            target = (write_root / rel_path).resolve()
-            target.relative_to(write_root)  # sandbox check
-            target.parent.mkdir(parents=True, exist_ok=True)
-            existed = target.exists()
-            target.write_text(file_content, encoding="utf-8")
-            files_written.append({"ok": True, "path": rel_path, "absolute_path": str(target), "created": not existed})
-            return f"✅ Archivo escrito: `{rel_path}` ({len(file_content.encode())} bytes)\nRuta completa: `{target}`"
-        except Exception as exc:
-            files_written.append({"ok": False, "path": rel_path, "error": str(exc)})
-            return f"❌ No se pudo escribir `{rel_path}`: {exc}"
-    cleaned = _WRITE_BLOCK_RE.sub(_replacer, content)
-    return files_written, cleaned
+        return (
+            f"Propuesta para `{rel_path}` (no escrita; requiere una operación "
+            "`filesystem.write` autorizada):\n\n"
+            f"{file_content}"
+        )
+    return _WRITE_BLOCK_RE.sub(_replacer, content)
 
 
 # -------------------------------------------------------------------------
@@ -917,15 +907,9 @@ class SessionTurnMixin:
             final_content = self._workspace_fallback_reply()
             workspace_fallback_used = True
 
-        # Auto-write any [WRITE:path]content[/WRITE] blocks in the response
-        # Use project_root (user project), falling back to workspace_scope_root. Never use the temp mirror.
-        _write_root_str = (
-            str(getattr(self, "project_root", None) or "")
-            or str(getattr(self, "workspace_scope_root", None) or "")
-            or str(Path.cwd())
-        )
-        _write_root = Path(_write_root_str).resolve()
-        _files_written, final_content = _extract_and_write_files(final_content, _write_root)
+        # Legacy model output markers are display-only. Material file writes
+        # must use the explicit filesystem.write challenge/Permit flow.
+        final_content = _present_write_blocks(final_content)
 
         elapsed_ms = (time.time() - start) * 1000
 

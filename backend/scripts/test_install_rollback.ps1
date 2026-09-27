@@ -48,11 +48,11 @@ if (-not $backup) {
     throw "Install did not create rollback backup."
 }
 
-& pwsh -NoProfile -ExecutionPolicy Bypass -File "C:\Bago_v4\rollback-bago.ps1" `
-    -BackupZip $backup.FullName `
-    -InstallDir $installDir `
-    -BackupRoot $backupRoot `
-    -SkipTests | Out-Null
+& python (Join-Path "C:\Bago_v4" "bago_core\cli.py") rollback-archive `
+    --backup-zip $backup.FullName `
+    --install-dir $installDir `
+    --backup-root $backupRoot
+if ($LASTEXITCODE -ne 0) { throw "Gateway archive rollback failed with exit code $LASTEXITCODE" }
 
 if (-not (Test-Path -LiteralPath (Join-Path $installDir "old_marker.txt"))) {
     throw "Rollback did not restore previous runtime marker."

@@ -105,7 +105,6 @@ def _write_llm_start_state(state_root: str | Path, provider: str, model: str, mo
     from datetime import datetime, timezone
 
     state_dir = Path(state_root)
-    state_dir.mkdir(parents=True, exist_ok=True)
     path = state_dir / "llm_start.json"
     payload = {
         "provider": provider,
@@ -114,13 +113,18 @@ def _write_llm_start_state(state_root: str | Path, provider: str, model: str, mo
         "bridges": list(dict.fromkeys([provider] + list(bridges or []))),
         "started_at": datetime.now(timezone.utc).isoformat(),
     }
-    path.write_text(_json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    from bago_core.server_effects import write_text_atomic
+    write_text_atomic(
+        path,
+        _json.dumps(payload, indent=2, ensure_ascii=False),
+        trusted_root=state_dir,
+        source_surface="cli.llm.start",
+    )
     return path
 
 
 def _headless_project_root() -> Path:
     root = Path(tempfile.gettempdir()) / "BAGO" / "headless"
-    root.mkdir(parents=True, exist_ok=True)
     return root
 
 def _start_monitor_bg(base_path: str, port: int = 7890) -> None:
@@ -332,7 +336,7 @@ def cmd_exec(args: argparse.Namespace) -> int:
     from system_prompt import get_system_prompt
 
     module = load_piece_module("chat.package", "bago_repl_commands_exec", "commands.py")
-    execute = module.execute
+    execute = module.execute_local_cli
 
     raw_command = getattr(args, "slash_command", None) or getattr(args, "command", None) or []
     command_line = " ".join(str(part) for part in raw_command).strip()
@@ -349,6 +353,7 @@ def cmd_exec(args: argparse.Namespace) -> int:
         resolved_base_path = SessionManager._validate_project_root(base_path, require_identity=False)
     except Exception:
         resolved_base_path = _headless_project_root()
+        resolved_base_path.mkdir(parents=True, exist_ok=True)
     mgr = SessionManager(
         base_path=str(resolved_base_path),
         provider=provider,

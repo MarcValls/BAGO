@@ -24,14 +24,11 @@ from bago_core.evidence_model import (
     PROFILES,
     registered_mock_adapter,
 )
-from bago_core.evidence_generator import (
-    generate_bundle,
-)
+from bago_core.evidence_authorized import generate_bundle
 from bago_core.evidence_cli import (
     build_parser,
     main,
     run,
-    _run_tests,
 )
 
 __all__ = [
@@ -43,5 +40,4 @@ __all__ = [
     "build_parser",
     "main",
     "run",
-    "_run_tests",
 ]

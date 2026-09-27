@@ -55,8 +55,7 @@ graph TD
             S7["session_tools_mixin.py\nHerramientas en sesión"]
             S8["session_turn_mixin.py\nGestión de turnos"]
             S9["session_adapters_mixin.py\nAdaptadores de sesión"]
-            S10["session_db.py\nBase de datos de sesión"]
-            S11["session_utils.py\nUtilidades de sesión"]
+            S10["session_utils.py\nUtilidades de sesión"]
         end
 
         subgraph WORKSPACE["Workspace / Binding"]
@@ -216,6 +215,6 @@ graph TD
 | `version.py` / `release_version.txt` | Versión del sistema |
 | `install-v4.ps1` / `install-assistant.ps1` | Instaladores |
 | `open-*.cmd` | Lanzadores de escritorio |
-| `uninstall-bago.*` / `rollback-bago.ps1` | Desinstalación y rollback |
+| `uninstall-bago.*` / `rollback-bago.ps1` | Desinstalación; el script legacy de rollback solo guía a `bago rollback-archive` |
 | `package.json` / `.gitignore` | Config del workspace |
 | `manual.md` / `README.md` | Documentación |

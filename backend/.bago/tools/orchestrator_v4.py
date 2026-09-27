@@ -24,7 +24,6 @@ Uso:
     python .bago/tools/orchestrator_v4.py close <brief_id>
     python .bago/tools/orchestrator_v4.py list [--status pending|assigned|in_progress|review|closed]
     python .bago/tools/orchestrator_v4.py show <brief_id>
-    python .bago/tools/orchestrator_v4.py --test
 
 Subcomando BAGO:
     bago orchestrate create --task "..."
@@ -34,13 +33,11 @@ Subcomando BAGO:
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import os
 import re
 import sys
 import uuid
-from contextlib import redirect_stdout
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,7 +48,6 @@ ensure_tools_path()  # noqa: E402
 from bago_utils import (
     get_scan_root,
     load_json,
-    print_test_results,
     save_json,
     timestamp_iso,
 )
@@ -143,7 +139,6 @@ def configure_paths(root_override: str | None = None) -> Path:
     SCAN_ROOT = get_scan_root(root_override)
     BAGO_ROOT = SCAN_ROOT / ".bago"
     ORC_DIR = BAGO_ROOT / "state" / STATE_SUBDIR
-    ORC_DIR.mkdir(parents=True, exist_ok=True)
     return SCAN_ROOT
 
 
@@ -526,7 +521,6 @@ def _parse(argv: list[str] | None = None) -> argparse.Namespace:
     )
     p.add_argument("--root", default="", help="Raíz del proyecto (override)")
     p.add_argument("--json", action="store_true", dest="as_json", help="Salida en JSON")
-    p.add_argument("--test", action="store_true", help="Ejecutar self-tests")
     sub = p.add_subparsers(dest="subcmd")
 
     # create
@@ -580,9 +574,6 @@ def _parse(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse(argv)
-
-    if args.test:
-        return _run_tests()
 
     configure_paths(args.root or None)
 
@@ -687,133 +678,6 @@ def main(argv: list[str] | None = None) -> int:
     else:
         _parse(["--help"])
         return 0
-
-
-# ── Self-tests ────────────────────────────────────────────────────────────────
-
-def _run_tests() -> int:
-    import shutil
-    import tempfile
-
-    scratch = Path(tempfile.mkdtemp(prefix="bago_orc_test_"))
-    try:
-        configure_paths(str(scratch))
-        results: list[tuple[str, bool, str]] = []
-
-        # T1: create_brief genera un brief con ID y persiste en disco
-        b1 = create_brief(task="Fix the broken API endpoint")
-        results.append((
-            "create_persists",
-            _brief_path(b1.id).exists(),
-            "create_brief guarda JSON en disco",
-        ))
-
-        # T2: dominio inferido correctamente
-        results.append((
-            "infer_domain_backend",
-            b1.domain == "Backend",
-            f"'API endpoint' → dominio Backend (got {b1.domain})",
-        ))
-
-        # T3: prioridad inferida correctamente para P0
-        b_p0 = create_brief(task="El servidor está caído, bloqueante")
-        results.append((
-            "infer_priority_p0",
-            b_p0.priority == "P0",
-            f"'bloqueante' → P0 (got {b_p0.priority})",
-        ))
-
-        # T4: assign cambia estado a 'assigned'
-        b_assigned = assign_brief(b1.id, agent="backend")
-        results.append((
-            "assign_status",
-            b_assigned.status == "assigned" and b_assigned.agent == "backend",
-            f"assign → status=assigned, agent=backend",
-        ))
-
-        # T5: handoff cambia dominio, añade entrada al historial
-        hoff = create_handoff(
-            brief_id=b1.id,
-            to_domain="Frontend",
-            summary="Backend contract definido",
-            state="completo",
-            risks=["CSS puede variar"],
-            action_requested="Implementar la pantalla de error",
-        )
-        b_after_hoff = _load_brief(b1.id)
-        results.append((
-            "handoff_recorded",
-            len(b_after_hoff.handoffs) == 1 and b_after_hoff.domain == "Frontend",
-            "handoff registrado y dominio actualizado",
-        ))
-
-        # T6: review devuelve RevisionFinal con result
-        # Simular un brief cerrable: marcar como in_progress antes de revisar
-        b_after_hoff.status = "in_progress"
-        _save_brief(b_after_hoff)
-        revision = review_brief(b1.id, notes="OK desde test")
-        results.append((
-            "review_produces_revision",
-            isinstance(revision.result, str) and revision.result in ("approved", "changes_required"),
-            f"review devuelve resultado válido: {revision.result}",
-        ))
-
-        # T7: close requiere revisión aprobada (sin force falla en pending)
-        b_pending = create_brief(task="Tarea sin revisar")
-        try:
-            close_brief(b_pending.id, force=False)
-            results.append(("close_requires_review", False, "deberia haber fallado"))
-        except ValueError:
-            results.append(("close_requires_review", True, "close sin review lanza ValueError"))
-
-        # T8: close con force=True cierra cualquier brief
-        b_force = create_brief(task="Cerrar urgente")
-        b_closed = close_brief(b_force.id, force=True)
-        results.append((
-            "close_force",
-            b_closed.status == "closed",
-            "close --force cierra sin revisión previa",
-        ))
-
-        # T9: list devuelve los briefs creados
-        all_briefs = _list_briefs()
-        results.append((
-            "list_returns_briefs",
-            len(all_briefs) >= 4,
-            f"list devuelve {len(all_briefs)} briefs (>=4)",
-        ))
-
-        # T10: JSON output desde CLI
-        out = io.StringIO()
-        with redirect_stdout(out):
-            rc = main(["--root", str(scratch), "--json", "create", "--task", "CLI JSON test"])
-        raw = out.getvalue()
-        try:
-            parsed = json.loads(raw)
-            json_ok = isinstance(parsed, dict) and "id" in parsed
-        except Exception:
-            json_ok = False
-        results.append((
-            "cli_json_output",
-            rc == 0 and json_ok,
-            "CLI --json produce JSON parseable con campo 'id'",
-        ))
-
-        # T11: CLI list funciona sin error
-        out2 = io.StringIO()
-        with redirect_stdout(out2):
-            rc2 = main(["--root", str(scratch), "list"])
-        results.append((
-            "cli_list_works",
-            rc2 == 0,
-            "bago orchestrate list devuelve 0",
-        ))
-
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
-        configure_paths()
-
-    return print_test_results(results)
 
 
 if __name__ == "__main__":

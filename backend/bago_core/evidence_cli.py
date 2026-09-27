@@ -3,7 +3,7 @@
 
 Owns:
 - argparse surface (build_parser)
-- _run_tests, run, main
+- run, main
 
 R0-R10:
 - R0: <100 lines
@@ -12,10 +12,8 @@ R0-R10:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 BAGO_ROOT = Path(__file__).resolve().parents[1]
@@ -36,8 +34,8 @@ for _stream in (sys.stdout, sys.stderr):
     except Exception:
         pass
 
-from bago_core.evidence_model import PROFILES, ContractMockAdapter  # noqa: E402
-from bago_core.evidence_generator import generate_bundle  # noqa: E402
+from bago_core.evidence_model import PROFILES  # noqa: E402
+from bago_core.evidence_authorized import generate_bundle  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -56,37 +54,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Base path para config/estado en modo real")
     parser.add_argument("--overwrite", action="store_true",
                         help="Sobrescribe el directorio de salida si existe")
-    parser.add_argument("--test", action="store_true",
-                        help="Ejecuta la prueba interna del generador")
     return parser
 
 
-def _run_tests() -> int:
-    with tempfile.TemporaryDirectory() as temp_dir:
-        output_dir = Path(temp_dir) / "bundle"
-        manifest_path = generate_bundle(
-            mode="simulated",
-            objective="community-knowledge",
-            output_dir=output_dir,
-            provider="mock-contract",
-            model=ContractMockAdapter.MODEL_ID,
-            base_path=BAGO_ROOT,
-            overwrite=False,
-        )
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        assert manifest["status"] == "pass"
-        assert any(item["id"] == "plan-generation" for item in manifest["checks"])
-        assert (output_dir / "session" / "context.jsonl").exists()
-        assert (output_dir / "commands" / "results.json").exists()
-        assert (output_dir / "knowledge" / "recent_memories.json").exists()
-        print("evidence_bundle.py --test: ALL PASS")
-    return 0
-
-
 def run(args: argparse.Namespace) -> int:
-    if getattr(args, "test", False):
-        return _run_tests()
-
     if not getattr(args, "output", None):
         print("Uso: bago evidence --output <directorio> [--mode simulated|real] [--objective ...]")
         return 1

@@ -43,7 +43,6 @@ def active_session_id(state_root: str | Path) -> str:
 def mark_active_session(manager: Any) -> None:
     now = datetime.now(timezone.utc).isoformat()
     state_root = Path(manager.state_root)
-    state_root.mkdir(parents=True, exist_ok=True)
     manager.store.update_meta({"last_opened_at": now})
     manager.save()
     write_json_atomic(state_root / ACTIVE_SESSION_FILE, {

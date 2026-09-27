@@ -24,8 +24,6 @@ benchmark local. Después es editable por el usuario.
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 from pathlib import Path
 from typing import Iterable
 
@@ -78,19 +76,14 @@ def _read(path: Path) -> dict:
 
 
 def _write_atomic(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(
-        prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        os.replace(tmp_name, path)
-    except Exception:
-        try:
-            os.unlink(tmp_name)
-        except Exception:
-            pass
-        raise
+    from bago_core.server_effects import write_text_atomic
+
+    write_text_atomic(
+        path,
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        trusted_root=path.parent,
+        source_surface="api.blacklist_models",
+    )
 
 
 def _ensure_file() -> dict:

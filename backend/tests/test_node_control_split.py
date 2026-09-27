@@ -157,6 +157,69 @@ def test_state_validate_against_tempdir() -> None:
         assert "modular_guard" in names
 
 
+def test_piece_manifest_writer_materializes_store_parent_directories(tmp_path, monkeypatch) -> None:
+    from bago_core import node_control_store as store
+
+    piece_path = tmp_path / "pieces" / "skills" / "example"
+    manifest = piece_path / "manifest.json"
+    writes = []
+    original_json_write = store.json_write
+
+    def capture_write(path, payload):
+        assert not path.parent.exists()
+        writes.append(path)
+        return original_json_write(path, payload)
+
+    monkeypatch.setattr(store, "json_write", capture_write)
+    rows = store.materialize_piece_store([{
+        "piece_id": "skill.example",
+        "type": "skill",
+        "scope": "local",
+        "version": "1",
+        "hash": "sha256:example",
+        "store_path": str(piece_path),
+    }])
+
+    assert writes == [manifest]
+    assert manifest.is_file()
+    assert rows[0]["exists"] is True
+
+
+def test_state_registry_root_is_materialized_by_state_writer(tmp_path, monkeypatch) -> None:
+    from bago_core import node_control_state as state
+    from bago_core import node_control_store as store
+
+    monkeypatch.setattr(store, "piece_store_root", lambda: tmp_path / "shared-pieces")
+    original_json_write = state.json_write
+    writes = []
+
+    def capture_write(path, payload):
+        if not writes:
+            assert not path.parent.exists()
+        writes.append(path)
+        return original_json_write(path, payload)
+
+    monkeypatch.setattr(state, "json_write", capture_write)
+    boot = state.bootstrap(tmp_path)
+
+    assert writes[0] == boot["paths"].pieces
+    assert boot["paths"].root.is_dir()
+    assert boot["paths"].pieces.is_file()
+
+
+def test_modular_guard_runs_in_process_without_subprocess(monkeypatch) -> None:
+    import subprocess
+    import bago_core.node_control_state as state
+
+    def forbidden_subprocess(*_args, **_kwargs):
+        raise AssertionError("modular guard must not spawn a process")
+
+    monkeypatch.setattr(subprocess, "run", forbidden_subprocess)
+    findings = state.run_modular_guard()
+
+    assert all(item.get("rule") != "R6" for item in findings)
+
+
 # ---------------------------------------------------------------------------
 # Live side-effects: connect/disconnect/set_mode/export_bundle en connect module.
 # ---------------------------------------------------------------------------

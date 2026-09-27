@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import stat
+import subprocess
 import warnings
 import zipfile
 
@@ -12,6 +13,21 @@ import pytest
 
 import capability_packages as packages
 from package_contract import canonical_archive, canonical_json
+
+_execute_package = packages._execute_package
+_execute_pipeline_package = packages._execute_pipeline_package
+def _run_package(*args, **kwargs):
+    kwargs.setdefault("process_executor", subprocess.run)
+    return _execute_package(*args, **kwargs)
+
+
+def _run_pipeline(*args, **kwargs):
+    kwargs.setdefault("process_executor", subprocess.run)
+    return _execute_pipeline_package(*args, **kwargs)
+
+
+packages._execute_package = _run_package
+packages._execute_pipeline_package = _run_pipeline
 
 
 DEFINITION = {
@@ -97,7 +113,7 @@ def package_bytes(
 
 
 def import_bytes(package_id, archive):
-    return packages.import_package(
+    return packages._materialize_import(
         content_base64=encode(archive),
         file_name=f"{package_id}.zip",
         confirm_trust=False,
@@ -146,7 +162,7 @@ def test_canonical_import_and_unsigned_inspection_does_not_persist():
     assert inspected["warnings"]
     assert packages.list_packages() == []
 
-    imported = packages.import_package(content_base64=content, file_name="canonical.zip", confirm_trust=False)
+    imported = packages._materialize_import(content_base64=content, file_name="canonical.zip", confirm_trust=False)
     assert imported["package"]["legacy_source"] is False
     assert imported["package"]["kind"] == "capability"
     assert imported["package"]["signature_state"] == "unsigned"
@@ -170,7 +186,7 @@ def test_legacy_package_is_normalized_to_generic_record():
         archive.writestr("capability.json", json.dumps(legacy))
         archive.writestr("run.py", RUNNER)
 
-    result = packages.import_package(
+    result = packages._materialize_import(
         content_base64=encode(buffer.getvalue()),
         file_name="legacy.zip",
         confirm_trust=True,
@@ -189,7 +205,7 @@ def test_legacy_package_is_normalized_to_generic_record():
 
 
 def test_export_is_deterministic_and_round_trips():
-    packages.import_package(
+    packages._materialize_import(
         content_base64=encode(canonical_bytes()),
         file_name="canonical.zip",
         confirm_trust=True,
@@ -261,7 +277,7 @@ def test_inventory_failures_block_import(mutation, expected_code):
     assert inspected["ok"] is False
     assert inspected["errors"][0]["code"] == expected_code
     with pytest.raises(packages.CapabilityPackageError) as error:
-        packages.import_package(
+        packages._materialize_import(
             content_base64=encode(archive),
             file_name="bad-inventory.zip",
             confirm_trust=True,
@@ -289,7 +305,7 @@ def test_declarative_pipeline_is_validated_and_stored_without_execution():
     pipeline_manifest.pop("entrypoint")
     archive = canonical_archive(pipeline_manifest, pipeline_payload)
 
-    imported = packages.import_package(
+    imported = packages._materialize_import(
         content_base64=encode(archive),
         file_name="pipeline.zip",
         confirm_trust=False,
@@ -431,7 +447,7 @@ def test_declarative_pipeline_composes_capability_and_persists_receipt():
     )
     packages.set_enabled("local.compose-pipeline", True, confirm_trust=True)
 
-    blocked = packages.execute_pipeline_package(
+    blocked = packages._execute_pipeline_package(
         "local.compose-pipeline",
         inputs={"text": "hola"},
         confirmed=False,
@@ -442,7 +458,7 @@ def test_declarative_pipeline_composes_capability_and_persists_receipt():
     assert blocked["receipt"]["status"] == "blocked"
     assert blocked["receipt"]["steps"][-1]["step_id"] == "approve"
 
-    result = packages.execute_pipeline_package(
+    result = packages._execute_pipeline_package(
         "local.compose-pipeline",
         inputs={"text": "hola"},
         confirmed=True,
@@ -502,7 +518,7 @@ def test_nested_pipeline_executes_and_enforces_declared_dependency():
     import_bytes("local.outer-pipeline", undeclared_archive)
     packages.set_enabled("local.outer-pipeline", True, confirm_trust=True)
     with pytest.raises(packages.CapabilityPackageError) as error:
-        packages.execute_pipeline_package(
+        packages._execute_pipeline_package(
             "local.outer-pipeline",
             inputs={"value": "nested"},
             confirmed=True,
@@ -527,7 +543,7 @@ def test_nested_pipeline_executes_and_enforces_declared_dependency():
         ),
     )
     packages.set_enabled("local.outer-pipeline-ok", True, confirm_trust=True)
-    result = packages.execute_pipeline_package(
+    result = packages._execute_pipeline_package(
         "local.outer-pipeline-ok",
         inputs={"value": "nested"},
         confirmed=True,
@@ -574,7 +590,7 @@ def test_executable_pipeline_requires_confirmation_and_permissions():
     assert activation.value.code == "trust_confirmation_required"
     packages.set_enabled("local.executable-pipeline", True, confirm_trust=True)
     with pytest.raises(packages.CapabilityPackageError) as confirmation:
-        packages.execute_pipeline_package(
+        packages._execute_pipeline_package(
             "local.executable-pipeline",
             inputs={"value": "ok"},
             confirmed=False,
@@ -583,7 +599,7 @@ def test_executable_pipeline_requires_confirmation_and_permissions():
         )
     assert confirmation.value.code == "confirmation_required"
     with pytest.raises(packages.CapabilityPackageError) as permission:
-        packages.execute_pipeline_package(
+        packages._execute_pipeline_package(
             "local.executable-pipeline",
             inputs={"value": "ok"},
             confirmed=True,
@@ -591,7 +607,7 @@ def test_executable_pipeline_requires_confirmation_and_permissions():
             manager=None,
         )
     assert permission.value.code == "permission_approval_required"
-    result = packages.execute_pipeline_package(
+    result = packages._execute_pipeline_package(
         "local.executable-pipeline",
         inputs={"value": "ok"},
         confirmed=True,
@@ -611,7 +627,7 @@ def test_schedule_defaults_are_validated_but_never_activated():
     }])
     inspected = packages.inspect_package(content_base64=encode(archive), file_name="scheduled.zip")
     assert inspected["ok"] is True
-    imported = packages.import_package(content_base64=encode(archive), file_name="scheduled.zip", confirm_trust=True)
+    imported = packages._materialize_import(content_base64=encode(archive), file_name="scheduled.zip", confirm_trust=True)
     assert imported["package"]["schedule_defaults"][0]["interval_s"] == 3600
 
     invalid = canonical_bytes(schedule_defaults=[{

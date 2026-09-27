@@ -190,6 +190,34 @@ def test_toollogger_persists_to_jsonl():
         assert "timestamp" in entry
 
 
+def test_toollogger_delegates_append_without_eager_directory_creation(monkeypatch, tmp_path):
+    from guardrails import ToolLogger
+
+    calls = []
+
+    def append_text_durable(path, content, **kwargs):
+        calls.append((path, content, kwargs))
+        return {"ok": True}
+
+    monkeypatch.setattr("bago_core.server_effects.append_text_durable", append_text_durable)
+    state_root = tmp_path / "not-created-yet"
+    logger = ToolLogger(log_path=str(state_root / "tool_log.jsonl"), trusted_root=state_root)
+
+    assert not state_root.exists()
+    logger.log("session-7", "read_file", {"path": "safe.txt"}, True, 0, 1.0, "ok")
+
+    path, content, kwargs = calls[0]
+    assert path == state_root / "tool_log.jsonl"
+    assert '"session_id": "session-7"' in content
+    assert content.endswith("\n")
+    assert kwargs == {
+        "trusted_root": state_root,
+        "source_surface": "session.tool_log",
+        "session_id": "session-7",
+    }
+    assert not state_root.exists()
+
+
 def test_toollogger_tool_names_executed():
     """tool_names_executed must return only successful non-blocked tools."""
     from guardrails import ToolLogger

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from contextlib import contextmanager
 import json
 import os
 import threading
@@ -127,6 +128,12 @@ def _parse_iso(value: str) -> datetime:
 
 def _ledger_path() -> Path:
     return state_root() / "authorization" / "ledger.json"
+
+
+def authorization_ledger_path() -> Path:
+    """Return the canonical authority ledger path for delegated consumers."""
+
+    return _ledger_path()
 
 
 def _empty_ledger() -> dict[str, Any]:
@@ -286,6 +293,40 @@ class AuthorizationBoundary:
                 "La autorización no procede de una superficie interactiva admitida",
                 code="authorization_user_origin_unverified",
             )
+        return self._approve_challenge_record(
+            challenge_id=challenge_id, interaction_id=interaction_id,
+            session_id=session_id, channel=clean_channel,
+        )
+
+    def approve_cli_challenge(
+        self,
+        *,
+        challenge_id: str,
+        interaction_id: str,
+        session_id: str,
+        terminal_confirmed: bool,
+    ) -> dict[str, Any]:
+        """Approve only from a confirmed interactive local terminal."""
+        import sys
+
+        if terminal_confirmed is not True or not sys.stdin.isatty():
+            raise AuthorizationError(
+                "La aprobación CLI requiere confirmación humana en un TTY",
+                code="authorization_cli_terminal_required",
+            )
+        return self._approve_challenge_record(
+            challenge_id=challenge_id, interaction_id=interaction_id,
+            session_id=session_id, channel="cli",
+        )
+
+    def _approve_challenge_record(
+        self,
+        *,
+        challenge_id: str,
+        interaction_id: str,
+        session_id: str,
+        channel: str,
+    ) -> dict[str, Any]:
         now = _now()
         with _LOCK:
             ledger = _read_ledger()
@@ -332,7 +373,7 @@ class AuthorizationBoundary:
                 expires_at=_iso(now + timedelta(seconds=PERMIT_TTL_SECONDS)),
                 provenance={
                     "kind": "direct_user_interaction",
-                    "channel": clean_channel,
+                    "channel": channel,
                     "contract": AUTHORIZATION_CONTRACT_VERSION,
                 },
             )
@@ -487,6 +528,134 @@ class AuthorizationBoundary:
             "delegation": dict(claim),
         }
 
+    def revoke_permit(self, permit_id: str, *, reason: str = "") -> dict[str, Any]:
+        """Revoke an issued or already-consumed Permit for future admissions.
+
+        Revocation cannot undo an effect that already completed. It does make
+        subsequent compound-child admissions fail closed. The same authority
+        lock is held by consumed_authority_lease(), which gives revocation vs.
+        material-child dispatch a single linearization order.
+        """
+
+        clean_permit_id = str(permit_id or "").strip()
+        if not clean_permit_id:
+            raise AuthorizationError("permit_id is required", code="authorization_permit_id_required")
+        with _LOCK:
+            ledger = _read_ledger()
+            record = next(
+                (
+                    item
+                    for item in ledger["permits"].values()
+                    if isinstance(item, dict) and str(item.get("permit_id") or "") == clean_permit_id
+                ),
+                None,
+            )
+            if not isinstance(record, dict):
+                raise AuthorizationError("Permit desconocido", code="authorization_permit_invalid")
+            if str(record.get("state") or "") == "revoked":
+                return dict(record)
+            record["state"] = "revoked"
+            record["revoked_at"] = _iso(_now())
+            record["revocation_reason"] = str(reason or "")[:500]
+            _write_ledger(ledger)
+            return dict(record)
+
+    @contextmanager
+    def consumed_authority_lease(
+        self,
+        *,
+        authorization: dict[str, Any],
+        request: ExecutionRequest,
+        delegation_state_dir: Path | str | None = None,
+    ):
+        """Revalidate and pin current authority for one compound child effect.
+
+        This is a read-only admission primitive. It does not mint, consume,
+        expand or transfer authority. The authorization lock remains held until
+        the child materializer returns, so revoke_permit() linearizes either
+        before the child (zero effect) or after it completes.
+        """
+
+        permit_id = str((authorization or {}).get("permit_id") or "").strip()
+        if not permit_id:
+            raise AuthorizationError(
+                "Compound child requires a consumed parent Permit reference",
+                code="authorization_parent_permit_missing",
+            )
+
+        with _LOCK:
+            ledger = _read_ledger()
+            record = next(
+                (
+                    item
+                    for item in ledger["permits"].values()
+                    if isinstance(item, dict) and str(item.get("permit_id") or "") == permit_id
+                ),
+                None,
+            )
+            if not isinstance(record, dict):
+                raise AuthorizationError("Permit desconocido", code="authorization_permit_invalid")
+
+            state = str(record.get("state") or "")
+            if state == "revoked":
+                raise AuthorizationError("Permit revocado", code="authorization_permit_revoked")
+            if state != "consumed":
+                raise AuthorizationError(
+                    "Compound child requires a consumed parent Permit",
+                    code="authorization_parent_permit_not_consumed",
+                )
+            if _parse_iso(str(record.get("expires_at") or "")) <= _now():
+                raise AuthorizationError("Permit expirado", code="authorization_permit_expired")
+            if str(record.get("session_id") or "") != request.session_id:
+                raise AuthorizationError(
+                    "Permit ligado a otra sesión",
+                    code="authorization_permit_session_mismatch",
+                )
+            if str(record.get("effect_id") or "") != request.effect_id:
+                raise AuthorizationError(
+                    "Permit ligado a otro effect_id",
+                    code="authorization_effect_mismatch",
+                )
+            if str(record.get("operation_fingerprint") or "") != request.fingerprint:
+                raise AuthorizationError(
+                    "La operación cambió después de la autorización",
+                    code="authorization_operation_mismatch",
+                )
+            if str(record.get("executed_request_id") or "") != request.request_id:
+                raise AuthorizationError(
+                    "El Permit consumido pertenece a otra ejecución",
+                    code="authorization_execution_lineage_mismatch",
+                )
+
+            proof = record.get("proof") if isinstance(record.get("proof"), dict) else {}
+            provenance = proof.get("provenance") if isinstance(proof.get("provenance"), dict) else {}
+            if str(provenance.get("kind") or "") == "delegation_grant":
+                grant_id = str(provenance.get("grant_id") or "").strip()
+                if not grant_id or grant_id != str(request.delegation_id or "").strip():
+                    raise AuthorizationError(
+                        "Delegated parent Permit no longer matches its grant",
+                        code="authorization_delegation_mismatch",
+                    )
+                if delegation_state_dir is None:
+                    raise AuthorizationError(
+                        "Delegated authority freshness requires state_dir",
+                        code="authorization_delegation_state_required",
+                    )
+                from delegation_grant import DelegationError, DelegationGrantRegistry
+
+                try:
+                    with DelegationGrantRegistry(delegation_state_dir).freshness_lease(
+                        grant_id,
+                        principal_id=request.principal_id,
+                        policy_version=request.policy_version,
+                    ):
+                        yield dict(record)
+                except DelegationError as exc:
+                    raise AuthorizationError(str(exc), code=exc.code) from exc
+                return
+
+            yield dict(record)
+
     def consume_permit(
         self,
         *,
@@ -541,6 +710,7 @@ class AuthorizationBoundary:
             record["state"] = "consumed"
             record["consumed_at"] = _iso(now)
             record["executed_request_id"] = request.request_id
+            record["executed_request"] = request.public_descriptor()
             _write_ledger(ledger)
             return dict(record)
 
@@ -553,5 +723,6 @@ __all__ = [
     "AuthorizationOperation",
     "Permit",
     "UserAuthorizationProof",
+    "authorization_ledger_path",
     "build_operation",
 ]

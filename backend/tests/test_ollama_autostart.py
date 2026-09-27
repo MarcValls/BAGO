@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import sys
 import types
 from pathlib import Path
@@ -96,6 +97,27 @@ def test_parser_exposes_ollama_autostart_flag():
 
     assert getattr(chat_args, "no_ollama_autostart", False) is True
     assert getattr(llm_args, "no_ollama_autostart", False) is True
+
+
+def test_llm_start_state_uses_gateway_writer(tmp_path):
+    state_root = tmp_path / "isolated" / "state"
+
+    path = cmd_chat._write_llm_start_state(state_root, "ollama-local", "llama3.2:3b", "chat", ["bridge-a", "bridge-a"])
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["provider"] == "ollama-local"
+    assert payload["model"] == "llama3.2:3b"
+    assert payload["bridges"] == ["ollama-local", "bridge-a"]
+    assert list(state_root.glob("*.tmp")) == []
+
+
+def test_headless_project_root_resolution_is_read_only(tmp_path, monkeypatch):
+    monkeypatch.setattr(cmd_chat.tempfile, "gettempdir", lambda: str(tmp_path))
+
+    root = cmd_chat._headless_project_root()
+
+    assert root == tmp_path / "BAGO" / "headless"
+    assert not root.exists()
 
 
 def test_llm_start_disables_extra_startup_prompt(monkeypatch, tmp_path):

@@ -37,10 +37,14 @@
     "/plans",
     "/configure",
     "/release",
+    "/install",
+    "/manager",
+    "/desktop",
     "/github",
     "/auto-config",
     "/blacklist",
     "/context",
+    "/process",
     "/interpretations",
     "/roadmap",
     "/project",
@@ -834,10 +838,31 @@
       "pattern": false
     },
     {
+      "handler_fn": "handle_apply",
+      "handler_module": "handlers_project_patch",
+      "method": "POST",
+      "path": "/project/patch",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_rollback",
+      "handler_module": "handlers_project_patch",
+      "method": "POST",
+      "path": "/project/patch/rollback",
+      "pattern": false
+    },
+    {
       "handler_fn": "handle_persist",
       "handler_module": "handlers_workspace",
       "method": "POST",
       "path": "/workspace/persist",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle",
+      "handler_module": "handlers_context_attach",
+      "method": "POST",
+      "path": "/context/attach",
       "pattern": false
     },
     {
@@ -911,6 +936,13 @@
       "pattern": false
     },
     {
+      "handler_fn": "handle_execute",
+      "handler_module": "handlers_process",
+      "method": "POST",
+      "path": "/process/execute",
+      "pattern": false
+    },
+    {
       "handler_fn": "handle_reasoning_depth",
       "handler_module": "handlers_router",
       "method": "POST",
@@ -964,6 +996,90 @@
       "handler_module": "handlers_release",
       "method": "POST",
       "path": "/release/apply",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_apply",
+      "handler_module": "handlers_install",
+      "method": "POST",
+      "path": "/install/apply",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_rollback",
+      "handler_module": "handlers_install",
+      "method": "POST",
+      "path": "/install/rollback",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_source_update",
+      "handler_module": "handlers_install",
+      "method": "POST",
+      "path": "/install/source-update",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_uninstall",
+      "handler_module": "handlers_install",
+      "method": "POST",
+      "path": "/install/uninstall",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_write",
+      "handler_module": "handlers_manager_settings",
+      "method": "POST",
+      "path": "/manager/settings/write",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_verify_signature",
+      "handler_module": "handlers_release_jobs",
+      "method": "POST",
+      "path": "/release/jobs/verify-signature",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_stage_bundle",
+      "handler_module": "handlers_release_jobs",
+      "method": "POST",
+      "path": "/release/jobs/stage-bundle",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_download_asset",
+      "handler_module": "handlers_release_jobs",
+      "method": "POST",
+      "path": "/release/jobs/download-asset",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_persist_job",
+      "handler_module": "handlers_release_jobs",
+      "method": "POST",
+      "path": "/release/jobs/persist",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_append_log",
+      "handler_module": "handlers_release_jobs",
+      "method": "POST",
+      "path": "/release/jobs/append-log",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_viewer_log",
+      "handler_module": "handlers_desktop",
+      "method": "POST",
+      "path": "/desktop/viewer-log",
+      "pattern": false
+    },
+    {
+      "handler_fn": "handle_archive_job",
+      "handler_module": "handlers_release_jobs",
+      "method": "POST",
+      "path": "/release/jobs/archive",
       "pattern": false
     },
     {

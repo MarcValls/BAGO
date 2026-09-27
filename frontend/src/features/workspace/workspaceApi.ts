@@ -86,13 +86,7 @@ export async function writeWorkspaceFile(
   path: string,
   content: string
 ): Promise<{ path: string; size: number; saved: string }> {
-  const response = await client.request<{ path?: string; size?: number; saved?: string }>(
-    '/files/write',
-    {
-      method: 'POST',
-      body: JSON.stringify({ path, content, createDirs: true })
-    }
-  );
+  const response = await client.writeFile(path, content) as { path?: string; size?: number; saved?: string };
   return {
     path: response?.path || path,
     size: response?.size || content.length,

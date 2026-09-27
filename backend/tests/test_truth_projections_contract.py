@@ -88,7 +88,8 @@ def test_ci_runs_drift_checks_for_generated_projections() -> None:
 
     assert "Check generated truth projections for drift" in ci
     assert "python backend/scripts/generate_api_routes_contract.py --check" in ci
-    assert "python backend/scripts/generate_readme_projection.py --check" in ci
+    assert "python scripts/generate_readme_projection.py --check" in ci
+    assert "python scripts/verify_readme_freshness.py" in ci
     assert "test_import_consolidation.py::test_migration_inventory_is_current_and_machine_checkable" in ci
     assert "test_version_drift.py" in ci
     # Drift checks must run after dependencies are installed.

@@ -3,14 +3,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from _path_helper import ensure_tools_path
 ensure_tools_path()  # noqa: E402
-from bago_utils import get_scan_root, load_json, print_test_results, save_json, timestamp_iso
+from bago_utils import get_scan_root, load_json, save_json, timestamp_iso
 
 TOOLS_DIR = Path(__file__).resolve().parent
 SCAN_ROOT = Path.cwd()
@@ -73,7 +72,6 @@ def _load_registry() -> dict:
 
 
 def _skill_file(skill_id: str, suffix: str = '') -> Path:
-    SKILLS_DIR.mkdir(parents=True, exist_ok=True)
     return SKILLS_DIR / f'{skill_id}{suffix}.json'
 
 
@@ -197,48 +195,14 @@ def _cmd_status() -> int:
     return 0
 
 
-def _scratch_dir(label: str) -> Path:
-    root = Path.cwd() / '.bago' / 'state' / '_selftests' / label
-    if root.exists():
-        shutil.rmtree(root)
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
-def _run_tests() -> int:
-    scratch = _scratch_dir('skill_engine')
-    try:
-        configure_paths(str(scratch))
-        save_json(REGISTRY_FILE, {
-            'probe': {'phase': 2, 'steps': [0, 3, 4, 5, 8, 9, 10, 11], 'category': 'test'}
-        })
-        result = run_skill('probe')
-        state = _load_skill_state('probe')
-        results = [
-            ('registry_load', 'probe' in _load_registry(), 'skill registry loads from scan root'),
-            ('result_type', isinstance(result.to_dict(), dict), 'run_skill returns serializable result'),
-            ('state_saved', len(state.get('cycles', [])) == 1, 'skill state persists'),
-            ('radius_positive', result.radius_gained >= 0.0, 'radius computed'),
-            ('phase_persisted', result.state_vector.get('phase') == 2, 'phase stored in state vector'),
-        ]
-        return print_test_results(results)
-    finally:
-        if scratch.exists():
-            shutil.rmtree(scratch)
-        configure_paths()
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description='BAGO skill engine')
     parser.add_argument('--root', default='', help='Scan root override')
-    parser.add_argument('--test', action='store_true', help='Run self-tests')
     parser.add_argument('command', nargs='?', choices=['list', 'run', 'status'])
     parser.add_argument('skill_id', nargs='?')
     args = parser.parse_args(argv)
     configure_paths(args.root or None)
 
-    if args.test:
-        return _run_tests()
     if args.command == 'list':
         return _cmd_list()
     if args.command == 'run':

@@ -69,13 +69,17 @@ from tool_approval_commands import (
 )
 
 
-def cmd_project(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
+def cmd_project(
+    mgr: SessionManager,
+    engine: SwitchEngine,
+    args: list[str],
+) -> dict:
     return _cmd_project_impl(
         mgr,
         engine,
         args,
         load_module=_load_tool_module,
-        direct_user_authorized=True,
+        direct_user_authorized=False,
     )
 
 
@@ -597,61 +601,39 @@ def cmd_doctor(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> di
 
 
 def cmd_update(mgr: SessionManager, engine: SwitchEngine, args: list[str]) -> dict:
-    """Lanza el actualizador de BAGO elevado con UAC."""
-    import subprocess
-    import json
+    """Prepare a release through the canonical updater; installation stays explicit in React."""
+    from update_manager import start_update, status as update_status
 
-    # Version actual
-    try:
-        root = Path(__file__).resolve().parents[2]
-        data = json.loads((root / "versions.json").read_text(encoding="utf-8"))
-        current = data.get("current", "desconocida")
-    except Exception:
-        current = "desconocida"
-
-    installer = Path(__file__).resolve().parents[2] / "install-remote.ps1"
-    if not installer.exists():
-        return {
-            "ok": False,
-            "message": (
-                f"Version actual: {current}\n"
-                "No se encontro install-remote.ps1.\n"
-                "Descarga la ultima version manualmente desde:\n"
-                "  https://github.com/MarcValls/BAGO/releases"
-            ),
-        }
-
-    try:
-        subprocess.Popen(
-            [
-                "powershell.exe",
-                "-Command",
-                (
-                    f"Start-Process powershell.exe "
-                    f"-ArgumentList '-ExecutionPolicy Bypass -File \"{installer}\"' "
-                    f"-Verb RunAs"
-                ),
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+    current = update_status()
+    if current.get("status") == "ready":
         return {
             "ok": True,
             "message": (
-                f"Version actual: {current}\n"
-                "Lanzando actualizador elevado (UAC)...\n"
-                "Aprueba la solicitud de administrador que aparecera en pantalla.\n"
-                "BAGO se reiniciara cuando termine la instalacion."
+                "La actualización ya está descargada y verificada. Abre Sistema → "
+                "Actualización de BAGO y confirma «Instalar y reiniciar»."
             ),
+            "data": current,
+        }
+    try:
+        result = start_update(str(args[0]).strip() if args else "")
+        if not result.get("ok"):
+            return {
+                "ok": False,
+                "message": str(result.get("error") or result.get("message") or "No se pudo preparar la actualización."),
+                "data": result,
+            }
+        return {
+            "ok": True,
+            "message": (
+                "Descarga y verificación iniciadas por el actualizador del backend. "
+                "Cuando esté lista, abre Sistema → Actualización de BAGO y confirma «Instalar y reiniciar»."
+            ),
+            "data": result,
         }
     except Exception as exc:
         return {
             "ok": False,
-            "message": (
-                f"Error al lanzar actualizador: {exc}\n"
-                "Ejecuta manualmente (como admin):\n"
-                f"  powershell -ExecutionPolicy Bypass -File \"{installer}\""
-            ),
+            "message": f"No se pudo preparar la actualización: {exc}",
         }
 
 
@@ -1211,14 +1193,20 @@ COMMAND_REGISTRY: dict[str, Any] = {
 }
 
 
-def execute(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+def _execute(
+    command_line: str,
+    mgr: SessionManager,
+    engine: SwitchEngine,
+    *,
+    direct_user_authorized: bool,
+) -> dict:
     """Parsea una línea de comando y la ejecuta."""
     command_line = command_line.strip()
     if not command_line.startswith("/"):
         return {"ok": False, "message": "Comando debe empezar con /", "is_chat": True}
 
     try:
-        parts = shlex.split(command_line[1:])
+        parts = shlex.split(command_line[1:], posix=os.name != "nt")
     except ValueError as exc:
         return {"ok": False, "message": f"Comando inválido: {exc}"}
     if not parts:
@@ -1231,9 +1219,43 @@ def execute(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dic
         return {"ok": False, "message": f"Comando desconocido: /{cmd_name}. Usa /help."}
 
     try:
+        if cmd_name == "project":
+            return _cmd_project_impl(
+                mgr,
+                engine,
+                args,
+                load_module=_load_tool_module,
+                direct_user_authorized=direct_user_authorized,
+            )
         return func(mgr, engine, args)
     except Exception as exc:
         return {"ok": False, "message": f"Error ejecutando /{cmd_name}: {exc}"}
+
+
+def execute(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+    """Execute without implicit direct-user authorization.
+
+    Transport surfaces, including HTTP and non-interactive CLI execution, use
+    this fail-closed entry point.
+    """
+
+    return _execute(command_line, mgr, engine, direct_user_authorized=False)
+
+
+def execute_local_cli(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+    """Execute an explicit command from the trusted local CLI entry point."""
+
+    return _execute(command_line, mgr, engine, direct_user_authorized=True)
+
+
+def execute_local_tty(command_line: str, mgr: SessionManager, engine: SwitchEngine) -> dict:
+    """Execute from the interactive REPL after verifying local TTY provenance."""
+
+    stdin_is_tty = bool(hasattr(sys.stdin, "isatty") and sys.stdin.isatty())
+    stdout_is_tty = bool(hasattr(sys.stdout, "isatty") and sys.stdout.isatty())
+    if not (stdin_is_tty and stdout_is_tty):
+        return execute(command_line, mgr, engine)
+    return execute_local_cli(command_line, mgr, engine)
 
 
 def _run_tests() -> int:

@@ -158,8 +158,9 @@ def cmd_project(
             mgr.record_project_analysis(data)
         return {"ok": True, "message": mod.format_analysis(data), "data": data}
     if action == "sync":
-        if not hasattr(mgr, "sync_workspace_mirror"):
-            return {"ok": False, "message": "La sesión no expone sync_workspace_mirror()."}
-        data = mgr.sync_workspace_mirror()
-        return {"ok": bool(data.get("ok")), "message": data.get("message", "Sincronización completada"), "data": data}
+        return {
+            "ok": False,
+            "authorization_required": True,
+            "message": "Sincronizar el espejo requiere autorización explícita mediante POST /project/sync.",
+        }
     return {"ok": False, "message": "Uso: /project [analyze|status|init|link|seed|sync] [ruta|depth]"}

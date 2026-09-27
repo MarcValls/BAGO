@@ -357,7 +357,7 @@ class SessionContextWorkspaceMixin:
         try:
             engine = getattr(self, "directory_context", None)
             if engine is None:
-                engine = DirectoryContextEngine(self.base_path)
+                engine = DirectoryContextEngine(self.base_path, manager=self)
                 self.directory_context = engine
             fragments, _ = engine.retrieve(user_message, limit_files=limit, limit_symbols=limit)
             return list(fragments)
@@ -378,7 +378,7 @@ class SessionContextWorkspaceMixin:
                 return [frag for frag in cached_fragments if frag.get("source") == "workspace_file"][:limit]
             engine = getattr(self, "directory_context", None)
             if engine is None:
-                engine = DirectoryContextEngine(self.base_path)
+                engine = DirectoryContextEngine(self.base_path, manager=self)
                 self.directory_context = engine
             fragments, _ = engine.retrieve(user_message, limit_files=limit, limit_symbols=limit)
             return [frag for frag in fragments if frag.get("source") == "workspace_file"]

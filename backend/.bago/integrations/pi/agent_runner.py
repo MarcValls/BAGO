@@ -30,8 +30,6 @@ from __future__ import annotations
 import enum
 import json
 import os
-import signal
-import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
@@ -57,6 +55,7 @@ from .errors import (
     ToolNotAllowed,
 )
 from .event_capture import EventLog
+from .identity_paths import artifact_component
 from .preflight import preflight
 from .process_boundary import build_boundary, run_sidecar
 from .protocol import MAX_EVENT_BYTES, MAX_EVENTS_TOTAL, decode_event
@@ -125,43 +124,92 @@ class CancelToken:
 # ── Persistencia append-only ─────────────────────────────────────────────
 
 
+def _receipts_root(workspace_root: str) -> Path:
+    return Path(workspace_root).expanduser().resolve() / ".gabo" / "integrations" / "pi" / "receipts"
+
+
 def _receipts_dir(workspace_root: str, execution_id: str) -> Path:
-    safe_id = "".join(c for c in execution_id if c.isalnum() or c in "-_")
-    return Path(workspace_root) / ".gabo" / "integrations" / "pi" / "receipts" / safe_id
+    return _receipts_root(workspace_root) / artifact_component(execution_id)
 
 
-def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
-    """Escribe JSON de forma atómica con fsync.
+def _atomic_write_json(
+    path: Path,
+    payload: dict[str, Any],
+    *,
+    trusted_root: Path,
+    execution_id: str,
+) -> None:
+    """Dispatch a PI receipt file through the registered server state owner."""
+    root = trusted_root.expanduser().resolve()
+    candidate = path.expanduser()
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        relative = candidate.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("PI receipt path is outside its trusted root") from exc
+    if not relative.parts:
+        raise ValueError("PI receipt target must be a file")
+    current = candidate
+    while current != root:
+        if current.is_symlink():
+            raise ValueError("PI receipt path cannot contain a symlink")
+        current = current.parent
+        try:
+            current.relative_to(root)
+        except ValueError as exc:
+            raise ValueError("PI receipt path is outside its trusted root") from exc
+    target = candidate.resolve()
+    try:
+        target.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("PI receipt path resolves outside its trusted root") from exc
 
-    Garantiza que un crash a mitad de escritura no corrompe el receipt.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, sort_keys=True, default=str)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
+    from bago_core.server_effects import write_text_atomic
+
+    content = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str) + "\n"
+    write_text_atomic(
+        target,
+        content,
+        trusted_root=root,
+        source_surface="pi.agent_runner.receipt",
+        session_id=f"pi.execution:{execution_id}",
+    )
 
 
 def _persist_event(workspace_root: str, execution_id: str, event: BridgeEvent) -> None:
     base = _receipts_dir(workspace_root, execution_id)
     seq = event.sequence_number
     fname = f"event_{seq:06d}.json"
-    _atomic_write_json(base / fname, event.to_dict())
+    _atomic_write_json(
+        base / fname,
+        event.to_dict(),
+        trusted_root=_receipts_root(workspace_root),
+        execution_id=execution_id,
+    )
 
 
 def _persist_receipt(workspace_root: str, execution_id: str, receipt: Any) -> None:
     base = _receipts_dir(workspace_root, execution_id)
     receipt_id = getattr(receipt, "tool_call_id", "unknown")
-    safe = "".join(c for c in receipt_id if c.isalnum() or c in "-_")
-    _atomic_write_json(base / f"tool_receipt_{safe}.json", receipt.to_dict())
+    safe = artifact_component(str(receipt_id))
+    _atomic_write_json(
+        base / f"tool_receipt_{safe}.json",
+        receipt.to_dict(),
+        trusted_root=_receipts_root(workspace_root),
+        execution_id=execution_id,
+    )
 
 
 def _persist_burned_bundle(workspace_root: str, execution_id: str, bundle: Any) -> None:
     base = _receipts_dir(workspace_root, execution_id)
     payload = bundle.to_dict() if hasattr(bundle, "to_dict") else dict(bundle)
-    _atomic_write_json(base / "context_receipt.json", payload)
+    _atomic_write_json(
+        base / "context_receipt.json",
+        payload,
+        trusted_root=_receipts_root(workspace_root),
+        execution_id=execution_id,
+    )
 
 
 # ── Máquina del runner ────────────────────────────────────────────────────
@@ -235,24 +283,12 @@ class AgentRunner:
         self._config = config
         self._cancel = cancel_token or CancelToken()
         self._on_event = on_event
-        # _process se llena al iniciar; se mata en cancel.
-        self._process: subprocess.Popen | None = None
         # A2 (CRIT v0.2): WAL se inicializa al entrar a Capturing.
         self._wal: WALStore | None = None
 
     def cancel(self, reason: str = "cancelled by BAGO") -> None:
         """Cancela la ejecución. Idempotente."""
         self._cancel.cancel(reason)
-        proc = self._process
-        if proc is not None and proc.poll() is None:
-            try:
-                proc.terminate()
-            except (OSError, ProcessLookupError):
-                pass
-            try:
-                proc.kill()
-            except (OSError, ProcessLookupError):
-                pass
 
     def run(
         self,
@@ -306,6 +342,9 @@ class AgentRunner:
                 execution_id=str(request_data.get("execution_id") or ""),
                 parent_home=Path(os.environ.get("TEMP", "/tmp")),
                 extra_env={"BAGO_BRIDGE_PHASE": "3"},
+                integrity={"sidecar_artifact_hash": self._config.sidecar_artifact_hash}
+                if self._config.sidecar_artifact_hash
+                else None,
             )
         except BridgeError as exc:
             return self._reject([exc.code], str(exc))
@@ -325,37 +364,21 @@ class AgentRunner:
 
         # ── Lanzar el sidecar ──
         try:
-            self._process = subprocess.Popen(
-                list(spec.argv),
-                cwd=spec.cwd,
-                env=spec.env,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                shell=False,
+            completed = run_sidecar(
+                spec,
+                stdin_payload=json.dumps(request_data) + "\n",
+                cancel_token=self._cancel,
             )
-        except FileNotFoundError as exc:
-            return self._reject(["PI_PROCESS_SPAWN_DENIED"], str(exc))
-        except OSError as exc:
-            return self._reject(["PI_PROCESS_SPAWN_DENIED"], str(exc))
-
-        try:
-            stdout, _ = self._process.communicate(
-                input=json.dumps(request_data) + "\n",
-                timeout=self._config.timeout_seconds,
-            )
-        except subprocess.TimeoutExpired as exc:
-            try:
-                self._process.kill()
-            except (OSError, ProcessLookupError):
-                pass
+        except BridgeTimeout as exc:
             return self._reject(["BRIDGE_TIMEOUT"], str(exc))
+        except BridgeError as exc:
+            return self._reject(["PI_PROCESS_SPAWN_DENIED"], str(exc))
 
         if self._cancel.is_cancelled():
             return self._reject(["BRIDGE_CANCELLED"], self._cancel.reason)
 
-        returncode = self._process.returncode
+        stdout = completed.stdout
+        returncode = completed.returncode
         if returncode != 0:
             reasons.append(f"sidecar_exit_{returncode}")
             return self._reject(reasons, f"sidecar exit code {returncode}")

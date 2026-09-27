@@ -14,6 +14,11 @@ param(
 [switch]$PreserveDevRole,
 [switch]$ExplorerContextMenu,
 [switch]$ElevatedChild,
+[switch]$GatewayBackupProvided,
+[string]$AuthorizationLedgerPath = "",
+[string]$AuthorizationTicketPath = "",
+[string]$AuthorizationTicketNonce = "",
+[string]$PermitId = "",
 [string]$ResultPath = ""
 )
 
@@ -23,6 +28,198 @@ $ErrorActionPreference = "Stop"
 function Get-FullPath {
     param([Parameter(Mandatory = $true)][string]$Path)
     return [System.IO.Path]::GetFullPath($Path)
+}
+
+function Get-InstallSha256 {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $stream = [System.IO.File]::OpenRead($Path)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha.ComputeHash($stream))).Replace("-", "").ToLowerInvariant()
+    } finally {
+        $sha.Dispose()
+        $stream.Dispose()
+    }
+}
+
+function Assert-NoReparsePathComponent {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $full = [System.IO.Path]::GetFullPath($Path)
+    $root = [System.IO.Path]::GetPathRoot($full)
+    $current = $root
+    $relative = $full.Substring($root.Length)
+    foreach ($part in ($relative -split '[\\/]+' | Where-Object { $_ })) {
+        $current = Join-Path $current $part
+        if (-not (Test-Path -LiteralPath $current)) { continue }
+        $entry = Get-Item -LiteralPath $current -Force
+        if (($entry.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "La operación de instalación no permite rutas reparse: $current"
+        }
+    }
+}
+
+function Get-InstallSourceTreeSha256 {
+    param([Parameter(Mandatory = $true)][string]$RootPath)
+    $root = [System.IO.Path]::GetFullPath($RootPath).TrimEnd('\')
+    Assert-NoReparsePathComponent -Path $root
+    if (-not (Test-Path -LiteralPath $root -PathType Container) -or
+        (((Get-Item -LiteralPath $root).Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+        throw "La fuente de instalación no es un directorio regular."
+    }
+    $items = @()
+    foreach ($item in (Get-ChildItem -LiteralPath $root -Recurse -Force -ErrorAction Stop)) {
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "La fuente contiene un enlace no permitido: $($item.FullName)"
+        }
+        if (-not $item.PSIsContainer) {
+            $relative = $item.FullName.Substring($root.Length).TrimStart('\').Replace('\', '/')
+            $items += [pscustomobject]@{ Relative = $relative; SortKey = ([System.BitConverter]::ToString((New-Object System.Text.UTF8Encoding($false)).GetBytes($relative))).Replace("-", ""); FullName = $item.FullName; Length = [long]$item.Length }
+        }
+    }
+    $items = @($items | Sort-Object -Property SortKey -CaseSensitive)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        foreach ($item in $items) {
+            $nameBytes = (New-Object System.Text.UTF8Encoding($false)).GetBytes([string]$item.Relative)
+            $nameLength = [System.BitConverter]::GetBytes([long]$nameBytes.Length)
+            [Array]::Reverse($nameLength)
+            $fileLength = [System.BitConverter]::GetBytes([long]$item.Length)
+            [Array]::Reverse($fileLength)
+            $sha.TransformBlock($nameLength, 0, $nameLength.Length, $nameLength, 0) | Out-Null
+            $sha.TransformBlock($nameBytes, 0, $nameBytes.Length, $nameBytes, 0) | Out-Null
+            $sha.TransformBlock($fileLength, 0, $fileLength.Length, $fileLength, 0) | Out-Null
+            $fileHash = Get-InstallSha256 -Path $item.FullName
+            $fileHashBytes = New-Object byte[] 32
+            for ($index = 0; $index -lt 32; $index++) {
+                $fileHashBytes[$index] = [Convert]::ToByte($fileHash.Substring($index * 2, 2), 16)
+            }
+            $sha.TransformBlock($fileHashBytes, 0, $fileHashBytes.Length, $fileHashBytes, 0) | Out-Null
+        }
+        $sha.TransformFinalBlock([byte[]]@(), 0, 0) | Out-Null
+        return ([System.BitConverter]::ToString($sha.Hash)).Replace("-", "").ToLowerInvariant()
+    } finally {
+        $sha.Dispose()
+    }
+}
+
+function Get-CanonicalInstallStateRoot {
+    if ($env:BAGO_STATE_ROOT) { return [System.IO.Path]::GetFullPath($env:BAGO_STATE_ROOT) }
+    if ($env:BAGO_USER_ROOT) { return [System.IO.Path]::GetFullPath((Join-Path $env:BAGO_USER_ROOT "state")) }
+    $userRoot = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "BAGO" } else { Join-Path $env:USERPROFILE "AppData\Local\BAGO" }
+    return [System.IO.Path]::GetFullPath((Join-Path $userRoot "state"))
+}
+
+function Read-InstallAuthorizationTicket {
+    param([switch]$Claim)
+    if ([string]::IsNullOrWhiteSpace($AuthorizationLedgerPath) -or
+        [string]::IsNullOrWhiteSpace($AuthorizationTicketPath) -or
+        [string]::IsNullOrWhiteSpace($AuthorizationTicketNonce) -or
+        [string]::IsNullOrWhiteSpace($PermitId)) {
+        throw "La instalación requiere autorización de ExecutionGateway antes de elevar privilegios."
+    }
+
+    $ledgerPath = [System.IO.Path]::GetFullPath($AuthorizationLedgerPath)
+    $canonicalLedger = [System.IO.Path]::GetFullPath((Join-Path (Join-Path (Get-CanonicalInstallStateRoot) "authorization") "ledger.json"))
+    $ticketPath = [System.IO.Path]::GetFullPath($AuthorizationTicketPath)
+    $ticketDirectory = Join-Path (Split-Path -Parent $canonicalLedger) "install-tickets"
+    $expectedTicket = Join-Path $ticketDirectory ($PermitId + ".json")
+    if ($ledgerPath -ne $canonicalLedger -or $ticketPath -ne [System.IO.Path]::GetFullPath($expectedTicket) -or
+        -not (Test-Path -LiteralPath $ledgerPath -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $ticketPath -PathType Leaf) -or
+        (((Get-Item -LiteralPath $ledgerPath).Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) -or
+        (((Get-Item -LiteralPath $ticketPath).Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+        throw "Las rutas del ledger o del ticket de instalación no son canónicas."
+    }
+
+    try {
+        $ledger = Get-Content -LiteralPath $ledgerPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $ticket = Get-Content -LiteralPath $ticketPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        throw "No se pudo leer el ledger o el ticket de autorización de instalación."
+    }
+    $permitRecord = $null
+    foreach ($entry in $ledger.permits.PSObject.Properties) {
+        if ($entry.Value.permit_id -eq $PermitId) { $permitRecord = $entry.Value; break }
+    }
+    if (-not $permitRecord) { throw "El ledger no contiene el Permit de instalación." }
+    $request = $permitRecord.executed_request
+    $proof = $permitRecord.proof
+    $decision = $permitRecord.decision
+    $target = $ticket.target
+    $expectedConfigJson = ConvertTo-Json -InputObject $ticket.configuration -Depth 48 -Compress
+    $expectedConfigBytes = (New-Object System.Text.UTF8Encoding($false)).GetBytes($expectedConfigJson)
+    $expectedConfigHash = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($expectedConfigBytes)).Replace("-", "").ToLowerInvariant()
+
+    $sourceFull = [System.IO.Path]::GetFullPath($SourceRoot)
+    $helperFull = [System.IO.Path]::GetFullPath($PSCommandPath)
+    $installFull = [System.IO.Path]::GetFullPath($InstallDir)
+    Assert-NoReparsePathComponent -Path $sourceFull
+    Assert-NoReparsePathComponent -Path $helperFull
+    Assert-NoReparsePathComponent -Path $installFull
+    if ($ticket.schema -ne "bago.system-install-helper-ticket.v1" -or
+        $ticket.permit_id -ne $PermitId -or $ticket.nonce -ne $AuthorizationTicketNonce -or
+        $ticket.effect_id -ne "system.install.apply" -or
+        $ticket.authorization_ledger_path -ne $ledgerPath -or
+        $ticket.operation_fingerprint -notmatch '^[a-f0-9]{64}$' -or
+        $ticket.arguments_digest -notmatch '^[a-f0-9]{64}$' -or
+        $permitRecord.state -ne "consumed" -or
+        $permitRecord.effect_id -ne "system.install.apply" -or
+        $permitRecord.session_id -ne $ticket.session_id -or
+        $permitRecord.operation_fingerprint -ne $ticket.operation_fingerprint -or
+        $request.effect_id -ne "system.install.apply" -or
+        $request.actor_kind -ne "user" -or $request.principal_id -ne "interactive-local-user" -or
+        $request.source_surface -ne "api.install.apply" -or $request.scope -ne "system" -or
+        $request.session_id -ne $ticket.session_id -or
+        $request.operation_fingerprint -ne $ticket.operation_fingerprint -or
+        $request.arguments_digest -ne $ticket.arguments_digest -or
+        $proof.proof_id -ne $permitRecord.proof_id -or
+        $proof.effect_id -ne "system.install.apply" -or
+        $proof.operation_fingerprint -ne $ticket.operation_fingerprint -or
+        $proof.authenticated_session_id -ne $ticket.session_id -or
+        $proof.user_decision -ne "approve" -or
+        $proof.provenance.kind -ne "direct_user_interaction" -or
+        $proof.provenance.channel -notin @("ui-react", "desktop") -or
+        $decision.result -ne "allow" -or $decision.proof_id -ne $proof.proof_id -or
+        $decision.effect_id -ne "system.install.apply" -or
+        $decision.operation_fingerprint -ne $ticket.operation_fingerprint -or
+        $target.schema -ne "bago.system-install-plan.v1" -or
+        $target.source_root -ne $sourceFull -or $target.helper_path -ne $helperFull -or
+        $target.install_dir -ne $installFull -or $target.mode -ne $Mode -or
+        $target.helper_sha256 -ne (Get-InstallSha256 -Path $helperFull) -or
+        $target.source_tree_sha256 -ne (Get-InstallSourceTreeSha256 -RootPath $sourceFull) -or
+        $target.configuration_digest -ne $expectedConfigHash -or
+        $ticket.configuration_digest -ne $expectedConfigHash -or
+        $request.target.source_root -ne $target.source_root -or
+        $request.target.source_tree_sha256 -ne $target.source_tree_sha256 -or
+        $request.target.action -ne $target.action -or
+        $request.target.helper_path -ne $target.helper_path -or
+        $request.target.helper_sha256 -ne $target.helper_sha256 -or
+        $request.target.install_dir -ne $target.install_dir -or
+        $request.target.mode -ne $target.mode -or
+        $request.target.configuration_digest -ne $target.configuration_digest -or
+        $request.target.package_sha256 -ne $target.package_sha256 -or
+        [bool]$request.target.options.skip_tests -ne [bool]$target.options.skip_tests -or
+        [bool]$request.target.options.no_path_update -ne [bool]$target.options.no_path_update -or
+        [bool]$request.target.options.no_shell_integration -ne [bool]$target.options.no_shell_integration -or
+        [bool]$request.target.options.preserve_dev_role -ne [bool]$target.options.preserve_dev_role -or
+        [bool]$request.target.options.explorer_context_menu -ne [bool]$target.options.explorer_context_menu -or
+        $request.target.operation_sha256 -ne $target.operation_sha256 -or
+        (($target.action -eq "release-job") -ne [bool]$GatewayBackupProvided) -or
+        [bool]$target.options.skip_tests -ne [bool]$SkipTests -or
+        [bool]$target.options.no_path_update -ne [bool]$NoPathUpdate -or
+        [bool]$target.options.no_shell_integration -ne [bool]$NoShellIntegration -or
+        [bool]$target.options.preserve_dev_role -ne [bool]$PreserveDevRole -or
+        [bool]$target.options.explorer_context_menu -ne [bool]$ExplorerContextMenu -or
+        (($target.action -eq "repair") -ne [bool]$RepairOnly)) {
+        throw "El Permit no autoriza esta configuración, destino, modo, opciones o helper."
+    }
+
+    if ($Claim) {
+        $claimedTicket = $ticketPath + ".consumed"
+        if (Test-Path -LiteralPath $claimedTicket) { throw "El ticket de instalación ya fue consumido." }
+        Move-Item -LiteralPath $ticketPath -Destination $claimedTicket
+    }
+    return $ticket
 }
 
 function Get-DefaultDataRoot {
@@ -87,14 +284,14 @@ function Test-IsAdministrator {
 
 function Get-InvocationArguments {
     $args = New-Object System.Collections.Generic.List[string]
-    foreach ($name in @("SourceRoot", "PackageZip", "Profile", "InstallDir", "BackupRoot", "UserStateDir", "Mode", "ResultPath")) {
+    foreach ($name in @("SourceRoot", "PackageZip", "Profile", "InstallDir", "BackupRoot", "UserStateDir", "Mode", "AuthorizationLedgerPath", "AuthorizationTicketPath", "AuthorizationTicketNonce", "PermitId", "ResultPath")) {
         if (-not $PSBoundParameters.ContainsKey($name)) { continue }
         $value = Get-Variable -Name $name -ValueOnly
         if ([string]::IsNullOrWhiteSpace([string]$value)) { continue }
         $args.Add("-$name")
         $args.Add([string]$value)
     }
-    foreach ($name in @("SkipTests", "RepairOnly", "NoPathUpdate", "NoShellIntegration", "PreserveDevRole", "ExplorerContextMenu")) {
+    foreach ($name in @("SkipTests", "RepairOnly", "NoPathUpdate", "NoShellIntegration", "PreserveDevRole", "ExplorerContextMenu", "GatewayBackupProvided")) {
         if ($PSBoundParameters.ContainsKey($name) -and [bool](Get-Variable -Name $name -ValueOnly)) {
             $args.Add("-$name")
         }
@@ -238,11 +435,17 @@ if (-not $PSBoundParameters.ContainsKey("InstallDir") -or [string]::IsNullOrWhit
     }
 }
 
+# Check the consumed AuthorizationBoundary ledger record before the first
+# material process launch (UAC self-elevation). The elevated child claims the
+# one-use ticket and performs the same check before any install effect.
+$null = Read-InstallAuthorizationTicket
+
 if (-not $ElevatedChild -and -not (Test-IsAdministrator)) {
     $scriptPath = $PSCommandPath
     if (-not $scriptPath) { $scriptPath = $MyInvocation.MyCommand.Path }
     Invoke-SelfElevatedInstall -ScriptPath $scriptPath
 }
+$authorizedInstallTicket = Read-InstallAuthorizationTicket -Claim
 
 function Test-ReleaseExcluded {
     param([Parameter(Mandatory = $true)][string]$RelativePath)
@@ -1054,85 +1257,57 @@ $installerMode = $Mode
 if ($installerMode -and $installerMode -notin @("Express", "Advanced")) {
     throw "Modo invalido: $installerMode"
 }
-if (-not $installerMode) {
-    if ($RepairOnly) {
-        $installerMode = "Express"
-    } else {
-        $installerMode = Read-Choice -Prompt "Modo de instalacion" -Options @("Express", "Advanced") -DefaultIndex 0
+if (-not $installerMode) { throw "El modo debe estar ligado al ticket de autorización." }
+
+function ConvertTo-InstallDictionary {
+    param([Parameter(Mandatory = $true)]$Value)
+    if ($Value -is [System.Collections.IDictionary]) { return $Value }
+    if ($Value -is [pscustomobject]) {
+        $result = [ordered]@{}
+        foreach ($property in $Value.PSObject.Properties) {
+            $result[$property.Name] = ConvertTo-InstallDictionary -Value $property.Value
+        }
+        return ,$result
     }
+    if ($Value -is [System.Array]) {
+        $items = @()
+        foreach ($item in $Value) { $items += ,(ConvertTo-InstallDictionary -Value $item) }
+        return ,$items
+    }
+    return $Value
 }
 
-$providerConfigs = [ordered]@{
-    "ollama-local" = [ordered]@{ enabled = $false; base_url = "http://127.0.0.1:11434"; model = "llama3.2:3b" }
-    "codex" = [ordered]@{ enabled = $false; base_url = "https://api.openai.com/v1"; api_key = ""; model = "gpt-5.4-mini" }
-    "copilot" = [ordered]@{ enabled = $false; base_url = "https://api.githubcopilot.com"; api_key = ""; auth_mode = "device-flow"; model = "gpt-4o-copilot" }
-    "ollama-cloud" = [ordered]@{ enabled = $false; base_url = ""; api_key = ""; auth_mode = "signin"; model = "llama3.2:3b" }
+if (-not $authorizedInstallTicket -or -not $authorizedInstallTicket.configuration) {
+    throw "El ticket no contiene una configuración de instalación autorizada."
 }
-$knowledgeCfg = [ordered]@{ mode = "none"; path = ""; visibility = "private"; git_init = $false }
-$credentialStoreCfg = [ordered]@{ mode = "session"; path = ""; encrypted = $false; scope = "session" }
+$approvedConfiguration = ConvertTo-InstallDictionary -Value $authorizedInstallTicket.configuration
+$providerConfigs = $approvedConfiguration.providers
+$knowledgeCfg = $approvedConfiguration.knowledge
+$credentialStoreCfg = $approvedConfiguration.credential_store
+# The ticket carries provider credentials. The canonical authorization ledger
+# already records consumption; do not retain another secret-bearing copy.
+$consumedTicketPath = $AuthorizationTicketPath + ".consumed"
+if (Test-Path -LiteralPath $consumedTicketPath -PathType Leaf) {
+    Remove-Item -LiteralPath $consumedTicketPath -Force
+}
+if (-not ($providerConfigs -is [System.Collections.IDictionary]) -or
+    -not ($knowledgeCfg -is [System.Collections.IDictionary]) -or
+    -not ($credentialStoreCfg -is [System.Collections.IDictionary]) -or
+    $providerConfigs.Keys.Count -ne 4 -or
+    $knowledgeCfg.mode -notin @("none", "existing", "new") -or
+    $credentialStoreCfg.mode -notin @("session", "persistent", "external")) {
+    throw "La configuración de instalación autorizada tiene un esquema inválido."
+}
+if ($providerConfigs["copilot"].enabled -and $providerConfigs["copilot"].auth_mode -eq "device-flow") {
+    Invoke-GhDeviceLogin
+}
+if ($providerConfigs["ollama-cloud"].enabled -and $providerConfigs["ollama-cloud"].auth_mode -eq "signin") {
+    if ([string]::IsNullOrWhiteSpace($providerConfigs["ollama-cloud"].base_url)) {
+        throw "Ollama Cloud requiere una URL base válida en la configuración aprobada."
+    }
+    Invoke-OllamaCloudSignin -BaseUrl $providerConfigs["ollama-cloud"].base_url
+}
 
-if ($installerMode -eq "Express") {
-    $providerConfigs["ollama-local"].enabled = $true
-} else {
-    $providerConfigs["ollama-local"].enabled = Read-YesNo -Prompt "Activar Ollama local" -Default $true
-    if ($providerConfigs["ollama-local"].enabled) {
-        $providerConfigs["ollama-local"].model = Read-InputOrDefault -Prompt "Modelo local por defecto (nombre del modelo en Ollama, por ejemplo llama3.2:3b)" -Default "llama3.2:3b"
-    }
-    $providerConfigs["codex"].enabled = Read-YesNo -Prompt "Activar OpenAI/Codex" -Default $false
-    if ($providerConfigs["codex"].enabled) {
-        $providerConfigs["codex"].api_key = Read-InputOrDefault -Prompt "API key de OpenAI (empieza por sk-... o usa la variable OPENAI_API_KEY)" -Default $env:OPENAI_API_KEY
-        $providerConfigs["codex"].model = Read-InputOrDefault -Prompt "Modelo OpenAI por defecto (por ejemplo gpt-5.4-mini)" -Default "gpt-5.4-mini"
-    }
-    $providerConfigs["copilot"].enabled = Read-YesNo -Prompt "Activar GitHub/Copilot" -Default $false
-    if ($providerConfigs["copilot"].enabled) {
-        Write-Host "Autenticacion GitHub:"
-        Write-Host "  device-flow = login interactivo con navegador"
-        Write-Host "  pat         = token manual pegado por el usuario"
-        $providerConfigs["copilot"].auth_mode = Read-Choice -Prompt "Autenticacion GitHub (device-flow abre gh auth login; pat pide token)" -Options @("device-flow", "pat") -DefaultIndex 0
-        if ($providerConfigs["copilot"].auth_mode -eq "pat") {
-            $providerConfigs["copilot"].api_key = Read-InputOrDefault -Prompt "PAT de GitHub (token personal, o usa GITHUB_TOKEN)" -Default $env:GITHUB_TOKEN
-        } else {
-            Invoke-GhDeviceLogin
-        }
-        $providerConfigs["copilot"].model = Read-InputOrDefault -Prompt "Modelo Copilot por defecto (por ejemplo gpt-4o-copilot)" -Default "gpt-4o-copilot"
-    }
-    $providerConfigs["ollama-cloud"].enabled = Read-YesNo -Prompt "Activar Ollama Cloud" -Default $true
-    if ($providerConfigs["ollama-cloud"].enabled) {
-        Write-Host "Autenticacion Ollama Cloud:"
-        Write-Host "  signin  = login interactivo con navegador"
-        Write-Host "  api_key = token manual pegado por el usuario"
-        $providerConfigs["ollama-cloud"].auth_mode = Read-Choice -Prompt "Autenticacion Ollama Cloud (signin abre navegador; api_key pide clave)" -Options @("signin", "api_key") -DefaultIndex 0
-        $providerConfigs["ollama-cloud"].base_url = Read-UrlOrDefault -Prompt "URL base de Ollama Cloud (solo URL, por ejemplo https://cloud.example.com)" -Default $env:OLLAMA_CLOUD_URL
-        if ([string]::IsNullOrWhiteSpace($providerConfigs["ollama-cloud"].base_url)) {
-            throw "Ollama Cloud requiere una URL base valida."
-        }
-        if ($providerConfigs["ollama-cloud"].auth_mode -eq "signin") {
-            Invoke-OllamaCloudSignin -BaseUrl $providerConfigs["ollama-cloud"].base_url
-        }
-        if ($providerConfigs["ollama-cloud"].auth_mode -eq "api_key") {
-            $providerConfigs["ollama-cloud"].api_key = Read-InputOrDefault -Prompt "API key de Ollama Cloud (o usa OLLAMA_CLOUD_KEY)" -Default $env:OLLAMA_CLOUD_KEY
-        }
-    }
-    $knowledgeCfg.mode = Read-Choice -Prompt "Repositorio de conocimiento" -Options @("none", "existing", "new") -DefaultIndex 0
-    if ($knowledgeCfg.mode -eq "existing") {
-        $knowledgeCfg.path = Read-InputOrDefault -Prompt "Ruta del repo existente" -Default (Join-Path $env:USERPROFILE "Documents\bago-knowledge")
-        $knowledgeCfg.visibility = Read-Choice -Prompt "Visibilidad del repo" -Options @("private", "public") -DefaultIndex 0
-    } elseif ($knowledgeCfg.mode -eq "new") {
-        $knowledgeCfg.path = Read-InputOrDefault -Prompt "Ruta para crear el repo" -Default (Join-Path $env:USERPROFILE "Documents\bago-knowledge")
-        $knowledgeCfg.visibility = Read-Choice -Prompt "Visibilidad del repo nuevo" -Options @("private", "public") -DefaultIndex 0
-        $knowledgeCfg.git_init = $true
-    }
-    $credentialStoreCfg.mode = Read-Choice -Prompt "Persistencia de credenciales" -Options @("session", "persistent", "external") -DefaultIndex 0
-    if ($credentialStoreCfg.mode -eq "persistent") {
-        $credentialStoreCfg.path = Join-Path $userStateFull "secrets\bago-credentials.dpapi"
-        $credentialStoreCfg.encrypted = $true
-        $credentialStoreCfg.scope = "CurrentUser"
-    } elseif ($credentialStoreCfg.mode -eq "external") {
-        $credentialStoreCfg.path = Read-InputOrDefault -Prompt "Ruta de exportacion cifrada" -Default (Join-Path $userStateFull "exports\bago-credentials.dpapi")
-        $credentialStoreCfg.encrypted = $true
-        $credentialStoreCfg.scope = "CurrentUser"
-    }
-}
 
 if ($providerConfigs["ollama-local"].enabled -and -not (Test-CommandAvailable "ollama")) {
     Write-Warning "Ollama no está disponible en esta máquina; se desactiva ollama-local para completar la instalación."
@@ -1169,12 +1344,14 @@ foreach ($name in $providerConfigs.Keys) {
 
 if (-not $RepairOnly) {
     if (Test-Path -LiteralPath $installFull) {
-        $backupZip = Join-Path $backupFull "bago-programfiles-backup-$stamp.zip"
-        $children = @(Get-ChildItem -LiteralPath $installFull -Force)
-        if ($children.Count -gt 0) {
-            Compress-Archive -Path (Join-Path $installFull "*") -DestinationPath $backupZip -CompressionLevel Optimal -Force
-        } else {
-            $backupZip = $null
+        if (-not $GatewayBackupProvided) {
+            $backupZip = Join-Path $backupFull "bago-programfiles-backup-$stamp.zip"
+            $children = @(Get-ChildItem -LiteralPath $installFull -Force)
+            if ($children.Count -gt 0) {
+                Compress-Archive -Path (Join-Path $installFull "*") -DestinationPath $backupZip -CompressionLevel Optimal -Force
+            } else {
+                $backupZip = $null
+            }
         }
     } else {
         New-Item -ItemType Directory -Path $installFull -Force | Out-Null
@@ -1203,8 +1380,12 @@ if (-not $RepairOnly) {
 
 $installConfigPath = Join-Path $installFull "install_config.json"
 $runtimeConfigPath = Join-Path $installFull ".bago\config.json"
-Write-JsonFile -Path $installConfigPath -Value $installConfig
-Write-JsonFile -Path $runtimeConfigPath -Value $runtimeConfig
+if (-not $RepairOnly -or -not (Test-Path -LiteralPath $installConfigPath -PathType Leaf)) {
+    Write-JsonFile -Path $installConfigPath -Value $installConfig
+}
+if (-not $RepairOnly -or -not (Test-Path -LiteralPath $runtimeConfigPath -PathType Leaf)) {
+    Write-JsonFile -Path $runtimeConfigPath -Value $runtimeConfig
+}
 
 # Propagar la versión canónica al runtime instalado para que el doctor la valide.
 $sourceVersionPath = Join-Path $sourceFull "release_version.txt"
@@ -1239,7 +1420,7 @@ if ([string]::IsNullOrWhiteSpace($explicitUserRoot)) {
     }
 }
 
-if ($credentialStoreCfg.mode -ne "session") {
+if ($credentialStoreCfg.mode -ne "session" -and $secretStorePayload.Count -gt 0) {
     if (-not $credentialStoreCfg.path) { throw "La persistencia elegida requiere una ruta de almacenamiento." }
     Write-EncryptedStore -Path $credentialStoreCfg.path -Payload $secretStorePayload
 }

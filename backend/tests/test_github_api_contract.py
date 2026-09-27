@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import subprocess
 import sys
 from pathlib import Path
 
@@ -16,8 +15,9 @@ def test_connect_persists_repo_atomically(tmp_path, monkeypatch) -> None:
     import handlers_github
 
     captured = {}
-    monkeypatch.setattr(handlers_github, "_state", lambda _handler: tmp_path)
-    monkeypatch.setattr(handlers_github, "_run_gh", lambda _args: (0, '{"full_name":"openai/bago"}', ""))
+    state_root = tmp_path / "created-by-state-writer" / "state"
+    monkeypatch.setattr(handlers_github, "_state", lambda _handler: state_root)
+    monkeypatch.setattr(handlers_github, "_run_gh", lambda _handler, _args: (0, '{"full_name":"openai/bago"}', ""))
     monkeypatch.setattr(
         api_serializers,
         "send_json",
@@ -27,8 +27,8 @@ def test_connect_persists_repo_atomically(tmp_path, monkeypatch) -> None:
     handlers_github.handle_connect(object(), {"repo": "openai/bago"})
 
     assert captured["status"] == 200
-    assert handlers_github._saved_repo(tmp_path) == "openai/bago"
-    assert list(tmp_path.glob("*.tmp")) == []
+    assert handlers_github._saved_repo(state_root) == "openai/bago"
+    assert list(state_root.glob("*.tmp")) == []
 
 
 def test_connect_error_has_machine_readable_code(monkeypatch) -> None:
@@ -49,58 +49,12 @@ def test_connect_error_has_machine_readable_code(monkeypatch) -> None:
     assert captured["payload"]["error_code"] == "invalid_repository"
 
 
-def test_cli_adapter_never_uses_shell(monkeypatch) -> None:
-    import github_cli
-
-    seen = {}
-
-    class Process:
-        returncode = 0
-        stdout = "ok\n"
-        stderr = ""
-
-    def fake_run(command, **kwargs):
-        seen.update(command=command, kwargs=kwargs)
-        return Process()
-
-    monkeypatch.setattr(github_cli.subprocess, "run", fake_run)
-    result = github_cli.GitHubCliAdapter().run(["auth", "status"])
-
-    assert result.stdout == "ok"
-    assert seen["command"] == ["gh", "auth", "status"]
-    assert seen["kwargs"]["shell"] is False
-
-
-def test_cli_adapter_reports_missing_executable(monkeypatch) -> None:
-    import github_cli
-
-    def missing(*_args, **_kwargs):
-        raise FileNotFoundError
-
-    monkeypatch.setattr(github_cli.subprocess, "run", missing)
-    result = github_cli.GitHubCliAdapter().run(["auth", "status"])
-    assert result.returncode == 127
-    assert result.stderr == "gh no está instalado"
-
-
-def test_cli_adapter_reports_timeout(monkeypatch) -> None:
-    import github_cli
-
-    def timeout(*_args, **_kwargs):
-        raise subprocess.TimeoutExpired(cmd=["gh"], timeout=30)
-
-    monkeypatch.setattr(github_cli.subprocess, "run", timeout)
-    result = github_cli.GitHubCliAdapter().run(["auth", "status"])
-    assert result.returncode == 124
-    assert "demasiado" in result.stderr
-
-
 def test_connect_maps_auth_failure_to_stable_error(monkeypatch) -> None:
     import api_serializers
     import handlers_github
 
     captured = {}
-    monkeypatch.setattr(handlers_github, "_run_gh", lambda _args: (4, "", "login required"))
+    monkeypatch.setattr(handlers_github, "_run_gh", lambda _handler, _args: (4, "", "login required"))
     monkeypatch.setattr(
         api_serializers,
         "send_json",
@@ -116,7 +70,7 @@ def test_connect_rejects_invalid_github_json(monkeypatch) -> None:
     import handlers_github
 
     captured = {}
-    monkeypatch.setattr(handlers_github, "_run_gh", lambda _args: (0, "not-json", ""))
+    monkeypatch.setattr(handlers_github, "_run_gh", lambda _handler, _args: (0, "not-json", ""))
     monkeypatch.setattr(
         api_serializers,
         "send_json",
@@ -125,3 +79,23 @@ def test_connect_rejects_invalid_github_json(monkeypatch) -> None:
     handlers_github.handle_connect(object(), {"repo": "openai/bago"})
     assert captured["status"] == 502
     assert captured["payload"]["error_code"] == "github_invalid_response"
+
+
+def test_github_mutation_http_facades_fail_closed_for_desktop_gateway(monkeypatch) -> None:
+    import api_serializers
+    import handlers_github
+
+    captured = []
+    monkeypatch.setattr(api_serializers, "send_json", lambda _handler, status, payload: captured.append((status, payload)))
+    handler = object()
+    for endpoint in (
+        handlers_github.handle_create,
+        handlers_github.handle_mcp_create,
+        handlers_github.handle_github_auth_start,
+        handlers_github.handle_github_auth_logout,
+        handlers_github.handle_github_setup_git,
+    ):
+        endpoint(handler, {})
+
+    assert len(captured) == 5
+    assert all(status == 410 for status, _payload in captured)

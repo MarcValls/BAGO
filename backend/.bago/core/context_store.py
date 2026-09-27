@@ -177,7 +177,6 @@ class ContextStore:
         self.sid = sid
         self.base_dir = base_dir
         self.session_dir = base_dir / "sessions" / sid
-        self.session_dir.mkdir(parents=True, exist_ok=True)
 
         self._context_path = self.session_dir / "context.jsonl"
         self._timeline_path = self.session_dir / "timeline.jsonl"

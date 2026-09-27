@@ -208,7 +208,66 @@ def handle_project_seed(handler: "BaseHTTPRequestHandler", body: dict[str, Any])
 
 
 def handle_project_sync(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
-    _handle(handler, "sync", body)
+    from api_serializers import send_json
+    from authorization_boundary import AuthorizationBoundary, AuthorizationError
+    from execution_adapter_contract import ExecutionContext
+    from execution_gateway import ExecutionGateway, ExecutionGatewayError, WorkspaceMirrorSyncEffectAdapter
+    from execution_request import ExecutionRequestError, build_execution_request
+
+    mgr = _mgr(handler)
+    if mgr is None:
+        send_json(handler, 503, {"ok": False, "error": "SessionManager no disponible"})
+        return
+    try:
+        source, target, digest = WorkspaceMirrorSyncEffectAdapter.prepare_operation(mgr)
+        request = build_execution_request(
+            effect_id="workspace.mirror.sync", actor_kind="user",
+            principal_id="interactive-local-user", session_id=str(getattr(mgr, "session_id", "") or ""),
+            source_surface="api.project.sync",
+            target={"source_root": str(source), "target_root": str(target), "binding_digest": digest,
+                    "workspace_id": str(getattr(mgr, "workspace_id", "") or ""),
+                    "resource": "workspace_mirror", "operation": "sync"},
+            arguments={}, scope="workspace",
+        )
+        boundary = AuthorizationBoundary()
+        payload = dict(body or {})
+        action = str(payload.get("authorization_action") or "").strip().lower()
+        interaction_id = str(payload.get("interaction_id") or "").strip()
+        if action == "challenge":
+            challenge = boundary.create_challenge(request, interaction_id=interaction_id)
+            send_json(handler, 200, {"ok": True, "authorization": {"state": "challenge", "challenge": challenge}})
+            return
+        if action == "approve":
+            if str(payload.get("user_decision") or "").strip().lower() != "approve":
+                raise AuthorizationError("La decisión explícita del usuario debe ser approve", code="authorization_user_decision_required")
+            headers = getattr(handler, "headers", {}) or {}
+            channel = headers.get("X-Bago-Channel", "") if hasattr(headers, "get") else ""
+            authorization = boundary.approve_challenge(
+                challenge_id=str(payload.get("challenge_id") or ""), interaction_id=interaction_id,
+                session_id=request.session_id, channel=channel,
+            )
+            send_json(handler, 200, {"ok": True, "authorization": {"state": "authorized", **authorization}})
+            return
+        if action not in {"", "execute"}:
+            raise AuthorizationError("authorization_action must be challenge, approve or execute", code="authorization_action_invalid")
+        result, authorization = ExecutionGateway(boundary).execute(
+            permit_token=str(payload.get("authorization_permit") or ""), request=request,
+            context=ExecutionContext(manager=mgr),
+        )
+        result["authorization"] = {"state": "consumed", "permit_id": authorization.get("permit_id"),
+                                   "decision_id": authorization.get("decision_id"),
+                                   "operation_fingerprint": authorization.get("operation_fingerprint")}
+        send_json(handler, 200 if result.get("ok") else 409, result)
+    except AuthorizationError as exc:
+        send_json(handler, 409 if "challenge" in exc.code or "permit" in exc.code else 403,
+                  {"ok": False, "error": str(exc), "code": exc.code})
+    except ExecutionRequestError as exc:
+        send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})
+    except ExecutionGatewayError as exc:
+        send_json(handler, 500 if exc.code.endswith("failed") else 409,
+                  {"ok": False, "error": str(exc), "code": exc.code})
+    except (OSError, RuntimeError, ValueError) as exc:
+        send_json(handler, 409, {"ok": False, "error": str(exc), "code": "workspace_mirror_sync_preflight_failed"})
 
 
 def handle_project_demo(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:

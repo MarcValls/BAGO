@@ -16,16 +16,12 @@ utiliza OperationalTools.tsx para gestionar el buffer de modelos.
 from __future__ import annotations
 
 import json
-import os
 import time
-from pathlib import Path
 from typing import Any
 
 
 # Estado en memoria del buffer. Persiste durante la sesion del backend.
 _BUFFER_STATE: dict[str, dict[str, Any]] = {}
-_BUFFER_DIR = Path(os.environ.get("BAGO_BUFFER_DIR", os.path.join(os.path.expanduser("~"), ".bago", "buffer")))
-_BUFFER_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _now() -> float:

@@ -99,24 +99,20 @@ class TestFileWrite(unittest.TestCase):
 
     def test_write_new_file(self):
         result = _run_tool("file_write.py", ["--path", "new.txt", "--content", "hello world"], self.ws)
-        self.assertTrue(result["ok"])
-        self.assertTrue(result["created"])
-        self.assertFalse(result["overwritten"])
-        self.assertEqual(result["bytes_written"], 11)
-        content = (Path(self.ws) / "new.txt").read_text(encoding="utf-8")
-        self.assertEqual(content, "hello world")
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["code"], "filesystem_write_authorization_required")
+        self.assertFalse((Path(self.ws) / "new.txt").exists())
 
     def test_write_overwrites_existing(self):
         (Path(self.ws) / "existing.txt").write_text("old content", encoding="utf-8")
         result = _run_tool("file_write.py", ["--path", "existing.txt", "--content", "new content"], self.ws)
-        self.assertTrue(result["ok"])
-        self.assertTrue(result["overwritten"])
-        self.assertFalse(result["created"])
+        self.assertFalse(result["ok"])
+        self.assertEqual((Path(self.ws) / "existing.txt").read_text(encoding="utf-8"), "old content")
 
     def test_write_creates_parent_dirs(self):
         result = _run_tool("file_write.py", ["--path", "src/components/App.tsx", "--content", "export default function App() {}"], self.ws)
-        self.assertTrue(result["ok"])
-        self.assertTrue((Path(self.ws) / "src" / "components" / "App.tsx").exists())
+        self.assertFalse(result["ok"])
+        self.assertFalse((Path(self.ws) / "src").exists())
 
     def test_write_forbidden_path(self):
         result = _run_tool("file_write.py", ["--path", ".env", "--content", "SECRET=123"], self.ws)
@@ -351,8 +347,8 @@ class TestDevMode(unittest.TestCase):
     def test_dev_write_forbidden_path(self):
         (Path(self.ws) / "state").mkdir()
         result = self._run_dev("file_write.py", ["--path", "state/data.json", "--content", '{"test": 1}'])
-        self.assertTrue(result["ok"], f"Dev mode should allow state/ writes: {result}")
-        self.assertTrue((Path(self.ws) / "state" / "data.json").exists())
+        self.assertFalse(result["ok"], f"Dev mode must not bypass Gateway authorization: {result}")
+        self.assertFalse((Path(self.ws) / "state" / "data.json").exists())
 
     def test_dev_edit_forbidden_path(self):
         (Path(self.ws) / ".env").write_text("OLD=value", encoding="utf-8")
@@ -391,8 +387,8 @@ class TestDevMode(unittest.TestCase):
         ext_dir = tf.mkdtemp(prefix="bago_ext_")
         try:
             result = self._run_dev("file_write.py", ["--path", str(Path(ext_dir) / "out.txt"), "--content", "dev write"])
-            self.assertTrue(result["ok"], f"Dev mode should allow writes outside workspace: {result}")
-            self.assertEqual((Path(ext_dir) / "out.txt").read_text(), "dev write")
+            self.assertFalse(result["ok"], f"Dev mode must not bypass Gateway authorization: {result}")
+            self.assertFalse((Path(ext_dir) / "out.txt").exists())
         finally:
             shutil.rmtree(ext_dir, ignore_errors=True)
 
