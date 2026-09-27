@@ -136,10 +136,14 @@ NON_RUNTIME_SCOPES = frozenset({
 
 # These backend/scripts files are reachable from runtime launchers or the
 # legacy manager UI. The directory is otherwise treated as build/release admin.
-RUNTIME_BACKEND_SCRIPT_ENTRYPOINTS = frozenset({
+RUNTIME_SCRIPT_ENTRYPOINTS = frozenset({
     "backend/scripts/bago_supervisor.py",
     "backend/scripts/bago_supervisor.pyw",
     "backend/scripts/publish_release.py",
+    # These scripts are selected by the supported Electron/runtime lifecycle;
+    # they are not build-only helpers despite living under scripts/.
+    "backend/scripts/runtime-service.ps1",
+    "scripts/dev.ps1",
 })
 
 # High-signal Python call suffixes. Suffix matching is intentional because Path
@@ -197,6 +201,8 @@ POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"\[\s*(?:System\.IO\.)?File\s*\]\s*::\s*(?:WriteAllText|WriteAllBytes|AppendAllText|AppendAllBytes)\s*\(", re.I), "filesystem.write", "high"),
     (re.compile(r"\[\s*(?:System\.)?Environment\s*\]\s*::\s*SetEnvironmentVariable\s*\(", re.I), "system.configuration.write", "high"),
     (re.compile(r"\b(?:Set-Content|Add-Content|Out-File|Copy-Item|Move-Item|New-Item)\b", re.I), "filesystem.write", "medium"),
+    (re.compile(r"\bStop-Process\b", re.I), "process.terminate", "high"),
+    (re.compile(r"\b(?:taskkill(?:\.exe)?|tskill(?:\.exe)?)\b", re.I), "process.terminate", "high"),
     (re.compile(r"\bStart-Process\b", re.I), "process.execute", "high"),
     # PowerShell's call operator can invoke external programs via literal or
     # computed command names; dot-sourcing executes another script in-process.
@@ -243,7 +249,8 @@ NSIS_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
 # rules are intentionally high-signal; dynamic command construction still
 # requires source review and must not be mistaken for complete static proof.
 SHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
-    (re.compile(r"\b(?:exec|nohup|bash|sh|cmd|powershell|pwsh|pythonw?|python3|node|npm|npx|electron|gh|gpg|curl|wget|taskkill)\b"), "process.execute", "high"),
+    (re.compile(r"\b(?:exec|nohup|bash|sh|cmd|powershell|pwsh|pythonw?|python3|node|npm|npx|electron|gh|gpg|curl|wget)\b"), "process.execute", "high"),
+    (re.compile(r"\b(?:taskkill(?:\.exe)?|tskill(?:\.exe)?)\b", re.I), "process.terminate", "high"),
     (re.compile(r"\bkill\s+(?!-0\b)"), "process.terminate", "high"),
     (re.compile(r"\b(?:mkdir|mktemp|touch|cp|mv|install)\b"), "filesystem.write", "medium"),
     (re.compile(r"\b(?:rm|rmdir|unlink)\b"), "filesystem.delete", "high"),
@@ -318,7 +325,7 @@ def _scope_for(path: Path) -> str:
         return SCOPE_BUILD_RELEASE_ADMIN
     if rel.startswith("frontend/"):
         return SCOPE_RUNTIME_CLIENT_TRANSPORT
-    if rel in RUNTIME_BACKEND_SCRIPT_ENTRYPOINTS:
+    if rel in RUNTIME_SCRIPT_ENTRYPOINTS:
         return SCOPE_RUNTIME_AUTHORITY
     if (
         rel.startswith("scripts/")
