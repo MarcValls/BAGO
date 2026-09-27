@@ -257,8 +257,8 @@
         },
         {
           "title": "Inventory de sinks",
-          "status": "ACTIVO",
-          "detail": "Inventario oficial sobre el candidato local 758790bb. 4.491 findings totales, 264 runtime-unbound y 0 sin clasificar; strict-classification pasa y strict-runtime falla. El conteo no demuestra cobertura completa: InitPluginsDir en el instalador NSIS queda fuera de los patrones observados."
+          "status": "RECAPTURAR EN MAIN",
+          "detail": "Captura de sinks ligada al HEAD fuente de PR #236 a2185878 (4.503 detectados, 265 runtime-unbound, 336 gateway-owned, 0 sin clasificar; strict-classification PASS, strict-runtime OPEN), NO es un scan de main posterior al merge. PR #236 fue MERGED en origin/main como 283bfce6 el 2026-09-27 08:44 UTC; el worktree local sigue en el HEAD fuente y diverge de origin/main, así que debe reconciliarse antes de una nueva captura. El scan releases del candidato detecta 64 runtime-unbound: 43 en NSIS+helper oficial y 21 en superficies legacy/wrappers. Auditoría de cobertura encontró además 10 llamadas de terminación de proceso no detectadas o mal clasificadas (2 en releases, 3 en scripts/dev.ps1 instalado por NSIS, 3 en backend/scripts/runtime-service.ps1 mal clasificado como build/admin y 2 dentro de apply_release_update.ps1, que debe seguir visible como gateway_owned); además 3 llamadas de CI embebidas no están cubiertas. Hay falsos positivos/tipos de recurso incorrectos en Install-BAGO.ps1. 265 no es límite superior probado; partición y habituation siguen parciales, sin reparaciones."
         },
         {
           "title": "Ejecución segura de comandos de agentes",
@@ -362,7 +362,7 @@
         },
         {
           "title": "Gate de unicidad global",
-          "detail": "Criterio: 0 runtime-unbound y 0 unclassified, dispatch probado por sink, strict-classification y strict-runtime sobre el mismo candidato comiteado, suite backend completa y revisión independiente PASS. En el worktree local 758790bb: 4.491 findings, 264 runtime-unbound, 0 unclassified; strict-classification PASS, strict-runtime FAIL. Falta cobertura del scanner para InitPluginsDir y el P0 NSIS. PR #236 remoto está en 3cdeadfe; el worktree local incorpora esa rama y main, pero requiere publicar y regenerar evidencia.",
+          "detail": "Criterio: 0 runtime-unbound y 0 unclassified, dispatch probado por sink, strict-classification y strict-runtime sobre el mismo candidato comiteado, suite backend completa y revisión independiente PASS. El PR #236 sí se fusionó a origin/main en 283bfce6; Canonical CI, CodeQL, Validate Expected, njsscan y packaged Electron smoke aparecen SUCCESS. Real installer E2E quedó SKIPPED. El P0-INS-NSIS-01 y la brecha de cobertura siguen abiertos; el inventario documentado es del HEAD fuente a2185878 y no se ha vuelto a ejecutar sobre main post-merge.",
           "status": "ABIERTO"
         },
         {
@@ -538,7 +538,7 @@
         {
           "title": "Clasificación estricta",
           "status": "VERIFICADO ACOTADO",
-          "detail": "Escaneo asociado al árbol local 758790bb: 4.491 findings, 0 scope-unclassified y 0 binding-unclassified; strict-classification exit 0. Snapshot del árbol limpio antes de actualizar este mapa y regenerar el informe."
+          "detail": "Cada informe conserva la clasificación estricta y los conteos de su propia captura, ligados al HEAD, fingerprint, scanner y registry. Ese resultado no demuestra cobertura completa del scanner."
         },
         {
           "title": "Toolbox persistence",
@@ -558,34 +558,51 @@
         {
           "title": "Unicidad runtime",
           "status": "ABIERTO",
-          "detail": "El escaneo en 758790bb detecta 264 runtime-unbound y strict-runtime falla. El trace de NSIS confirma efectos antes de SessionManager, AuthorizationBoundary, Permit o ExecutionGateway. El scanner omite InitPluginsDir, por lo que la cobertura no permite cerrar todavía la partición global.",
+          "detail": "strict-runtime permanece OPEN. El scan releases ligado al HEAD fuente PR #236 (no al main post-merge) encuentra 64 runtime-unbound en 8 archivos (33 NSIS + 10 helper + 21 superficies legacy/wrappers). La traza ampliada detecta 10 terminaciones de proceso PowerShell no descubiertas o mal clasificadas: 2 en releases, 3 en scripts/dev.ps1 incluido en el instalador, 3 en runtime-service.ps1 alcanzable durante el ciclo Electron pero clasificado build/admin, y 2 en apply_release_update.ps1 que deben aparecer como gateway_owned; 3 llamadas adicionales son solo CI. NSIS stage/extract ocurre antes de SessionManager, AuthorizationBoundary, Permit consumido y ExecutionGateway. La partición y el trace de habituation siguen incompletos; los conteos detectados no demuestran cobertura completa.",
           "children": [
             {
-              "title": "P0 bootstrap NSIS",
+              "title": "P0 bootstrap e instaladores",
               "status": "CONFIRMADO",
-              "detail": "La instalación limpia NSIS ejecuta staging y materialización antes de la autoridad canónica. Reutilizar system.install.apply; el host de bootstrap y su trust handoff siguen sin definirse."
+              "detail": "La ruta oficial alcanzable suma 43 sinks detectados: 33 NSIS + 10 helper transitivo, más Stop-Process no detectados en el helper y en scripts/dev.ps1 copiado al payload. Hay otros 21 en entrypoints legacy/wrappers: Install-BAGO y Uninstall-BAGO se publican; bago-install.ps1 no tiene caller interno probado y exige clasificación de distribución. Reutilizar system.install.apply/uninstall si cubren el contrato; el host y trust handoff siguen sin cierre."
             },
             {
               "title": "Cobertura del scanner",
               "status": "ABIERTO",
-              "detail": "InitPluginsDir precede los sinks NSIS cubiertos y no aparece modelado. Cerrar cobertura antes de afirmar que el inventario contiene todos los efectos."
+              "detail": "El falso verde está demostrado: strict-classification solo cuenta hallazgos detectados. Las reglas PowerShell carecen de Stop-Process/taskkill/tskill, y el alcance omite scripts/dev.ps1 instalado y runtime-service.ps1 del ciclo Electron. La traza identificó 8 terminaciones runtime-unbound, 2 terminaciones del update adapter que deben verse como gateway_owned y 3 llamadas solo en CI. También hay falsos positivos y tipos de recurso erróneos en Install-BAGO.ps1. Actualizar scanner, scope, fixtures y regresión de binding antes de usar inventario para particionar.",
+              "children": [
+                {
+                  "title": "Lifecycle del runtime empaquetado",
+                  "status": "BYPASS CONFIRMADO",
+                  "detail": "Electron empaquetado invoca scripts/dev.ps1 para backend/stop; ese archivo también se incluye en NSIS. Tres terminaciones (dev.ps1:75/:87/:193) están fuera del scanner por scope build/admin. backend/scripts/runtime-service.ps1 se selecciona desde Electron y contiene tres terminaciones (:65/:91/:99), pero está fuera de RUNTIME_BACKEND_SCRIPT_ENTRYPOINTS. Ocho sinks materialmente runtime (incluidos releases) requieren clasificación y owner; las llamadas no pasan por process.terminate/ExecutionGateway."
+                },
+                {
+                  "title": "Terminación gobernada por system update",
+                  "status": "OWNER EXISTENTE · NO INVENTARIADO",
+                  "detail": "apply_release_update.ps1:233/:237 termina BAGO.exe/BackendPid después de consumir el ticket y dentro de SystemUpdateApplyEffectAdapter. El código apunta al owner existente y no demuestra un bypass independiente; el scanner debe mantener estos dos sinks visibles como gateway_owned, con regresión del binding del adapter. La prueba del helper debe subir de 19 a 21 findings al detectar también los dos sinks de releases."
+                },
+                {
+                  "title": "Terminaciones de procesos en CI",
+                  "status": "SOLO BUILD/CI · COBERTURA PENDIENTE",
+                  "detail": "Tres Stop-Process inline en canonical-ci.yml:155/:247 y build-release-installer.yml:212 no son runtime del producto, pero el scanner tampoco inspecciona PowerShell incrustado en YAML. Definir cobertura o exclusión explícita por contexto de build con tests; no mezclarlos con los sinks runtime."
+                }
+              ]
             }
           ]
         },
         {
           "title": "Pruebas por bloque",
           "status": "EJECUTADO ACOTADO",
-          "detail": "Histórico de cierres anteriores: pruebas focales y suite de 1.672 passed pertenecen a candidatos previos. No sustituyen las pruebas del candidato actual bcdd540."
+          "detail": "Histórico de cierres anteriores: pruebas focales y suite de 1.672 passed pertenecen a candidatos previos. No sustituyen las pruebas del candidato actual."
         },
         {
           "title": "Suite backend completa",
           "status": "PENDIENTE",
-          "detail": "La salida aportada por CI reporta 1.670 passed, 16 skipped y 213 subtests en 301.17 s sobre el SHA 9633118. El árbol actual 758790bb incorpora main y 9 commits remotos posteriores; esa salida es histórica para este árbol. Repetir suite completa sobre el SHA final comiteado."
+          "detail": "El reporte de 1.670 passed, 16 skipped y 213 subtests en 301.17 s corresponde al SHA histórico 9633118. La suite backend completa no se ha ejecutado sobre la captura actual; debe correrse sobre el candidato final comiteado."
         },
         {
           "title": "Candidato y revisión",
-          "status": "ABIERTO",
-          "detail": "PR #236 remoto avanzó a 3cdeadfe y se integró localmente junto con origin/main en 758790bb. El worktree local queda cuatro commits por delante de la rama remota; la consulta de checks no estuvo disponible en este corte. Regenerar CI y revisión sobre el candidato publicado."
+          "status": "MERGED · VALIDACIÓN PARCIAL",
+          "detail": "PR #236 MERGED en main: source a21858780615440a775a7989970b8917fc0d6732, merge commit 283bfce6f3e3d92104dc2de9bc2c19e9888744b2, 2026-09-27 08:44 UTC. Checks: Validate source, CodeQL actions/JS/Python, Validate Expected, njsscan y Packaged Electron smoke SUCCESS; Real installer E2E SKIPPED. origin/main apunta a 283bfce6; el worktree local permanece en a2185878 y no es el HEAD post-merge. Requiere reconciliar checkout y reejecutar inventario/gates; esto no cierra strict-runtime ni el P0."
         },
         {
           "title": "Gate de aceptación",
@@ -600,7 +617,7 @@
         {
           "title": "Mapa visual versionado",
           "status": "CERRADO ACOTADO",
-          "detail": "El árbol contiene docs/architecture/bago_mind_map.html, bago_mind_map.data.json y scripts/update_bago_mind_map.py, incorporados desde el PR #237 y actualizados con el inventario 758790bb. El HTML se deriva del JSON."
+          "detail": "El árbol contiene docs/architecture/bago_mind_map.html, bago_mind_map.data.json y scripts/update_bago_mind_map.py. El HTML se deriva del JSON; actualizar la fuente y regenerar la proyección tras cada snapshot de cierre."
         },
         {
           "title": "Archivo de releases históricas",
