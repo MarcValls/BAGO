@@ -96,6 +96,7 @@ El trabajo actual sigue `backend/docs/contracts/execution_gateway_unification_pl
 ### Seguridad de distribución
 - La release pública v4.11.1 incluye `bago-4.11.1-setup.exe` firmado con Authenticode SHA-256.
 - El SHA-256 publicado del instalador es `5066db72146e3231afd18312f44948bccb2116dc23e107e4a24a721005d50e92`.
+- La siguiente release mayor prevista será **BAGO 5.0**; `release_version.txt` conserva la versión vigente hasta que esa release se publique.
 - Las proyecciones de rutas, migración y versión se verifican contra drift en CI.
 - Los cambios posteriores de `main` no se consideran parte del instalador v4.11.1 hasta que exista una nueva release/tag y sus gates correspondientes.
 | Fase | Estado actual | Objetivo |

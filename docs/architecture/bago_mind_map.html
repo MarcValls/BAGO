@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mapa mental · BAGO · clásico</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --bg:#f2f3f5; --panel:#ffffff; --ink:#17202a; --muted:#667085;
+  --line:#c8cdd4; --line-strong:#8f98a3; --accent:#1f5eff;
+  --active:#b54708; --ok:#067647; --soft:#eef2f6; --shadow:0 4px 12px rgba(16,24,40,.08);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+body{overflow:hidden}
+button,input{font:inherit}
+.app{height:100vh;display:grid;grid-template-rows:48px 1fr}
+header{height:42px;padding:0 10px;background:#fff;border-bottom:1px solid #cfd4da}
+.header-row{height:100%;max-width:none;margin:0;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
+h1{font-size:14px;line-height:1;margin:0;font-weight:700;letter-spacing:0;flex:0 0 auto}
+.subtitle{display:none}
+.meta{display:none}
+.toolbar{display:none}
+.toolbar-inner{display:none}
+.btn{border:1px solid #c9ced6;background:#fff;color:#344054;border-radius:3px;padding:4px 7px;cursor:pointer;font-size:11px;line-height:1.1;flex:0 0 auto}
+.btn:hover,.btn.active{border-color:#6f8df5;background:#f3f5fb;color:#1849c6}
+.search{min-width:100px;max-width:170px;flex:1;border:1px solid #c9ced6;border-radius:3px;padding:4px 7px;outline:none;font-size:11px}
+.search:focus{border-color:#8aa6ff;box-shadow:0 0 0 3px rgba(31,94,255,.10)}
+.legend{margin-left:auto;display:flex;gap:10px;align-items:center;color:var(--muted);font-size:11px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
+.workspace{position:relative;overflow:hidden}
+#viewport{position:absolute;inset:0;overflow:auto;padding:6px 10px 12px}
+#mapWrap{position:relative;width:2160px;height:1510px;margin:0 auto;transform-origin:50% 50%;transition:transform .18s ease}
+#lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.connector{stroke:var(--line);stroke-width:1.4;fill:none}
+.connector.active{stroke:#7f95d6;stroke-width:1.8}
+.node{position:absolute;transform:translate(-50%,-50%);border:1px solid #bfc5cc;background:#fff;border-radius:4px;box-shadow:0 1px 3px rgba(16,24,40,.05);padding:8px 9px;text-align:left;cursor:pointer;transition:.12s ease;user-select:none}
+.node:hover{transform:translate(-50%,-50%) translateY(-1px);box-shadow:0 3px 8px rgba(16,24,40,.08);border-color:#8f98a3}
+.node:focus-visible{outline:3px solid rgba(31,94,255,.22);outline-offset:2px}
+.node.center{width:190px;min-height:70px;border:2px solid #6f8df5;box-shadow:0 2px 6px rgba(16,24,40,.06);cursor:default;text-align:center;padding:12px}
+.node.center .title{font-size:19px}
+.node.branch{width:172px;min-height:60px}
+.node.branch.current{border-color:#d29a55;background:#fffaf2}
+.node.branch.selected{border-color:#8aa6ff;background:#f7f9ff;box-shadow:0 8px 24px rgba(31,94,255,.12)}
+.node.branch.selected,.node.branch.selected-node{z-index:110!important;border:2px solid #315ee8!important;background:#edf2ff!important;box-shadow:0 0 0 4px rgba(31,94,255,.18),0 10px 28px rgba(16,24,40,.2)!important}
+.node.child{width:158px;min-height:50px;padding:7px 8px;background:#fff}
+.node.child.in-selected-branch{z-index:105!important;border:2px solid #5275df!important;background:#f3f6ff!important;box-shadow:0 0 0 3px rgba(31,94,255,.15),0 8px 22px rgba(16,24,40,.16)!important}
+.node.child.search-hit{border-color:#8aa6ff;box-shadow:0 0 0 3px rgba(31,94,255,.10)}
+.title{font-size:12.5px;font-weight:700;line-height:1.2}
+.summary{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.3}
+.chip{display:inline-block;margin-top:5px;padding:2px 5px;border-radius:2px;background:#f2f4f7;color:#475467;font-size:9px;font-weight:700;letter-spacing:.02em}
+.chip.active{background:#fff1df;color:#9a4d00}
+.chip.ok{background:#ecfdf3;color:#067647}
+.chip.base{background:#eef4ff;color:#3538cd}
+#detail{
+  position:absolute;
+  left:50%;
+  bottom:10px;
+  transform:translate(-50%, calc(100% + 28px));
+  width:min(1080px, calc(100% - 20px));
+  max-height:31vh;
+  overflow:auto;
+  background:#fff;
+  border:1px solid #bcc3cb;
+  border-radius:5px;
+  box-shadow:0 4px 18px rgba(16,24,40,.12);
+  padding:0;
+  opacity:0;
+  pointer-events:none;
+  z-index:20;
+  transition:transform .16s ease, opacity .14s ease;
+}
+#detail.show{
+  transform:translate(-50%, 0);
+  opacity:1;
+  pointer-events:auto;
+}
+.detail-head{
+  position:sticky;
+  top:0;
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:16px;
+  align-items:start;
+  padding:10px 12px 8px;
+  background:rgba(255,255,255,.97);
+  border-bottom:1px solid #eaecf0;
+  backdrop-filter:blur(8px);
+}
+.detail-kicker{font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:3px}
+.detail-title{font-size:15px;font-weight:760;line-height:1.25}
+.detail-status{margin-top:6px}
+.detail-body{
+  font-size:13px;
+  line-height:1.58;
+  color:#344054;
+  padding:10px 12px 12px;
+  max-width:none;
+}
+.detail-note{
+  font-size:11px;
+  line-height:1.45;
+  color:var(--muted);
+  border-top:1px solid #eaecf0;
+  padding:8px 12px 9px;
+  background:#fafbfc;
+}
+.close{
+  border:1px solid #e1e5eb;
+  background:#f8f9fb;
+  border-radius:3px;
+  width:32px;
+  height:32px;
+  cursor:pointer;
+  color:#475467;
+  font-size:18px;
+  line-height:1;
+}
+.close:hover{background:#eef1f5}
+.hint{position:absolute;left:10px;bottom:8px;background:#fff;border:1px solid #d8dde3;border-radius:3px;padding:5px 7px;color:var(--muted);font-size:10px;z-index:10}
+#empty{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--muted);font-size:14px;display:none}
+@media (max-width:900px){
+  h1{font-size:13px}.subtitle{display:none}.header-row{gap:6px}.btn{padding:4px 6px}.search{display:none}
+  .workspace{overflow:auto}
+  #viewport{overflow:auto}
+  #detail{position:fixed;left:50%;right:auto;bottom:10px;top:auto;width:calc(100% - 20px);max-height:48vh}
+}
+</style>
+
+<style>
+
+.node.selected-node{
+  border-color:#6f8df5 !important;
+  background:#f6f8ff !important;
+  box-shadow:0 0 0 3px rgba(31,94,255,.10), 0 8px 22px rgba(16,24,40,.08) !important;
+}
+body.detail-open .hint{opacity:.15;pointer-events:none}
+
+
+#nodes .node.selected-node{
+  z-index:120!important;
+  border-color:#244bc4!important;
+  background:#e8eeff!important;
+  box-shadow:0 0 0 4px rgba(31,94,255,.22),0 10px 28px rgba(16,24,40,.22)!important;
+}
+.detail-head{border-radius:4px 4px 0 0}
+.close{border-radius:3px}
+
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="header-row">
+    <h1>Mapa mental · conversación BAGO</h1>
+    <button class="btn active" id="btnOverview">Mapa base</button>
+    <button class="btn" id="btnCurrent">Ruta actual</button>
+    <button class="btn" id="btnAll" aria-pressed="false">Abrir todas las ramas</button>
+    <button class="btn" id="zoomOut" aria-label="Alejar">−</button>
+    <button class="btn" id="zoomIn" aria-label="Acercar">+</button>
+    <button class="btn" id="zoomReset">100%</button>
+    <input class="search" id="search" type="search" placeholder="Buscar">
+  </div>
+</header>
+
+<main class="workspace">
+  <div id="viewport">
+    <div id="mapWrap">
+      <svg id="lines" viewBox="0 0 2160 1510" preserveAspectRatio="none"></svg>
+      <div id="nodes"></div>
+      <div id="empty">No hay coincidencias.</div>
+    </div>
+  </div>
+  <aside id="detail" aria-live="polite" aria-label="Información del nodo seleccionado">
+    <div class="detail-head">
+      <div>
+        <div class="detail-kicker">Nodo seleccionado</div>
+        <div class="detail-title" id="detailTitle"></div>
+        <div class="detail-status" id="detailStatus"></div>
+      </div>
+      <button class="close" id="closeDetail" aria-label="Cerrar tarjeta">×</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+    <div class="detail-note">Selecciona otro nodo para sustituir esta información. ESC cierra la tarjeta.</div>
+  </aside>
+  <div class="hint">Flujo de arriba hacia abajo · Clic en una rama → despliega su columna · Clic en un nodo → detalle · Buscar → filtra</div>
+</main>
+</div>
+
+<script>
+const DATA = /* BAGO_MAP_DATA_START */{"center":{"id":"bago","title":"BAGO","subtitle":"Control plane local de IA gobernada","detail":"Idea unificadora: sesión y backend como autoridad; proveedores intercambiables; efectos materiales autorizados y trazables; UI visible pero no soberana; evidencia ligada al candidato exacto."},"branches":[{"id":"nucleo","title":"Núcleo","summary":"Qué es BAGO y dónde vive la autoridad.","status":"BASE","side":"left","y":110,"children":[{"title":"Control plane local","status":"IMPLEMENTADO","detail":"BAGO se plantea como centro local de control, no como un chat atado a un proveedor."},{"title":"Sesión = fuente de verdad","status":"IMPLEMENTADO","detail":"SessionManager media sesión → contexto → proveedor → herramienta → acción → evidencia → resultado. La UI consume estado confirmado por backend."},{"title":"Árbol canónico único","status":"IMPLEMENTADO","detail":"Separación entre fuente, runtime instalado, estado mutable, artefactos de release y material externo/experimental."},{"title":"Arranque portable","status":"IMPLEMENTADO","detail":"Resolución de raíz real, Python/Git, dependencias y entorno sin depender de rutas fijas."},{"title":"CLI / API / headless","status":"IMPLEMENTADO","detail":"BAGO puede operar sin Electron mediante CLI y API local con contratos compartidos."},{"title":"Proveedores intercambiables","status":"IMPLEMENTADO","detail":"La sesión permanece estable mientras cambia el motor: Ollama, Copilot, Codex/OpenAI y otros conectores."}]},{"id":"contexto","title":"Contexto y memoria","summary":"Sesión, memoria semántica, workspace explícito y Node Control.","status":"ACTIVO","side":"left","y":300,"children":[{"title":"Persistencia de sesión","status":"IMPLEMENTADO","detail":"Recuperación tras reinicio, modelo seleccionado, workspace asociado y separación entre estado temporal y duradero.","children":[{"title":"SessionManager","status":"OWNER","detail":"Coordina identidad de sesión, workspace y ciclo de vida."},{"title":"ContextStore","status":"OWNER","detail":"Conserva mensajes, metadatos, timeline y receipts de contexto."},{"title":"Reanudación verificable","status":"EVIDENCIA","detail":"La restauración debe quedar ligada a la sesión y al estado persistido exacto."}]},{"title":"Context store","status":"IMPLEMENTADO","detail":"Almacenamiento, compresión y receipts de contexto.","children":[{"title":"Historial","status":"PERSISTENTE","detail":"Mensajes y resultados vuelven al contexto de la misma sesión."},{"title":"Compresión","status":"CONTROLADA","detail":"Reduce contexto sin sustituir la evidencia canónica."},{"title":"Receipt","status":"VERIFICABLE","detail":"Liga operación, resultado y candidato cuando aplica."}]},{"title":"SQLite / FTS5 / embeddings","status":"EN CURSO","detail":"Owner database.write ejecutado: ExecutionGateway registra un DatabaseWriteEffectAdapter acotado a KnowledgeBase y EmbeddingStore; las fachadas son de solo lectura y API/chat/REPL requieren autorización de usuario. El adapter valida raíz/sesión, enlaza source_session a la sesión activa, serializa escrituras por state_root y conserva WAL/FTS/upsert. El índice SQLite SessionDB se retiró: no tenía lectores y duplicaba la sesión JSON canónica que consume ContextStore. Pruebas previas: 102 memory/RAG/gateway y 67 sesión/workspace/inventory. El arranque del manager CLI ahora pasa por process.execute con challenge TTY y Permit consumido; launcher ligado por SHA-256, workspace/UI bajo raíz, loopback y puerto validados antes del spawn. El singleton bago.lock vive en instance_lock y cmd_serve es su único caller. BagoContext.run_tool no tiene callsites y falla cerrado; event flush usa state.write. Los marcadores [WRITE] son propuesta visible, no escriben; materialización vía filesystem.write challenge/Permit. state_paths resuelve sin mkdir y SessionManager/registry no pre-crean estado. Pruebas focales de los bloques: 2 + 1 + 19 passed. Git identity de SessionPersistenceMixin usa process.inspect para tres argv exactos read-only; no añade owner. El shim file-write legacy falla cerrado y no puede materializar ni con BAGO_DEV_MODE; la UI/API conserva /files/write con autorización. Node Control materializa directorios con el writer de manifiesto, sin mkdir paralelo. AgentOrchestrator persiste planes JSONL con state.write, sin mkdir/open paralelo. La proyección Android de capas usa state.write sin writer paralelo. ClaimLedger y receipts anexan vía state.write, sin adquirir permisos ni mezclarse con ExecutionClaimStore. Inventario actual del gate: 2.313 sinks, 65 runtime-unbound y 0 sin clasificar; strict-classification PASS, strict-runtime OPEN. El adapter database.write cubre KnowledgeBase y EmbeddingStore; SessionDB se retiró por redundante. Node Control está especificado, pero falta validarlo en CLI/API/UI. toolsmith.save_toolbox y el bootstrap de Node Control materializan carpetas mediante state.write; el modular guard de Node Control ya corre en proceso. Quedan pendientes toolsmith.create_tool y otros 66 sinks runtime. El verify wrapper falló al lanzar subprocess (WinError 2); scanner directo ejecutado con timeout. DirectoryContext usa process.inspect para git diff en sesión activa; sin SessionManager no ejecuta Git."},{"title":"Workspace explícito","status":"IMPLEMENTADO","detail":"El proyecto activo debe ser explícito, persistente y autoridad de archivos, editor, cambios y diagnósticos."},{"title":"Nodos y conectores","status":"PENDIENTE DE CIERRE","detail":"El documento Node Control especifica instalaciones, piezas compartidas, nodos/conectores, modos (connected, shadow, locked, detached, read-only, writable overlay), matriz y evidencia por acción. Ese contrato está documentado, pero todavía no prueba el cierre de producto. Falta verificar que CLI/API/UI materialicen y validen cada transición con identidad instalación-pieza, política efectiva, estado previo/nuevo y receipt ligado a sesión/workspace; además, probar uso compartido sin copias por instalación y preview/validate antes y después.","children":[{"title":"Instalación-pieza","status":"IDENTIDAD","detail":"Cada vínculo debe identificar instalación y pieza sin duplicar la autoridad."},{"title":"Modos","status":"CONTRATO","detail":"Connected, shadow, locked, detached, read-only y writable overlay requieren transición explícita."},{"title":"Preview / validate","status":"PENDIENTE","detail":"La transición necesita estado previo, estado nuevo y receipt ligado a sesión/workspace."}]}]},{"id":"ui_runtime","title":"UI, runtime y release","summary":"Superficie visible, Electron e instalación.","status":"IMPLEMENTADO","side":"left","y":545,"children":[{"title":"Shell React canónico","status":"IMPLEMENTADO","detail":"ControlPlane, header, sidebar, workspace, inspector y modos de visualización sin navegación duplicada."},{"title":"Chat integrado","status":"IMPLEMENTADO","detail":"Chat acoplado o fullscreen dentro del workspace, con selector de modelo, nuevo chat y persistencia."},{"title":"Capacidades ≠ paquetes","status":"VERIFICADO ACOTADO","detail":"La anatomía de capacidades queda separada de la instalación/autorización/ejecución de Capability Packages."},{"title":"Electron lifecycle","status":"IMPLEMENTADO","detail":"Arranque/parada del backend, aislamiento de user-data-dir, prevención de EPIPE y smoke sobre UI actual."},{"title":"Instalador y rollback","status":"IMPLEMENTADO","detail":"Instalación, reparación, backup, rollback seguro, sidecar SHA-256 y limpieza posterior al éxito."},{"title":"Release candidate-bound","status":"IMPLEMENTADO","detail":"Versión única, fingerprints, SHA, hashes del worktree y gates vinculados al candidato exacto."},{"title":"Próxima release mayor","status":"PLANIFICADA · BAGO 5.0","detail":"La siguiente release mayor prevista será BAGO 5.0. release_version.txt sigue siendo la autoridad de la versión vigente hasta completar y publicar esa release."}]},{"id":"gobierno","title":"Gobierno y evidencia","summary":"Qué puede afirmarse y con qué prueba.","status":"BASE","side":"right","y":90,"children":[{"title":"Seguridad antes que autonomía","status":"BASE","detail":"Afirmación → acción → evidencia → conclusión. No se considera hecho algo sin prueba."},{"title":"Claim / evidence ledger","status":"IMPLEMENTADO","detail":"Claims, receipts, hashes, bundles e inventarios ligan acción, candidato, salida, commit y alcance."},{"title":"Estados de ciclo de vida","status":"IMPLEMENTADO","detail":"PROPOSED → PREPARED → EXECUTED → VERIFIED → VALIDATED, sin saltos por una sola suite verde."},{"title":"Candidate-bound","status":"IMPLEMENTADO","detail":"La evidencia de un SHA no se reutiliza como prueba de otro candidato."},{"title":"Un solo mantenedor","status":"IMPLEMENTADO","detail":"Existe una excepción gobernada y auditable, pero no se presenta como revisión independiente."},{"title":"Codex / agentes BAGO","status":"IMPLEMENTADO","detail":"AGENTS.md, skills, workers, auditorías y verificadores adaptados al harness real sin importar runtime externo no autorizado."}]},{"id":"gateway","title":"Autorización y ExecutionGateway","summary":"La frontera causal de los efectos.","status":"ACTIVO","side":"right","y":285,"children":[{"title":"Procedencia de autorización","status":"IMPLEMENTADO","detail":"challenge → decisión del usuario → proof → decision → Permit de un solo uso → ejecución → receipt."},{"title":"ExecutionGateway","status":"CONECTADO ACOTADO","detail":"ExecutionRequest → Authorization → Permit → ExecutionGateway → EffectAdapter. La unicidad runtime global sigue abierta."},{"title":"Adapters server-owned","status":"IMPLEMENTADO","detail":"El caller no elige el executor después de autorizar; el servidor resuelve el adapter permitido."},{"title":"Creación de roles del repositorio","status":"CERRADO ACOTADO","detail":"role_factory crea Markdown y actualiza manifest mediante role.definition.create. Un adapter propio valida el root canónico, familia, nombre y digest del manifiesto; el Permit CLI se consume antes del efecto. El adapter revierte el rol si no puede publicar el manifiesto. 9 pruebas focales pasaron en bd42ad3b."},{"title":"LLM mutante bloqueado","status":"IMPLEMENTADO","detail":"Una tool call con efectos no se ejecuta solo porque el modelo la solicite."},{"title":"Claims e idempotencia","status":"IMPLEMENTADO","detail":"Persistencia durable, recuperación, control de replay/retry y resultado desconocido sin reintento automático."},{"title":"Inventory de sinks","status":"ACTIVO","detail":"Inventario en 98aaf024: 2.327 sinks, 64 runtime-unbound y 0 sin clasificar. --strict-classification PASS; --strict-runtime OPEN. La creación de roles del repositorio ya usa el owner explícito role.definition.create."},{"title":"Ejecución segura de comandos de agentes","status":"CERRADO ACOTADO","detail":"AgentGateway despacha el argv canónico por process.execute, con hash del launcher, sesión y workspace vinculados, y Permit TTY consumido antes del spawn. Ollama no proporciona argv: solo valida o bloquea. 66 pruebas de agente + ExecutionGateway PASS. Inventario AST regenerado; consolidación de imports + inventario de sinks: 36 PASS. Commit publicado 063d08a0."}]},{"id":"pipeline","title":"Trabajo gobernado","summary":"Planes, pipelines, scheduler y delegación.","status":"CONECTADO ACOTADO","side":"right","y":510,"children":[{"title":"Pipelines y planes","status":"IMPLEMENTADO","detail":"Pasos, flujo, simulación, evidencia y estado de ejecución."},{"title":"DelegationGrant","status":"IMPLEMENTADO","detail":"Efectos, destinos, argumentos, expiración, máximo de ejecuciones y permisos hijos que nunca superan al padre."},{"title":"04-FIX2","status":"EJECUTADO ACOTADO","detail":"Se cerraron presupuesto, fingerprint/versionado, idempotencia y referencias de autoridad delegada sin herencia."},{"title":"PlanEngine → Gateway","status":"CONECTADO ACOTADO","detail":"PlanEngine pasa por PlanRuntimeEffectAdapter y ExecutionGateway."},{"title":"Scheduler gobernado","status":"CONECTADO ACOTADO","detail":"La ejecución de planes usa DelegationGrant y la frontera gobernada, manteniendo fail-closed donde falta adapter."},{"title":"Invariantes","status":"PROBADO","detail":"Presupuesto monotónico, stale fingerprint, replay, concurrencia, OUTCOME_UNKNOWN y nested dispatch sin contexto gateway-owned."}]},{"id":"actual","title":"Ruta actual","summary":"Progreso por bloques, evidencia comprobada y pendientes para cerrar la unicidad global.","status":"ACTIVO · GLOBAL ABIERTO","side":"bottom","y":710,"children":[{"title":"Punto de partida","detail":"Inicio del goal: 2123 hallazgos / 478 runtime-unbound, 0 sin clasificar. El scanner corregido detecta Path.open ligado y SQLite. Se quitaron PRAGMA de conexión (busy_timeout/synchronous) que no mutan contenido persistente: estado actual 2342 / 134 runtime-unbound / 0 sin clasificar. Hay 122 candidatos database.write, todavía con SQL dinámico de confianza baja pendiente de revisión. Strict-classification PASS; strict-runtime OPEN.","status":"BASE → ACTUAL"},{"title":"Wave A · estado y red","detail":"Los efectos de persistencia interna y transporte Python pasaron a owners server-owned registrados (state/config/memory/agent definition y network read). Bajó el residual runtime-unbound de 587 a 474 en ese corte. No equivale al cierre global.","status":"CERRADO ACOTADO"},{"title":"Wave B1 · state.delete","detail":"Borrado del override de modelo de la sesión usa challenge → aprobación → Permit de un uso → ExecutionGateway → StateDeleteEffectAdapter. El target se limita al archivo canónico de la sesión; la UI pide confirmación y no queda fallback directo. Evidencia histórica: 30 backend + 34 frontend; inventario 2099 / 473 en ese corte.","status":"CERRADO ACOTADO"},{"title":"Wave B2 · workspace.bind","detail":"POST /workspace/persist y el botón visible Persistir usan challenge → approve → Permit → Gateway. El adapter comprueba sesión, raíz, identidad, digest y operación antes de rebind/materializar; receipt separa JSON de sesión, índice SQLite y last_workspace. La UI ya no persiste silenciosamente. /project y TTY quedaron fuera de ese alcance. Evidencia histórica: suite completa 1260 passed, 2 skipped, 198 subtests en el candidato indicado en el ledger.","status":"CERRADO ACOTADO"},{"title":"project.write","detail":"Los entrypoints de vínculo/materialización de proyecto y seed usan el owner project.write existente. Los cinco sinks seed.py siguen visibles en inventario y se clasifican gateway-owned por callsite de producción limitado al adapter. Los demás sinks del runtime permanecen en alcance.","status":"CERRADO ACOTADO"},{"title":"credential.write","detail":"CredentialManager y SecretStore ya no materializan secretos por caminos paralelos. CredentialWriteEffectAdapter valida Permit, configuración, identidad proveedor/clave y ruta; el modo session sigue solo en memoria. Alcance acotado a esta autoridad y sus rutas probadas.","status":"CERRADO ACOTADO"},{"title":"Migraciones posteriores","detail":"Se migraron rutas concretas de release y cache/descargas, logging JSONL/rotación, staging de validación, backup y rollback de instalación, estado/configuración REPL, providers, historial y WAL del sidecar PI, receipts y otras escrituras de estado. Cada owner conserva sus validaciones, identidad y receipt; inventario mantiene visibles los sinks restantes.","status":"CERRADAS POR SUPERFICIE"},{"title":"Últimos cierres locales","detail":"ContextStore y ConfigManager difieren mkdir hasta escritura gobernada; LayerStore, RL/policy, configuración del REPL, bootstrap de estado, ToolLogger y ReflexiveAuditLedger usan los writers/owners existentes con identidad de sesión/root. Codex health usa shutil.which y dejó de lanzar codex --version. ExecutionGateway consume el Permit antes de resolver/crear SQLite de claims; un Permit inválido no materializa el store. Pruebas focales documentadas; worktree aún sucio y sin commit. La conexión de lectura del historial Copilot usa SQLite mode=ro y elimina una finding falsa; el inventario queda en 2342/133/0. Estos cierres siguen en el worktree sin commit. Commits creados: a9b6cb26 (origen de embeddings), 83d6183e (persistencia RL/read-only), 664bb854 (clasificación del inventario) y 67c442bc (ledger/evidencia). El worktree aún conserva 260 rutas modificadas o nuevas de otras tranches; unicidad global no está cerrada. El ledger deja candidate_sha nulo hasta que exista un candidato final limpio; commit de estado: d4a319fb. Raíces canónicas de estado también pasan por state.directory.ensure; ensure_user_roots ya no poda backups y la retención solo calcula candidatos. 77 pruebas focales pasaron en 8.13s; inventario 2321/73/0, strict-classification PASS, strict-runtime OPEN. Este cierre permanece en el worktree sin commit. AuditTrail de OperationalIntegrity ahora anexa JSONL con atomic_json.append_text_durable (state.write), sin mkdir/open paralelo. 21 pruebas focales pasaron en 16.05s. Inventario actual 2319/71/0, strict-classification PASS y strict-runtime OPEN. Bloque ~5m netos estimados, excluyendo tests y gates; no está comiteado. candidate_identity ahora consulta Git por process.inspect y hashea el diff dentro del adapter. 63 pruebas de Git/Gateway/recibos pasaron en 25.98s. Inventario actual 2317/69/0; strict-classification PASS, strict-runtime OPEN. Bloque ~7m netos estimados, excluyendo tests y gates; no está comiteado.","status":"COMMITS PARCIALES"},{"title":"Contexto y memoria","detail":"Siguiente bloque funcional tras cerrar la reorganización de documentación: revalidar Contexto y memoria sobre el checkout actual, empezando por la ruta SQLite/FTS5/embeddings, persistencia de sesión, CLI/API/UI y los sinks restantes. Las cifras y pruebas históricas de esta ficha son contexto; no sustituyen evidencia nueva.","status":"SIGUIENTE PRIORIDAD"},{"title":"Gate de unicidad global","detail":"Criterio sin cambios: cero runtime-unbound y cero sin clasificar, todos los sinks detrás de su owner, gates y suite backend sobre el candidato comiteado, más revisión independiente PASS. En 98aaf024: 2.327 sinks / 64 runtime-unbound / 0 unclassified; strict-classification PASS y strict-runtime OPEN. CI del PR 231 está ejecutando Validate source, validate y build-nsis para esta cabeza.","status":"ABIERTO"},{"title":"PR #230 · registro histórico","status":"REVALIDAR EN REMOTO","detail":"El historial local registra el cierre de sus dos fallos. El estado actual del PR/CI no se afirma aquí: debe revalidarse contra GitHub antes de usarlo como vigente."}]},{"id":"workspace","title":"Workspace y proyecto","summary":"Identidad de proyecto, archivos y cambios con autoridad explícita.","status":"CONECTADO ACOTADO","side":"left","y":730,"children":[{"title":"Workspace activo","status":"IMPLEMENTADO","detail":"La sesión conserva una identidad explícita de workspace; los handlers validan raíz y sesión antes de operar."},{"title":"Exploración y editor","status":"IMPLEMENTADO","detail":"La UI ofrece explorador, pestañas, editor y paneles de cambios/diagnóstico conectados al API de workspace."},{"title":"Vínculo persistente","status":"CERRADO ACOTADO","detail":"workspace.bind usa challenge → aprobación → Permit → Gateway; la escritura enlaza sesión, raíz, digest y receipt."},{"title":"Patch gobernado","status":"CONECTADO ACOTADO","detail":"Los parches de proyecto usan project.write; se ligan diffs y digests previos/posteriores y se revalida el target."},{"title":"Mirror y adjuntos","status":"CONECTADO ACOTADO","detail":"Sincronizar mirror y adjuntar contexto tienen efectos separados; la política de exclusión y la identidad del workspace se comprueban."},{"title":"Seed y contexto de proyecto","status":"IMPLEMENTADO","detail":"La materialización inicial de workspace se deriva del contrato seed y pasa por project.write."}]},{"id":"integraciones","title":"Providers e integraciones","summary":"Motores sustituibles y puentes externos bajo identidad de sesión.","status":"IMPLEMENTADO","side":"right","y":790,"children":[{"title":"Providers y modelos","status":"IMPLEMENTADO","detail":"BAGO mantiene sesión y cambia el motor; discovery, selección y configuración se canalizan por el backend."},{"title":"Credenciales","status":"CERRADO ACOTADO","detail":"credential.write valida identidad provider/key y ruta; el modo session conserva secretos solo en memoria."},{"title":"GitHub","status":"CONECTADO ACOTADO","detail":"La UI usa la API/puente Desktop para auth y acciones de repositorio; los endpoints mutantes antiguos fallan cerrado."},{"title":"MCP","status":"IMPLEMENTADO","detail":"El repositorio incluye el servidor BAGO MCP como superficie de integración local."},{"title":"Pi sidecar","status":"CONECTADO ACOTADO","detail":"La integración Pi separa identidad, proceso y WAL; el proceso sidecar tiene adapter server-owned."},{"title":"Buffers y transporte","status":"EN CURSO","detail":"Buffers de provider permanecen en memoria; operaciones de red/proceso conservan owners y sinks aún sujetos al gate global."}]},{"id":"capabilities","title":"Capacidades y Node Control","summary":"Anatomía reusable separada de paquetes, instalación y ejecución.","status":"CONECTADO ACOTADO","side":"right","y":850,"children":[{"title":"Catálogo de capacidades","status":"IMPLEMENTADO","detail":"La anatomía de capacidades se representa como catálogo reusable y se muestra desde la UI."},{"title":"Capability Packages","status":"CONECTADO ACOTADO","detail":"Importar y ejecutar paquetes son efectos distintos con identidad, digest y autorización ligados a la operación."},{"title":"Node Control","status":"DOCUMENTADO","detail":"El contrato define identidad instalación-pieza, modos connected/shadow/locked/detached/read-only/writable-overlay y receipts."},{"title":"Política y transición","status":"PENDIENTE DE VALIDACIÓN","detail":"Falta probar en producto cada transición desde CLI/API/UI, con estado previo/nuevo, política efectiva y receipt ligado."},{"title":"Uso compartido","status":"PENDIENTE DE VALIDACIÓN","detail":"El cierre requiere probar piezas compartidas sin copias por instalación y preview/validate antes y después."}]},{"id":"operacion","title":"Operación e instalación","summary":"Entrypoints locales, ciclo de vida y recuperación del runtime.","status":"CONECTADO ACOTADO","side":"left","y":880,"children":[{"title":"CLI y headless","status":"IMPLEMENTADO","detail":"La CLI y el API local permiten operar sin Electron; los contratos de sesión y workspace son compartidos."},{"title":"Manager y Electron","status":"IMPLEMENTADO","detail":"Electron gestiona ciclo de vida del backend y la UI React; manager y API validan las operaciones privilegiadas."},{"title":"Instalar / reparar","status":"CONECTADO ACOTADO","detail":"El flujo principal usa system.install.apply y preserva configuración durante reparación; bootstrap remoto aún tiene autoridad abierta."},{"title":"Actualizar y rollback","status":"CONECTADO ACOTADO","detail":"Las rutas de actualización/rollback tienen owners y planes acotados; los sinks remanentes siguen bajo inventario global."},{"title":"Desinstalar","status":"CONECTADO ACOTADO","detail":"El ciclo usa system.install.uninstall con Permit y ticket de un uso; helper y árbol se revalidan antes del efecto."},{"title":"Arranque y singleton","status":"CERRADO ACOTADO","detail":"El manager lanza proceso por process.execute con TTY challenge; instance_lock concentra la autoridad de singleton."}]},{"id":"cierre","title":"Validación y cierre","summary":"Qué evidencia existe y qué falta para poder afirmar cierre global.","status":"ABIERTO","side":"bottom","y":940,"children":[{"title":"Clasificación estricta","status":"VERIFICADO ACOTADO","detail":"Última captura completa SINK_SNAPSHOT_11 ligada a 797332fe: 4.508 findings y 0 sin clasificar. Reescaneo local tras integrar #232 y añadir el generador documental: 4.511 findings, strict-classification PASS y 0 sin clasificar. Los 3 hallazgos adicionales pertenecen al generador documental (scope build_release_admin); runtime-unbound se mantiene en 291. Este reescaneo local todavía no es un snapshot limpio comiteado."},{"title":"Toolbox persistence","status":"CERRADO ACOTADO","detail":"toolsmith.save_toolbox ya no hace mkdir paralelo: state.write materializa la carpeta. 12 pruebas focales pasan. El segundo sink de toolsmith, create_tool, sigue runtime-unbound."},{"title":"Node Control modular guard","status":"CERRADO ACOTADO","detail":"El bootstrap ya no crea el root en paralelo: state.write lo materializa. check_modular.run_all() corre en proceso y es de solo lectura. Corregida la ruta backend/tools; 31 pruebas pasaron."},{"title":"DirectoryContext Git inspection","status":"CERRADO ACOTADO","detail":"HybridRetriever usa process.inspect con el SessionManager activo, cwd del workspace y argv Git de solo lectura exacto. Sin sesión, no lanza Git. 65 pruebas de DirectoryContext/Gateway pasaron."},{"title":"Unicidad runtime","status":"ABIERTO","detail":"SINK_SNAPSHOT_11 registró 291 runtime-unbound y 287 callsites path+line (291 combinaciones path+line+effect_id). El reescaneo actual reproduce 291 runtime-unbound; --strict-runtime falla. Un hallazgo P0 candidato afecta la ruta NSIS; falta completar el trace previo a las reparaciones."},{"title":"Pruebas por bloque","status":"EJECUTADO ACOTADO","detail":"Arreglo de agente CLI y mock release.download: revisión independiente parcial PASS. Suite backend en árbol correctivo previo al commit: 1.672 PASS, 3 omitidos, 214 subtests. CI nuevo de 797332fe pendiente."},{"title":"Suite backend completa","status":"PENDIENTE","detail":"EJECUTADA en el árbol correctivo previo al commit: 1.672 passed, 3 skipped, 214 subtests en 428.58s; basetemp externo al checkout. Debe ligarse de nuevo al SHA comiteado final antes de cierre."},{"title":"Candidato y revisión","status":"ABIERTO","detail":"PR #232 está merged en main como 28ca9e89; Validate source falló porque faltaba el README requerido y los E2E se omitieron. La revisión independiente local confirmó que el cambio de README lo corrige; PR #233 tiene ese cierre documental. El gate global strict-runtime sigue abierto."},{"title":"Gate de aceptación","status":"NO VALIDADO","detail":"NO VALIDADO. Se requieren 0 runtime-unbound, 0 unclassified, dispatch probado por sink, suite backend completa y revisión independiente sobre el mismo SHA."},{"title":"Doctor reutiliza la autoridad de versión CLI","status":"CERRADO ACOTADO","detail":"cmd_doctor usa el mismo bago_core.__version__ que el entrypoint CLI y elimina el subprocess --version. Prueba focal 6 PASS; compile/diff-check PASS. Commit publicado 8d086389. El subprocess independiente que importa bridge.py sigue runtime-unbound; no se retira ni reclasifica."},{"title":"Mapa visual versionado","status":"CERRADO ACOTADO","detail":"Mapa autónomo en docs/architecture/bago_mind_map.html; los nodos viven en bago_mind_map.data.json y scripts/update_bago_mind_map.py regenera la vista. Se corrigieron referencias JS inexistentes y bloques fuera de la estructura del documento; las ramas y tarjetas se probaron en navegador. --check valida proyección, estructura e invariantes de superposición."},{"title":"Archivo de releases históricas","status":"CERRADO ACOTADO","detail":"Notas y manifiestos de 4.8.2, 4.8.3, 4.8.4, 4.8.7 y checklist 4.9.0 se archivaron bajo docs/archive/releases/ con sus nombres versionados. DOCUMENTATION.md y un índice mantienen los enlaces sin confundirlos con instrucciones vigentes."}]}]}/* BAGO_MAP_DATA_END */
+const lines = document.getElementById('lines');
+const nodesLayer = document.getElementById('nodes');
+const detail = document.getElementById('detail');
+const detailTitle = document.getElementById('detailTitle');
+const detailStatus = document.getElementById('detailStatus');
+const detailBody = document.getElementById('detailBody');
+const search = document.getElementById('search');
+const empty = document.getElementById('empty');
+
+let selectedBranch = null;
+let allBranchesOpen = false;
+let expandedNodeKey = null;
+let zoom = 0.92;
+let query = '';
+
+const mapWidth=2160;
+const center = {x:mapWidth/2,y:72};
+const margin=90;
+const branchStep=(mapWidth-2*margin)/(DATA.branches.length-1);
+const topPos=Object.fromEntries(DATA.branches.map((branch,i)=>[branch.id,{x:margin+i*branchStep,y:215}]));
+
+function statusClass(s){
+  const x=(s||'').toUpperCase();
+  if(x.includes('ACTIVO')||x.includes('ABIERTO')||x.includes('CURSO')||x.includes('SIGUIENTE')) return 'active';
+  if(x.includes('IMPLEMENTADO')||x.includes('CERRADO')||x.includes('PROBADO')||x.includes('CONECTADO')||x.includes('EJECUTADO')||x.includes('VERIFICADO')) return 'ok';
+  return 'base';
+}
+function chip(s){ return `<span class="chip ${statusClass(s)}">${s}</span>`; }
+
+function el(tag, cls, html){
+  const e=document.createElement(tag); e.className=cls; if(html!==undefined)e.innerHTML=html; return e;
+}
+function addLine(x1,y1,x2,y2,active=false){
+  const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+  const mx=(x1+x2)/2;
+  p.setAttribute('d',`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`);
+  p.setAttribute('class','connector'+(active?' active':''));
+  lines.appendChild(p);
+}
+function showDetail(title,status,body){
+  detailTitle.textContent=title;
+  detailStatus.innerHTML=chip(status||'INFO');
+  detailBody.textContent=body||'';
+  detail.classList.add('show');
+}
+function closeDetail(){ detail.classList.remove('show'); }
+
+function childPositions(branch){
+  const p=topPos[branch.id];
+  const n=branch.children.length;
+  const pts=[];
+  const startY=340;
+  const stepY=branch.id==='actual'?105:135;
+  for(let i=0;i<n;i++) pts.push({x:p.x, y:startY + i*stepY});
+  return pts;
+}
+function descendantsVisible(key){ return allBranchesOpen || expandedNodeKey===key; }
+function renderDescendants(items,parentPos,branch,depth,parentKey){
+  if(!items || !items.length || !descendantsVisible(parentKey)) return;
+  const direction=branch.side==='left'?-1:1;
+  const x=parentPos.x + direction*(depth===1?285:245);
+  const step=depth===1?112:96;
+  const start=parentPos.y-(items.length-1)*step/2;
+  items.forEach((child,index)=>{
+    if(query && !matches([child.title,child.detail,child.status].join(' '))) return;
+    const key=parentKey+'/'+index;
+    const pos={x,y:start+index*step};
+    addLine(parentPos.x,parentPos.y,pos.x,pos.y,true);
+    const cn=makeNode({
+      kind:'child nested'+(query?' search-hit':'')+(child.children&&child.children.length?' has-children':''),
+      x:pos.x,y:pos.y,title:child.title,status:child.status,
+      inSelectedBranch:selectedBranch===branch.id,
+      zIndex:selectedBranch===branch.id?115:3,
+      onClick:()=>{
+        expandedNodeKey=expandedNodeKey===key?null:key;
+        showDetail(child.title,child.status,child.detail);
+        render();
+      }
+    });
+    nodesLayer.appendChild(cn);
+    renderDescendants(child.children,pos,branch,depth+1,key);
+  });
+}
+function makeNode(opts){
+  const e=el('button','node '+opts.kind+(opts.selected?' selected':'')+(opts.current?' current':'')+(opts.inSelectedBranch?' in-selected-branch':''));
+  e.type='button';
+  e.style.zIndex=opts.zIndex||1;
+  e.style.left=opts.x+'px'; e.style.top=opts.y+'px';
+  e.innerHTML=`<div class="title">${opts.title}</div>`+
+    (opts.summary?`<div class="summary">${opts.summary}</div>`:'')+
+    (opts.status?chip(opts.status):'');
+  if(opts.onClick)e.addEventListener('click',opts.onClick);
+  return e;
+}
+
+function matches(text){
+  return !query || text.toLocaleLowerCase('es').includes(query.toLocaleLowerCase('es'));
+}
+
+function render(){
+  nodesLayer.innerHTML=''; lines.innerHTML=''; empty.style.display='none';
+
+  const centerNode=makeNode({
+    kind:'center',x:center.x,y:center.y,title:DATA.center.title,
+    summary:DATA.center.subtitle,status:'MAPA',
+    onClick:()=>showDetail(DATA.center.title,'MAPA',DATA.center.detail)
+  });
+  nodesLayer.appendChild(centerNode);
+
+  let visibleCount=0;
+  DATA.branches.forEach(branch=>{
+    const pos=topPos[branch.id];
+    const branchText=[branch.title,branch.summary,branch.status,...branch.children.flatMap(c=>[c.title,c.detail,c.status])].join(' ');
+    const branchMatch=matches(branchText);
+
+    if(query && !branchMatch) return;
+    visibleCount++;
+    addLine(center.x,center.y,pos.x,pos.y, selectedBranch===branch.id);
+    const b=makeNode({
+      kind:'branch',x:pos.x,y:pos.y,title:branch.title,summary:branch.summary,status:branch.status,
+      selected:selectedBranch===branch.id,current:branch.id==='actual',
+      onClick:()=>{
+        allBranchesOpen=false;
+        expandedNodeKey=null;
+        document.getElementById('btnAll').setAttribute('aria-pressed','false');
+        document.getElementById('btnAll').textContent='Abrir todas las ramas';
+        selectedBranch = selectedBranch===branch.id ? null : branch.id;
+        showDetail(branch.title,branch.status,branch.summary);
+        render();
+      }
+    });
+    nodesLayer.appendChild(b);
+
+    const reveal = allBranchesOpen || selectedBranch===branch.id || (!!query && branchMatch);
+    if(reveal){
+      const pts=childPositions(branch);
+      branch.children.forEach((c,i)=>{
+        if(query && !matches([c.title,c.detail,c.status].join(' '))) return;
+        const cp=pts[i];
+        addLine(pos.x,pos.y,cp.x,cp.y,true);
+        const childKey=branch.id+'/'+i;
+        const cn=makeNode({
+          kind:'child'+(query?' search-hit':'')+(c.children&&c.children.length?' has-children':''),x:cp.x,y:cp.y,title:c.title,status:c.status,
+          inSelectedBranch:selectedBranch===branch.id,
+          zIndex:selectedBranch===branch.id?115:3,
+          onClick:()=>{
+            expandedNodeKey=expandedNodeKey===childKey?null:childKey;
+            showDetail(c.title,c.status,c.detail);
+            render();
+          }
+        });
+        nodesLayer.appendChild(cn);
+        renderDescendants(c.children,cp,branch,1,childKey);
+      });
+    }
+  });
+  if(query && visibleCount===0) empty.style.display='block';
+}
+
+function setSelected(id){
+  selectedBranch=id;
+  expandedNodeKey=null;
+  allBranchesOpen=false;
+  document.getElementById('btnAll').setAttribute('aria-pressed','false');
+  document.getElementById('btnAll').textContent='Abrir todas las ramas';
+  query=''; search.value='';
+  render();
+  const b=DATA.branches.find(x=>x.id===id);
+  if(b) showDetail(b.title,b.status,b.summary);
+}
+
+document.getElementById('btnOverview').onclick=()=>{
+  selectedBranch=null; expandedNodeKey=null; allBranchesOpen=false; document.getElementById('btnAll').setAttribute('aria-pressed','false'); document.getElementById('btnAll').textContent='Abrir todas las ramas'; query=''; search.value=''; closeDetail(); render();
+};
+document.getElementById('btnCurrent').onclick=()=>setSelected('actual');
+document.getElementById('btnAll').onclick=()=>{
+  query=''; search.value='';
+  selectedBranch=null;
+  expandedNodeKey=null;
+  allBranchesOpen=!allBranchesOpen;
+  document.getElementById('btnAll').setAttribute('aria-pressed',String(allBranchesOpen));
+  document.getElementById('btnAll').textContent=allBranchesOpen?'Cerrar todas las ramas':'Abrir todas las ramas';
+  closeDetail();
+  render();
+};
+search.addEventListener('input',e=>{ query=e.target.value.trim(); selectedBranch=null; expandedNodeKey=null; allBranchesOpen=false; document.getElementById('btnAll').setAttribute('aria-pressed','false'); document.getElementById('btnAll').textContent='Abrir todas las ramas'; render(); });
+document.getElementById('closeDetail').onclick=closeDetail;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDetail(); });
+
+function applyZoom(){
+  document.getElementById('mapWrap').style.transform=`scale(${zoom})`;
+  document.getElementById('zoomReset').textContent=Math.round(zoom*100)+'%';
+}
+document.getElementById('zoomIn').onclick=()=>{zoom=Math.min(1.35,zoom+.1);applyZoom()};
+document.getElementById('zoomOut').onclick=()=>{zoom=Math.max(.7,zoom-.1);applyZoom()};
+document.getElementById('zoomReset').onclick=()=>{zoom=1;applyZoom()};
+
+render(); applyZoom();
+</script>
+
+<script>
+
+(function(){
+  const originalShowDetail = showDetail;
+  showDetail = function(title,status,body){
+    document.body.classList.add('detail-open');
+    originalShowDetail(title,status,body);
+  };
+  const originalCloseDetail = closeDetail;
+  closeDetail = function(){
+    document.body.classList.remove('detail-open');
+    originalCloseDetail();
+  };
+
+  document.addEventListener('click', function(e){
+    const node = e.target.closest('.node');
+    if(!node) return;
+    document.querySelectorAll('.node.selected-node').forEach(n=>n.classList.remove('selected-node'));
+    if(!node.classList.contains('center')) node.classList.add('selected-node');
+  });
+})();
+
+</script>
+</body>
+</html>

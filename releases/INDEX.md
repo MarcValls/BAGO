@@ -1,11 +1,16 @@
 # BAGO Release Documentation Index
 
-## Current candidate
+## Current release
 
-- Current candidate version: `4.10.0` (resolve from `../release_version.txt`).
-- Candidate release notes: [RELEASE_NOTES_4.10.0.md](RELEASE_NOTES_4.10.0.md).
-- Its publication and signed-release status are defined by the root
-  [README](../README.md) and the candidate-bound evidence, not by this index.
+- Resolve the version only from [`../release_version.txt`](../release_version.txt).
+- The current published release and its installation guidance are linked from
+  the root [README](../README.md); candidate-bound receipts determine the
+  status of any unpublished build.
+
+## Historical release notes
+
+- [RELEASE_NOTES_4.10.0.md](RELEASE_NOTES_4.10.0.md) documents the 4.10.0
+  release and is not the current candidate or version authority.
 
 ## Historical pre-remediation local release index
 
