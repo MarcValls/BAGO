@@ -258,7 +258,7 @@
         {
           "title": "Inventory de sinks",
           "status": "ACTIVO",
-          "detail": "Inventario oficial reejecutado sobre el candidato local bcdd540. 4.490 findings totales, 264 runtime-unbound y 0 sin clasificar; strict-classification pasa y strict-runtime falla. El conteo por sí solo no demuestra cobertura completa del scanner: InitPluginsDir en el instalador NSIS queda fuera de los patrones observados."
+          "detail": "Inventario oficial sobre el candidato local 758790bb. 4.491 findings totales, 264 runtime-unbound y 0 sin clasificar; strict-classification pasa y strict-runtime falla. El conteo no demuestra cobertura completa: InitPluginsDir en el instalador NSIS queda fuera de los patrones observados."
         },
         {
           "title": "Ejecución segura de comandos de agentes",
@@ -362,7 +362,7 @@
         },
         {
           "title": "Gate de unicidad global",
-          "detail": "Criterio: 0 runtime-unbound y 0 unclassified, dispatch probado por sink, strict-classification y strict-runtime sobre el mismo candidato comiteado, suite backend completa y revisión independiente PASS. En el worktree local bcdd540: 4.490 findings, 264 runtime-unbound, 0 unclassified; strict-classification PASS, strict-runtime FAIL. Falta cobertura del scanner para InitPluginsDir y el P0 NSIS. PR #236 remoto sigue en SHA 9633118; sus checks no aplican al merge local hasta publicar y regenerar evidencia.",
+          "detail": "Criterio: 0 runtime-unbound y 0 unclassified, dispatch probado por sink, strict-classification y strict-runtime sobre el mismo candidato comiteado, suite backend completa y revisión independiente PASS. En el worktree local 758790bb: 4.491 findings, 264 runtime-unbound, 0 unclassified; strict-classification PASS, strict-runtime FAIL. Falta cobertura del scanner para InitPluginsDir y el P0 NSIS. PR #236 remoto está en 3cdeadfe; el worktree local incorpora esa rama y main, pero requiere publicar y regenerar evidencia.",
           "status": "ABIERTO"
         },
         {
@@ -538,7 +538,7 @@
         {
           "title": "Clasificación estricta",
           "status": "VERIFICADO ACOTADO",
-          "detail": "Escaneo asociado al árbol local bcdd540: 4.490 findings, 0 scope-unclassified y 0 binding-unclassified; strict-classification exit 0. Snapshot previo a commit y push, sujeto a recaptura al cerrar el bloque."
+          "detail": "Escaneo asociado al árbol local 758790bb: 4.491 findings, 0 scope-unclassified y 0 binding-unclassified; strict-classification exit 0. Snapshot del árbol limpio antes de actualizar este mapa y regenerar el informe."
         },
         {
           "title": "Toolbox persistence",
@@ -558,7 +558,7 @@
         {
           "title": "Unicidad runtime",
           "status": "ABIERTO",
-          "detail": "El escaneo en bcdd540 detecta 264 runtime-unbound y strict-runtime falla. El trace de NSIS confirma efectos antes de SessionManager, AuthorizationBoundary, Permit o ExecutionGateway. El scanner omite InitPluginsDir, por lo que la cobertura no permite cerrar todavía la partición global.",
+          "detail": "El escaneo en 758790bb detecta 264 runtime-unbound y strict-runtime falla. El trace de NSIS confirma efectos antes de SessionManager, AuthorizationBoundary, Permit o ExecutionGateway. El scanner omite InitPluginsDir, por lo que la cobertura no permite cerrar todavía la partición global.",
           "children": [
             {
               "title": "P0 bootstrap NSIS",
@@ -580,12 +580,12 @@
         {
           "title": "Suite backend completa",
           "status": "PENDIENTE",
-          "detail": "La salida aportada por CI reporta 1.670 passed, 16 skipped y 213 subtests en 301.17 s sobre el SHA 9633118. El árbol actual bcdd540 añade el merge de main y cambios al plan de instalación; esa salida es histórica para este árbol y no valida el candidato actual. Repetir suite completa sobre el SHA final comiteado."
+          "detail": "La salida aportada por CI reporta 1.670 passed, 16 skipped y 213 subtests en 301.17 s sobre el SHA 9633118. El árbol actual 758790bb incorpora main y 9 commits remotos posteriores; esa salida es histórica para este árbol. Repetir suite completa sobre el SHA final comiteado."
         },
         {
           "title": "Candidato y revisión",
           "status": "ABIERTO",
-          "detail": "PR #236 remoto sigue en 9633118 al momento de esta captura. El worktree local incorporó origin/main en bcdd540 y quedó dos commits por delante; CI y revisión deben repetirse después de publicar el nuevo candidato. No mezclar receipts de ambos SHA."
+          "detail": "PR #236 remoto avanzó a 3cdeadfe y se integró localmente junto con origin/main en 758790bb. El worktree local queda cuatro commits por delante de la rama remota; la consulta de checks no estuvo disponible en este corte. Regenerar CI y revisión sobre el candidato publicado."
         },
         {
           "title": "Gate de aceptación",
@@ -600,7 +600,7 @@
         {
           "title": "Mapa visual versionado",
           "status": "CERRADO ACOTADO",
-          "detail": "El árbol de trabajo ahora contiene los tres artefactos incorporados desde el PR #237: docs/architecture/bago_mind_map.html, bago_mind_map.data.json y scripts/update_bago_mind_map.py. La fuente estructurada refleja el inventario bcdd540 y el HTML se regenera desde el JSON."
+          "detail": "El árbol contiene docs/architecture/bago_mind_map.html, bago_mind_map.data.json y scripts/update_bago_mind_map.py, incorporados desde el PR #237 y actualizados con el inventario 758790bb. El HTML se deriva del JSON."
         },
         {
           "title": "Archivo de releases históricas",

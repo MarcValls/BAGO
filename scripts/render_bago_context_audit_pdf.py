@@ -151,7 +151,7 @@ def build(sha: str, output: Path):
     r.text(p, (MARGIN + 18, 372, 775, 402),
            "VEREDICTO ACTUAL: EL GATE GLOBAL DE EFECTOS SIGUE ABIERTO", 13, WHITE, True)
     r.text(p, (MARGIN + 18, 410, 775, 438),
-           "4.490 findings  |  264 runtime-unbound  |  0 unclassified  |  strict-runtime FAIL  |  P0: bootstrap NSIS",
+           "4.491 findings  |  264 runtime-unbound  |  0 unclassified  |  strict-runtime FAIL  |  P0: bootstrap NSIS",
            10, (0.83, 0.88, 0.94), True)
     r.text(p, (MARGIN, 505, 800, 556),
            "Documento de orientacion arquitectonica, no recibo de release ni certificacion.\nHechos de BAGO ligados al worktree indicado; comparadores externos referenciados al final.",
@@ -168,22 +168,22 @@ def build(sha: str, output: Path):
     r.card(p,556,102,244,144,"Bloqueo principal",
            "El instalador NSIS de maquina limpia produce efectos antes de cargar la frontera canonica. El scanner tampoco reconoce InitPluginsDir, asi que no cubre todos los efectos de esa ruta.",RED,PALE_RED,tag="P0 / STOP")
     r.card(p,42,263,371,171,"Que significa el inventario",
-           "El scanner actual encuentra 4.490 findings. De estos, 264 son runtime-unbound y 0 quedan sin scope o binding.\n\nLa clasificacion estricta pasa para lo que el scanner detecta. No prueba que detecte todas las formas de efecto: falta cerrar cobertura NSIS antes de planificar el residual como completo.",AMBER,PALE_AMBER)
+           "El scanner actual encuentra 4.491 findings. De estos, 264 son runtime-unbound y 0 quedan sin scope o binding.\n\nLa clasificacion estricta pasa para lo que el scanner detecta. No prueba que detecte todas las formas de efecto: falta cerrar cobertura NSIS antes de planificar el residual como completo.",AMBER,PALE_AMBER)
     r.card(p,428,263,372,171,"Que no se puede concluir aun",
-           "No hay cierre global, ni autorizacion para declarar VERIFIED / VALIDATED. El resultado de 1.670 tests aportado corresponde al SHA 9633118, anterior al merge local. No es evidencia del candidato actual bcdd540.",VIOLET,PALE_VIOLET)
+           "No hay cierre global, ni autorizacion para declarar VERIFIED / VALIDATED. El resultado de 1.670 tests aportado corresponde al SHA 9633118, anterior a los nueve commits remotos y al merge local. No es evidencia del candidato actual 758790bb.",VIOLET,PALE_VIOLET)
     r.text(p,(42,456,800,514),"Orden coherente: cobertura del scanner y frontera de bootstrap -> particion completa -> trace de habituacion -> migraciones por owner -> gates globales -> suite backend -> revision independiente.",10,NAVY,True)
 
     # 3 - Snapshot.
     p=r.page("Snapshot y alcance de la auditoria", "02 / ESTADO Y EVIDENCIA")
     rows=[
       ("Repo / branch","BAGO / fix/spbe-runtime-fix1-20260927"),
-      ("HEAD local","bcdd540f8f98ab83167ac93673506031a635b8d0"),
+      ("HEAD local","758790bb9681dd81e956625fb6f14f46a6abef28"),
       ("Version canonica","4.11.1 (release_version.txt)"),
-      ("Estado remoto","origin/main incorporado localmente; rama PR local 2 commits por delante al corte"),
-      ("Inventario","4.490 total | 4.128 unbound | 264 runtime-unbound | 2.568 high-confidence unbound"),
+      ("Estado remoto","PR #236: origin 3cdeadfe; merge local incluido; 4 commits locales por publicar"),
+      ("Inventario","4.491 total | 4.129 unbound | 264 runtime-unbound | 2.568 high-confidence unbound"),
       ("Clasificacion","0 scope-unclassified | 0 binding-unclassified | strict-classification exit 0"),
       ("Runtime gate","strict-runtime exit 1; 264 runtime-unbound"),
-      ("Suite informada","1.670 passed, 16 skipped, 213 subtests; SHA 9633118, previo al merge local"),
+      ("Suite informada","1.670 passed, 16 skipped, 213 subtests; SHA 9633118, evidencia historica"),
     ]
     y=104
     for i,(k,v) in enumerate(rows):
@@ -193,7 +193,7 @@ def build(sha: str, output: Path):
         r.text(p,(232,y+9,785,y+35),v,9,INK,False)
         y+=44
     r.card(p,42,458,758,78,"Limite de interpretacion",
-           "El inventario es del worktree posterior a integrar origin/main. El mapa, el PDF y el codigo documental aun no se han publicado al remoto en este corte.",AMBER,PALE_AMBER,body_size=8.5)
+           "El scan se ejecuto sobre el worktree limpio 758790bb. Scanner SHA AB436A4D7484D18CDB56600DA517305ECA1ABFD2FC722B444D02D929649D2F71; registry v1.24.0 SHA AB1EDAD052F705AE01092B120858C876CE1EC760E88875BEB89B37D55FD61F30. Los docs actualizados y el informe se publican despues de esta fotografia.",AMBER,PALE_AMBER,body_size=8.2)
 
     # 4 - Mental map.
     p=r.page("Mapa mental de BAGO", "03 / ARQUITECTURA")
@@ -311,7 +311,7 @@ def build(sha: str, output: Path):
         r.text(p,(657,y+2,720,y+21),str(val),8.5,INK,True)
         y+=42
     r.card(p,42,382,368,123,"Conteos actuales",
-           "4.490 findings totales\n4.128 unbound en el inventario\n264 runtime-unbound\n0 scope/binding sin clasificar\nstrict-runtime: FAIL",
+      "4.491 findings totales\n4.129 unbound en el inventario\n264 runtime-unbound\n0 scope/binding sin clasificar\nstrict-runtime: FAIL",
            BLUE,PALE_BLUE)
     r.card(p,428,382,372,123,"Compresion todavia no cerrada",
            "El numero de sinks no es el numero de reparaciones. Falta demostrar el mapa completo: sinks -> callsites -> causas raiz -> clusters -> owners -> lanes. No asignar clusters finales con un scanner que omite una forma de efecto NSIS.",AMBER,PALE_AMBER)
@@ -319,7 +319,7 @@ def build(sha: str, output: Path):
     # 11 - scanner coverage and test evidence.
     p=r.page("Cobertura, pruebas y evidencia", "10 / VALIDACION")
     r.card(p,42,106,369,155,"Gate que pasa",
-           "--strict-classification\n4.490 findings en este scan\n0 scope-unclassified\n0 binding-unclassified\nexit 0",
+           "--strict-classification\n4.491 findings en este scan\n0 scope-unclassified\n0 binding-unclassified\nexit 0",
            GREEN,PALE_GREEN,tag="PASS ACOTADO")
     r.card(p,431,106,369,155,"Gate que falla",
            "--strict-runtime\n264 runtime-unbound\nexit 1\nCierre global: NO",
@@ -327,7 +327,7 @@ def build(sha: str, output: Path):
     r.card(p,42,279,369,174,"Grieta del scanner",
            "El trace del NSIS observa InitPluginsDir antes de establecer el output del payload. Los patrones actuales cubren otros comandos de output/Exec/registry/delete pero omiten ese sink previo. La cobertura completa del inventario no esta demostrada; mantener visible y ampliar deteccion.",AMBER,PALE_AMBER)
     r.card(p,431,279,369,174,"Suite backend aportada",
-           "1.670 passed, 16 skipped, 213 subtests en 301.17 s. La ejecucion corresponde al SHA remoto 9633118. El arbol actual bcdd540 incorporo main despues y cambio install_plan; repetir sobre el candidato final. PR checks anteriores no se consideran evidencia actual.",VIOLET,PALE_VIOLET)
+           "1.670 passed, 16 skipped, 213 subtests en 301.17 s. La ejecucion corresponde al SHA remoto 9633118. El arbol actual 758790bb integra main y nueve commits remotos posteriores; repetir la suite sobre el candidato final. No se consultaron los checks actuales por un fallo de red de GitHub CLI.",VIOLET,PALE_VIOLET)
     r.text(p,(42,477,800,516),"Receipts de system.install.apply y logs de la suite son pruebas del flujo de CI del SHA anterior. No demuestran que el P0 NSIS este cerrado ni que strict-runtime pase.",8.7,NAVY,True)
 
     # 12 - code audit findings.
@@ -400,11 +400,13 @@ def build(sha: str, output: Path):
     r.card(p,431,103,369,145,"Estado correcto",
            "STRICT CLASSIFICATION: PASS para findings detectados.\nSTRICT RUNTIME: FAIL.\nPARTITION: incompleta por cobertura scanner.\nGLOBAL CLOSE: NO.\nPDF: fotografia informativa, no gate receipt.",AMBER,PALE_AMBER)
     refs=(
-      "Evidencia local: HEAD bcdd540; release_version.txt; backend/.bago/tools/effect_sink_inventory.py; "
+      "Evidencia local: HEAD 758790bb; release_version.txt; backend/.bago/tools/effect_sink_inventory.py; "
       "backend/.bago/contracts/bago.effect-registry.v1.json; releases/bago-installer.nsi; "
       "releases/install-embedded-payload.ps1; backend/.bago/core/execution_gateway.py; "
       "backend/.bago/core/execution_adapters/system_install.py; backend/install-v4.ps1; "
-      "backend/docs/contracts/bootstrap_authority.v1.md; docs/architecture/bago_mind_map.data.json.\n\n"
+      "backend/docs/contracts/bootstrap_authority.v1.md; docs/architecture/bago_mind_map.data.json.\n"
+      "Scanner SHA-256 AB436A4D7484D18CDB56600DA517305ECA1ABFD2FC722B444D02D929649D2F71. "
+      "Effect registry bago.effect-registry.v1 1.24.0 SHA-256 AB1EDAD052F705AE01092B120858C876CE1EC760E88875BEB89B37D55FD61F30.\n\n"
       "Comparadores: https://github.com/Aider-AI/aider/tree/main/aider/website/docs/repomap.md\n"
       "https://docs.continue.dev/guides/configuring-models-rules-tools\n"
       "https://www.openhands.dev/product/sdk\n"
@@ -419,7 +421,7 @@ def build(sha: str, output: Path):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--sha",default="bcdd540f8f98ab83167ac93673506031a635b8d0")
+    parser.add_argument("--sha",default="758790bb9681dd81e956625fb6f14f46a6abef28")
     parser.add_argument("--output",type=Path,default=OUTPUT)
     args=parser.parse_args()
     build(args.sha,args.output)
