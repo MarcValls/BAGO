@@ -100,13 +100,47 @@
         },
         {
           "title": "SQLite / FTS5 / embeddings",
-          "status": "EN CURSO",
-          "detail": "Owner database.write ejecutado: ExecutionGateway registra DatabaseWriteEffectAdapter acotado a KnowledgeBase y EmbeddingStore; las fachadas son de solo lectura y las rutas de escritura requieren autorización. SessionDB se retiró como índice redundante de la sesión JSON canónica. El nodo conserva resultados de bloques anteriores: para estado global actual, consultar Unicidad runtime y el snapshot ligado al candidato vigente."
+          "status": "CERRADO ACOTADO",
+          "detail": "database.write ya tiene owner registrado para KnowledgeBase y EmbeddingStore; las fachadas de escritura requieren autorización. SessionDB se retiró porque duplicaba el historial JSON canónico. Esto no cierra los 265 runtime-unbound del snapshot global ni la cobertura del scanner.",
+          "children": [
+            {
+              "title": "KnowledgeBase",
+              "status": "DATABASE.WRITE",
+              "detail": "Escrituras e índices semánticos pasan por DatabaseWriteEffectAdapter; consultas expuestas por la fachada son de solo lectura."
+            },
+            {
+              "title": "EmbeddingStore",
+              "status": "DATABASE.WRITE",
+              "detail": "Upsert y persistencia de embeddings usan el owner database.write; no se mantiene un segundo camino de escritura."
+            },
+            {
+              "title": "SessionDB",
+              "status": "RETIRADO",
+              "detail": "Índice redundante retirado. ContextStore y el JSON de sesión conservan la autoridad del historial."
+            }
+          ]
         },
         {
           "title": "Workspace explícito",
           "status": "IMPLEMENTADO",
-          "detail": "El proyecto activo debe ser explícito, persistente y autoridad de archivos, editor, cambios y diagnósticos."
+          "detail": "El proyecto activo debe ser explícito, persistente y autoridad de archivos, editor, cambios y diagnósticos.",
+          "children": [
+            {
+              "title": "Identidad sesión + raíz",
+              "status": "VINCULADO",
+              "detail": "Las operaciones workspace validan sesión activa y raíz autorizada antes de leer o materializar."
+            },
+            {
+              "title": "workspace.bind",
+              "status": "CERRADO ACOTADO",
+              "detail": "Challenge, aprobación, Permit y Gateway vinculan el workspace; el adapter revalida identidad y estado del destino."
+            },
+            {
+              "title": "ProjectWriteEffectAdapter",
+              "status": "OWNER EXISTENTE",
+              "detail": "La materialización inicial del proyecto y el seed usan project.write; no deben duplicar el writer de workspace."
+            }
+          ]
         },
         {
           "title": "Nodos y conectores",
@@ -162,8 +196,25 @@
         },
         {
           "title": "Instalador y rollback",
-          "status": "IMPLEMENTADO",
-          "detail": "Instalación, reparación, backup, rollback seguro, sidecar SHA-256 y limpieza posterior al éxito."
+          "status": "CONECTADO ACOTADO · P0 ABIERTO",
+          "detail": "Las rutas de instalación, rollback y desinstalación con sesión tienen owners y contratos. El bootstrap NSIS de máquina limpia aún puede producir efectos antes de la autoridad BAGO; el P0 sigue abierto y Real installer E2E quedó SKIPPED en CI.",
+          "children": [
+            {
+              "title": "system.install.apply",
+              "status": "OWNER EXISTENTE",
+              "detail": "Owner para instalar/reparar en runtime con Permit consumido, ExecutionGateway y ticket de un uso."
+            },
+            {
+              "title": "rollback / uninstall",
+              "status": "OWNERS SEPARADOS",
+              "detail": "Rollback y desinstalación conservan operation identity y owners propios; no heredan autorización de apply."
+            },
+            {
+              "title": "Bootstrap limpio NSIS",
+              "status": "P0 ABIERTO",
+              "detail": "Staging/extracción y otras operaciones del instalador preceden al runtime de autorización. No hay reparación ni cierre de trust handoff."
+            }
+          ]
         },
         {
           "title": "Release candidate-bound",
@@ -232,8 +283,25 @@
         },
         {
           "title": "ExecutionGateway",
-          "status": "CONECTADO ACOTADO",
-          "detail": "ExecutionRequest → Authorization → Permit → ExecutionGateway → EffectAdapter. La unicidad runtime global sigue abierta."
+          "status": "CONECTADO ACOTADO · STRICT RUNTIME ABIERTO",
+          "detail": "El Gateway consume el Permit, resuelve el adapter server-owned y despacha el efecto. La arquitectura de dispatch está conectada; el inventario global aún reporta runtime-unbound y cobertura incompleta.",
+          "children": [
+            {
+              "title": "Permit de un solo uso",
+              "status": "CONSUMIDO ANTES DEL EFECTO",
+              "detail": "AuthorizationBoundary liga la solicitud al Permit; Gateway consume autoridad antes de dispatch y antes de inicializar el store durable de claims."
+            },
+            {
+              "title": "Resolución del adapter",
+              "status": "SERVER-OWNED",
+              "detail": "El caller entrega effect_id canónico; el registro del servidor elige el adapter. El caller no suministra una función ejecutable."
+            },
+            {
+              "title": "Nested dispatch",
+              "status": "ACOTADO A plan.execute",
+              "detail": "Los efectos hijos requieren el contexto Gateway autorizado y no pueden superar el riesgo/presupuesto de la operación padre."
+            }
+          ]
         },
         {
           "title": "Adapters server-owned",
@@ -257,8 +325,25 @@
         },
         {
           "title": "Inventory de sinks",
-          "status": "CAPTURADO EN MAIN · COBERTURA ABIERTA",
-          "detail": "Recibo reproducible y dos salidas normalizadas en docs/architecture/evidence/sink-inventory/. Candidato limpio b990c8b5: 1.705 total, 265 runtime-unbound, 336 gateway-owned, 0 unclassified; strict-classification PASS y strict-runtime OPEN. Comparación del worktree sucio a2185878: 4.503 = 1.705 + 2.787 derived_release_snapshot + 12 build_release_admin additions - 1 removal; neto editorial +11. Ambos inventarios conservan 265 runtime-unbound. Los snapshots compilados son nonruntime_effect y no reparaciones distintas. El recibo liga HEAD, entradas escaneadas, worktree, scanner/registry y hashes; no se copiaron los árboles compiled/current. Persiste la limitación de cobertura scanner, los 8 sinks runtime Stop-Process y el P0 bootstrap; no hay reparación ni PASS_FOR_PLANNING."
+          "status": "CAPTURADO · COBERTURA ABIERTA",
+          "detail": "Recibo reconciliado de PR #239: candidato limpio b990c8b5, 1.705 hallazgos, 265 runtime-unbound, 336 gateway-owned y 0 unclassified; strict-classification exit 0, strict-runtime exit 2. La comparación del worktree a2185878 suma hallazgos editoriales y snapshots derivados, pero conserva los mismos 265 runtime-unbound. Son salidas del scanner, no límite probado: la cobertura PowerShell y el P0 bootstrap siguen abiertos.",
+          "children": [
+            {
+              "title": "Snapshot limpio publicado",
+              "status": "1.705 / 265 / 336 / 0",
+              "detail": "HEAD b990c8b5, worktree limpio; 1.705 total, 265 runtime-unbound, 336 gateway-owned, 0 unclassified. strict-classification PASS y strict-runtime OPEN."
+            },
+            {
+              "title": "Reconciliación editorial",
+              "status": "NO DUPLICAR COMO REPARACIONES",
+              "detail": "4.503 = 1.705 + 2.787 snapshots derivados + 12 hallazgos build/admin − 1. Los 2.787 son nonruntime_effect; no añaden sinks runtime."
+            },
+            {
+              "title": "Límite de cobertura",
+              "status": "ABIERTO",
+              "detail": "La clasificación estricta solo cubre findings detectados. Stop-Process y superficies runtime de PowerShell requieren ampliar cobertura antes de particionar globalmente."
+            }
+          ]
         },
         {
           "title": "Ejecución segura de comandos de agentes",
@@ -357,13 +442,13 @@
         },
         {
           "title": "Contexto y memoria",
-          "detail": "Siguiente bloque funcional tras cerrar la reorganización de documentación: revalidar Contexto y memoria sobre el checkout actual, empezando por la ruta SQLite/FTS5/embeddings, persistencia de sesión, CLI/API/UI y los sinks restantes. Las cifras y pruebas históricas de esta ficha son contexto; no sustituyen evidencia nueva.",
-          "status": "SIGUIENTE PRIORIDAD"
+          "detail": "Sigue siendo una prioridad funcional, pero la secuencia de cierre de sinks tiene precedencia: resolver cobertura/P0, terminar partition read-only y habituation trace antes de iniciar reparaciones. No se confunde una prioridad de producto con autorización para ejecutar cambios.",
+          "status": "SIGUIENTE PRIORIDAD · GATEADA"
         },
         {
           "title": "Gate de unicidad global",
-          "detail": "Criterio: 0 runtime-unbound y 0 unclassified, dispatch probado por sink, strict-classification y strict-runtime sobre el mismo candidato comiteado, suite backend completa y revisión independiente PASS. PR #236 y PR #238 están fusionados; el HEAD actual de main es 38baf6cb. En PR #238 pasaron validaciones, CodeQL, njsscan y Packaged Electron smoke; Real installer E2E quedó SKIPPED. El snapshot global actual ya se recapturó sobre ese main: scanner incompleto, strict-runtime OPEN y P0 de bootstrap abierto.",
-          "status": "ABIERTO"
+          "detail": "Observación remota capturada el 2026-09-27 13:47 UTC, antes del PR #240: origin/main apuntaba a 299d4f5c (#239). El snapshot de inventario publicado sigue ligado a b990c8b5: 1.705 total, 265 runtime-unbound, 336 gateway-owned, 0 unclassified; strict-classification PASS y strict-runtime OPEN. Cobertura incompleta y P0 NSIS abierto; partición no PASS_FOR_PLANNING, reparaciones no iniciadas. Consultar GitHub para el HEAD actual.",
+          "status": "ABIERTO · PARTITION BLOQUEADA EN P0"
         },
         {
           "title": "PR #230 · registro histórico",
@@ -423,7 +508,34 @@
         {
           "title": "Providers y modelos",
           "status": "IMPLEMENTADO",
-          "detail": "BAGO mantiene sesión y cambia el motor; discovery, selección y configuración se canalizan por el backend."
+          "detail": "Los providers y modelos son motores intercambiables dentro de la sesión. El runtime semántico filtra capacidades elegibles con requisitos explícitos; elegir un candidato no concede autorización para efectos.",
+          "children": [
+            {
+              "title": "Capable",
+              "status": "CAPACIDAD DECLARADA",
+              "detail": "Describe qué operaciones/capacidades ofrece un candidato; no decide si encaja con la solicitud concreta."
+            },
+            {
+              "title": "Eligible",
+              "status": "HARD GATES DETERMINISTAS",
+              "detail": "EligibilityEvaluator comprueba requisitos explícitos; fallos duros excluyen, desconocidos duros producen UNKNOWN. No usa el orden de llegada como prueba de calidad."
+            },
+            {
+              "title": "Authorized",
+              "status": "DECISIÓN SEPARADA",
+              "detail": "La elegibilidad semántica no sustituye AuthorizationBoundary, challenge, Permit ni policy para el efecto solicitado."
+            },
+            {
+              "title": "Executable",
+              "status": "CONDICIÓN COMPUESTA",
+              "detail": "Requiere elegibilidad, autorización aplicable, runtime disponible y condiciones de seguridad; un score no puede superar estos gates."
+            },
+            {
+              "title": "Evaluación modelo × herramienta",
+              "status": "PENDIENTE DE EVIDENCIA",
+              "detail": "La elegibilidad determinista filtra requisitos, pero no demuestra calidad relativa. Antes de rankear candidatos, evaluar combinaciones viables Modelo × Herramienta con tareas y presupuestos equivalentes, orden contrabalanceado y resultados comparables; el primer uso o score histórico no debe ganar por prioridad."
+            }
+          ]
         },
         {
           "title": "Credenciales",
@@ -557,8 +669,8 @@
         },
         {
           "title": "Unicidad runtime",
-          "status": "ABIERTO",
-          "detail": "strict-runtime permanece OPEN en main 38baf6cb. Inventario fuente limpio: 1.705 findings y 265 runtime-unbound; 64 runtime-unbound dentro de releases/ (33 NSIS + 10 helper + 21 superficies legacy/wrappers). La traza identifica 8 terminaciones runtime no inventariadas (2 releases, 3 scripts/dev.ps1 empaquetado, 3 runtime-service.ps1 seleccionado por Electron), 2 terminaciones de apply_release_update.ps1 que deben ser visibles como gateway_owned y 3 llamadas inline solo en CI. NSIS stage/extract ocurre antes de SessionManager, AuthorizationBoundary, Permit consumido y ExecutionGateway. La partición y el trace de habituation siguen incompletos; el scanner no tiene cobertura/precisión suficiente.",
+          "status": "ABIERTO · PARTITION PARCIAL",
+          "detail": "El snapshot limpio ligado a b990c8b5 deja 265 runtime-unbound; strict-runtime falla. La reconciliación de PR #239 prueba que las cifras 4.503 del worktree sucio duplican snapshots derivados, no reparaciones runtime nuevas. El P0 de bootstrap y la cobertura del scanner obligan a detener la partición global antes de reparar.",
           "children": [
             {
               "title": "P0 bootstrap e instaladores",
@@ -568,24 +680,44 @@
             {
               "title": "Cobertura del scanner",
               "status": "ABIERTO",
-              "detail": "El falso verde está demostrado: strict-classification solo cuenta hallazgos detectados. Las reglas PowerShell carecen de Stop-Process/taskkill/tskill, y el alcance omite scripts/dev.ps1 instalado y runtime-service.ps1 del ciclo Electron. La traza identificó 8 terminaciones runtime-unbound, 2 terminaciones del update adapter que deben verse como gateway_owned y 3 llamadas solo en CI. También hay falsos positivos y tipos de recurso erróneos en Install-BAGO.ps1. Actualizar scanner, scope, fixtures y regresión de binding antes de usar inventario para particionar.",
+              "detail": "El snapshot publicado clasifica InitPluginsDir:48; la brecha de scanner que sigue demostrada es Stop-Process y el alcance de scripts PowerShell alcanzables en runtime. strict-classification solo cuenta lo detectado. Mantener visibles los sinks del helper/update y probar el binding gateway_owned; distinguir scripts runtime de comandos CI. La cobertura sigue incompleta y no permite PASS_FOR_PLANNING.",
               "children": [
                 {
                   "title": "Lifecycle del runtime empaquetado",
                   "status": "BYPASS CONFIRMADO",
-                  "detail": "Electron empaquetado invoca scripts/dev.ps1 para backend/stop; ese archivo también se incluye en NSIS. Tres terminaciones (dev.ps1:75/:87/:193) están fuera del scanner por scope build/admin. backend/scripts/runtime-service.ps1 se selecciona desde Electron y contiene tres terminaciones (:65/:91/:99), pero está fuera de RUNTIME_BACKEND_SCRIPT_ENTRYPOINTS. Ocho sinks materialmente runtime (incluidos releases) requieren clasificación y owner; las llamadas no pasan por process.terminate/ExecutionGateway."
+                  "detail": "La ruta Electron selecciona scripts/dev.ps1 para gestionar backend; también se incluye en NSIS. backend/scripts/runtime-service.ps1 contiene terminaciones usadas por el lifecycle empaquetado. Su alcance/runtime classification debe cubrirse antes de confiar en el inventario; no se afirma que los conteos actuales sean completos."
                 },
                 {
                   "title": "Terminación gobernada por system update",
                   "status": "OWNER EXISTENTE · NO INVENTARIADO",
-                  "detail": "apply_release_update.ps1:233/:237 termina BAGO.exe/BackendPid después de consumir el ticket y dentro de SystemUpdateApplyEffectAdapter. El código apunta al owner existente y no demuestra un bypass independiente; el scanner debe mantener estos dos sinks visibles como gateway_owned, con regresión del binding del adapter. La prueba del helper debe subir de 19 a 21 findings al detectar también los dos sinks de releases."
+                  "detail": "apply_release_update.ps1 termina BAGO.exe/BackendPid dentro del SystemUpdateApplyEffectAdapter tras consumir ticket. El código apunta al owner existente; el scanner debe detectar y clasificar los sinks como gateway_owned con prueba de binding para evitar un bypass aparente o real."
                 },
                 {
                   "title": "Terminaciones de procesos en CI",
                   "status": "SOLO BUILD/CI · COBERTURA PENDIENTE",
-                  "detail": "Tres Stop-Process inline en canonical-ci.yml:155/:247 y build-release-installer.yml:212 no son runtime del producto, pero el scanner tampoco inspecciona PowerShell incrustado en YAML. Definir cobertura o exclusión explícita por contexto de build con tests; no mezclarlos con los sinks runtime."
+                  "detail": "El scanner no interpreta aún PowerShell inline en YAML. Las llamadas identificadas pertenecen a CI/build, no al runtime del producto; definir cobertura de ese contexto por separado para no mezclarlas con los sinks runtime."
                 }
               ]
+            },
+            {
+              "title": "Partición global read-only",
+              "status": "PARTIAL · STOP EN P0",
+              "detail": "El P0 de bootstrap y la brecha del scanner impiden PASS_FOR_PLANNING. No están todos los sinks clasificados en clusters; no iniciar reparaciones ni declarar lanes globales cerradas."
+            },
+            {
+              "title": "Habituation runtime trace",
+              "status": "PENDIENTE TRAS PARTITION",
+              "detail": "Debe trazar history, memory, RL, confidence, cached decisions, retry y estado persistido después de que la partición alcance PASS_FOR_PLANNING."
+            },
+            {
+              "title": "Reparaciones por clusters",
+              "status": "NO INICIADAS",
+              "detail": "Requieren cerrar la partición, completar el habituation trace y autorización explícita. Luego: trabajo local paralelo y serialización de cambios en Gateway/registry/contratos."
+            },
+            {
+              "title": "Gate global de aceptación",
+              "status": "ABIERTO",
+              "detail": "Exige scanner con cobertura, 0 runtime-unbound y 0 unclassified, strict gates sobre el mismo candidato comiteado, suite backend y revisión independiente PASS."
             }
           ]
         },
@@ -602,7 +734,7 @@
         {
           "title": "Candidato y revisión",
           "status": "MERGED · VALIDACIÓN PARCIAL",
-          "detail": "PR #236 MERGED a main mediante 283bfce6. PR #238, que actualizó el mapa, también está fusionado en 38baf6cb. En PR #238: Validate source, Validate Expected, CodeQL, njsscan y Packaged Electron smoke SUCCESS; Real installer E2E SKIPPED. El scanner se volvió a ejecutar sobre main 38baf6cb, ligado al fingerprint/JSON hash del nodo Inventory. Esto no cierra strict-runtime, el P0 ni la partición global."
+          "detail": "PR #236, #238 y #239 estaban MERGED en main según consulta remota del 2026-09-27 13:47 UTC. En #239 Validate source, CodeQL, Validate Expected, njsscan y Packaged Electron smoke: SUCCESS; Real installer E2E: SKIPPED. El merge documental conserva la reconciliación del snapshot b990c8b5; no cierra P0, strict-runtime ni la partición global. Consultar GitHub antes de afirmar el HEAD actual de main."
         },
         {
           "title": "Gate de aceptación",
