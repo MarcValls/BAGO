@@ -146,6 +146,53 @@ def source_tree_digest(source_root: str | os.PathLike[str]) -> str:
     return digest.hexdigest()
 
 
+def target_state_digest(install_dir: str | os.PathLike[str]) -> str:
+    """Fingerprint the destination before an install operation mutates it.
+
+    The result is deliberately distinct from ``source_tree_digest``: an
+    absent destination is a valid prepared state, while an existing target is
+    hashed with entry type, relative name, size and file content.  Reparse
+    points and symlinks are rejected so approval cannot be reused after the
+    destination is redirected elsewhere.
+    """
+    raw = str(install_dir or "").strip()
+    if not raw:
+        raise InstallPlanError("install_dir is required")
+    target = Path(raw).expanduser()
+    if not target.is_absolute():
+        raise InstallPlanError("install_dir must be absolute")
+    _assert_no_link_components(target)
+    target = target.resolve(strict=False)
+    if not target.exists():
+        return "absent"
+    if not target.is_dir() or _is_reparse_or_symlink(target):
+        raise InstallPlanError("install_dir must be a non-linked directory when it exists")
+
+    digest = hashlib.sha256()
+    try:
+        entries = sorted(target.rglob("*"), key=lambda item: item.relative_to(target).as_posix())
+        for entry in entries:
+            relative = entry.relative_to(target).as_posix().encode("utf-8")
+            info = entry.lstat()
+            if _is_reparse_or_symlink(entry):
+                raise InstallPlanError(f"Linked install entry is not permitted: {entry}")
+            kind = b"d" if entry.is_dir() else b"f" if entry.is_file() else b"o"
+            digest.update(kind)
+            digest.update(len(relative).to_bytes(8, "big"))
+            digest.update(relative)
+            if kind == b"f":
+                size = info.st_size
+                digest.update(size.to_bytes(8, "big"))
+                file_digest = hashlib.sha256()
+                with entry.open("rb") as stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        file_digest.update(chunk)
+                digest.update(file_digest.digest())
+    except OSError as exc:
+        raise InstallPlanError(f"Cannot fingerprint install target: {exc}") from exc
+    return digest.hexdigest()
+
+
 def build_install_plan(
     *,
     action: str,
@@ -207,6 +254,7 @@ def build_install_plan(
         "helper_path": str(helper),
         "helper_sha256": _sha256_file(helper),
         "install_dir": str(target),
+        "target_state_sha256": target_state_digest(target),
         "mode": clean_mode,
         "options": clean_options,
         "configuration_digest": configuration_hash,
@@ -245,4 +293,4 @@ def configuration_digest(configuration: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-__all__ = ["InstallPlanError", "build_install_plan", "configuration_digest", "plan_digest", "source_tree_digest", "validate_install_configuration"]
+__all__ = ["InstallPlanError", "build_install_plan", "configuration_digest", "plan_digest", "source_tree_digest", "target_state_digest", "validate_install_configuration"]

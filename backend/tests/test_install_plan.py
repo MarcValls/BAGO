@@ -9,7 +9,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "backend" / ".bago" / "core"))
 
-from install_plan import InstallPlanError, build_install_plan, configuration_digest, plan_digest, source_tree_digest  # noqa: E402
+from install_plan import InstallPlanError, build_install_plan, configuration_digest, plan_digest, source_tree_digest, target_state_digest  # noqa: E402
 
 
 def _sha(value: str) -> str:
@@ -116,3 +116,24 @@ def test_source_tree_digest_rejects_symlinks(tmp_path: Path) -> None:
 
     with pytest.raises(InstallPlanError, match="Linked source entry"):
         source_tree_digest(source)
+
+
+def test_target_state_digest_binds_existing_destination_and_rejects_links(tmp_path: Path) -> None:
+    target = tmp_path / "installed" / "BAGO"
+    assert target_state_digest(target) == "absent"
+    target.mkdir(parents=True)
+    marker = target / "runtime.txt"
+    marker.write_text("before\n", encoding="utf-8")
+    before = target_state_digest(target)
+    marker.write_text("after\n", encoding="utf-8")
+    assert target_state_digest(target) != before
+
+    link = target / "linked.txt"
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside\n", encoding="utf-8")
+    try:
+        link.symlink_to(outside)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink creation is unavailable")
+    with pytest.raises(InstallPlanError, match="Linked install entry"):
+        target_state_digest(target)
