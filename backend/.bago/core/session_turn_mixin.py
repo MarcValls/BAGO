@@ -1158,11 +1158,54 @@ class SessionTurnMixin:
         return final_content
 
     def orchestrate(self, user_message: str, providers: list[str] | None = None) -> dict[str, dict[str, Any]]:
-        """Send the same prompt to active bridges and persist all responses."""
+        """Send the same prompt to active bridges under the same SPBE terminal gate."""
         selected = normalize_bridges(providers or self.active_bridges, primary=self.provider)
         history = self.store.get_history()
         responses: dict[str, dict[str, Any]] = {}
+        intent = classify_intent(user_message)
+        try:
+            reflexive_analysis = self.analyze_reflexive_turn(user_message)
+        except Exception as exc:
+            reflexive_analysis = {
+                "ok": False,
+                "error": str(exc),
+                "literal_reading": user_message,
+                "intent": intent,
+                "confidence": 0.0,
+            }
+        spbe_decision = self._compile_spbe_turn(
+            user_message,
+            reflexive_analysis,
+            intent,
+            tool_requested=False,
+            workspace_transport_requested=True,
+        )
+        spbe_metadata = spbe_decision.to_metadata()
         self.store.append_user(user_message, provider="orchestrator", model="")
+        if spbe_decision.is_terminal:
+            terminal_response = spbe_decision.terminal_response()
+            for provider_name in selected:
+                responses[provider_name] = {
+                    "ok": False,
+                    "content": terminal_response,
+                    "model": "",
+                    "spbe_terminal": True,
+                }
+                self.store.append_response(
+                    terminal_response,
+                    provider=provider_name,
+                    model="",
+                    metadata={
+                        "orchestrated": True,
+                        "error": False,
+                        "finish_reason": "spbe_terminal",
+                        "spbe_runtime": spbe_metadata,
+                        "provider_dispatched": False,
+                    },
+                )
+            return responses
+
+        orchestration_system = self.effective_system_prompt() + "\n\n" + spbe_decision.prompt_block()
         for provider_name in selected:
             cls = ADAPTER_REGISTRY[provider_name]
             adapter = cls(config=self._build_adapter_config(provider_name))
@@ -1170,14 +1213,19 @@ class SessionTurnMixin:
             target_model = self.model if provider_name == self.provider else (models[0].model_id if models else self.model)
             normalized = self.msg_adapter.to_provider(history, provider_name)
             normalized.append({"role": "user", "content": user_message})
-            response = adapter.chat(normalized, target_model, system=self.effective_system_prompt(), tools=None)
+            response = adapter.chat(normalized, target_model, system=orchestration_system, tools=None)
             failed = bool(response.metadata.get("error")) or response.finish_reason == "error"
             responses[provider_name] = {"ok": not failed, "content": response.content, "model": response.model_used or target_model}
             self.store.append_response(
                 response.content,
                 provider=provider_name,
                 model=response.model_used or target_model,
-                metadata={"orchestrated": True, "error": failed, "finish_reason": response.finish_reason},
+                metadata={
+                    "orchestrated": True,
+                    "error": failed,
+                    "finish_reason": response.finish_reason,
+                    "spbe_runtime": spbe_metadata,
+                },
             )
             self.store.record_tokens(
                 provider=provider_name,
