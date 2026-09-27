@@ -21,6 +21,7 @@ class EligibilityEvaluator:
                 if req.hard:
                     failed.append(req.requirement_id)
                 else:
+                    # soft requirement failure is evidence, not ineligibility
                     satisfied.append(f"soft-miss:{req.requirement_id}")
             else:
                 if req.hard:
