@@ -2,6 +2,13 @@
 
 Record architectural or product decisions that affect canon here.
 
+## 2026-09-27 — La siguiente release mayor será BAGO 5.0
+
+- La próxima release prevista del producto será **BAGO 5.0**.
+- Esta planificación no cambia la versión actualmente publicada ni la autoridad
+  de versión: `release_version.txt` seguirá determinando la versión vigente
+  hasta que se ejecute y cierre la publicación 5.0.
+
 ## 2026-09-26 — Doctor reutiliza la autoridad de versión CLI
 
 - El chequeo de `cli.py --version` en `cmd_doctor` lee `bago_core.__version__`,

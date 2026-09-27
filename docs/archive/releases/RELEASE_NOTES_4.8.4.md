@@ -77,7 +77,7 @@ None reported at this time.
 
 For issues or questions:
 1. Check [GitHub Issues](https://github.com/MarcValls/BAGO/issues)
-2. Review [Installation Guide](./INSTALLER-DELIVERY.md)
+2. Review [Installation Guide](./INSTALLER-DELIVERY_4.8.2.md)
 3. Check troubleshooting section below
 
 ## Troubleshooting
