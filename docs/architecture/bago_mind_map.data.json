@@ -59,9 +59,21 @@
           "status": "IMPLEMENTADO",
           "detail": "Recuperación tras reinicio, modelo seleccionado, workspace asociado y separación entre estado temporal y duradero.",
           "children": [
-            {"title": "SessionManager", "status": "OWNER", "detail": "Coordina identidad de sesión, workspace y ciclo de vida."},
-            {"title": "ContextStore", "status": "OWNER", "detail": "Conserva mensajes, metadatos, timeline y receipts de contexto."},
-            {"title": "Reanudación verificable", "status": "EVIDENCIA", "detail": "La restauración debe quedar ligada a la sesión y al estado persistido exacto."}
+            {
+              "title": "SessionManager",
+              "status": "OWNER",
+              "detail": "Coordina identidad de sesión, workspace y ciclo de vida."
+            },
+            {
+              "title": "ContextStore",
+              "status": "OWNER",
+              "detail": "Conserva mensajes, metadatos, timeline y receipts de contexto."
+            },
+            {
+              "title": "Reanudación verificable",
+              "status": "EVIDENCIA",
+              "detail": "La restauración debe quedar ligada a la sesión y al estado persistido exacto."
+            }
           ]
         },
         {
@@ -69,15 +81,27 @@
           "status": "IMPLEMENTADO",
           "detail": "Almacenamiento, compresión y receipts de contexto.",
           "children": [
-            {"title": "Historial", "status": "PERSISTENTE", "detail": "Mensajes y resultados vuelven al contexto de la misma sesión."},
-            {"title": "Compresión", "status": "CONTROLADA", "detail": "Reduce contexto sin sustituir la evidencia canónica."},
-            {"title": "Receipt", "status": "VERIFICABLE", "detail": "Liga operación, resultado y candidato cuando aplica."}
+            {
+              "title": "Historial",
+              "status": "PERSISTENTE",
+              "detail": "Mensajes y resultados vuelven al contexto de la misma sesión."
+            },
+            {
+              "title": "Compresión",
+              "status": "CONTROLADA",
+              "detail": "Reduce contexto sin sustituir la evidencia canónica."
+            },
+            {
+              "title": "Receipt",
+              "status": "VERIFICABLE",
+              "detail": "Liga operación, resultado y candidato cuando aplica."
+            }
           ]
         },
         {
           "title": "SQLite / FTS5 / embeddings",
           "status": "EN CURSO",
-          "detail": "Owner database.write ejecutado: ExecutionGateway registra un DatabaseWriteEffectAdapter acotado a KnowledgeBase y EmbeddingStore; las fachadas son de solo lectura y API/chat/REPL requieren autorización de usuario. El adapter valida raíz/sesión, enlaza source_session a la sesión activa, serializa escrituras por state_root y conserva WAL/FTS/upsert. El índice SQLite SessionDB se retiró: no tenía lectores y duplicaba la sesión JSON canónica que consume ContextStore. Pruebas previas: 102 memory/RAG/gateway y 67 sesión/workspace/inventory. El arranque del manager CLI ahora pasa por process.execute con challenge TTY y Permit consumido; launcher ligado por SHA-256, workspace/UI bajo raíz, loopback y puerto validados antes del spawn. El singleton bago.lock vive en instance_lock y cmd_serve es su único caller. BagoContext.run_tool no tiene callsites y falla cerrado; event flush usa state.write. Los marcadores [WRITE] son propuesta visible, no escriben; materialización vía filesystem.write challenge/Permit. state_paths resuelve sin mkdir y SessionManager/registry no pre-crean estado. Pruebas focales de los bloques: 2 + 1 + 19 passed. Git identity de SessionPersistenceMixin usa process.inspect para tres argv exactos read-only; no añade owner. El shim file-write legacy falla cerrado y no puede materializar ni con BAGO_DEV_MODE; la UI/API conserva /files/write con autorización. Node Control materializa directorios con el writer de manifiesto, sin mkdir paralelo. AgentOrchestrator persiste planes JSONL con state.write, sin mkdir/open paralelo. La proyección Android de capas usa state.write sin writer paralelo. ClaimLedger y receipts anexan vía state.write, sin adquirir permisos ni mezclarse con ExecutionClaimStore. Inventario actual del gate: 2.313 sinks, 65 runtime-unbound y 0 sin clasificar; strict-classification PASS, strict-runtime OPEN. El adapter database.write cubre KnowledgeBase y EmbeddingStore; SessionDB se retiró por redundante. Node Control está especificado, pero falta validarlo en CLI/API/UI. toolsmith.save_toolbox y el bootstrap de Node Control materializan carpetas mediante state.write; el modular guard de Node Control ya corre en proceso. Quedan pendientes toolsmith.create_tool y otros 66 sinks runtime. El verify wrapper falló al lanzar subprocess (WinError 2); scanner directo ejecutado con timeout. DirectoryContext usa process.inspect para git diff en sesión activa; sin SessionManager no ejecuta Git."
+          "detail": "Owner database.write ejecutado: ExecutionGateway registra DatabaseWriteEffectAdapter acotado a KnowledgeBase y EmbeddingStore; las fachadas son de solo lectura y las rutas de escritura requieren autorización. SessionDB se retiró como índice redundante de la sesión JSON canónica. El nodo conserva resultados de bloques anteriores: para estado global actual, consultar Unicidad runtime y el snapshot ligado al candidato vigente."
         },
         {
           "title": "Workspace explícito",
@@ -89,9 +113,21 @@
           "status": "PENDIENTE DE CIERRE",
           "detail": "El documento Node Control especifica instalaciones, piezas compartidas, nodos/conectores, modos (connected, shadow, locked, detached, read-only, writable overlay), matriz y evidencia por acción. Ese contrato está documentado, pero todavía no prueba el cierre de producto. Falta verificar que CLI/API/UI materialicen y validen cada transición con identidad instalación-pieza, política efectiva, estado previo/nuevo y receipt ligado a sesión/workspace; además, probar uso compartido sin copias por instalación y preview/validate antes y después.",
           "children": [
-            {"title": "Instalación-pieza", "status": "IDENTIDAD", "detail": "Cada vínculo debe identificar instalación y pieza sin duplicar la autoridad."},
-            {"title": "Modos", "status": "CONTRATO", "detail": "Connected, shadow, locked, detached, read-only y writable overlay requieren transición explícita."},
-            {"title": "Preview / validate", "status": "PENDIENTE", "detail": "La transición necesita estado previo, estado nuevo y receipt ligado a sesión/workspace."}
+            {
+              "title": "Instalación-pieza",
+              "status": "IDENTIDAD",
+              "detail": "Cada vínculo debe identificar instalación y pieza sin duplicar la autoridad."
+            },
+            {
+              "title": "Modos",
+              "status": "CONTRATO",
+              "detail": "Connected, shadow, locked, detached, read-only y writable overlay requieren transición explícita."
+            },
+            {
+              "title": "Preview / validate",
+              "status": "PENDIENTE",
+              "detail": "La transición necesita estado previo, estado nuevo y receipt ligado a sesión/workspace."
+            }
           ]
         }
       ]
@@ -222,7 +258,7 @@
         {
           "title": "Inventory de sinks",
           "status": "ACTIVO",
-          "detail": "Inventario en 98aaf024: 2.327 sinks, 64 runtime-unbound y 0 sin clasificar. --strict-classification PASS; --strict-runtime OPEN. La creación de roles del repositorio ya usa el owner explícito role.definition.create."
+          "detail": "Inventario oficial reejecutado sobre el candidato local bcdd540. 4.490 findings totales, 264 runtime-unbound y 0 sin clasificar; strict-classification pasa y strict-runtime falla. El conteo por sí solo no demuestra cobertura completa del scanner: InitPluginsDir en el instalador NSIS queda fuera de los patrones observados."
         },
         {
           "title": "Ejecución segura de comandos de agentes",
@@ -326,7 +362,7 @@
         },
         {
           "title": "Gate de unicidad global",
-          "detail": "Criterio sin cambios: cero runtime-unbound y cero sin clasificar, todos los sinks detrás de su owner, gates y suite backend sobre el candidato comiteado, más revisión independiente PASS. En 98aaf024: 2.327 sinks / 64 runtime-unbound / 0 unclassified; strict-classification PASS y strict-runtime OPEN. CI del PR 231 está ejecutando Validate source, validate y build-nsis para esta cabeza.",
+          "detail": "Criterio: 0 runtime-unbound y 0 unclassified, dispatch probado por sink, strict-classification y strict-runtime sobre el mismo candidato comiteado, suite backend completa y revisión independiente PASS. En el worktree local bcdd540: 4.490 findings, 264 runtime-unbound, 0 unclassified; strict-classification PASS, strict-runtime FAIL. Falta cobertura del scanner para InitPluginsDir y el P0 NSIS. PR #236 remoto sigue en SHA 9633118; sus checks no aplican al merge local hasta publicar y regenerar evidencia.",
           "status": "ABIERTO"
         },
         {
@@ -502,7 +538,7 @@
         {
           "title": "Clasificación estricta",
           "status": "VERIFICADO ACOTADO",
-          "detail": "Última captura completa SINK_SNAPSHOT_11 ligada a 797332fe: 4.508 findings y 0 sin clasificar. Reescaneo local tras integrar #232 y añadir el generador documental: 4.511 findings, strict-classification PASS y 0 sin clasificar. Los 3 hallazgos adicionales pertenecen al generador documental (scope build_release_admin); runtime-unbound se mantiene en 291. Este reescaneo local todavía no es un snapshot limpio comiteado."
+          "detail": "Escaneo asociado al árbol local bcdd540: 4.490 findings, 0 scope-unclassified y 0 binding-unclassified; strict-classification exit 0. Snapshot previo a commit y push, sujeto a recaptura al cerrar el bloque."
         },
         {
           "title": "Toolbox persistence",
@@ -522,27 +558,39 @@
         {
           "title": "Unicidad runtime",
           "status": "ABIERTO",
-          "detail": "SINK_SNAPSHOT_11 registró 291 runtime-unbound y 287 callsites path+line (291 combinaciones path+line+effect_id). El reescaneo actual reproduce 291 runtime-unbound; --strict-runtime falla. Un hallazgo P0 candidato afecta la ruta NSIS; falta completar el trace previo a las reparaciones."
+          "detail": "El escaneo en bcdd540 detecta 264 runtime-unbound y strict-runtime falla. El trace de NSIS confirma efectos antes de SessionManager, AuthorizationBoundary, Permit o ExecutionGateway. El scanner omite InitPluginsDir, por lo que la cobertura no permite cerrar todavía la partición global.",
+          "children": [
+            {
+              "title": "P0 bootstrap NSIS",
+              "status": "CONFIRMADO",
+              "detail": "La instalación limpia NSIS ejecuta staging y materialización antes de la autoridad canónica. Reutilizar system.install.apply; el host de bootstrap y su trust handoff siguen sin definirse."
+            },
+            {
+              "title": "Cobertura del scanner",
+              "status": "ABIERTO",
+              "detail": "InitPluginsDir precede los sinks NSIS cubiertos y no aparece modelado. Cerrar cobertura antes de afirmar que el inventario contiene todos los efectos."
+            }
+          ]
         },
         {
           "title": "Pruebas por bloque",
           "status": "EJECUTADO ACOTADO",
-          "detail": "Arreglo de agente CLI y mock release.download: revisión independiente parcial PASS. Suite backend en árbol correctivo previo al commit: 1.672 PASS, 3 omitidos, 214 subtests. CI nuevo de 797332fe pendiente."
+          "detail": "Histórico de cierres anteriores: pruebas focales y suite de 1.672 passed pertenecen a candidatos previos. No sustituyen las pruebas del candidato actual bcdd540."
         },
         {
           "title": "Suite backend completa",
           "status": "PENDIENTE",
-          "detail": "EJECUTADA en el árbol correctivo previo al commit: 1.672 passed, 3 skipped, 214 subtests en 428.58s; basetemp externo al checkout. Debe ligarse de nuevo al SHA comiteado final antes de cierre."
+          "detail": "La salida aportada por CI reporta 1.670 passed, 16 skipped y 213 subtests en 301.17 s sobre el SHA 9633118. El árbol actual bcdd540 añade el merge de main y cambios al plan de instalación; esa salida es histórica para este árbol y no valida el candidato actual. Repetir suite completa sobre el SHA final comiteado."
         },
         {
           "title": "Candidato y revisión",
           "status": "ABIERTO",
-          "detail": "PR #232 está merged en main como 28ca9e89; Validate source falló porque faltaba el README requerido y los E2E se omitieron. La revisión independiente local confirmó que el cambio de README lo corrige; PR #233 tiene ese cierre documental. El gate global strict-runtime sigue abierto."
+          "detail": "PR #236 remoto sigue en 9633118 al momento de esta captura. El worktree local incorporó origin/main en bcdd540 y quedó dos commits por delante; CI y revisión deben repetirse después de publicar el nuevo candidato. No mezclar receipts de ambos SHA."
         },
         {
           "title": "Gate de aceptación",
           "status": "NO VALIDADO",
-          "detail": "NO VALIDADO. Se requieren 0 runtime-unbound, 0 unclassified, dispatch probado por sink, suite backend completa y revisión independiente sobre el mismo SHA."
+          "detail": "NO VALIDADO. Se requieren cobertura completa del scanner, 0 runtime-unbound, 0 unclassified, dispatch probado por sink, --strict-runtime y --strict-classification sobre el mismo candidato comiteado, suite backend completa y revisión independiente PASS."
         },
         {
           "title": "Doctor reutiliza la autoridad de versión CLI",
@@ -552,7 +600,7 @@
         {
           "title": "Mapa visual versionado",
           "status": "CERRADO ACOTADO",
-          "detail": "Mapa autónomo en docs/architecture/bago_mind_map.html; los nodos viven en bago_mind_map.data.json y scripts/update_bago_mind_map.py regenera la vista. Se corrigieron referencias JS inexistentes y bloques fuera de la estructura del documento; las ramas y tarjetas se probaron en navegador. --check valida proyección, estructura e invariantes de superposición."
+          "detail": "El árbol de trabajo ahora contiene los tres artefactos incorporados desde el PR #237: docs/architecture/bago_mind_map.html, bago_mind_map.data.json y scripts/update_bago_mind_map.py. La fuente estructurada refleja el inventario bcdd540 y el HTML se regenera desde el JSON."
         },
         {
           "title": "Archivo de releases históricas",
