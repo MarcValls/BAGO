@@ -11,17 +11,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
-CORE_ROOT = BACKEND_ROOT / ".bago" / "core"
-for entry in (BACKEND_ROOT, CORE_ROOT):
-    value = str(entry)
-    if value not in sys.path:
-        sys.path.insert(0, value)
 
 from authorization_boundary import AuthorizationBoundary  # noqa: E402
 from execution_adapter_contract import ExecutionContext  # noqa: E402
