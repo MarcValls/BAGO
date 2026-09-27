@@ -149,24 +149,6 @@ class BoundResource:
     binding_evidence: tuple[str, ...]
     resource_fingerprint: str | None = None
 
-    def canonical_resource_fingerprint(self) -> str:
-        """Return the deterministic identity fingerprint for the bound resource."""
-        payload = "|".join(
-            (
-                self.resource_kind,
-                self.resource_identity,
-                self.provider_or_owner_ref,
-            )
-        )
-        return sha256(payload.encode("utf-8")).hexdigest()
-
-    def fingerprint_is_valid(self) -> bool:
-        """A required runtime binding must carry a non-stale canonical fingerprint."""
-        return bool(
-            self.resource_fingerprint
-            and self.resource_fingerprint == self.canonical_resource_fingerprint()
-        )
-
 
 @dataclass(frozen=True)
 class UncertaintyAssessment:
