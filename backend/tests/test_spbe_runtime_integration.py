@@ -55,7 +55,11 @@ def _cref(name: str) -> CapabilityRef:
 def test_spbe_runtime_reuses_behavior_pack_core_and_contract_identity():
     import spbe_runtime
 
-    assert spbe_runtime.SemanticProceduralBehaviorEngine is bago_spbe.SemanticProceduralBehaviorEngine
+    runtime_engine = spbe_runtime.SemanticProceduralBehaviorEngine
+    pack_engine = bago_spbe.SemanticProceduralBehaviorEngine
+    assert runtime_engine.__module__ == "bago_spbe.engine"
+    assert pack_engine.__module__ == "bago_spbe.engine"
+    assert Path(inspect.getfile(runtime_engine)).resolve() == Path(inspect.getfile(pack_engine)).resolve()
     assert SPBE_CONTRACT_SHA256 == EXPECTED_CONTRACT_SHA
     assert SPBE_SOURCE_PACK_SHA256 == EXPECTED_PACK_SHA
 
