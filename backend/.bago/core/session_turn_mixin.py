@@ -91,6 +91,11 @@ class SessionTurnMixin:
     def send_internal(self, user_message: str, **kwargs: Any) -> str:
         """Run a structured helper prompt without polluting chat history or receipts."""
         adapter = self._ensure_adapter()
+        if self._provider_uses_workspace_cli(adapter):
+            raise RuntimeError(
+                "Internal helper dispatch is blocked for workspace-capable CLI providers; "
+                "route the request through the governed session turn so SPBE runs first."
+            )
         system = self.effective_system_prompt() + (
             "\n\nINTERNAL BAGO ANALYSIS\n"
             "This is an internal structured request. Return exactly the format requested by the prompt. "
