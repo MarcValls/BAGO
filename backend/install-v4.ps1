@@ -102,6 +102,64 @@ function Get-InstallSourceTreeSha256 {
     }
 }
 
+function Get-InstallTargetStateSha256 {
+    param([Parameter(Mandatory = $true)][string]$RootPath)
+
+    $root = [System.IO.Path]::GetFullPath($RootPath).TrimEnd('\')
+    Assert-NoReparsePathComponent -Path $root
+    if (-not (Test-Path -LiteralPath $root)) { return 'absent' }
+    $rootItem = Get-Item -LiteralPath $root -Force
+    if (-not $rootItem.PSIsContainer -or (($rootItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)) {
+        throw "El destino de instalación existente no es un directorio regular."
+    }
+
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    $items = @()
+    foreach ($item in (Get-ChildItem -LiteralPath $root -Recurse -Force -ErrorAction Stop)) {
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "El destino contiene un enlace no permitido: $($item.FullName)"
+        }
+        $relative = $item.FullName.Substring($root.Length).TrimStart('\').Replace('\', '/')
+        $nameBytes = $utf8.GetBytes($relative)
+        $kind = if ($item.PSIsContainer) { 'd' } elseif ($item -is [System.IO.FileInfo]) { 'f' } else { 'o' }
+        $items += [pscustomobject]@{
+            Relative = $relative
+            SortKey = ([System.BitConverter]::ToString($nameBytes)).Replace('-', '')
+            Kind = $kind
+            FullName = $item.FullName
+            Length = if ($kind -eq 'f') { [long]$item.Length } else { [long]0 }
+        }
+    }
+    $items = @($items | Sort-Object -Property SortKey -CaseSensitive)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        foreach ($item in $items) {
+            $kindBytes = $utf8.GetBytes([string]$item.Kind)
+            $nameBytes = $utf8.GetBytes([string]$item.Relative)
+            $nameLength = [System.BitConverter]::GetBytes([long]$nameBytes.Length)
+            [Array]::Reverse($nameLength)
+            $sha.TransformBlock($kindBytes, 0, $kindBytes.Length, $kindBytes, 0) | Out-Null
+            $sha.TransformBlock($nameLength, 0, $nameLength.Length, $nameLength, 0) | Out-Null
+            $sha.TransformBlock($nameBytes, 0, $nameBytes.Length, $nameBytes, 0) | Out-Null
+            if ($item.Kind -eq 'f') {
+                $fileLength = [System.BitConverter]::GetBytes([long]$item.Length)
+                [Array]::Reverse($fileLength)
+                $sha.TransformBlock($fileLength, 0, $fileLength.Length, $fileLength, 0) | Out-Null
+                $fileHash = Get-InstallSha256 -Path $item.FullName
+                $fileHashBytes = New-Object byte[] 32
+                for ($index = 0; $index -lt 32; $index++) {
+                    $fileHashBytes[$index] = [Convert]::ToByte($fileHash.Substring($index * 2, 2), 16)
+                }
+                $sha.TransformBlock($fileHashBytes, 0, $fileHashBytes.Length, $fileHashBytes, 0) | Out-Null
+            }
+        }
+        $sha.TransformFinalBlock([byte[]]@(), 0, 0) | Out-Null
+        return ([System.BitConverter]::ToString($sha.Hash)).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $sha.Dispose()
+    }
+}
+
 function Get-CanonicalInstallStateRoot {
     if ($env:BAGO_STATE_ROOT) { return [System.IO.Path]::GetFullPath($env:BAGO_STATE_ROOT) }
     if ($env:BAGO_USER_ROOT) { return [System.IO.Path]::GetFullPath((Join-Path $env:BAGO_USER_ROOT "state")) }
@@ -187,6 +245,7 @@ function Read-InstallAuthorizationTicket {
         $target.install_dir -ne $installFull -or $target.mode -ne $Mode -or
         $target.helper_sha256 -ne (Get-InstallSha256 -Path $helperFull) -or
         $target.source_tree_sha256 -ne (Get-InstallSourceTreeSha256 -RootPath $sourceFull) -or
+        $target.target_state_sha256 -ne (Get-InstallTargetStateSha256 -RootPath $installFull) -or
         $target.configuration_digest -ne $expectedConfigHash -or
         $ticket.configuration_digest -ne $expectedConfigHash -or
         $request.target.source_root -ne $target.source_root -or

@@ -1,6 +1,6 @@
 # Qwen Code — BAGO Operating Guide
 
-> Monorepo **BAGO** (current candidate 4.10.x). Windows-first. Backend Python 3.14+, frontend React+TS+Vite, visor Electron con ciclo de vida automático. El runtime de contexto del proyecto es **`.bago/`** (no `.qwen-context/`). Verifica siempre la versión canónica con `bago doctor` o leyendo `release_version.txt`; no confíes en números hard-coded aquí.
+> Monorepo **BAGO**. Windows-first. Backend Python 3.14+, frontend React+TS+Vite, visor Electron con ciclo de vida automático. El runtime de contexto del proyecto es **`.bago/`** (no `.qwen-context/`). Resuelve la versión canónica desde `release_version.txt`; este documento no fija una versión mutable.
 
 ## 1. Modo de entrada
 

@@ -159,6 +159,33 @@ def test_install_changed_helper_rejects_before_ticket_or_process(monkeypatch, tm
     assert not (tmp_path / "bago-state" / "authorization" / "install-tickets").exists()
 
 
+def test_install_changed_destination_rejects_before_ticket_or_process(monkeypatch, tmp_path: Path) -> None:
+    handler, _manager, responses, launches, payload = _setup(monkeypatch, tmp_path)
+    MODULE.handle_apply(handler, {**payload, "authorization_action": "challenge"})
+    challenge = responses[-1][1]["authorization"]["challenge"]
+    MODULE.handle_apply(handler, {
+        **payload,
+        "authorization_action": "approve",
+        "challenge_id": challenge["challenge_id"],
+        "user_decision": "approve",
+    })
+    permit = responses[-1][1]["authorization"]["permit"]["token"]
+    target = Path(payload["install_dir"])
+    target.mkdir(parents=True)
+    (target / "drift.txt").write_text("changed after approval\n", encoding="utf-8")
+
+    MODULE.handle_apply(handler, {
+        **payload,
+        "authorization_action": "execute",
+        "authorization_permit": permit,
+    })
+
+    assert responses[-1][0] == 409
+    assert responses[-1][1]["code"] == "authorization_operation_mismatch"
+    assert launches == []
+    assert not (tmp_path / "bago-state" / "authorization" / "install-tickets").exists()
+
+
 def test_install_nonzero_helper_exit_is_not_reported_as_completed(monkeypatch, tmp_path: Path) -> None:
     handler, _manager, responses, _launches, payload = _setup(monkeypatch, tmp_path)
     MODULE.handle_apply(handler, {**payload, "authorization_action": "challenge"})
