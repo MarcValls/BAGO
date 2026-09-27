@@ -15,6 +15,19 @@ $backupRoot = Join-Path $workRoot "backups"
 $previousUserRoot = $env:BAGO_USER_ROOT
 $previousStateRoot = $env:BAGO_STATE_ROOT
 $previousPythonPath = $env:PYTHONPATH
+$sourcePythonPath = "$sourceRoot;$sourceRoot\.bago\core"
+
+function Set-SourcePythonPath {
+    $env:PYTHONPATH = $sourcePythonPath
+}
+
+function Restore-PythonPath {
+    if ($null -eq $previousPythonPath) {
+        Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+    } else {
+        $env:PYTHONPATH = $previousPythonPath
+    }
+}
 
 try {
     New-Item -ItemType Directory -Path $userRoot -Force | Out-Null
@@ -33,14 +46,18 @@ try {
 
     $env:BAGO_USER_ROOT = $userRoot
     $env:BAGO_STATE_ROOT = $stateRoot
-    $env:PYTHONPATH = "$sourceRoot;$sourceRoot\.bago\core"
     $python = (Get-Command python.exe -ErrorAction Stop | Select-Object -First 1).Source
-    & $python $gatewayRunner `
-        --action install `
-        --source-root $sourceRoot `
-        --install-dir $installRoot `
-        --mode Express
-    if ($LASTEXITCODE -ne 0) { throw "system.install.apply clean-install falló con código $LASTEXITCODE" }
+    Set-SourcePythonPath
+    try {
+        & $python $gatewayRunner `
+            --action install `
+            --source-root $sourceRoot `
+            --install-dir $installRoot `
+            --mode Express
+        if ($LASTEXITCODE -ne 0) { throw "system.install.apply clean-install falló con código $LASTEXITCODE" }
+    } finally {
+        Restore-PythonPath
+    }
 
     $expectedVersion = (Get-Content -LiteralPath (Join-Path $sourceRoot "release_version.txt") -Raw).Trim()
     $installedVersion = (Get-Content -LiteralPath (Join-Path $installRoot "release_version.txt") -Raw).Trim()
@@ -70,13 +87,18 @@ try {
     $runtimeConfig = Get-Content -LiteralPath $runtimeConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $runtimeConfig | Add-Member -NotePropertyName "clean_install_marker" -NotePropertyValue "preserved" -Force
     $runtimeConfig | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $runtimeConfigPath -Encoding UTF8
-    & $python $gatewayRunner `
-        --action repair `
-        --source-root $sourceRoot `
-        --install-dir $installRoot `
-        --mode Express `
-        --skip-tests
-    if ($LASTEXITCODE -ne 0) { throw "system.install.apply repair falló con código $LASTEXITCODE" }
+    Set-SourcePythonPath
+    try {
+        & $python $gatewayRunner `
+            --action repair `
+            --source-root $sourceRoot `
+            --install-dir $installRoot `
+            --mode Express `
+            --skip-tests
+        if ($LASTEXITCODE -ne 0) { throw "system.install.apply repair falló con código $LASTEXITCODE" }
+    } finally {
+        Restore-PythonPath
+    }
     $updatedRuntimeConfig = Get-Content -LiteralPath $runtimeConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($updatedRuntimeConfig.clean_install_marker -ne "preserved") {
         throw "la actualización no preservó .bago/config.json"
@@ -93,11 +115,7 @@ try {
 
     Write-Host "clean-install:PASS version=$installedVersion root=$installRoot" -ForegroundColor Green
 } finally {
-    if ($null -eq $previousPythonPath) {
-        Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
-    } else {
-        $env:PYTHONPATH = $previousPythonPath
-    }
+    Restore-PythonPath
     if ($null -eq $previousStateRoot) {
         Remove-Item Env:BAGO_STATE_ROOT -ErrorAction SilentlyContinue
     } else {
