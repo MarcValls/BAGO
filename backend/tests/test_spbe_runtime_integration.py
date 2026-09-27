@@ -312,6 +312,34 @@ def test_codex_cli_router_is_never_dispatched_before_spbe(tmp_path):
                 session_manager.ADAPTER_REGISTRY["codex"] = previous
 
 
+def test_send_internal_blocks_workspace_cli_before_provider_dispatch(tmp_path):
+    previous = session_manager.ADAPTER_REGISTRY.get("codex")
+    session_manager.ADAPTER_REGISTRY["codex"] = _TerminalCodexCLIAdapter
+    _TerminalCodexCLIAdapter.chat_calls = 0
+    with tempfile.TemporaryDirectory() as state_dir:
+        mgr = session_manager.SessionManager(
+            session_id="spbe-cli-internal-test",
+            provider="codex",
+            model="codex-test",
+            base_path=str(tmp_path),
+            state_root=state_dir,
+        )
+        try:
+            try:
+                mgr.send_internal("devuelve un JSON")
+            except RuntimeError as exc:
+                assert "workspace-capable CLI providers" in str(exc)
+            else:
+                raise AssertionError("send_internal dispatched a workspace-capable CLI provider")
+            assert _TerminalCodexCLIAdapter.chat_calls == 0
+        finally:
+            mgr.close()
+            if previous is None:
+                session_manager.ADAPTER_REGISTRY.pop("codex", None)
+            else:
+                session_manager.ADAPTER_REGISTRY["codex"] = previous
+
+
 def test_codex_cli_terminal_short_circuits_before_provider_dispatch(tmp_path):
     previous = session_manager.ADAPTER_REGISTRY.get("codex")
     session_manager.ADAPTER_REGISTRY["codex"] = _TerminalCodexCLIAdapter
