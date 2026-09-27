@@ -471,6 +471,29 @@ class BagoSPBEAdapter:
             return SPBERuntimeDecision(result, tool_names if tool_requested else (), envelope)
         return SPBERuntimeDecision(result, (), None)
 
+    @classmethod
+    def fail_closed(
+        cls,
+        *,
+        user_message: str,
+        reflexive_analysis: Mapping[str, Any],
+        error: Exception | str,
+    ) -> SPBERuntimeDecision:
+        intent_id = str(reflexive_analysis.get("question_id") or "").strip()
+        if not intent_id:
+            intent_id = "intent-" + hashlib.sha256(user_message.encode("utf-8")).hexdigest()[:16]
+        root = IntentRoot.create(intent_id, user_message)
+        task_id = "task-" + hashlib.sha256((root.intent_id + "|fail-closed").encode("utf-8")).hexdigest()[:16]
+        engine = SemanticProceduralBehaviorEngine()
+        terminal = engine.terminal(
+            root,
+            task_id,
+            SemanticTerminalOutcome.INSUFFICIENT_INFORMATION,
+            evidence=("spbe_runtime_error", type(error).__name__ if isinstance(error, Exception) else "error"),
+            unresolved=(str(error)[:300],),
+        )
+        return SPBERuntimeDecision(terminal, (), None)
+
     def _model_tool_names(self) -> tuple[str, ...]:
         names: list[str] = []
         try:
