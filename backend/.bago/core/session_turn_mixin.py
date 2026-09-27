@@ -29,6 +29,7 @@ from task_response_contract import (
 from task_response_presenter import present_legacy_task_content, present_task_response, task_response_state
 from reflexive_interpreter import analyze_question
 from reflexive_audit_ledger import ReflexiveAuditLedger
+from spbe_runtime import BagoSPBEAdapter
 from session_utils import ADAPTER_REGISTRY, normalize_bridges, format_rag_context
 
 # --- File-write helpers ---------------------------------------------------
@@ -299,6 +300,29 @@ class SessionTurnMixin:
             question_id=question_id,
         ).to_dict()
 
+    def _compile_spbe_turn(
+        self,
+        user_message: str,
+        reflexive_analysis: dict[str, Any],
+        intent: str,
+        *,
+        tool_requested: bool,
+    ):
+        """Compile one turn through SPBE; runtime errors fail closed for tools."""
+        try:
+            return BagoSPBEAdapter(self.tool_registry).compile_turn(
+                user_message=user_message,
+                reflexive_analysis=reflexive_analysis,
+                intent=intent,
+                tool_requested=tool_requested,
+            )
+        except Exception as exc:
+            return BagoSPBEAdapter.fail_closed(
+                user_message=user_message,
+                reflexive_analysis=reflexive_analysis,
+                error=exc,
+            )
+
     @staticmethod
     def _reflexive_prompt_block(analysis: dict[str, Any]) -> str:
         """Render the local interpretation as advisory model context."""
@@ -557,9 +581,25 @@ class SessionTurnMixin:
                 "intent": intent,
                 "confidence": 0.0,
             }
+        spbe_tool_requested = (
+            self._tool_calling_enabled()
+            and adapter.supports_tools()
+            and len(self.tool_registry) > 0
+            and should_enable_tools(intent)
+            and not _requests_no_execution(user_message)
+        )
+        spbe_decision = self._compile_spbe_turn(
+            user_message,
+            reflexive_analysis,
+            intent,
+            tool_requested=spbe_tool_requested,
+        )
+        spbe_metadata = spbe_decision.to_metadata()
+
         reflexive_prompt_block = self._reflexive_prompt_block(reflexive_analysis)
         dynamic_system = self.effective_system_prompt()
         dynamic_system += "\n\n" + reflexive_prompt_block
+        dynamic_system += "\n\n" + spbe_decision.prompt_block()
         if intent != "chat":
             dynamic_system += "\n\n" + intent_guidance(intent)
             dynamic_system += get_few_shot_examples(intent, max_examples=2)
@@ -614,14 +654,13 @@ class SessionTurnMixin:
             dynamic_system = "\n\n".join(block for block in compact_blocks if block)
 
         tools = None
-        if (
-            self._tool_calling_enabled()
-            and adapter.supports_tools()
-            and len(self.tool_registry) > 0
-            and should_enable_tools(intent)
-            and not _requests_no_execution(user_message)
-        ):
-            tools = self.tool_registry.to_openai()
+        if spbe_tool_requested and spbe_decision.allow_model_tools:
+            allowed_tool_names = set(spbe_decision.allowed_tool_names)
+            tools = [
+                item
+                for item in self.tool_registry.to_openai()
+                if str((item.get("function") or {}).get("name") or "") in allowed_tool_names
+            ]
             if self.provider == "ollama-local":
                 dynamic_system += (
                     "\n\nOLLAMA LOCAL TOOL FORMAT\n"
@@ -936,6 +975,7 @@ class SessionTurnMixin:
                 "claim_verification": claim_verification,
                 "workspace_fallback_used": workspace_fallback_used,
                 "reflexive_interpretation": reflexive_analysis,
+                "spbe_runtime": spbe_metadata,
                 **(getattr(self, "last_context_retrieval", {}) or {}),
             },
             context_details={
@@ -1000,6 +1040,7 @@ class SessionTurnMixin:
                 "claim_warning": claim_warning,
                 "workspace_fallback_used": workspace_fallback_used,
                 "task_contract_ok": bool(task_contract_meta.get("ok", False)),
+                "spbe_kind": str((spbe_metadata.get("result") or {}).get("kind") or ""),
             },
         )
         receipt.metadata["reflexive_audit"] = reflexive_audit
@@ -1028,6 +1069,7 @@ class SessionTurnMixin:
                 "code_task_contract": self.last_code_task_contract,
                 "reflexive_interpretation": reflexive_analysis,
                 "reflexive_audit": reflexive_audit,
+                "spbe_runtime": spbe_metadata,
             },
         )
         self.store.record_tokens(
@@ -1116,16 +1158,25 @@ class SessionTurnMixin:
             }
         self.last_stream_interpretation = reflexive_analysis
 
-        if (
+        stream_tool_requested = (
             self._tool_calling_enabled()
             and adapter.supports_tools()
             and len(self.tool_registry) > 0
             and should_enable_tools(intent)
             and not _requests_no_execution(user_message)
-        ):
+        )
+        if stream_tool_requested:
             result = self.send(user_message, **kwargs)
             yield result
             return
+
+        spbe_decision = self._compile_spbe_turn(
+            user_message,
+            reflexive_analysis,
+            intent,
+            tool_requested=False,
+        )
+        spbe_metadata = spbe_decision.to_metadata()
 
         start = time.time()
 
@@ -1136,6 +1187,7 @@ class SessionTurnMixin:
         reflexive_prompt_block = self._reflexive_prompt_block(reflexive_analysis)
         system_prompt = self.effective_system_prompt()
         system_prompt += "\n\n" + reflexive_prompt_block
+        system_prompt += "\n\n" + spbe_decision.prompt_block()
         if intent != "chat":
             system_prompt += "\n\n" + intent_guidance(intent)
             system_prompt += get_few_shot_examples(intent, max_examples=2)
@@ -1265,6 +1317,7 @@ class SessionTurnMixin:
                 "streaming": True,
                 "response_state": "done",
                 "reflexive_interpretation": reflexive_analysis,
+                "spbe_runtime": spbe_metadata,
                 "claim_verification": claim_verification,
                 **(getattr(self, "last_context_retrieval", {}) or {}),
             },
@@ -1342,6 +1395,7 @@ class SessionTurnMixin:
                 "budget_alert": str(budget.alert_level),
                 "reflexive_interpretation": reflexive_analysis,
                 "reflexive_audit": reflexive_audit,
+                "spbe_runtime": spbe_metadata,
                 "code_task": self.last_code_task,
                 "code_task_contract": self.last_code_task_contract,
                 "response_state": "done",
