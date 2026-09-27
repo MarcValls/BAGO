@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import tempfile
 from pathlib import Path
@@ -76,6 +77,10 @@ def test_spbe_runtime_reuses_behavior_pack_core_and_contract_identity():
     provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
     assert provenance["source_pack_sha256"] == EXPECTED_PACK_SHA
     assert provenance["frozen_contract_sha256"] == EXPECTED_CONTRACT_SHA
+
+    for module_name, expected_sha256 in provenance["source_module_sha256"].items():
+        module_path = Path(bago_spbe.__file__).with_name(module_name)
+        assert hashlib.sha256(module_path.read_bytes()).hexdigest() == expected_sha256
 
 
 def test_full_engine_enforces_binding_uncertainty_cycles_and_resolution_policy():
