@@ -52,9 +52,19 @@ def test_installer_is_safe_for_clean_and_repeat_installs() -> None:
 
 def test_clean_install_smoke_is_part_of_canonical_ci() -> None:
     smoke = BACKEND_ROOT / "scripts" / "test_clean_install.ps1"
+    gateway_harness = BACKEND_ROOT / "scripts" / "run_clean_install_gateway.py"
     workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "canonical-ci.yml").read_text(encoding="utf-8")
+    smoke_text = smoke.read_text(encoding="utf-8")
+    harness_text = gateway_harness.read_text(encoding="utf-8")
     assert smoke.is_file()
+    assert gateway_harness.is_file()
     assert "scripts/test_clean_install.ps1" in workflow
+    assert 'if ($LASTEXITCODE -ne 0) { throw "Clean-install gate failed." }' in workflow
+    assert "run_clean_install_gateway.py" in smoke_text
+    assert "-File $installer" not in smoke_text
+    assert "ExecutionGateway(boundary).execute" in harness_text
+    assert 'os.environ.get("GITHUB_ACTIONS", "").lower() != "true"' in harness_text
+    assert "clean-install destination must stay under RUNNER_TEMP" in harness_text
 
 
 def test_install_selection_reader_accepts_windows_powershell_bom(tmp_path: Path) -> None:
