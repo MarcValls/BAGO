@@ -447,7 +447,7 @@
         },
         {
           "title": "Gate de unicidad global",
-          "detail": "origin/main es 299d4f5c (#239). La reconciliación publicada preserva snapshot limpio b990c8b5: 1.705 total, 265 runtime-unbound, 336 gateway-owned, 0 unclassified; strict-classification PASS y strict-runtime OPEN. Cobertura scanner incompleta y P0 NSIS abierto; la partición no es PASS_FOR_PLANNING y las reparaciones siguen sin iniciar.",
+          "detail": "Observación remota capturada el 2026-09-27 13:47 UTC, antes del PR #240: origin/main apuntaba a 299d4f5c (#239). El snapshot de inventario publicado sigue ligado a b990c8b5: 1.705 total, 265 runtime-unbound, 336 gateway-owned, 0 unclassified; strict-classification PASS y strict-runtime OPEN. Cobertura incompleta y P0 NSIS abierto; partición no PASS_FOR_PLANNING, reparaciones no iniciadas. Consultar GitHub para el HEAD actual.",
           "status": "ABIERTO · PARTITION BLOQUEADA EN P0"
         },
         {
@@ -734,7 +734,7 @@
         {
           "title": "Candidato y revisión",
           "status": "MERGED · VALIDACIÓN PARCIAL",
-          "detail": "PR #236, #238 y #239 están MERGED en origin/main; HEAD actual 299d4f5c. En #239 Validate source, CodeQL, Validate Expected, njsscan y Packaged Electron smoke: SUCCESS. Real installer E2E: SKIPPED. El merge documental conserva snapshot b990c8b5 y reconciliación; no cierra P0, strict-runtime ni la partición global."
+          "detail": "PR #236, #238 y #239 estaban MERGED en main según consulta remota del 2026-09-27 13:47 UTC. En #239 Validate source, CodeQL, Validate Expected, njsscan y Packaged Electron smoke: SUCCESS; Real installer E2E: SKIPPED. El merge documental conserva la reconciliación del snapshot b990c8b5; no cierra P0, strict-runtime ni la partición global. Consultar GitHub antes de afirmar el HEAD actual de main."
         },
         {
           "title": "Gate de aceptación",
