@@ -257,8 +257,8 @@
         },
         {
           "title": "Inventory de sinks",
-          "status": "RECAPTURAR EN MAIN",
-          "detail": "Captura de sinks ligada al HEAD fuente de PR #236 a2185878 (4.503 detectados, 265 runtime-unbound, 336 gateway-owned, 0 sin clasificar; strict-classification PASS, strict-runtime OPEN), NO es un scan de main posterior al merge. PR #236 fue MERGED en origin/main como 283bfce6 el 2026-09-27 08:44 UTC; el worktree local sigue en el HEAD fuente y diverge de origin/main, así que debe reconciliarse antes de una nueva captura. El scan releases del candidato detecta 64 runtime-unbound: 43 en NSIS+helper oficial y 21 en superficies legacy/wrappers. Auditoría de cobertura encontró además 10 llamadas de terminación de proceso no detectadas o mal clasificadas (2 en releases, 3 en scripts/dev.ps1 instalado por NSIS, 3 en backend/scripts/runtime-service.ps1 mal clasificado como build/admin y 2 dentro de apply_release_update.ps1, que debe seguir visible como gateway_owned); además 3 llamadas de CI embebidas no están cubiertas. Hay falsos positivos/tipos de recurso incorrectos en Install-BAGO.ps1. 265 no es límite superior probado; partición y habituation siguen parciales, sin reparaciones."
+          "status": "CAPTURADO EN MAIN · COBERTURA ABIERTA",
+          "detail": "Recibo reproducible y dos salidas normalizadas en docs/architecture/evidence/sink-inventory/. Candidato limpio b990c8b5: 1.705 total, 265 runtime-unbound, 336 gateway-owned, 0 unclassified; strict-classification PASS y strict-runtime OPEN. Comparación del worktree sucio a2185878: 4.503 = 1.705 + 2.787 derived_release_snapshot + 12 build_release_admin additions - 1 removal; neto editorial +11. Ambos inventarios conservan 265 runtime-unbound. Los snapshots compilados son nonruntime_effect y no reparaciones distintas. El recibo liga HEAD, entradas escaneadas, worktree, scanner/registry y hashes; no se copiaron los árboles compiled/current. Persiste la limitación de cobertura scanner, los 8 sinks runtime Stop-Process y el P0 bootstrap; no hay reparación ni PASS_FOR_PLANNING."
         },
         {
           "title": "Ejecución segura de comandos de agentes",
@@ -362,7 +362,7 @@
         },
         {
           "title": "Gate de unicidad global",
-          "detail": "Criterio: 0 runtime-unbound y 0 unclassified, dispatch probado por sink, strict-classification y strict-runtime sobre el mismo candidato comiteado, suite backend completa y revisión independiente PASS. El PR #236 sí se fusionó a origin/main en 283bfce6; Canonical CI, CodeQL, Validate Expected, njsscan y packaged Electron smoke aparecen SUCCESS. Real installer E2E quedó SKIPPED. El P0-INS-NSIS-01 y la brecha de cobertura siguen abiertos; el inventario documentado es del HEAD fuente a2185878 y no se ha vuelto a ejecutar sobre main post-merge.",
+          "detail": "Criterio: 0 runtime-unbound y 0 unclassified, dispatch probado por sink, strict-classification y strict-runtime sobre el mismo candidato comiteado, suite backend completa y revisión independiente PASS. PR #236 y PR #238 están fusionados; el HEAD actual de main es 38baf6cb. En PR #238 pasaron validaciones, CodeQL, njsscan y Packaged Electron smoke; Real installer E2E quedó SKIPPED. El snapshot global actual ya se recapturó sobre ese main: scanner incompleto, strict-runtime OPEN y P0 de bootstrap abierto.",
           "status": "ABIERTO"
         },
         {
@@ -558,7 +558,7 @@
         {
           "title": "Unicidad runtime",
           "status": "ABIERTO",
-          "detail": "strict-runtime permanece OPEN. El scan releases ligado al HEAD fuente PR #236 (no al main post-merge) encuentra 64 runtime-unbound en 8 archivos (33 NSIS + 10 helper + 21 superficies legacy/wrappers). La traza ampliada detecta 10 terminaciones de proceso PowerShell no descubiertas o mal clasificadas: 2 en releases, 3 en scripts/dev.ps1 incluido en el instalador, 3 en runtime-service.ps1 alcanzable durante el ciclo Electron pero clasificado build/admin, y 2 en apply_release_update.ps1 que deben aparecer como gateway_owned; 3 llamadas adicionales son solo CI. NSIS stage/extract ocurre antes de SessionManager, AuthorizationBoundary, Permit consumido y ExecutionGateway. La partición y el trace de habituation siguen incompletos; los conteos detectados no demuestran cobertura completa.",
+          "detail": "strict-runtime permanece OPEN en main 38baf6cb. Inventario fuente limpio: 1.705 findings y 265 runtime-unbound; 64 runtime-unbound dentro de releases/ (33 NSIS + 10 helper + 21 superficies legacy/wrappers). La traza identifica 8 terminaciones runtime no inventariadas (2 releases, 3 scripts/dev.ps1 empaquetado, 3 runtime-service.ps1 seleccionado por Electron), 2 terminaciones de apply_release_update.ps1 que deben ser visibles como gateway_owned y 3 llamadas inline solo en CI. NSIS stage/extract ocurre antes de SessionManager, AuthorizationBoundary, Permit consumido y ExecutionGateway. La partición y el trace de habituation siguen incompletos; el scanner no tiene cobertura/precisión suficiente.",
           "children": [
             {
               "title": "P0 bootstrap e instaladores",
@@ -602,7 +602,7 @@
         {
           "title": "Candidato y revisión",
           "status": "MERGED · VALIDACIÓN PARCIAL",
-          "detail": "PR #236 MERGED en main: source a21858780615440a775a7989970b8917fc0d6732, merge commit 283bfce6f3e3d92104dc2de9bc2c19e9888744b2, 2026-09-27 08:44 UTC. Checks: Validate source, CodeQL actions/JS/Python, Validate Expected, njsscan y Packaged Electron smoke SUCCESS; Real installer E2E SKIPPED. origin/main apunta a 283bfce6; el worktree local permanece en a2185878 y no es el HEAD post-merge. Requiere reconciliar checkout y reejecutar inventario/gates; esto no cierra strict-runtime ni el P0."
+          "detail": "PR #236 MERGED a main mediante 283bfce6. PR #238, que actualizó el mapa, también está fusionado en 38baf6cb. En PR #238: Validate source, Validate Expected, CodeQL, njsscan y Packaged Electron smoke SUCCESS; Real installer E2E SKIPPED. El scanner se volvió a ejecutar sobre main 38baf6cb, ligado al fingerprint/JSON hash del nodo Inventory. Esto no cierra strict-runtime, el P0 ni la partición global."
         },
         {
           "title": "Gate de aceptación",
