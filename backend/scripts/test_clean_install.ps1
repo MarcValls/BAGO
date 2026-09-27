@@ -12,6 +12,7 @@ $userRoot = Join-Path $workRoot "user"
 $stateRoot = Join-Path $workRoot "state"
 $backupRoot = Join-Path $workRoot "backups"
 $previousUserRoot = $env:BAGO_USER_ROOT
+$previousStateRoot = $env:BAGO_STATE_ROOT
 
 try {
     New-Item -ItemType Directory -Path $userRoot -Force | Out-Null
@@ -89,7 +90,11 @@ try {
 
     Write-Host "clean-install:PASS version=$installedVersion root=$installRoot" -ForegroundColor Green
 } finally {
-    Remove-Item Env:BAGO_STATE_ROOT -ErrorAction SilentlyContinue
+    if ($null -eq $previousStateRoot) {
+        Remove-Item Env:BAGO_STATE_ROOT -ErrorAction SilentlyContinue
+    } else {
+        $env:BAGO_STATE_ROOT = $previousStateRoot
+    }
     if ($null -eq $previousUserRoot) {
         Remove-Item Env:BAGO_USER_ROOT -ErrorAction SilentlyContinue
     } else {
