@@ -49,9 +49,10 @@ El usuario descarga un único archivo:
 
 ## Archivos en el Repo
 
-### Nuevos
-- `releases/bago-installer-local.nsi` — Configuración NSIS
-- `releases/build-installer.ps1` — Script para compilar installer
+### Canónicos
+- `releases/bago-installer.nsi` — Configuración NSIS de la release
+- `releases/build-installer.ps1` — Pipeline único para preparar runtime y setup
+- `releases/build-installer.cmd` — Wrapper compatible que delega al pipeline
 - `releases/BUILD-INSTALLER.md` — Documentación
 
 ### Requisitos
