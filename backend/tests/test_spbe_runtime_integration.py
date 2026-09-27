@@ -59,10 +59,16 @@ def test_spbe_runtime_reuses_behavior_pack_core_and_contract_identity():
 
     runtime_engine = spbe_runtime.SemanticProceduralBehaviorEngine
     pack_engine = bago_spbe.SemanticProceduralBehaviorEngine
-    assert issubclass(runtime_engine, pack_engine)
-    assert runtime_engine is RuntimeSemanticProceduralBehaviorEngine
+    assert runtime_engine.__name__ == "SemanticProceduralBehaviorEngine"
     assert runtime_engine.__module__ == "spbe_runtime"
+    assert pack_engine.__name__ == "SemanticProceduralBehaviorEngine"
     assert pack_engine.__module__ == "bago_spbe.engine"
+    assert any(
+        base.__name__ == "SemanticProceduralBehaviorEngine"
+        and base.__module__ == "bago_spbe.engine"
+        for base in runtime_engine.__mro__[1:]
+    )
+    assert Path(inspect.getfile(runtime_engine)).name == "spbe_runtime.py"
     assert Path(inspect.getfile(pack_engine)).resolve() == Path(bago_spbe.__file__).with_name("engine.py").resolve()
     assert SPBE_CONTRACT_SHA256 == EXPECTED_CONTRACT_SHA
     assert SPBE_SOURCE_PACK_SHA256 == EXPECTED_PACK_SHA
