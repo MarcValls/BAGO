@@ -91,7 +91,7 @@ class SessionTurnMixin:
     def send_internal(self, user_message: str, **kwargs: Any) -> str:
         """Run a structured helper prompt without polluting chat history or receipts."""
         adapter = self._ensure_adapter()
-        if self._provider_uses_workspace_cli(adapter):
+        if self._provider_may_use_workspace_cli(adapter):
             raise RuntimeError(
                 "Internal helper dispatch is blocked for workspace-capable CLI providers; "
                 "route the request through the governed session turn so SPBE runs first."
@@ -167,7 +167,7 @@ class SessionTurnMixin:
         router_messages.append({"role": "user", "content": text})
         try:
             adapter = self._ensure_adapter()
-            if self._provider_uses_workspace_cli(adapter):
+            if self._provider_may_use_workspace_cli(adapter):
                 return {
                     "kind": "chat",
                     "command": "",
@@ -315,11 +315,32 @@ class SessionTurnMixin:
         ).to_dict()
 
     def _provider_uses_workspace_cli(self, adapter: Any) -> bool:
-        """Return True only for provider transports that can act in the workspace."""
+        """Return True when the provider is currently using a workspace-capable CLI."""
         try:
             return self.provider in {"copilot", "codex"} and bool(adapter._use_cli())
         except Exception:
             return False
+
+    def _provider_may_use_workspace_cli(self, adapter: Any) -> bool:
+        """Fail closed when this provider can transition to a workspace-capable CLI.
+
+        Codex can begin on the API transport and switch to its authenticated CLI
+        after an HTTP 401. Pre-SPBE helper/router calls therefore must treat that
+        fallback as workspace-capable even when _use_cli() is currently False.
+        """
+        if self.provider not in {"copilot", "codex"}:
+            return False
+        if self._provider_uses_workspace_cli(adapter):
+            return True
+        if self.provider == "codex":
+            try:
+                return bool(
+                    getattr(adapter, "cli_authenticated", False)
+                    and getattr(adapter, "cli_path", "")
+                )
+            except Exception:
+                return False
+        return False
 
     def _compile_spbe_turn(
         self,
@@ -644,6 +665,7 @@ class SessionTurnMixin:
                 "confidence": 0.0,
             }
         uses_cli_bridge = self._provider_uses_workspace_cli(adapter)
+        may_use_cli_bridge = self._provider_may_use_workspace_cli(adapter)
         spbe_tool_requested = (
             self._tool_calling_enabled()
             and adapter.supports_tools()
@@ -652,7 +674,7 @@ class SessionTurnMixin:
             and not _requests_no_execution(user_message)
         )
         spbe_workspace_transport_requested = (
-            uses_cli_bridge and not _requests_no_execution(user_message)
+            may_use_cli_bridge and not _requests_no_execution(user_message)
         )
         spbe_decision = self._compile_spbe_turn(
             user_message,
@@ -1275,6 +1297,7 @@ class SessionTurnMixin:
         self.last_stream_interpretation = reflexive_analysis
 
         uses_cli_bridge = self._provider_uses_workspace_cli(adapter)
+        may_use_cli_bridge = self._provider_may_use_workspace_cli(adapter)
         stream_tool_requested = (
             self._tool_calling_enabled()
             and adapter.supports_tools()
@@ -1293,7 +1316,7 @@ class SessionTurnMixin:
             intent,
             tool_requested=False,
             workspace_transport_requested=(
-                uses_cli_bridge and not _requests_no_execution(user_message)
+                may_use_cli_bridge and not _requests_no_execution(user_message)
             ),
         )
         spbe_metadata = spbe_decision.to_metadata()

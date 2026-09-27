@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from bago_spbe import (
+    BindingDecision,
     BoundedCycleContract,
     BoundResource,
     CapabilityCandidate,
@@ -33,7 +34,7 @@ from bago_spbe import (
     SemanticCompilationKind,
     SemanticConflict,
     SemanticEntity,
-    SemanticProceduralBehaviorEngine,
+    SemanticProceduralBehaviorEngine as BehaviorPackSemanticProceduralBehaviorEngine,
     SemanticTask,
     SemanticTerminalOutcome,
     SemanticTerminalResult,
@@ -48,6 +49,62 @@ SPBE_CONTRACT_SHA256 = "2e342c242c8f77600cfe3dd6a7b1a1818fb35cbf64105aa32b5a5787
 SPBE_SOURCE_PACK = "BAGO_SPBE_BEHAVIOR_ENGINE_PACK_v0.1.zip"
 SPBE_SOURCE_PACK_SHA256 = "f553175deb048855b34342ca1f5d9f114f88d79f30a00a4648b89c5cb7b49340"
 SPBE_RUNTIME_SCHEMA = "bago.spbe.runtime.v1"
+
+
+class SemanticProceduralBehaviorEngine(BehaviorPackSemanticProceduralBehaviorEngine):
+    """BAGO runtime extension of the immutable behavior-pack engine.
+
+    The source pack remains byte-for-byte intact. This layer only tightens
+    resource-binding admission at the BAGO runtime boundary so a stale or
+    mismatched BoundResource cannot satisfy a required semantic binding.
+    """
+
+    @staticmethod
+    def _runtime_resource_fingerprint(bound: BoundResource) -> str:
+        payload = "|".join(
+            (
+                bound.resource_kind,
+                bound.resource_identity,
+                bound.provider_or_owner_ref,
+            )
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    def _preflight_terminal(self, task: SemanticTask):
+        terminal = super()._preflight_terminal(task)
+        if terminal is not None:
+            return terminal
+
+        attempts = {item.semantic_entity_ref: item for item in task.binding_attempts}
+        resources = {item.semantic_entity_ref: item for item in task.bound_resources}
+        issues: list[str] = []
+        for entity in task.entities:
+            if not entity.binding_required:
+                continue
+            attempt = attempts.get(entity.semantic_entity_id)
+            bound = resources.get(entity.semantic_entity_id)
+            if attempt is None or bound is None or attempt.decision is not BindingDecision.BOUND:
+                continue
+            if bound.binding_attempt_ref != attempt.binding_attempt_id:
+                issues.append(f"{entity.semantic_entity_id}:BINDING_ATTEMPT_MISMATCH")
+                continue
+            if tuple(bound.binding_evidence) != tuple(attempt.binding_evidence):
+                issues.append(f"{entity.semantic_entity_id}:BINDING_EVIDENCE_MISMATCH")
+                continue
+            if attempt.candidate_resources and bound.resource_identity not in attempt.candidate_resources:
+                issues.append(f"{entity.semantic_entity_id}:RESOURCE_NOT_IN_ACCEPTED_CANDIDATES")
+                continue
+            expected_fingerprint = self._runtime_resource_fingerprint(bound)
+            if not bound.resource_fingerprint or bound.resource_fingerprint != expected_fingerprint:
+                issues.append(f"{entity.semantic_entity_id}:RESOURCE_FINGERPRINT_INVALID")
+
+        if issues:
+            return self._terminal(
+                task,
+                SemanticTerminalOutcome.INSUFFICIENT_INFORMATION,
+                unresolved=tuple(issues),
+            )
+        return None
 
 
 @dataclass(frozen=True)
