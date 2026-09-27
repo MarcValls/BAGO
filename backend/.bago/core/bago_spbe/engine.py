@@ -118,18 +118,6 @@ class SemanticProceduralBehaviorEngine:
                 binding_conflicts.append(f"{entity.semantic_entity_id}:CONFLICTED")
             elif attempt.decision is not BindingDecision.BOUND or bound is None:
                 binding_issues.append(f"{entity.semantic_entity_id}:{attempt.decision.value}")
-            else:
-                if bound.binding_attempt_ref != attempt.binding_attempt_id:
-                    binding_issues.append(f"{entity.semantic_entity_id}:BINDING_ATTEMPT_MISMATCH")
-                    continue
-                if tuple(bound.binding_evidence) != tuple(attempt.binding_evidence):
-                    binding_issues.append(f"{entity.semantic_entity_id}:BINDING_EVIDENCE_MISMATCH")
-                    continue
-                if attempt.candidate_resources and bound.resource_identity not in attempt.candidate_resources:
-                    binding_issues.append(f"{entity.semantic_entity_id}:RESOURCE_NOT_IN_ACCEPTED_CANDIDATES")
-                    continue
-                if not bound.fingerprint_is_valid():
-                    binding_issues.append(f"{entity.semantic_entity_id}:RESOURCE_FINGERPRINT_INVALID")
         if binding_conflicts:
             return self._terminal(task, SemanticTerminalOutcome.UNRESOLVED_CONFLICT, unresolved=tuple(binding_conflicts))
         if binding_issues:
