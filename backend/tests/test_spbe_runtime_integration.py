@@ -41,6 +41,7 @@ from spbe_runtime import (
     BagoSPBEAdapter,
     SPBE_CONTRACT_SHA256,
     SPBE_SOURCE_PACK_SHA256,
+    SemanticProceduralBehaviorEngine as RuntimeSemanticProceduralBehaviorEngine,
 )
 from tool_registry import ToolRegistry
 
@@ -58,9 +59,11 @@ def test_spbe_runtime_reuses_behavior_pack_core_and_contract_identity():
 
     runtime_engine = spbe_runtime.SemanticProceduralBehaviorEngine
     pack_engine = bago_spbe.SemanticProceduralBehaviorEngine
-    assert runtime_engine.__module__ == "bago_spbe.engine"
+    assert issubclass(runtime_engine, pack_engine)
+    assert runtime_engine is RuntimeSemanticProceduralBehaviorEngine
+    assert runtime_engine.__module__ == "spbe_runtime"
     assert pack_engine.__module__ == "bago_spbe.engine"
-    assert Path(inspect.getfile(runtime_engine)).resolve() == Path(inspect.getfile(pack_engine)).resolve()
+    assert Path(inspect.getfile(pack_engine)).resolve() == Path(bago_spbe.__file__).with_name("engine.py").resolve()
     assert SPBE_CONTRACT_SHA256 == EXPECTED_CONTRACT_SHA
     assert SPBE_SOURCE_PACK_SHA256 == EXPECTED_PACK_SHA
 
@@ -448,3 +451,162 @@ def test_canonical_ci_clean_install_failure_is_fail_closed():
     index = workflow.index(command)
     following = workflow[index:index + 240]
     assert 'if ($LASTEXITCODE -ne 0) { throw "Clean-install gate failed." }' in following
+
+class _LatentFallbackCodexAdapter(_TerminalCodexCLIAdapter):
+    """Models Codex API mode with an authenticated CLI fallback available."""
+
+    def __init__(self, config=None):
+        super().__init__(config)
+        self.api_key = "test-api-key"
+        self.cli_authenticated = True
+        self.cli_path = "codex"
+
+    def _use_cli(self):
+        return False
+
+    def supports_tools(self):
+        return True
+
+
+def test_latent_codex_cli_fallback_is_blocked_before_router_and_internal_dispatch(tmp_path):
+    previous = session_manager.ADAPTER_REGISTRY.get("codex")
+    session_manager.ADAPTER_REGISTRY["codex"] = _LatentFallbackCodexAdapter
+    _LatentFallbackCodexAdapter.chat_calls = 0
+    with tempfile.TemporaryDirectory() as state_dir:
+        mgr = session_manager.SessionManager(
+            session_id="spbe-cli-latent-fallback-test",
+            provider="codex",
+            model="codex-test",
+            base_path=str(tmp_path),
+            state_root=state_dir,
+        )
+        try:
+            adapter = mgr._ensure_adapter()
+            assert mgr._provider_uses_workspace_cli(adapter) is False
+            assert mgr._provider_may_use_workspace_cli(adapter) is True
+
+            route = mgr.route_user_message("Revisa el proyecto completo")
+            assert route["reason"] == "workspace_cli_router_disabled"
+            assert _LatentFallbackCodexAdapter.chat_calls == 0
+
+            try:
+                mgr.send_internal("devuelve un JSON")
+            except RuntimeError as exc:
+                assert "workspace-capable CLI providers" in str(exc)
+            else:
+                raise AssertionError("latent Codex CLI fallback reached pre-SPBE internal dispatch")
+            assert _LatentFallbackCodexAdapter.chat_calls == 0
+        finally:
+            mgr.close()
+            if previous is None:
+                session_manager.ADAPTER_REGISTRY.pop("codex", None)
+            else:
+                session_manager.ADAPTER_REGISTRY["codex"] = previous
+
+
+def test_latent_codex_cli_fallback_is_bound_into_spbe_before_provider_dispatch(tmp_path):
+    previous = session_manager.ADAPTER_REGISTRY.get("codex")
+    session_manager.ADAPTER_REGISTRY["codex"] = _LatentFallbackCodexAdapter
+    _LatentFallbackCodexAdapter.chat_calls = 0
+    with tempfile.TemporaryDirectory() as state_dir:
+        mgr = session_manager.SessionManager(
+            session_id="spbe-cli-latent-terminal-test",
+            provider="codex",
+            model="codex-test",
+            base_path=str(tmp_path),
+            state_root=state_dir,
+        )
+        try:
+            mgr.analyze_reflexive_turn = _ambiguous_analysis
+            response = mgr.send(
+                "Revisa ese proyecto antes de continuar",
+                route_info={"kind": "chat", "command": "", "args": []},
+            )
+            assert "aclarar" in response.lower()
+            assert mgr.last_response_state == "needs_confirmation"
+            assert _LatentFallbackCodexAdapter.chat_calls == 0
+        finally:
+            mgr.close()
+            if previous is None:
+                session_manager.ADAPTER_REGISTRY.pop("codex", None)
+            else:
+                session_manager.ADAPTER_REGISTRY["codex"] = previous
+
+
+def _binding_task(bound: BoundResource) -> SemanticTask:
+    root = bago_spbe.IntentRoot.create("intent-binding-integrity", "usa exactamente este recurso")
+    entity = SemanticEntity("E-BIND", "file", ("config",), True)
+    attempt = ResourceBindingAttempt(
+        "ATTEMPT-1",
+        "E-BIND",
+        BindingDecision.BOUND,
+        ("workspace/config.json",),
+        ("evidence:stat", "evidence:digest"),
+    )
+    return SemanticTask(
+        task_id="task-binding-integrity",
+        intent_root=root,
+        objective="usar recurso enlazado",
+        requirements=(),
+        candidates=(),
+        completion_conditions=("done",),
+        entities=(entity,),
+        binding_attempts=(attempt,),
+        bound_resources=(bound,),
+    )
+
+
+def _valid_bound_resource(**overrides):
+    values = {
+        "bound_resource_id": "BOUND-1",
+        "semantic_entity_ref": "E-BIND",
+        "resource_kind": "file",
+        "resource_identity": "workspace/config.json",
+        "provider_or_owner_ref": "workspace",
+        "binding_attempt_ref": "ATTEMPT-1",
+        "binding_evidence": ("evidence:stat", "evidence:digest"),
+    }
+    values.update(overrides)
+    payload = "|".join(
+        (
+            values["resource_kind"],
+            values["resource_identity"],
+            values["provider_or_owner_ref"],
+        )
+    )
+    values.setdefault("resource_fingerprint", hashlib.sha256(payload.encode("utf-8")).hexdigest())
+    return BoundResource(**values)
+
+
+def test_runtime_extension_rejects_bound_resource_from_wrong_attempt():
+    engine = RuntimeSemanticProceduralBehaviorEngine()
+    result = engine.compile(_binding_task(_valid_bound_resource(binding_attempt_ref="ATTEMPT-OLD")))
+    assert isinstance(result, Terminal)
+    assert result.terminal_result.outcome is SemanticTerminalOutcome.INSUFFICIENT_INFORMATION
+    assert "E-BIND:BINDING_ATTEMPT_MISMATCH" in result.terminal_result.unresolved_conditions
+
+
+def test_runtime_extension_rejects_binding_evidence_or_fingerprint_drift():
+    engine = RuntimeSemanticProceduralBehaviorEngine()
+
+    evidence_drift = engine.compile(
+        _binding_task(_valid_bound_resource(binding_evidence=("evidence:old",)))
+    )
+    assert isinstance(evidence_drift, Terminal)
+    assert "E-BIND:BINDING_EVIDENCE_MISMATCH" in evidence_drift.terminal_result.unresolved_conditions
+
+    fingerprint_drift = engine.compile(
+        _binding_task(_valid_bound_resource(resource_fingerprint="stale"))
+    )
+    assert isinstance(fingerprint_drift, Terminal)
+    assert "E-BIND:RESOURCE_FINGERPRINT_INVALID" in fingerprint_drift.terminal_result.unresolved_conditions
+
+
+def test_runtime_extension_rejects_resource_outside_accepted_candidates():
+    engine = RuntimeSemanticProceduralBehaviorEngine()
+    result = engine.compile(
+        _binding_task(_valid_bound_resource(resource_identity="workspace/other.json"))
+    )
+    assert isinstance(result, Terminal)
+    assert "E-BIND:RESOURCE_NOT_IN_ACCEPTED_CANDIDATES" in result.terminal_result.unresolved_conditions
+
