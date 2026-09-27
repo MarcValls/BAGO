@@ -107,6 +107,27 @@
       ]
     },
     {
+      "path": "backend/.bago/chat/repl.py",
+      "mutations": [
+        {
+          "line": 33,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 34,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 35,
+          "call": "sys.path.insert"
+        },
+        {
+          "line": 43,
+          "call": "sys.path.insert"
+        }
+      ]
+    },
+    {
       "path": "backend/.bago/chat/repl_inventory.py",
       "mutations": [
         {
@@ -146,27 +167,6 @@
       "mutations": [
         {
           "line": 31,
-          "call": "sys.path.insert"
-        }
-      ]
-    },
-    {
-      "path": "backend/.bago/chat/repl.py",
-      "mutations": [
-        {
-          "line": 33,
-          "call": "sys.path.insert"
-        },
-        {
-          "line": 34,
-          "call": "sys.path.insert"
-        },
-        {
-          "line": 35,
-          "call": "sys.path.insert"
-        },
-        {
-          "line": 43,
           "call": "sys.path.insert"
         }
       ]
@@ -463,19 +463,19 @@
       ]
     },
     {
-      "path": "backend/bago_core/cli_execution.py",
+      "path": "backend/bago_core/cli.py",
       "mutations": [
         {
-          "line": 11,
+          "line": 16,
           "call": "sys.path.insert"
         }
       ]
     },
     {
-      "path": "backend/bago_core/cli.py",
+      "path": "backend/bago_core/cli_execution.py",
       "mutations": [
         {
-          "line": 16,
+          "line": 11,
           "call": "sys.path.insert"
         }
       ]
