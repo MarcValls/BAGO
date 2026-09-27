@@ -368,21 +368,39 @@ class BagoSPBEAdapter:
         )
 
     def _model_tool_names(self) -> tuple[str, ...]:
-        names: list[str] = []
+        """Return only tools canonically normalized as read-only model effects.
+
+        Compatibility registries may expose to_openai/execute_model_call
+        without iteration or model_effect_id. In that case, intersect their
+        advertised names with BAGO's canonical MODEL_TOOL_EFFECTS map instead
+        of treating the whole turn as having no eligible read capability.
+        """
+        names: set[str] = set()
         try:
-            iterator = iter(self.tool_registry)
+            for name, entry in iter(self.tool_registry):
+                if bool(getattr(entry, "deprecated", False)):
+                    continue
+                try:
+                    effect_id = self.tool_registry.model_effect_id(name)
+                except Exception:
+                    effect_id = None
+                if effect_id == "filesystem.read":
+                    names.add(str(name))
         except Exception:
-            return ()
-        for name, entry in iterator:
-            if bool(getattr(entry, "deprecated", False)):
-                continue
+            pass
+
+        if not names:
             try:
-                effect_id = self.tool_registry.model_effect_id(name)
+                from tool_registry import MODEL_TOOL_EFFECTS
+                advertised = self.tool_registry.to_openai()
+                for item in advertised or []:
+                    function = item.get("function") if isinstance(item, dict) else None
+                    name = str((function or {}).get("name") or "")
+                    if MODEL_TOOL_EFFECTS.get(name) == "filesystem.read":
+                        names.add(name)
             except Exception:
-                effect_id = None
-            if effect_id == "filesystem.read":
-                names.append(str(name))
-        return tuple(sorted(set(names)))
+                pass
+        return tuple(sorted(names))
 
     @staticmethod
     def _float(value: Any, *, default: float) -> float:
