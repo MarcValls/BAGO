@@ -7,6 +7,8 @@ it does not infer or refresh repository evidence.
 from __future__ import annotations
 
 import argparse
+import json
+import re
 from pathlib import Path
 
 import fitz
@@ -14,6 +16,7 @@ import fitz
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "output" / "pdf" / "BAGO_contexto_auditoria_ecosistema_2026-09-27.pdf"
+MIND_MAP_DATA = ROOT / "docs" / "architecture" / "bago_mind_map.data.json"
 PAGE_W, PAGE_H = 842, 595  # A4 landscape, points
 MARGIN = 42
 FONT = Path(r"C:\Windows\Fonts\segoeui.ttf")
@@ -197,25 +200,87 @@ def build(sha: str, output: Path):
 
     # 4 - Mental map.
     p=r.page("Mapa mental de BAGO", "03 / ARQUITECTURA")
-    center=(421,299)
-    p.draw_circle(center,52,color=None,fill=NAVY,overlay=True)
-    r.text(p,(378,285,464,313),"BAGO\n4.11.1",10,WHITE,True,align=1,lineheight=1.0)
-    branches=[
-      ((192,142),"SESION + CONTEXTO","ContextStore, workspace, memoria",BLUE,PALE_BLUE),
-      ((421,122),"PROVIDERS + MODELOS","adapters, discovery, switching",CYAN,PALE_CYAN),
-      ((650,142),"CAPACIDADES","tools, agentes, planes",VIOLET,PALE_VIOLET),
-      ((192,444),"EVIDENCIA","claims, receipts, candidate identity",GREEN,PALE_GREEN),
-      ((421,476),"GOBIERNO","AuthorizationBoundary, Permit",AMBER,PALE_AMBER),
-      ((650,444),"EFECTOS","Gateway, owners, sinks",RED,PALE_RED),
-    ]
-    for (x,y),title,sub,color,fill in branches:
-        p.draw_line(center,(x,y),color=(0.70,0.76,0.83),width=1.1,overlay=True)
-        p.draw_circle((x,y),8,color=None,fill=color,overlay=True)
-        box=fitz.Rect(x-98,y-35,x+98,y+33)
-        p.draw_rect(box,color=(0.86,0.89,0.93),fill=fill,radius=0.08,overlay=True)
-        r.text(p,(x-88,y-24,x+88,y-6),title,8.4,color,True,align=1)
-        r.text(p,(x-88,y+1,x+88,y+24),sub,7.5,INK,False,align=1)
-    r.text(p,(42,534,800,553),"Superficies: CLI / API local / React / Electron. La interfaz muestra decisiones del backend; no concede autoridad por si misma.",8.3,MUTED)
+    p.draw_rect(fitz.Rect(42,105,800,167),color=(0.86,0.89,0.93),fill=WHITE,radius=0.06,overlay=True)
+    p.draw_rect(fitz.Rect(42,105,48,167),color=None,fill=CYAN,overlay=True)
+    r.text(p,(60,116,780,139),"MAPA CANONICO COMPLETO · 12 RAMAS · 107 NODOS",12,NAVY,True)
+    r.text(p,(60,143,780,160),"Fuente: docs/architecture/bago_mind_map.data.json. Anexo final: ramas completas con jerarquia, estado y detalle.",8.7,MUTED)
+    map_data=json.loads(MIND_MAP_DATA.read_text(encoding="utf-8"))
+    map_branches=map_data["branches"]
+    palette=[(BLUE,PALE_BLUE),(CYAN,PALE_CYAN),(VIOLET,PALE_VIOLET),(GREEN,PALE_GREEN),
+             (AMBER,PALE_AMBER),(RED,PALE_RED)]
+    col_x=[42,431]
+    for i,b in enumerate(map_branches):
+        col=i%2; row=i//2; x=col_x[col]; y=184+row*55
+        accent,fill=palette[i%len(palette)]
+        p.draw_rect(fitz.Rect(x,y,x+369,y+43),color=(0.86,0.89,0.93),fill=fill,radius=0.06,overlay=True)
+        p.draw_rect(fitz.Rect(x,y,x+5,y+43),color=None,fill=accent,overlay=True)
+        r.text(p,(x+14,y+6,x+352,y+21),b["title"],9.1,NAVY,True)
+        r.text(p,(x+14,y+24,x+352,y+38),b["summary"],7.3,INK)
+    r.text(p,(42,534,800,553),"El anexo final despliega las 12 ramas; el mapa conserva su estado y no lo sustituye por el veredicto de auditoría.",8.3,MUTED)
+
+    # 4a - Full canonical mind map, one complete branch per page.
+    status_colors={"IMPLEMENTADO":GREEN,"ACTIVO":CYAN,"OWNER":BLUE,"PROPOSED":AMBER,
+                   "ABIERTO":RED,"EVIDENCIA":VIOLET,"VERIFICADO":GREEN,"PENDIENTE":AMBER}
+    def flatten_nodes(nodes, depth=0, parent=""):
+        flattened=[]
+        for node in nodes:
+            title=node.get("title", "(sin titulo)")
+            flattened.append((depth,parent,title,node.get("status",""),node.get("detail","")))
+            flattened.extend(flatten_nodes(node.get("children",[]),depth+1,title))
+        return flattened
+    map_body_font=fitz.Font(fontfile=str(FONT))
+    def wrapped_line_count(value, width, fontsize):
+        if not value:
+            return 1
+        lines=1; current=""
+        for word in value.split():
+            candidate=f"{current} {word}".strip()
+            if current and map_body_font.text_length(candidate,fontsize=fontsize)>width:
+                lines+=1; current=word
+            else:
+                current=candidate
+        return lines
+    map_appendix_start=len(r.doc)
+    for branch_no,branch in enumerate(map_branches,1):
+        accent,fill=palette[(branch_no-1)%len(palette)]
+        nodes=flatten_nodes(branch.get("children",[]))
+        chunks=[nodes[i:i+8] for i in range(0,len(nodes),8)] or [[]]
+        for part_no,chunk in enumerate(chunks,1):
+            title=branch["title"] if len(chunks)==1 else f"{branch['title']} · parte {part_no}/{len(chunks)}"
+            p=r.page(title,f"04 / MAPA COMPLETO · RAMA {branch_no:02d} DE {len(map_branches):02d}")
+            r.text(p,(42,101,800,124),branch.get("summary",""),10,accent,True)
+            p.draw_line((42,132),(800,132),color=(0.86,0.89,0.93),width=0.8,overlay=True)
+            mid=(len(chunk)+1)//2
+            columns=[chunk[:mid],chunk[mid:]]
+            for ci,items in enumerate(columns):
+                x=42 if ci==0 else 431; y=146
+                for depth,parent,node_title,status,detail in items:
+                    indent=min(depth*10,28)
+                    body=detail or (f"Subnodo de {parent}." if parent else "")
+                    title_x=x+10+indent
+                    title_right=x+354
+                    body_size=6.9
+                    lines=wrapped_line_count(body,title_right-title_x,body_size)
+                    h=max(43,34+lines*8)
+                    if y+h>530:
+                        raise ValueError(f"Mind-map branch overflow: {branch['title']} column {ci+1}")
+                    p.draw_rect(fitz.Rect(x+indent,y,x+369,y+h),color=(0.88,0.90,0.93),fill=WHITE,radius=0.05,overlay=True)
+                    p.draw_rect(fitz.Rect(x+indent,y,x+3+indent,y+h),color=None,fill=accent,overlay=True)
+                    title_size=8.0 if len(node_title)<37 else 7.3
+                    r.text(p,(title_x,y+5,title_right,y+17),node_title,title_size,NAVY,True)
+                    if status:
+                        status_color=status_colors.get(status.upper(),accent)
+                        r.text(p,(title_x,y+19,title_right,y+29),status.upper(),6.2,status_color,True)
+                        body_y=y+30
+                    else:
+                        body_y=y+19
+                    if body:
+                        result=r.text(p,(title_x,body_y,title_right,y+h-4),body,body_size,INK,lineheight=1.0)
+                        if result<0:
+                            raise ValueError(f"Mind-map detail overflow: {branch['title']} / {node_title}")
+                    y+=h+5
+            r.text(p,(42,536,800,554),"Fuente canónica: docs/architecture/bago_mind_map.data.json · Estado del nodo conservado tal como está declarado.",7.2,MUTED)
+    map_appendix_pages=len(r.doc)-map_appendix_start
 
     # 5 - Code topology.
     p=r.page("Arbol de codigo y ownership", "04 / AUDITORIA DE CODIGO")
@@ -437,6 +502,14 @@ def build(sha: str, output: Path):
     )
     r.text(p,(52,278,790,489),refs,9,INK,lineheight=1.25)
     r.text(p,(42,520,800,542),"Generado en el checkout BAGO; confirmar el mismo SHA y reejecutar gates antes de citar como evidencia operativa.",8.1,MUTED)
+    # Keep the core report pagination stable; the full structured map is an appendix.
+    for _ in range(map_appendix_pages):
+        r.doc.move_page(map_appendix_start,-1)
+    for page_index,page in enumerate(r.doc):
+        page.draw_rect(fitz.Rect(PAGE_W-MARGIN-43,PAGE_H-27,PAGE_W-MARGIN+3,PAGE_H-3),
+                       color=None,fill=NAVY if page_index==0 else PAPER,overlay=True)
+        page.insert_text((PAGE_W-MARGIN-30,PAGE_H-17),f"{page_index+1:02d}",
+                         fontname="bold",fontsize=8,color=WHITE if page_index==0 else INK,overlay=True)
     r.save()
 
 
@@ -449,6 +522,22 @@ def main():
     print(f"WROTE {args.output.relative_to(ROOT) if args.output.is_relative_to(ROOT) else args.output}")
     check=fitz.open(args.output)
     print(f"PAGES {len(check)} BYTES {args.output.stat().st_size}")
+    map_data=json.loads(MIND_MAP_DATA.read_text(encoding="utf-8"))
+    def titles(nodes):
+        values=[]
+        for node in nodes:
+            values.append(node.get("title",""))
+            values.extend(titles(node.get("children",[])))
+        return values
+    map_titles=titles(map_data["branches"])
+    def normalized(value):
+        return re.sub(r"[^a-z0-9]", "", value.casefold())
+    pdf_text=normalized("\n".join(page.get_text() for page in check))
+    missing_titles=[title for title in map_titles if normalized(title) not in pdf_text]
+    if missing_titles:
+        raise SystemExit(f"mind-map nodes missing from PDF: {missing_titles}")
+    print(f"MIND_MAP_NODES {len(map_titles)}")
+    print("MIND_MAP_CHECK PASS")
     for i,page in enumerate(check):
         text=page.get_text()
         if len(text.strip())<120:
