@@ -1,0 +1,17 @@
+{
+  "schema": "bago.spbe.pack-provenance.v1",
+  "source_pack": "BAGO_SPBE_BEHAVIOR_ENGINE_PACK_v0.1.zip",
+  "source_pack_sha256": "f553175deb048855b34342ca1f5d9f114f88d79f30a00a4648b89c5cb7b49340",
+  "frozen_contract": "SEMANTIC_PROCEDURAL_BEHAVIOR_ENGINE_CONTRACT v0.5-FIX5",
+  "frozen_contract_sha256": "2e342c242c8f77600cfe3dd6a7b1a1818fb35cbf64105aa32b5a578709fe703a",
+  "source_module_sha256": {
+    "__init__.py": "90203d0550d0f49753f1fbff201ec4bfceb9816a5cdfc8ba72de12381a3b37d5",
+    "cycles.py": "341c60fc63affb7d553010a925cffb679bd2464f6578a9042e0f4ce09ea16203",
+    "eligibility.py": "865f4ceec118d328e9c8f5ed5ccb26f5143818cdaf7a08a758efcf4bd8933b7e",
+    "engine.py": "e79f82153e5f0371015429568dda3066995535991db1d340b4375688dc0430c3",
+    "model.py": "f002f8de5d00dd7db1b46d77b246d86052570e849c290ad8bbc479317faed0b9",
+    "pipeline.py": "4c57da9004b2361da25d90aeda4781079f9c1d855366d3c1d499ca1af6344607",
+    "ports.py": "538466703c29d1d85472275cccbe02d1eca14a07b088585b618d1c52489dd6ea",
+    "resolution.py": "d816123c777a329c36dc2efa70ced08c893762f796862de55ef5d7f9caacf478"
+  }
+}
