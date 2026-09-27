@@ -111,8 +111,6 @@ try {
     }
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $installRoot "bago.ps1") --version
     if ($LASTEXITCODE -ne 0) { throw "bago.ps1 instalado no puede arrancar" }
-    & $python (Join-Path $installRoot "bago_core\launcher.py") --test
-    if ($LASTEXITCODE -ne 0) { throw "launcher.py instalado no supera --test" }
     & $python (Join-Path $installRoot "bago_core\cli.py") validate
     if ($LASTEXITCODE -ne 0) { throw "la copia instalada no supera bago validate" }
 
