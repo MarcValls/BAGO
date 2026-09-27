@@ -245,21 +245,42 @@ def build(sha: str, output: Path):
 
     # 7 - semantic tool/model eligibility.
     p=r.page("Modelos y herramientas: elegibilidad semantica", "06 / ROUTING")
-    steps=[("INTENCION",BLUE),("OPERACION",CYAN), ("CAPACIDADES COMPATIBLES",VIOLET), ("CANDIDATO ELEGIBLE",GREEN), ("AUTORIZACION",AMBER), ("EJECUCION",RED)]
-    xx=42
-    for i,(lab,col) in enumerate(steps):
-        w=114 if i!=2 else 142
-        p.draw_rect(fitz.Rect(xx,112,xx+w,151),color=None,fill=col,radius=0.08,overlay=True)
-        r.text(p,(xx+6,124,xx+w-6,142),lab,7.2,WHITE,True,align=1)
-        if i<len(steps)-1:
-            p.draw_line((xx+w+2,132),(xx+w+15,132),color=MUTED,width=1.4,overlay=True)
-        xx+=w+22
-    r.card(p,42,182,369,193,"Cuatro estados distintos",
+    columns=[
+        (42, BLUE, "SELECCION SEMANTICA", [
+            ("1  INTENCION", "Que resultado pide el usuario."),
+            ("2  OPERACION", "Que accion y recurso hacen falta."),
+            ("3  MATCH", "Capacidades y restricciones compatibles."),
+            ("4  ELEGIBLE", "Candidato valido para esta tarea."),
+        ]),
+        (431, VIOLET, "AUTORIZACION Y EJECUCION", [
+            ("5  AUTHORIZATION", "Decision vigente para la operacion."),
+            ("6  PERMIT", "Sesion, recurso y operacion ligados."),
+            ("7  GATEWAY", "Owner resuelto por el servidor."),
+            ("8  EFFECT + RECEIPT", "Efecto material y resultado trazable."),
+        ]),
+    ]
+    for x, accent, heading, items in columns:
+        p.draw_rect(fitz.Rect(x, 103, x + 369, 134), color=None, fill=accent,
+                    radius=0.08, overlay=True)
+        r.text(p, (x + 12, 112, x + 357, 129), heading, 8.3, WHITE, True, align=1)
+        y = 143
+        for index, (label, desc) in enumerate(items):
+            p.draw_rect(fitz.Rect(x, y, x + 369, y + 36),
+                        color=(0.87, 0.90, 0.94), fill=WHITE, radius=0.06, overlay=True)
+            p.draw_rect(fitz.Rect(x, y, x + 5, y + 36), color=None, fill=accent, overlay=True)
+            r.text(p, (x + 15, y + 5, x + 145, y + 30), label, 7.4, accent, True)
+            r.text(p, (x + 151, y + 5, x + 357, y + 30), desc, 7.6, INK)
+            if index < len(items) - 1:
+                connector_x = x + 184
+                p.draw_line((connector_x, y + 36), (connector_x, y + 43),
+                            color=(0.67, 0.73, 0.81), width=1.0, overlay=True)
+            y += 43
+    r.card(p,42,337,369,132,"Cuatro estados distintos",
            "CAPABLE: sabe ejecutar una clase de trabajo.\nELIGIBLE: encaja con la operacion, el recurso, los requisitos y las restricciones.\nAUTHORIZED: existe autoridad actual y ligada a esta operacion.\nEXECUTABLE: la capacidad, elegibilidad, autorizacion, runtime y precondiciones coinciden.",VIOLET,PALE_VIOLET,body_size=9.5)
-    r.card(p,431,182,369,193,"Equidad entre herramientas/modelos",
+    r.card(p,431,337,369,132,"Equidad entre herramientas/modelos",
            "Una puntuacion acumulada puede premiar al primer candidato usado y contaminarse por historial, aprobacion previa o resultados. Las comparaciones requieren presupuesto/criterios equivalentes, pruebas por combinacion modelo-herramienta y evaluaciones genericas separadas de pruebas por tarea.",BLUE,PALE_BLUE,body_size=9.5)
-    r.card(p,42,399,758,99,"Regla de seguridad",
-           "La mejor puntuacion o el historial de exito puede seleccionar un candidato, nunca conceder permiso. Seleccion semantica precede autorizacion; la autorizacion se recalcula para el recurso y la operacion actuales.",RED,PALE_RED)
+    r.card(p,42,477,758,71,"Regla de seguridad",
+           "La mejor puntuacion o el historial de exito puede seleccionar un candidato, nunca conceder permiso. Seleccion semantica precede autorizacion; la autorizacion se recalcula para el recurso y la operacion actuales.",RED,PALE_RED,body_size=8.2)
 
     # 8 - Gateway and effects.
     p=r.page("Frontera de ejecucion material", "07 / SEGURIDAD")
@@ -432,6 +453,14 @@ def main():
         text=page.get_text()
         if len(text.strip())<120:
             raise SystemExit(f"page {i+1} appears empty")
+        bounds=page.rect
+        for word in page.get_text("words"):
+            if word[0] < 0 or word[1] < 0 or word[2] > bounds.width or word[3] > bounds.height:
+                raise SystemExit(f"text outside page {i+1}: {word[4]!r}")
+        for drawing in page.get_drawings():
+            rect=drawing["rect"]
+            if rect.x0 < 0 or rect.y0 < 0 or rect.x1 > bounds.width or rect.y1 > bounds.height:
+                raise SystemExit(f"graphic outside page {i+1}: {rect}")
     print("TEXT_CHECK PASS")
 
 
