@@ -91,6 +91,11 @@ class SessionTurnMixin:
     def send_internal(self, user_message: str, **kwargs: Any) -> str:
         """Run a structured helper prompt without polluting chat history or receipts."""
         adapter = self._ensure_adapter()
+        if self._provider_may_use_workspace_cli(adapter):
+            raise RuntimeError(
+                "Internal helper dispatch is blocked for workspace-capable CLI providers; "
+                "route the request through the governed session turn so SPBE runs first."
+            )
         system = self.effective_system_prompt() + (
             "\n\nINTERNAL BAGO ANALYSIS\n"
             "This is an internal structured request. Return exactly the format requested by the prompt. "
@@ -162,6 +167,15 @@ class SessionTurnMixin:
         router_messages.append({"role": "user", "content": text})
         try:
             adapter = self._ensure_adapter()
+            if self._provider_may_use_workspace_cli(adapter):
+                return {
+                    "kind": "chat",
+                    "command": "",
+                    "args": [],
+                    "confidence": 0.0,
+                    "reason": "workspace_cli_router_disabled",
+                    "source": "policy",
+                }
             response = adapter.chat(
                 router_messages,
                 self.model,
@@ -300,6 +314,34 @@ class SessionTurnMixin:
             question_id=question_id,
         ).to_dict()
 
+    def _provider_uses_workspace_cli(self, adapter: Any) -> bool:
+        """Return True when the provider is currently using a workspace-capable CLI."""
+        try:
+            return self.provider in {"copilot", "codex"} and bool(adapter._use_cli())
+        except Exception:
+            return False
+
+    def _provider_may_use_workspace_cli(self, adapter: Any) -> bool:
+        """Fail closed when this provider can transition to a workspace-capable CLI.
+
+        Codex can begin on the API transport and switch to its authenticated CLI
+        after an HTTP 401. Pre-SPBE helper/router calls therefore must treat that
+        fallback as workspace-capable even when _use_cli() is currently False.
+        """
+        if self.provider not in {"copilot", "codex"}:
+            return False
+        if self._provider_uses_workspace_cli(adapter):
+            return True
+        if self.provider == "codex":
+            try:
+                return bool(
+                    getattr(adapter, "cli_authenticated", False)
+                    and getattr(adapter, "cli_path", "")
+                )
+            except Exception:
+                return False
+        return False
+
     def _compile_spbe_turn(
         self,
         user_message: str,
@@ -307,21 +349,62 @@ class SessionTurnMixin:
         intent: str,
         *,
         tool_requested: bool,
+        workspace_transport_requested: bool = False,
     ):
-        """Compile one turn through SPBE; runtime errors fail closed for tools."""
+        """Compile one turn through SPBE; runtime errors fail closed."""
         try:
             return BagoSPBEAdapter(self.tool_registry).compile_turn(
                 user_message=user_message,
                 reflexive_analysis=reflexive_analysis,
                 intent=intent,
                 tool_requested=tool_requested,
+                workspace_transport_requested=workspace_transport_requested,
             )
         except Exception as exc:
             return BagoSPBEAdapter.fail_closed(
                 user_message=user_message,
                 reflexive_analysis=reflexive_analysis,
                 error=exc,
+                workspace_transport_requested=workspace_transport_requested,
             )
+
+    def _finalize_spbe_terminal_turn(
+        self,
+        *,
+        user_message: str,
+        reflexive_analysis: dict[str, Any],
+        spbe_decision: Any,
+        streaming: bool = False,
+    ) -> str:
+        """Persist a semantic terminal without dispatching any provider/tool path."""
+        response = spbe_decision.terminal_response()
+        spbe_metadata = spbe_decision.to_metadata()
+        outcome = str((spbe_metadata.get("result") or {}).get("outcome") or "")
+        needs_confirmation = outcome in {"AMBIGUOUS_INTENT", "INSUFFICIENT_INFORMATION"}
+        self.last_response_state = "needs_confirmation" if needs_confirmation else "blocked"
+        if needs_confirmation:
+            self.last_clarification = {
+                "question": response,
+                "options": [],
+                "original": user_message,
+                "source": "spbe_terminal",
+            }
+        self.store.append_user(user_message, provider=self.provider, model=self.model)
+        self.store.append_response(
+            response,
+            provider=self.provider,
+            model=self.model,
+            metadata={
+                "finish_reason": "spbe_terminal",
+                "response_state": self.last_response_state,
+                "streaming": bool(streaming),
+                "spbe_runtime": spbe_metadata,
+                "reflexive_interpretation": reflexive_analysis,
+                "provider_dispatched": False,
+                "tool_calls_used": False,
+            },
+        )
+        return response
 
     @staticmethod
     def _reflexive_prompt_block(analysis: dict[str, Any]) -> str:
@@ -581,6 +664,8 @@ class SessionTurnMixin:
                 "intent": intent,
                 "confidence": 0.0,
             }
+        uses_cli_bridge = self._provider_uses_workspace_cli(adapter)
+        may_use_cli_bridge = self._provider_may_use_workspace_cli(adapter)
         spbe_tool_requested = (
             self._tool_calling_enabled()
             and adapter.supports_tools()
@@ -588,13 +673,23 @@ class SessionTurnMixin:
             and should_enable_tools(intent)
             and not _requests_no_execution(user_message)
         )
+        spbe_workspace_transport_requested = (
+            may_use_cli_bridge and not _requests_no_execution(user_message)
+        )
         spbe_decision = self._compile_spbe_turn(
             user_message,
             reflexive_analysis,
             intent,
             tool_requested=spbe_tool_requested,
+            workspace_transport_requested=spbe_workspace_transport_requested,
         )
         spbe_metadata = spbe_decision.to_metadata()
+        if spbe_decision.is_terminal:
+            return self._finalize_spbe_terminal_turn(
+                user_message=user_message,
+                reflexive_analysis=reflexive_analysis,
+                spbe_decision=spbe_decision,
+            )
 
         reflexive_prompt_block = self._reflexive_prompt_block(reflexive_analysis)
         dynamic_system = self.effective_system_prompt()
@@ -635,14 +730,8 @@ class SessionTurnMixin:
         if gabo_block:
             dynamic_system += "\n\n" + gabo_block
 
-        # CLI-backed providers run their own workspace tools. Keep their
-        # envelope compact, but never tell them to avoid edits: a BAGO task
-        # may explicitly require the CLI to create or validate project files.
-        uses_cli_bridge = False
-        try:
-            uses_cli_bridge = self.provider in {"copilot", "codex"} and bool(adapter._use_cli())
-        except Exception:
-            uses_cli_bridge = False
+        # CLI-backed providers run their own workspace tools only after SPBE
+        # has returned ProposalReady. Authorization remains external to SPBE.
         uses_compact_human_bridge = uses_cli_bridge or self.provider == "ollama-local"
         if uses_compact_human_bridge and task_contract_block:
             compact_blocks = [
@@ -650,6 +739,7 @@ class SessionTurnMixin:
                 "When the user requests project changes or validation, use your workspace tools to execute them and then report the result concisely.",
                 "Do not return an internal JSON contract.",
                 reflexive_prompt_block,
+                spbe_decision.prompt_block(),
             ]
             dynamic_system = "\n\n".join(block for block in compact_blocks if block)
 
@@ -1095,11 +1185,54 @@ class SessionTurnMixin:
         return final_content
 
     def orchestrate(self, user_message: str, providers: list[str] | None = None) -> dict[str, dict[str, Any]]:
-        """Send the same prompt to active bridges and persist all responses."""
+        """Send the same prompt to active bridges under the same SPBE terminal gate."""
         selected = normalize_bridges(providers or self.active_bridges, primary=self.provider)
         history = self.store.get_history()
         responses: dict[str, dict[str, Any]] = {}
+        intent = classify_intent(user_message)
+        try:
+            reflexive_analysis = self.analyze_reflexive_turn(user_message)
+        except Exception as exc:
+            reflexive_analysis = {
+                "ok": False,
+                "error": str(exc),
+                "literal_reading": user_message,
+                "intent": intent,
+                "confidence": 0.0,
+            }
+        spbe_decision = self._compile_spbe_turn(
+            user_message,
+            reflexive_analysis,
+            intent,
+            tool_requested=False,
+            workspace_transport_requested=True,
+        )
+        spbe_metadata = spbe_decision.to_metadata()
         self.store.append_user(user_message, provider="orchestrator", model="")
+        if spbe_decision.is_terminal:
+            terminal_response = spbe_decision.terminal_response()
+            for provider_name in selected:
+                responses[provider_name] = {
+                    "ok": False,
+                    "content": terminal_response,
+                    "model": "",
+                    "spbe_terminal": True,
+                }
+                self.store.append_response(
+                    terminal_response,
+                    provider=provider_name,
+                    model="",
+                    metadata={
+                        "orchestrated": True,
+                        "error": False,
+                        "finish_reason": "spbe_terminal",
+                        "spbe_runtime": spbe_metadata,
+                        "provider_dispatched": False,
+                    },
+                )
+            return responses
+
+        orchestration_system = self.effective_system_prompt() + "\n\n" + spbe_decision.prompt_block()
         for provider_name in selected:
             cls = ADAPTER_REGISTRY[provider_name]
             adapter = cls(config=self._build_adapter_config(provider_name))
@@ -1107,14 +1240,19 @@ class SessionTurnMixin:
             target_model = self.model if provider_name == self.provider else (models[0].model_id if models else self.model)
             normalized = self.msg_adapter.to_provider(history, provider_name)
             normalized.append({"role": "user", "content": user_message})
-            response = adapter.chat(normalized, target_model, system=self.effective_system_prompt(), tools=None)
+            response = adapter.chat(normalized, target_model, system=orchestration_system, tools=None)
             failed = bool(response.metadata.get("error")) or response.finish_reason == "error"
             responses[provider_name] = {"ok": not failed, "content": response.content, "model": response.model_used or target_model}
             self.store.append_response(
                 response.content,
                 provider=provider_name,
                 model=response.model_used or target_model,
-                metadata={"orchestrated": True, "error": failed, "finish_reason": response.finish_reason},
+                metadata={
+                    "orchestrated": True,
+                    "error": failed,
+                    "finish_reason": response.finish_reason,
+                    "spbe_runtime": spbe_metadata,
+                },
             )
             self.store.record_tokens(
                 provider=provider_name,
@@ -1158,6 +1296,8 @@ class SessionTurnMixin:
             }
         self.last_stream_interpretation = reflexive_analysis
 
+        uses_cli_bridge = self._provider_uses_workspace_cli(adapter)
+        may_use_cli_bridge = self._provider_may_use_workspace_cli(adapter)
         stream_tool_requested = (
             self._tool_calling_enabled()
             and adapter.supports_tools()
@@ -1175,8 +1315,19 @@ class SessionTurnMixin:
             reflexive_analysis,
             intent,
             tool_requested=False,
+            workspace_transport_requested=(
+                may_use_cli_bridge and not _requests_no_execution(user_message)
+            ),
         )
         spbe_metadata = spbe_decision.to_metadata()
+        if spbe_decision.is_terminal:
+            yield self._finalize_spbe_terminal_turn(
+                user_message=user_message,
+                reflexive_analysis=reflexive_analysis,
+                spbe_decision=spbe_decision,
+                streaming=True,
+            )
+            return
 
         start = time.time()
 

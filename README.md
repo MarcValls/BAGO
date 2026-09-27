@@ -178,6 +178,8 @@ En un worktree Git, `npm install`/`npm ci` activa automáticamente `core.hooksPa
 
 Además, `Canonical CI` ejecuta `scripts/verify_readme_impact.py`. Este gate inspecciona el diff del PR/push y exige que `README.md` cambie cuando se modifican superficies públicas que pueden volver obsoleto el texto explicativo —arquitectura/seguridad, fronteras de ejecución, instalación/release/lifecycle, comandos o entrypoints de documentación— aunque ese dato no forme parte del bloque generado.
 
+El smoke de instalación limpia dentro de `Canonical CI` es fail-closed: si `backend/scripts/test_clean_install.ps1` termina con un código distinto de cero, el bloque `Validate and test backend` aborta inmediatamente y no puede quedar verde por la ejecución posterior de otros comandos.
+
 Fuentes actualmente enlazadas:
 
 - `release_version.txt` — versión canónica

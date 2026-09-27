@@ -296,6 +296,7 @@ def test_vbscript_and_nsis_scanners_detect_installer_effects(tmp_path: Path) -> 
     installer = tmp_path / "installer.nsi"
     installer.write_text(
         "; DeleteRegKey HKCU legacy\n"
+        "InitPluginsDir\n"
         "ExecWait 'powershell.exe -File install.ps1'\n"
         "File /oname=payload.zip payload.zip\n"
         "WriteRegStr HKCU Software\\BAGO Version 1\n"
@@ -309,10 +310,11 @@ def test_vbscript_and_nsis_scanners_detect_installer_effects(tmp_path: Path) -> 
         ("install.vbs", 2, "process.execute"),
         ("install.vbs", 3, "filesystem.write"),
         ("install.vbs", 4, "system.configuration.write"),
-        ("installer.nsi", 2, "process.execute"),
-        ("installer.nsi", 3, "filesystem.write"),
-        ("installer.nsi", 4, "system.configuration.write"),
-        ("installer.nsi", 5, "filesystem.delete"),
+        ("installer.nsi", 2, "filesystem.write"),
+        ("installer.nsi", 3, "process.execute"),
+        ("installer.nsi", 4, "filesystem.write"),
+        ("installer.nsi", 5, "system.configuration.write"),
+        ("installer.nsi", 6, "filesystem.delete"),
     ]
 
 

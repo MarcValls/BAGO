@@ -234,7 +234,7 @@ VBSCRIPT_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
 
 NSIS_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"^\s*(?:Exec|ExecWait|ExecShell)\b", re.I), "process.execute", "high"),
-    (re.compile(r"^\s*(?:File|SetOutPath|CopyFiles|Rename|CreateDirectory|CreateShortcut|WriteUninstaller)\b", re.I), "filesystem.write", "high"),
+    (re.compile(r"^\s*(?:InitPluginsDir|File|SetOutPath|CopyFiles|Rename|CreateDirectory|CreateShortcut|WriteUninstaller)\b", re.I), "filesystem.write", "high"),
     (re.compile(r"^\s*(?:Delete|RMDir)\b", re.I), "filesystem.delete", "high"),
     (re.compile(r"^\s*(?:WriteReg\w*|DeleteRegKey|DeleteRegValue)\b", re.I), "system.configuration.write", "high"),
 )
