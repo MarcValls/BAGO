@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from bago_spbe import (
+    BindingDecision,
     BoundedCycleContract,
     BoundResource,
     CapabilityCandidate,
