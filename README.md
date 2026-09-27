@@ -65,13 +65,17 @@ publicación y alcance. NSIS + helper suman **43 operaciones detectadas** en
 la ruta oficial, antes de contar terminaciones PowerShell que el scanner omite
 o clasifica fuera de runtime.
 
-La captura anterior de otro worktree reportó 4.503 hallazgos. La diferencia
-frente a esta captura se reconcilia exactamente en **2.787 findings** de
-`derived_release_snapshot` bajo `backend/release/v4/current` y
-`releases/compiled/runtime`, más 11 hallazgos de scripts editoriales locales
-ausentes de `main`. Ambas capturas dan **265 runtime-unbound**. Los findings de
-snapshots compilados son `nonruntime_effect`; no representan reparaciones
-runtime independientes.
+El [recibo reproducible y las salidas completas normalizadas](docs/architecture/evidence/sink-inventory/SINK_INVENTORY_RECONCILIATION_2026-09-27.md)
+están en `docs/architecture/evidence/sink-inventory/`.
+Al comparar el candidato limpio con el otro worktree (HEAD, scanner, raíces,
+huellas de entradas y hashes constan en el recibo), la reconciliación exacta es
+**4.503 = 1.705 + 2.787 `derived_release_snapshot` + 12 hallazgos
+`build_release_admin` añadidos − 1 hallazgo `build_release_admin` retirado**.
+El neto de 11 hallazgos editoriales procede de dos scripts locales ausentes de
+`main`; el detalle de archivo/línea está en el recibo. Ambas capturas dan
+**265 runtime-unbound**. Los hallazgos de snapshots compilados son
+`nonruntime_effect`; no representan reparaciones runtime independientes ni se
+han copiado los árboles `current` o `compiled` al repositorio.
 
 ```mermaid
 flowchart LR
