@@ -66,10 +66,13 @@ def test_clean_install_smoke_is_part_of_canonical_ci() -> None:
     assert 'os.environ.get("GITHUB_ACTIONS", "").lower() != "true"' in harness_text
     assert "clean-install destination must stay under RUNNER_TEMP" in harness_text
     assert "function Restore-PythonPath" in smoke_text
+    install_call = smoke_text.index("--action install")
     repair_call = smoke_text.index("--action repair")
+    assert "--skip-tests" in smoke_text[install_call:repair_call]
     restore_after_repair = smoke_text.index("Restore-PythonPath", repair_call)
+    installed_launcher = smoke_text.index('Join-Path $installRoot "bago_core\\launcher.py") --test')
     installed_validate = smoke_text.index('Join-Path $installRoot "bago_core\\cli.py") validate')
-    assert restore_after_repair < installed_validate
+    assert restore_after_repair < installed_launcher < installed_validate
 
 
 def test_install_selection_reader_accepts_windows_powershell_bom(tmp_path: Path) -> None:
