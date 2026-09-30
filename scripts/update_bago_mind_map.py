@@ -35,7 +35,7 @@ def _render(data: dict) -> str:
         raise ValueError("HTML must contain exactly one pair of BAGO map data markers")
     start = html.index(DATA_START) + len(DATA_START)
     end = html.index(DATA_END, start)
-    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     rendered = html[:start] + payload + html[end:]
     _validate_document(rendered)
     return rendered
@@ -47,6 +47,18 @@ def _validate_document(html: str) -> None:
     required = (
         "const lines = document.getElementById('lines');",
         "const nodesLayer = document.getElementById('nodes');",
+        "let DATA = /* BAGO_MAP_DATA_START */",
+        "viewport.addEventListener('pointerdown'",
+        "window.addEventListener('pointermove'",
+        "window.addEventListener('pointerup'",
+        "event.ctrlKey||event.metaKey",
+        "viewport.addEventListener('wheel'",
+        "function saveDataFile()",
+        "document.getElementById('addComment').onclick",
+        "id=\"coordinationPanel\"",
+        "document.getElementById('coordinationForm').addEventListener('submit'",
+        "document.getElementById('exportCoordination').onclick",
+        "detailStatus.replaceChildren(chip(status||'INFO'))",
         ".node.branch.selected,.node.branch.selected-node{z-index:110!important",
         ".node.child.in-selected-branch{z-index:105!important",
         "#nodes .node.selected-node{\n  z-index:120!important",
