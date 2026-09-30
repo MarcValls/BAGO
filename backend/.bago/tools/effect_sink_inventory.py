@@ -40,6 +40,7 @@ DEFAULT_ROOTS = (
     REPO_ROOT / "electron-viewer",
     REPO_ROOT / "frontend",
     REPO_ROOT / "releases",
+    REPO_ROOT / "bootstrap",
     REPO_ROOT / "manager" / "android",
     REPO_ROOT / "ARRANCAR_BAGO.bat",
     REPO_ROOT / "DETENER_BAGO.bat",
@@ -266,6 +267,15 @@ CMD_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r">>{1,2}\s*\S+"), "filesystem.write", "medium"),
 )
 
+CSHARP_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (re.compile(r"\bFile\.(?:WriteAllText|WriteAllBytes|AppendAllText|AppendAllBytes)\s*\("), "filesystem.write", "high"),
+    (re.compile(r"\bDirectory\.CreateDirectory\s*\("), "filesystem.write", "high"),
+    (re.compile(r"\b(?:Directory\.Delete|File\.Delete)\s*\("), "filesystem.delete", "high"),
+    (re.compile(r"\b(?:Directory\.Move|File\.(?:Move|Copy))\s*\("), "filesystem.write", "high"),
+    (re.compile(r"\bProcess\.Start\s*\("), "process.execute", "high"),
+    (re.compile(r"\bProcess\.Kill\s*\("), "process.terminate", "high"),
+)
+
 
 @dataclass(frozen=True, slots=True)
 class SinkFinding:
@@ -312,6 +322,8 @@ def _scope_for(path: Path) -> str:
     if rel.startswith(("releases/compiled/", "releases/ci-artifact/")):
         return SCOPE_DERIVED_RELEASE_SNAPSHOT
     if rel.startswith("manager/android/"):
+        return SCOPE_RUNTIME_AUTHORITY
+    if rel.startswith("bootstrap/"):
         return SCOPE_RUNTIME_AUTHORITY
     if rel.startswith("releases/"):
         if Path(rel).name.startswith(("build-", "resolve-")):
@@ -790,7 +802,7 @@ def _iter_files(roots: Iterable[Path]) -> Iterable[Path]:
                 continue
             if any(part in EXCLUDED_DIRS for part in path.parts):
                 continue
-            if path.suffix.lower() in {".py", ".pyw", ".ps1", ".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx", ".html", ".htm", ".cmd", ".bat", ".sh", ".vbs", ".nsi"} or path.name == "bago":
+            if path.suffix.lower() in {".py", ".pyw", ".ps1", ".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx", ".html", ".htm", ".cmd", ".bat", ".sh", ".vbs", ".nsi", ".cs"} or path.name == "bago":
                 yield path
 
 
@@ -812,6 +824,8 @@ def scan_paths(roots: Iterable[Path]) -> list[SinkFinding]:
             findings.extend(_scan_text(path, "vbscript", VBSCRIPT_RULES))
         elif suffix == ".nsi":
             findings.extend(_scan_text(path, "nsis", NSIS_RULES))
+        elif suffix == ".cs":
+            findings.extend(_scan_text(path, "csharp", CSHARP_RULES))
         elif suffix == ".sh" or path.name == "bago":
             findings.extend(_scan_text(path, "shell", SHELL_RULES))
     return sorted(findings, key=lambda item: (item.path, item.line, item.column, item.effect_id))

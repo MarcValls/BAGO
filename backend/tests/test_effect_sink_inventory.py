@@ -49,6 +49,37 @@ def test_inventory_scans_pythonw_entrypoints(tmp_path: Path) -> None:
     ]
 
 
+def test_csharp_scanner_classifies_bootstrap_material_sinks(tmp_path: Path) -> None:
+    source = tmp_path / "Program.cs"
+    source.write_text(
+        "using System.Diagnostics;\n"
+        "File.WriteAllText(path, payload);\n"
+        "Process.Start(command);\n"
+        "Process.Kill(pid);\n"
+        "File.Delete(path);\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([source])
+
+    assert [(item.line, item.effect_id, item.language) for item in findings] == [
+        (2, "filesystem.write", "csharp"),
+        (3, "process.execute", "csharp"),
+        (4, "process.terminate", "csharp"),
+        (5, "filesystem.delete", "csharp"),
+    ]
+
+
+def test_bootstrap_root_is_scanned_and_runtime_scoped(tmp_path: Path) -> None:
+    relative_roots = {inventory._relative(path) for path in inventory.DEFAULT_ROOTS}
+    assert "bootstrap" in relative_roots
+    source = tmp_path / "Program.cs"
+    source.write_text("File.WriteAllText(path, payload);\n", encoding="utf-8")
+    findings = inventory.scan_paths([source])
+    assert any(item.effect_id == "filesystem.write" for item in findings)
+    assert inventory._scope_for(inventory.REPO_ROOT / "bootstrap" / "msix-host" / "Program.cs") == inventory.SCOPE_RUNTIME_AUTHORITY
+
+
 def test_html_inventory_detects_external_scripts_browser_state_and_network(tmp_path: Path) -> None:
     source = tmp_path / "mini-manager.html"
     source.write_text(
@@ -340,6 +371,7 @@ def test_default_inventory_roots_include_runtime_entrypoints_and_release_scripts
     relative_roots = {inventory._relative(path) for path in inventory.DEFAULT_ROOTS}
 
     assert "releases" in relative_roots
+    assert "bootstrap" in relative_roots
     assert "frontend" in relative_roots
     assert "ARRANCAR_BAGO.bat" in relative_roots
     assert "DETENER_BAGO.bat" in relative_roots
