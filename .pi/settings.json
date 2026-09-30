@@ -1,0 +1,39 @@
+{
+  "$schema": "https://earendil.works/pi/settings.json",
+  "comment": "Project-local Pi configuration to mirror the Codex CLI OpenAI provider setup without moving secrets. The API key is resolved from the OPENAI_API_KEY environment variable or Pi's /login flow.",
+  "providers": {
+    "openai": {
+      "apiKey": "$OPENAI_API_KEY",
+      "api": "openai-completions",
+      "modelOverrides": {
+        "o3-mini": {
+          "name": "OpenAI o3-mini (Codex-style reasoning)",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "off": null,
+            "minimal": null,
+            "low": "low",
+            "medium": "medium",
+            "high": "high",
+            "xhigh": null,
+            "max": null
+          }
+        },
+        "o1": {
+          "name": "OpenAI o1",
+          "reasoning": true
+        },
+        "gpt-4o": {
+          "name": "OpenAI GPT-4o"
+        },
+        "gpt-4o-mini": {
+          "name": "OpenAI GPT-4o mini"
+        },
+        "chatgpt-4o-latest": {
+          "name": "OpenAI ChatGPT-4o latest"
+        }
+      }
+    }
+  },
+  "enableSkillCommands": true
+}

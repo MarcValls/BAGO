@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import builtins
 
 
 def test_context_store_rewrites_remain_valid_and_leave_no_temp_files(tmp_path) -> None:
@@ -22,13 +23,26 @@ def test_context_store_rewrites_remain_valid_and_leave_no_temp_files(tmp_path) -
     assert list(session_dir.glob("*.tmp")) == []
 
 
-def test_session_manager_save_uses_complete_json_replacement(tmp_path) -> None:
+def test_session_manager_save_uses_only_canonical_json_replacement(tmp_path, monkeypatch) -> None:
     from session_manager import SessionManager
 
     state_root = tmp_path / "state"
     manager = SessionManager(base_path=str(tmp_path), state_root=str(state_root))
+    original_import = builtins.__import__
+    session_db_imports = []
+
+    def reject_session_db_import(name, *args, **kwargs):
+        if name == "session_db":
+            session_db_imports.append(name)
+            raise AssertionError("SessionDB is retired; session JSON is canonical")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", reject_session_db_import)
     try:
-        manager.save()
+        first_save = manager.save()
+        assert first_save["session_json_persisted"] is True
+        assert first_save["session_json_receipt"]
+        assert "session_db_indexed" not in first_save
         manager.total_calls += 1
         manager.save()
         session_file = state_root / "sessions" / f"{manager.session_id}.json"
@@ -36,5 +50,6 @@ def test_session_manager_save_uses_complete_json_replacement(tmp_path) -> None:
         assert payload["session_id"] == manager.session_id
         assert payload["total_calls"] == 1
         assert list(session_file.parent.glob("*.tmp")) == []
+        assert session_db_imports == []
     finally:
         manager.close()

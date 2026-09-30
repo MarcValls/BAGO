@@ -6,6 +6,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -42,7 +43,7 @@ class _RecordingAdapter:
         }
 
 
-def _request(*, value: str = "A", effect_id: str = "filesystem.write"):
+def _request(*, value: str = "A", effect_id: str = "filesystem.write", world_state_authority=None):
     return build_execution_request(
         effect_id=effect_id,
         actor_kind="user",
@@ -51,6 +52,7 @@ def _request(*, value: str = "A", effect_id: str = "filesystem.write"):
         source_surface="test.gateway",
         target={"path": "notes/example.txt"},
         arguments={"content": value},
+        **({"world_state_authority": world_state_authority} if world_state_authority is not None else {}),
     )
 
 
@@ -108,7 +110,8 @@ def test_gateway_signature_has_no_caller_supplied_executor() -> None:
 def test_gateway_dispatches_by_effect_id_after_permit(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path)
     boundary = auth.AuthorizationBoundary()
-    request = _request()
+    manager = type("Manager", (), {"session_id": "session-1", "base_path": str(tmp_path)})()
+    request = _request(world_state_authority=manager)
     permit = _permit(boundary, request)
 
     adapter = _RecordingAdapter()
@@ -119,7 +122,7 @@ def test_gateway_dispatches_by_effect_id_after_permit(tmp_path, monkeypatch) -> 
     result, consumed = gateway.execute(
         permit_token=permit["token"],
         request=request,
-        context=ExecutionContext(services={"test": True}),
+        context=ExecutionContext(manager=manager, services={"test": True}),
     )
 
     assert result["ok"] is True
@@ -131,7 +134,8 @@ def test_gateway_dispatches_by_effect_id_after_permit(tmp_path, monkeypatch) -> 
 def test_missing_adapter_does_not_consume_valid_permit(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path)
     boundary = auth.AuthorizationBoundary()
-    request = _request()
+    manager = type("Manager", (), {"session_id": "session-1", "base_path": str(tmp_path)})()
+    request = _request(world_state_authority=manager)
     permit = _permit(boundary, request, interaction="interaction-missing")
 
     empty = EffectAdapterRegistry()
@@ -142,7 +146,7 @@ def test_missing_adapter_does_not_consume_valid_permit(tmp_path, monkeypatch) ->
 
     adapter = _RecordingAdapter()
     empty.register(adapter)
-    result, consumed = gateway.execute(permit_token=permit["token"], request=request)
+    result, consumed = gateway.execute(permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager))
     assert result["ok"] is True
     assert consumed["state"] == "consumed"
 
@@ -155,6 +159,7 @@ def test_process_execute_adapter_runs_only_the_permitted_workspace_argv(tmp_path
         lambda command, **_kwargs: subprocess.CompletedProcess(command, 0, "gateway-owned\n", ""),
     )
     boundary = auth.AuthorizationBoundary()
+    manager = type("Manager", (), {"session_id": "session-1", "base_path": str(tmp_path)})()
     request = build_execution_request(
         effect_id="process.execute",
         actor_kind="user",
@@ -163,9 +168,9 @@ def test_process_execute_adapter_runs_only_the_permitted_workspace_argv(tmp_path
         source_surface="test.gateway",
         target={"executable": "gh", "cwd": str(tmp_path), "timeout_seconds": 5},
         arguments={"argv": ["auth", "status"]},
+        world_state_authority=manager,
     )
     permit = _permit(boundary, request, interaction="process-execute")
-    manager = type("Manager", (), {"session_id": "session-1", "base_path": str(tmp_path)})()
     gateway = ExecutionGateway(boundary=boundary)
     assert isinstance(gateway.adapters.resolve("process.execute"), ProcessExecutionEffectAdapter)
 
@@ -188,6 +193,7 @@ def test_process_execute_rejects_out_of_workspace_cwd_before_spawn(tmp_path, mon
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("spawn must be blocked")),
     )
     boundary = auth.AuthorizationBoundary()
+    manager = type("Manager", (), {"session_id": "session-1", "base_path": str(tmp_path)})()
     request = build_execution_request(
         effect_id="process.execute",
         actor_kind="user",
@@ -196,9 +202,9 @@ def test_process_execute_rejects_out_of_workspace_cwd_before_spawn(tmp_path, mon
         source_surface="test.gateway",
         target={"executable": "gh", "cwd": str(tmp_path.parent)},
         arguments={"argv": ["auth", "status"]},
+        world_state_authority=manager,
     )
     permit = _permit(boundary, request, interaction="process-cwd-block")
-    manager = type("Manager", (), {"session_id": "session-1", "base_path": str(tmp_path)})()
     gateway = ExecutionGateway(boundary=boundary)
 
     with pytest.raises(ExecutionGatewayError) as blocked:
@@ -296,6 +302,10 @@ def test_process_execute_runs_only_a_digest_bound_bago_module(tmp_path, monkeypa
     workspace.mkdir()
     digest = hashlib.sha256(module_file.read_bytes()).hexdigest()
     boundary = auth.AuthorizationBoundary()
+    manager = type("Manager", (), {
+        "session_id": "session-module", "base_path": str(workspace),
+        "framework_root": str(framework),
+    })()
     request = build_execution_request(
         effect_id="process.execute",
         actor_kind="user",
@@ -311,12 +321,9 @@ def test_process_execute_runs_only_a_digest_bound_bago_module(tmp_path, monkeypa
         },
         arguments={"argv": ["--sample", "exact"]},
         scope="workspace",
+        world_state_authority=manager,
     )
     permit = _permit(boundary, request, interaction="process-module-execute")
-    manager = type("Manager", (), {
-        "session_id": "session-module", "base_path": str(workspace),
-        "framework_root": str(framework),
-    })()
     result, authorization = ExecutionGateway(boundary=boundary).execute(
         permit_token=permit["token"], request=request,
         context=ExecutionContext(manager=manager),
@@ -338,6 +345,10 @@ def test_process_execute_module_digest_drift_blocks_before_spawn(tmp_path, monke
     workspace.mkdir()
     digest = hashlib.sha256(module_file.read_bytes()).hexdigest()
     boundary = auth.AuthorizationBoundary()
+    manager = type("Manager", (), {
+        "session_id": "session-module-drift", "base_path": str(workspace),
+        "framework_root": str(framework),
+    })()
     request = build_execution_request(
         effect_id="process.execute", actor_kind="user",
         principal_id="interactive-local-user", session_id="session-module-drift",
@@ -345,6 +356,7 @@ def test_process_execute_module_digest_drift_blocks_before_spawn(tmp_path, monke
         target={"python_module": "bago_core.launcher", "python_root": str(framework),
                 "python_module_sha256": digest, "cwd": str(workspace), "timeout_seconds": 5},
         arguments={"argv": []}, scope="workspace",
+        world_state_authority=manager,
     )
     permit = _permit(boundary, request, interaction="process-module-drift")
     module_file.write_text("print('changed after challenge')\n", encoding="utf-8")
@@ -352,10 +364,6 @@ def test_process_execute_module_digest_drift_blocks_before_spawn(tmp_path, monke
         "execution_adapters.process.subprocess.run",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("spawn must be blocked")),
     )
-    manager = type("Manager", (), {
-        "session_id": "session-module-drift", "base_path": str(workspace),
-        "framework_root": str(framework),
-    })()
     with pytest.raises(ExecutionGatewayError) as blocked:
         ExecutionGateway(boundary=boundary).execute(
             permit_token=permit["token"], request=request,
@@ -434,6 +442,7 @@ def test_workspace_mirror_sync_requires_exact_permit_and_copies_through_gateway(
         target={"source_root": str(src), "target_root": str(dst), "binding_digest": digest,
                 "workspace_id": manager.workspace_id, "resource": "workspace_mirror", "operation": "sync"},
         arguments={}, scope="workspace",
+        world_state_authority=manager,
     )
     boundary = auth.AuthorizationBoundary()
     permit = _permit(boundary, request, interaction="workspace-mirror-sync")
@@ -471,6 +480,7 @@ def test_workspace_mirror_sync_blocks_changed_destination_before_copy(tmp_path, 
         target={"source_root": str(src), "target_root": str(dst), "binding_digest": digest,
                 "workspace_id": manager.workspace_id, "resource": "workspace_mirror", "operation": "sync"},
         arguments={}, scope="workspace",
+        world_state_authority=manager,
     )
     boundary = auth.AuthorizationBoundary()
     permit = _permit(boundary, request, interaction="workspace-mirror-sync-changed")
@@ -529,6 +539,7 @@ def _context_attach_request(manager):
         },
         arguments={"paths": paths},
         scope="workspace",
+        world_state_authority=manager,
     )
 
 
@@ -639,6 +650,7 @@ def test_project_operation_revalidates_target_immediately_before_first_write(tmp
         },
         arguments={},
         scope="workspace",
+        world_state_authority=manager,
     )
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     boundary = auth.AuthorizationBoundary()
@@ -682,6 +694,7 @@ def test_project_operation_allows_authorized_root_switch(tmp_path, monkeypatch) 
         target={"path": str(target), "allowed_root": str(trusted_root),
                 "resource": "project_operation", "operation": "init",
                 "root_digest": target_digest}, arguments={}, scope="workspace",
+        world_state_authority=manager,
     )
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     boundary = auth.AuthorizationBoundary()
@@ -705,14 +718,15 @@ def test_project_operation_rejects_tampered_authorized_target(tmp_path, monkeypa
         session_id=manager.session_id, source_surface="test.project.root",
         target={"path": str(target), "allowed_root": str(trusted_root), "resource": "project_operation",
                 "operation": "init", "root_digest": target_digest}, arguments={}, scope="workspace",
+        world_state_authority=manager,
     )
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     boundary = auth.AuthorizationBoundary()
     permit = _permit(boundary, request, interaction="project-write-tamper")
     request.target["path"] = str(tmp_path / "tampered")
-    with pytest.raises(auth.AuthorizationError) as blocked:
+    with pytest.raises(ExecutionGatewayError) as blocked:
         ExecutionGateway(boundary).execute(permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager))
-    assert blocked.value.code == "authorization_operation_mismatch"
+    assert blocked.value.code == "execution_world_state_stale"
 
 
 @pytest.mark.parametrize(
@@ -748,6 +762,7 @@ def test_project_root_switch_rejects_post_authorization_tampering_without_mutati
         session_id=manager.session_id, source_surface="test.project.root-switch",
         target={"path": str(target), "allowed_root": str(trusted_root), "resource": "project_operation",
                 "operation": "init", "root_digest": target_digest}, arguments={}, scope="workspace",
+        world_state_authority=manager,
     )
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     boundary = auth.AuthorizationBoundary()
@@ -757,12 +772,15 @@ def test_project_root_switch_rejects_post_authorization_tampering_without_mutati
     else:
         request.target[field] = str(tmp_path / replacement) if field != "root_digest" else replacement
 
-    with pytest.raises(auth.AuthorizationError) as blocked:
+    expected_error = auth.AuthorizationError if field == "scope" else ExecutionGatewayError
+    with pytest.raises(expected_error) as blocked:
         ExecutionGateway(boundary).execute(
             permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager),
         )
 
-    assert blocked.value.code == "authorization_operation_mismatch"
+    assert blocked.value.code == (
+        "authorization_operation_mismatch" if field == "scope" else "execution_world_state_stale"
+    )
     assert manager.project_root == active.resolve()
     assert not (active / ".bago").exists()
     assert not (selected / ".bago").exists()
@@ -785,6 +803,7 @@ def test_credential_adapter_rejects_non_direct_strong_proof_before_secret_store_
         },
         arguments={"value": "must-not-be-used"},
         scope="persistent",
+        world_state_authority=manager,
     )
 
     with pytest.raises(ExecutionGatewayError) as blocked:
@@ -822,6 +841,12 @@ def _consumed_authorization() -> dict:
 
 
 def _credential_request(*, operation: str, configuration_digest: str, configuration_patch: dict, provider: str = "openrouter"):
+    from bago_core.secrets import secret_state_digest
+    import secret_store as secret_store_module
+
+    secret_store = secret_store_module.get_secret_store()
+    secret_digest = secret_state_digest(secret_store, f"providers/{provider}/api_key")
+    manager = SimpleNamespace(session_id="credential-session")
     return build_execution_request(
         effect_id="credential.write",
         actor_kind="user",
@@ -835,9 +860,11 @@ def _credential_request(*, operation: str, configuration_digest: str, configurat
             "key": "api_key",
             "configuration_digest": configuration_digest,
             "configuration_patch": configuration_patch,
+            "secret_state_sha256": secret_digest,
         },
         arguments={"value": "fresh-secret"} if operation == "set" else {},
         scope="persistent",
+        world_state_authority=manager,
     )
 
 
@@ -894,6 +921,33 @@ def test_credential_adapter_rejects_drifted_configuration_before_secret_store_ac
 
     assert blocked.value.code == "credential_write_configuration_changed"
     assert not (tmp_path / "user" / "secrets").exists()
+
+
+def test_gateway_revalidates_credential_secret_state_before_permit_consumption(monkeypatch, tmp_path) -> None:
+    import secret_store as secret_store_module
+    from execution_adapters.credentials import CredentialWriteEffectAdapter
+
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
+    monkeypatch.setattr(secret_store_module, "_is_windows", lambda: False)
+    store = secret_store_module.get_secret_store()
+    secret_path = store.path_for_key("providers/openrouter/api_key")
+    secret_path.parent.mkdir(parents=True, exist_ok=True)
+    secret_path.write_bytes(b"ciphertext-before-approval")
+    manager = type("Manager", (), {"session_id": "credential-session"})()
+    manager.config = _FakeProviderConfig({"openrouter": {"enabled": True}})
+    request = _credential_request(
+        operation="delete",
+        configuration_digest="approved-config",
+        configuration_patch={},
+    )
+    secret_path.write_bytes(b"ciphertext-changed-after-approval")
+
+    with pytest.raises(Exception) as blocked:
+        ExecutionGateway._validate_world_state(
+            request, ExecutionContext(manager=manager), CredentialWriteEffectAdapter(),
+        )
+
+    assert blocked.value.code == "credential_write_secret_state_changed"
 
 
 def test_credential_adapter_rejects_drifted_configuration_before_secret_store_access_delete(monkeypatch, tmp_path) -> None:
@@ -976,6 +1030,7 @@ def test_credential_adapter_rejects_invalid_or_secret_bearing_patch(monkeypatch,
         },
         arguments={"value": "fresh-secret"},
         scope="persistent",
+        world_state_authority=manager,
     )
 
     with pytest.raises(ExecutionGatewayError) as blocked:
@@ -1040,6 +1095,7 @@ def test_workspace_bind_adapter_executes_compound_effect_only_after_permit(tmp_p
         },
         arguments={},
         scope="workspace",
+        world_state_authority=manager,
     )
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     monkeypatch.setattr(
@@ -1110,6 +1166,7 @@ def test_workspace_bind_revalidates_before_rebind_after_authorization(tmp_path, 
         },
         arguments={},
         scope="workspace",
+        world_state_authority=manager,
     )
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     boundary = auth.AuthorizationBoundary()
@@ -1152,6 +1209,7 @@ def test_state_delete_is_materialized_only_after_gateway_permit(tmp_path, monkey
         },
         arguments={"operation": "clear"},
         scope="session",
+        world_state_authority=manager,
     )
     permit = _permit(boundary, request, interaction="interaction-state-delete")
 
@@ -1193,6 +1251,7 @@ def test_state_delete_rejects_noncanonical_target_before_unlink(tmp_path, monkey
         },
         arguments={"operation": "clear"},
         scope="session",
+        world_state_authority=manager,
     )
     permit = _permit(boundary, request, interaction="interaction-state-delete-invalid")
 
@@ -1231,6 +1290,7 @@ def test_server_policy_state_write_blocks_root_mismatch_before_effect(tmp_path) 
         },
         arguments={"content": "must-not-exist"},
         scope="session",
+        world_state_authority=tmp_path,
     )
 
     with pytest.raises(ExecutionGatewayError) as blocked:
@@ -1259,6 +1319,7 @@ def test_server_policy_path_traversal_is_blocked_before_effect(tmp_path) -> None
         },
         arguments={"content": "must-not-exist"},
         scope="session",
+        world_state_authority=root,
     )
 
     with pytest.raises(ExecutionGatewayError) as blocked:
@@ -1280,6 +1341,7 @@ def test_public_gateway_cannot_consume_a_server_policy_effect(tmp_path) -> None:
         source_surface="test.gateway",
         target={"path": "state.json"},
         arguments={"content": "must-not-exist"},
+        world_state_authority=tmp_path,
     )
 
     with pytest.raises(ExecutionGatewayError) as blocked:
@@ -1488,6 +1550,7 @@ def test_filesystem_write_is_materialized_only_after_gateway_permit(tmp_path, mo
         source_surface="test.filesystem.gateway",
         target={"path": "notes/example.txt"},
         arguments={"content": "gateway-only"},
+        world_state_authority=manager,
     )
     permit = _permit(boundary, request, interaction="interaction-filesystem")
 

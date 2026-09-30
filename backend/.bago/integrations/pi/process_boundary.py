@@ -197,6 +197,7 @@ def run_sidecar(
                 "execution_id": execution_id,
             },
             scope="external",
+        world_state_authority=Path(spec.cwd),
         )
         result, _authorization = ExecutionGateway().execute_server_owned(
             request=request,

@@ -1,0 +1,162 @@
+{
+  "contract_version": "bago.authorization/v2",
+  "challenges": {
+    "authch-335a82d30ffb423c90846b392690ac6f": {
+      "challenge_id": "authch-335a82d30ffb423c90846b392690ac6f",
+      "state": "approved",
+      "interaction_id": "install-interaction",
+      "request_id": "exec-0f4d87f00d6b4153bba63171868a94b2",
+      "session_id": "install-session",
+      "principal_id": "interactive-local-user",
+      "effect_id": "system.install.apply",
+      "target": {
+        "action": "install",
+        "configuration_digest": "086aa550398e18b7fc5b8e7223f765d35d342dca828b02b34cc48327439d3c3f",
+        "helper_path": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_install_execute_consumes_0\\source\\install-v4.ps1",
+        "helper_sha256": "9311112c92d019bfa00c3eab92daeb02e430b8d06e0a75767455d1f76fdacbca",
+        "install_dir": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_install_execute_consumes_0\\programs\\BAGO",
+        "mode": "Express",
+        "operation_sha256": "503c34be7bdde9f5f6f00089dfb368e8153aaad9061d9fd4cb6a3a2a863b9006",
+        "options": {
+          "explorer_context_menu": false,
+          "no_path_update": true,
+          "no_shell_integration": false,
+          "preserve_dev_role": false,
+          "skip_tests": false
+        },
+        "package_sha256": "",
+        "schema": "bago.system-install-plan.v1",
+        "source_root": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_install_execute_consumes_0\\source",
+        "source_tree_sha256": "0c82e4ecf68149eeddbc3398863fbd4f5acac93be2ad7ad73ad0410e923ef757",
+        "target_state_sha256": "absent"
+      },
+      "arguments_digest": "c9db269f14ff95eca7fe676d4d1982deb7f722d3f1fe43988ef0ec8c0520ee28",
+      "scope": "system",
+      "operation_fingerprint": "fe697aed239f2c4989cdb0e4548c70c681a9e02ae66463944ce828f48f026e58",
+      "request_descriptor": {
+        "request_id": "exec-0f4d87f00d6b4153bba63171868a94b2",
+        "contract": "bago.execution-request/v2",
+        "effect_id": "system.install.apply",
+        "actor_kind": "user",
+        "principal_id": "interactive-local-user",
+        "session_id": "install-session",
+        "source_surface": "api.install.apply",
+        "target": {
+          "action": "install",
+          "configuration_digest": "086aa550398e18b7fc5b8e7223f765d35d342dca828b02b34cc48327439d3c3f",
+          "helper_path": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_install_execute_consumes_0\\source\\install-v4.ps1",
+          "helper_sha256": "9311112c92d019bfa00c3eab92daeb02e430b8d06e0a75767455d1f76fdacbca",
+          "install_dir": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_install_execute_consumes_0\\programs\\BAGO",
+          "mode": "Express",
+          "operation_sha256": "503c34be7bdde9f5f6f00089dfb368e8153aaad9061d9fd4cb6a3a2a863b9006",
+          "options": {
+            "explorer_context_menu": false,
+            "no_path_update": true,
+            "no_shell_integration": false,
+            "preserve_dev_role": false,
+            "skip_tests": false
+          },
+          "package_sha256": "",
+          "schema": "bago.system-install-plan.v1",
+          "source_root": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_install_execute_consumes_0\\source",
+          "source_tree_sha256": "0c82e4ecf68149eeddbc3398863fbd4f5acac93be2ad7ad73ad0410e923ef757",
+          "target_state_sha256": "absent"
+        },
+        "target_digest": "472fe8b0606f1d96d8b539336d38c4bff8ea1da4c8dc8f117cd75406b1f346ed",
+        "arguments_digest": "c9db269f14ff95eca7fe676d4d1982deb7f722d3f1fe43988ef0ec8c0520ee28",
+        "scope": "system",
+        "policy_version": "309702e4871ff90ca527e9d2ae7f8bcfa669a91a8a79c0dcd2cfbbe49f8ff119",
+        "parent_execution_id": "",
+        "delegation_id": "",
+        "preconditions": [],
+        "operation_fingerprint": "fe697aed239f2c4989cdb0e4548c70c681a9e02ae66463944ce828f48f026e58"
+      },
+      "issued_at": "2026-09-28T23:56:01.342656+00:00",
+      "expires_at": "2026-09-28T23:59:01.342656+00:00",
+      "approved_at": "2026-09-28T23:56:01.353808+00:00",
+      "proof_id": "authproof-66dba53a9b794d9f96f55603f89bbdee",
+      "decision_id": "authdec-b21c6aa42b524dd6b8bbafba4a6e4734",
+      "permit_id": "permit-e02f7595181b44008ed9b11de5c699bc"
+    }
+  },
+  "permits": {
+    "f8c8aa2f763e95a10e77cfcccae020102495ffe55700dfd0e208a352f6c1b41e": {
+      "permit_id": "permit-e02f7595181b44008ed9b11de5c699bc",
+      "decision_id": "authdec-b21c6aa42b524dd6b8bbafba4a6e4734",
+      "proof_id": "authproof-66dba53a9b794d9f96f55603f89bbdee",
+      "operation_fingerprint": "fe697aed239f2c4989cdb0e4548c70c681a9e02ae66463944ce828f48f026e58",
+      "request_id": "exec-0f4d87f00d6b4153bba63171868a94b2",
+      "effect_id": "system.install.apply",
+      "session_id": "install-session",
+      "issued_at": "2026-09-28T23:56:01.353808+00:00",
+      "expires_at": "2026-09-28T23:58:01.353808+00:00",
+      "state": "consumed",
+      "proof": {
+        "proof_id": "authproof-66dba53a9b794d9f96f55603f89bbdee",
+        "principal_id": "interactive-local-user",
+        "authenticated_session_id": "install-session",
+        "interaction_id": "install-interaction",
+        "operation_fingerprint": "fe697aed239f2c4989cdb0e4548c70c681a9e02ae66463944ce828f48f026e58",
+        "effect_id": "system.install.apply",
+        "user_decision": "approve",
+        "issued_at": "2026-09-28T23:56:01.353808+00:00",
+        "expires_at": "2026-09-28T23:58:01.353808+00:00",
+        "provenance": {
+          "kind": "direct_user_interaction",
+          "channel": "desktop",
+          "verified_by": "server_native_dialog",
+          "contract": "bago.authorization/v2"
+        }
+      },
+      "decision": {
+        "decision_id": "authdec-b21c6aa42b524dd6b8bbafba4a6e4734",
+        "result": "allow",
+        "proof_id": "authproof-66dba53a9b794d9f96f55603f89bbdee",
+        "operation_fingerprint": "fe697aed239f2c4989cdb0e4548c70c681a9e02ae66463944ce828f48f026e58",
+        "effect_id": "system.install.apply",
+        "reason": "verified_direct_user_interaction",
+        "decided_at": "2026-09-28T23:56:01.353808+00:00"
+      },
+      "consumed_at": "2026-09-28T23:56:01.361978+00:00",
+      "executed_request_id": "exec-7d11843ccc3346a0ae4390bd78766d0d",
+      "executed_request": {
+        "request_id": "exec-7d11843ccc3346a0ae4390bd78766d0d",
+        "contract": "bago.execution-request/v2",
+        "effect_id": "system.install.apply",
+        "actor_kind": "user",
+        "principal_id": "interactive-local-user",
+        "session_id": "install-session",
+        "source_surface": "api.install.apply",
+        "target": {
+          "action": "install",
+          "configuration_digest": "086aa550398e18b7fc5b8e7223f765d35d342dca828b02b34cc48327439d3c3f",
+          "helper_path": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_install_execute_consumes_0\\source\\install-v4.ps1",
+          "helper_sha256": "9311112c92d019bfa00c3eab92daeb02e430b8d06e0a75767455d1f76fdacbca",
+          "install_dir": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_install_execute_consumes_0\\programs\\BAGO",
+          "mode": "Express",
+          "operation_sha256": "503c34be7bdde9f5f6f00089dfb368e8153aaad9061d9fd4cb6a3a2a863b9006",
+          "options": {
+            "explorer_context_menu": false,
+            "no_path_update": true,
+            "no_shell_integration": false,
+            "preserve_dev_role": false,
+            "skip_tests": false
+          },
+          "package_sha256": "",
+          "schema": "bago.system-install-plan.v1",
+          "source_root": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_install_execute_consumes_0\\source",
+          "source_tree_sha256": "0c82e4ecf68149eeddbc3398863fbd4f5acac93be2ad7ad73ad0410e923ef757",
+          "target_state_sha256": "absent"
+        },
+        "target_digest": "472fe8b0606f1d96d8b539336d38c4bff8ea1da4c8dc8f117cd75406b1f346ed",
+        "arguments_digest": "c9db269f14ff95eca7fe676d4d1982deb7f722d3f1fe43988ef0ec8c0520ee28",
+        "scope": "system",
+        "policy_version": "309702e4871ff90ca527e9d2ae7f8bcfa669a91a8a79c0dcd2cfbbe49f8ff119",
+        "parent_execution_id": "",
+        "delegation_id": "",
+        "preconditions": [],
+        "operation_fingerprint": "fe697aed239f2c4989cdb0e4548c70c681a9e02ae66463944ce828f48f026e58"
+      }
+    }
+  }
+}

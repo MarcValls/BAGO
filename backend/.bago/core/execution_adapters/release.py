@@ -33,6 +33,21 @@ class ReleaseDownloadEffectAdapter:
     _MAX_SIZE = 2 * 1024 * 1024 * 1024
 
     @classmethod
+    def revalidate_world_state(cls, request: ExecutionRequest, _context: ExecutionContext) -> None:
+        """Bind non-job update downloads to the canonical live update cache."""
+        target = request.target if isinstance(request.target, dict) else {}
+        if target.get("job_id"):
+            return
+        root, _destination = cls._target(str(target.get("filename") or ""))
+        approved_root = str(target.get("download_root") or "").strip()
+        if not approved_root or str(root.resolve()) != str(Path(approved_root).expanduser().resolve()):
+            raise ExecutionGatewayError(
+                "Release download cache changed after request construction",
+                code="release_download_world_state_stale",
+                pre_dispatch=True,
+            )
+
+    @classmethod
     def _target(cls, filename: str, job_id: str = "") -> tuple[Path, Path]:
         if Path(filename).name != filename or filename in {".", ".."}:
             raise ExecutionGatewayError(
@@ -103,6 +118,12 @@ class ReleaseDownloadEffectAdapter:
                 code="release_download_size_invalid",
             )
         root, destination = self._target(filename, job_id)
+        if not job_id and str(root.resolve()) != str(Path(str(request.target.get("download_root") or "")).expanduser().resolve()):
+            raise ExecutionGatewayError(
+                "Release download cache changed after request construction",
+                code="release_download_world_state_stale",
+                pre_dispatch=True,
+            )
         partial = destination.with_suffix(destination.suffix + ".part")
 
         if not job_id:

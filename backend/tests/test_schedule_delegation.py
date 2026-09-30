@@ -20,6 +20,7 @@ from execution_gateway import ExecutionContext, ExecutionGateway, ExecutionGatew
 
 @pytest.fixture(autouse=True)
 def _bind_dynamic_p4_modules(monkeypatch):
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     monkeypatch.setitem(sys.modules, "authorization_boundary", auth)
     monkeypatch.setitem(sys.modules, "capability_packages", capability_packages)
     monkeypatch.setitem(sys.modules, "delegation_grant", dg)

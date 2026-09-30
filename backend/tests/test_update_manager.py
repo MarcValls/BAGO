@@ -335,6 +335,7 @@ def test_apply_launches_external_helper_only_through_authorized_gateway(isolated
         principal_id="interactive-local-user", session_id=manager.session_id,
         source_surface="test.release.apply", target=descriptor,
         arguments={}, scope="system",
+        world_state_authority=manager,
     )
     boundary = auth.AuthorizationBoundary()
     challenge = boundary.create_challenge(request, interaction_id="release-apply-test")

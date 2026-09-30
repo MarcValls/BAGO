@@ -111,6 +111,7 @@ def _execute_verify_command(command: list[str], cwd: Path) -> subprocess.Complet
         target={"executable": sys.executable, "cwd": str(cwd), "timeout_seconds": 1800},
         arguments={"argv": argv},
         scope="workspace",
+        world_state_authority=manager,
     )
     receipt = execute_cli_effect(
         request,

@@ -52,6 +52,7 @@ def build_project_write_request(mgr: Any, action: str, project_root: Path):
         },
         arguments=arguments,
         scope="workspace",
+        world_state_authority=mgr,
     )
 
 

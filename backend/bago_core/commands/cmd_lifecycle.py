@@ -176,6 +176,7 @@ def cmd_rollback_archive(args: argparse.Namespace) -> int:
             target=target,
             arguments={},
             scope="system",
+            world_state_authority=Path(install_dir),
         )
         result, _authorization = execute_cli_effect(
             request,
@@ -184,6 +185,7 @@ def cmd_rollback_archive(args: argparse.Namespace) -> int:
                 f"backup de seguridad: {target['safety_zip']}; "
                 f"restaurar estado archivado: {str(target['restore_backed_up_state']).lower()}"
             ),
+            manager=Path(install_dir),
         )
     except Exception as exc:
         print(f"[ERROR] Rollback bloqueado: {exc}")

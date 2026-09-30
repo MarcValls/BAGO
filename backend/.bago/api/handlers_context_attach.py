@@ -50,6 +50,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
             },
             arguments={"paths": paths},
             scope="workspace",
+        world_state_authority=manager,
         )
         boundary = AuthorizationBoundary()
         action = str(payload.get("authorization_action") or "").strip().lower()
@@ -92,7 +93,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
         }
         send_json(handler, 200 if result.get("ok") else 409, result)
     except AuthorizationError as exc:
-        send_json(handler, 409 if "challenge" in exc.code or "permit" in exc.code or "operation_mismatch" in exc.code else 403,
+        send_json(handler, 409 if "challenge" in exc.code or "permit" in exc.code or "operation_mismatch" in exc.code or "world_state_stale" in exc.code else 403,
                   {"ok": False, "error": str(exc), "code": exc.code})
     except ExecutionRequestError as exc:
         send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})

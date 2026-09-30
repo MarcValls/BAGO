@@ -14,12 +14,20 @@ from typing import Any
 from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
 from execution_request import ExecutionRequest
 from install_plan import InstallPlanError, build_install_plan, configuration_digest
+from windows_execution import trusted_windows_powershell
 
 
 class SystemInstallEffectAdapter:
     """Own authorized install application and release-job rollback effects."""
 
     effect_ids = frozenset({"system.install.apply"})
+
+    @classmethod
+    def revalidate_world_state(cls, request: ExecutionRequest, context: ExecutionContext) -> None:
+        manager = context.manager
+        if manager is None or str(getattr(manager, "session_id", "") or "") != request.session_id:
+            raise ExecutionGatewayError("System install requires the active SessionManager", code="system_install_session_mismatch")
+        cls._current_plan(request)
 
     @staticmethod
     def _current_plan(request: ExecutionRequest) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -241,18 +249,19 @@ class SystemInstallEffectAdapter:
             except Exception:
                 ticket_path.unlink(missing_ok=True)
                 raise
-        powershell = shutil.which("pwsh.exe") or shutil.which("powershell.exe")
-        if not powershell:
+        try:
+            powershell = trusted_windows_powershell()
+        except OSError as exc:
             ticket_path.unlink(missing_ok=True)
             if backup_path:
                 shutil.rmtree(backup_path, ignore_errors=True)
             raise ExecutionGatewayError(
-                "PowerShell 5.1 or PowerShell 7 is required for BAGO installation",
+                f"Trusted inbox Windows PowerShell is required for BAGO installation: {exc}",
                 code="system_install_powershell_missing",
-            )
+            ) from exc
 
         command = [
-            powershell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+            str(powershell), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
             current["helper_path"],
             "-SourceRoot", current["source_root"],
             "-InstallDir", current["install_dir"],

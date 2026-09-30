@@ -41,6 +41,7 @@ DEFAULT_ROOTS = (
     REPO_ROOT / "frontend",
     REPO_ROOT / "releases",
     REPO_ROOT / "manager" / "android",
+    REPO_ROOT / ".github" / "workflows",
     REPO_ROOT / "ARRANCAR_BAGO.bat",
     REPO_ROOT / "DETENER_BAGO.bat",
     REPO_ROOT / "install-remote.ps1",
@@ -140,6 +141,7 @@ RUNTIME_BACKEND_SCRIPT_ENTRYPOINTS = frozenset({
     "backend/scripts/bago_supervisor.py",
     "backend/scripts/bago_supervisor.pyw",
     "backend/scripts/publish_release.py",
+    "backend/scripts/runtime-service.ps1",
 })
 
 # High-signal Python call suffixes. Suffix matching is intentional because Path
@@ -193,7 +195,7 @@ PYTHON_SUFFIX_RULES: tuple[tuple[str, str, str], ...] = (
 POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"\bRemove-Item\b", re.I), "filesystem.delete", "high"),
     (re.compile(r"\bExpand-Archive\b", re.I), "filesystem.write", "high"),
-    (re.compile(r"\b(?:New-ItemProperty|Set-Item|Remove-ItemProperty|Clear-ItemProperty)\b", re.I), "system.configuration.write", "high"),
+    (re.compile(r"\b(?:New-ItemProperty|Set-ItemProperty|Set-Item|Remove-ItemProperty|Clear-ItemProperty)\b", re.I), "system.configuration.write", "high"),
     (re.compile(r"\[\s*(?:System\.IO\.)?File\s*\]\s*::\s*(?:WriteAllText|WriteAllBytes|AppendAllText|AppendAllBytes)\s*\(", re.I), "filesystem.write", "high"),
     (re.compile(r"\[\s*(?:System\.)?Environment\s*\]\s*::\s*SetEnvironmentVariable\s*\(", re.I), "system.configuration.write", "high"),
     (re.compile(r"\b(?:Set-Content|Add-Content|Out-File|Copy-Item|Move-Item|New-Item)\b", re.I), "filesystem.write", "medium"),
@@ -207,6 +209,8 @@ POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"\b(?:Invoke-WebRequest|Invoke-RestMethod)\b.*\s-Method\s+(?:POST|PUT|PATCH|DELETE)\b", re.I), "network.external_write", "high"),
     (re.compile(r"\b(?:Invoke-WebRequest|Invoke-RestMethod)\b.*\s-OutFile\b", re.I), "filesystem.write", "high"),
     (re.compile(r"\b(?:Invoke-WebRequest|Invoke-RestMethod)\b", re.I), "network.read", "medium"),
+    (re.compile(r"\bStop-Process\b", re.I), "process.terminate", "high"),
+    (re.compile(r"\b(?:taskkill|tskill)\b", re.I), "process.terminate", "high"),
 )
 
 JS_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
@@ -298,9 +302,14 @@ def _scope_for(path: Path) -> str:
         "ARRANCAR_BAGO.bat",
         "DETENER_BAGO.bat",
         "install-remote.ps1",
+        # Packaged Electron starts this script as the application runtime; it
+        # is also used by developers, but its production reachability governs.
+        "scripts/dev.ps1",
     }:
         return SCOPE_RUNTIME_AUTHORITY
     if rel in {"update-release-v4.8.4.ps1", "update-release-v4.8.4.sh"}:
+        return SCOPE_BUILD_RELEASE_ADMIN
+    if rel.startswith(".github/workflows/"):
         return SCOPE_BUILD_RELEASE_ADMIN
     if rel.startswith(("releases/compiled/", "releases/ci-artifact/")):
         return SCOPE_DERIVED_RELEASE_SNAPSHOT
@@ -566,6 +575,82 @@ def _line_excerpt(lines: list[str], line: int) -> str:
     return ""
 
 
+_POWERSHELL_REGISTRY_ASSIGNMENT = re.compile(
+    r"^\s*(\$[A-Za-z_][\w]*)\s*=\s*['\"]HK(?:CU|LM|CR|U|CC):\\",
+    re.I,
+)
+_POWERSHELL_REGISTRY_PATH = re.compile(
+    r"\s-(?:Path|LiteralPath)\s+(?:['\"]HK(?:CU|LM|CR|U|CC):\\|(?P<variable>\$[A-Za-z_][\w]*))",
+    re.I,
+)
+
+
+def _mask_powershell_strings_and_comments(line: str) -> str:
+    """Mask literal strings/comments so embedded command text is not a sink."""
+    chars = list(line)
+    quote = ""
+    index = 0
+    subexpression_depth = 0
+    resume_depths: list[int] = []
+    while index < len(line):
+        char = line[index]
+        if quote == '"' and char == "$" and index + 1 < len(line) and line[index + 1] == "(":
+            resume_depths.append(subexpression_depth)
+            subexpression_depth += 1
+            quote = ""
+            index += 2
+            continue
+        if not quote:
+            if char == "#":
+                for offset in range(index, len(chars)):
+                    chars[offset] = " "
+                break
+            if char in {"'", '"'}:
+                quote = char
+                chars[index] = " "
+            elif resume_depths and char == "(":
+                subexpression_depth += 1
+            elif resume_depths and char == ")":
+                subexpression_depth -= 1
+                chars[index] = " "
+                if subexpression_depth == resume_depths[-1]:
+                    resume_depths.pop()
+                    quote = '"'
+            index += 1
+            continue
+
+        chars[index] = " "
+        if quote == "'" and char == "'" and index + 1 < len(line) and line[index + 1] == "'":
+            chars[index + 1] = " "
+            index += 2
+            continue
+        if quote == '"' and char == chr(96) and index + 1 < len(line):
+            chars[index + 1] = " "
+            index += 2
+            continue
+        if char == quote:
+            quote = ""
+        index += 1
+    return "".join(chars)
+
+
+def _powershell_registry_variables(lines: list[str]) -> set[str]:
+    variables: set[str] = set()
+    for line in lines:
+        match = _POWERSHELL_REGISTRY_ASSIGNMENT.search(line)
+        if match:
+            variables.add(match.group(1).casefold())
+    return variables
+
+
+def _powershell_new_item_targets_registry(line: str, registry_variables: set[str]) -> bool:
+    match = _POWERSHELL_REGISTRY_PATH.search(line)
+    if match is None:
+        return False
+    variable = match.group("variable")
+    return variable is None or variable.casefold() in registry_variables
+
+
 def _gateway_owned_adapter_ranges(path: Path, tree: ast.AST) -> tuple[tuple[int, int], ...]:
     """Return concrete adapter spans in gateway dispatch or implementation modules."""
     relative = _relative(path)
@@ -699,13 +784,24 @@ def _js_second_argument(call: str) -> str | None:
     return None
 
 
-def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str], str, str]]) -> list[SinkFinding]:
-    try:
-        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return []
+def _scan_text(
+    path: Path,
+    language: str,
+    rules: Iterable[tuple[re.Pattern[str], str, str]],
+    *,
+    source_lines: list[str] | None = None,
+    line_offset: int = 0,
+) -> list[SinkFinding]:
+    if source_lines is None:
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return []
+    else:
+        lines = source_lines
     findings: list[SinkFinding] = []
-    for number, line in enumerate(lines, start=1):
+    registry_variables = _powershell_registry_variables(lines) if language == "powershell" else set()
+    for number, line in enumerate(lines, start=1 + line_offset):
         stripped = line.strip()
         if not stripped or stripped.startswith(("#", "//")):
             continue
@@ -742,10 +838,18 @@ def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str],
                     binding_reason=binding_reason,
                     excerpt=" ".join(stripped.split())[:240],
                 ))
+        match_line = _mask_powershell_strings_and_comments(line) if language == "powershell" else line
         for pattern, effect_id, confidence in rules:
-            match = pattern.search(line)
+            match = pattern.search(match_line)
             if not match:
                 continue
+            if (
+                language == "powershell"
+                and effect_id == "filesystem.write"
+                and match.group(0).casefold() == "new-item"
+                and _powershell_new_item_targets_registry(line, registry_variables)
+            ):
+                effect_id = "system.configuration.write"
             if language in {"javascript", "html"} and effect_id == "process.terminate" and re.search(
                 r"\bprocess\.kill\s*\([^,]+,\s*0\s*\)", line
             ):
@@ -771,6 +875,60 @@ def _scan_text(path: Path, language: str, rules: Iterable[tuple[re.Pattern[str],
     return findings
 
 
+def _scan_github_workflow(path: Path) -> list[SinkFinding]:
+    """Scan PowerShell command blocks in GitHub Actions workflow run fields."""
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+
+    findings: list[SinkFinding] = []
+    index = 0
+    run_field = re.compile(r"^(?P<indent> *)run\s*:\s*(?P<value>.*)$")
+    while index < len(lines):
+        match = run_field.match(lines[index])
+        if match is None:
+            index += 1
+            continue
+
+        indent = len(match.group("indent"))
+        value = match.group("value").strip()
+        if re.fullmatch(r"[|>][+-]?(?:\s+#.*)?", value):
+            block_start = index + 1
+            block_end = block_start
+            while block_end < len(lines):
+                candidate = lines[block_end]
+                candidate_indent = len(candidate) - len(candidate.lstrip(" "))
+                if candidate.strip() and candidate_indent <= indent:
+                    break
+                block_end += 1
+            findings.extend(_scan_text(
+                path,
+                "powershell",
+                POWERSHELL_RULES,
+                source_lines=lines[block_start:block_end],
+                line_offset=block_start,
+            ))
+            index = block_end
+            continue
+
+        # YAML removes an outer scalar quote before the runner receives a
+        # single-line command. Preserve quotes used inside the command itself.
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+            if match.group("value").strip().startswith("'"):
+                value = value.replace("''", "'")
+        findings.extend(_scan_text(
+            path,
+            "powershell",
+            POWERSHELL_RULES,
+            source_lines=[value],
+            line_offset=index,
+        ))
+        index += 1
+    return findings
+
+
 def _iter_files(roots: Iterable[Path]) -> Iterable[Path]:
     for root in roots:
         if not root.exists():
@@ -783,7 +941,7 @@ def _iter_files(roots: Iterable[Path]) -> Iterable[Path]:
                 continue
             if any(part in EXCLUDED_DIRS for part in path.parts):
                 continue
-            if path.suffix.lower() in {".py", ".pyw", ".ps1", ".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx", ".html", ".htm", ".cmd", ".bat", ".sh", ".vbs", ".nsi"} or path.name == "bago":
+            if path.suffix.lower() in {".py", ".pyw", ".ps1", ".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx", ".html", ".htm", ".cmd", ".bat", ".sh", ".vbs", ".nsi", ".yml", ".yaml"} or path.name == "bago":
                 yield path
 
 
@@ -805,6 +963,8 @@ def scan_paths(roots: Iterable[Path]) -> list[SinkFinding]:
             findings.extend(_scan_text(path, "vbscript", VBSCRIPT_RULES))
         elif suffix == ".nsi":
             findings.extend(_scan_text(path, "nsis", NSIS_RULES))
+        elif suffix in {".yml", ".yaml"} and _relative(path).startswith(".github/workflows/"):
+            findings.extend(_scan_github_workflow(path))
         elif suffix == ".sh" or path.name == "bago":
             findings.extend(_scan_text(path, "shell", SHELL_RULES))
     return sorted(findings, key=lambda item: (item.path, item.line, item.column, item.effect_id))

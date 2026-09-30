@@ -1,0 +1,96 @@
+{
+  "contract_version": "bago.authorization/v2",
+  "challenges": {
+    "authch-d3dd5afefc3d4a51a35f3580d10ba990": {
+      "challenge_id": "authch-d3dd5afefc3d4a51a35f3580d10ba990",
+      "state": "approved",
+      "interaction_id": "rollback-drift-interaction",
+      "request_id": "exec-2dab39daad38490ab4aadc99fca790cd",
+      "session_id": "install-session",
+      "principal_id": "interactive-local-user",
+      "effect_id": "system.install.rollback",
+      "target": {
+        "backup_path": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_manual_release_rollback_r0\\programs\\BAGO.bago-rollback-permit-install456",
+        "backup_state_sha256": "cd489349e166e224ec2269381f8b1463d2e4aa5de3b05d6e9822bc51ba487d2f",
+        "displaced_path": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_manual_release_rollback_r0\\programs\\BAGO.bago-replaced-job_456",
+        "displaced_state_sha256": "absent",
+        "install_dir": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_manual_release_rollback_r0\\programs\\BAGO",
+        "target_state_sha256": "e83900a9e7fe9721691e08ec31e8faf722fcaa83c99b6174bcd2f5cf98d2160f"
+      },
+      "arguments_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "scope": "system",
+      "operation_fingerprint": "6f9e2b8192f86c0d1768371f564f4500041eb197a79ad4f9524dc115d41a834e",
+      "request_descriptor": {
+        "request_id": "exec-2dab39daad38490ab4aadc99fca790cd",
+        "contract": "bago.execution-request/v2",
+        "effect_id": "system.install.rollback",
+        "actor_kind": "user",
+        "principal_id": "interactive-local-user",
+        "session_id": "install-session",
+        "source_surface": "api.install.rollback",
+        "target": {
+          "backup_path": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_manual_release_rollback_r0\\programs\\BAGO.bago-rollback-permit-install456",
+          "backup_state_sha256": "cd489349e166e224ec2269381f8b1463d2e4aa5de3b05d6e9822bc51ba487d2f",
+          "displaced_path": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_manual_release_rollback_r0\\programs\\BAGO.bago-replaced-job_456",
+          "displaced_state_sha256": "absent",
+          "install_dir": "C:\\Users\\AMTEC_Terminal_1º\\BAGO\\backend\\.pytest-tmp-bago-final-20260929\\test_manual_release_rollback_r0\\programs\\BAGO",
+          "target_state_sha256": "e83900a9e7fe9721691e08ec31e8faf722fcaa83c99b6174bcd2f5cf98d2160f"
+        },
+        "target_digest": "d7cde5c2f26ce7b432d6e45c4cc7d208c5961a2e955a98150d16fa7bc9cf74ce",
+        "arguments_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "scope": "system",
+        "policy_version": "309702e4871ff90ca527e9d2ae7f8bcfa669a91a8a79c0dcd2cfbbe49f8ff119",
+        "parent_execution_id": "",
+        "delegation_id": "",
+        "preconditions": [],
+        "operation_fingerprint": "6f9e2b8192f86c0d1768371f564f4500041eb197a79ad4f9524dc115d41a834e"
+      },
+      "issued_at": "2026-09-28T23:56:02.577787+00:00",
+      "expires_at": "2026-09-28T23:59:02.577787+00:00",
+      "approved_at": "2026-09-28T23:56:02.587266+00:00",
+      "proof_id": "authproof-3b7edae0fa554c8180603ad1d24a92f7",
+      "decision_id": "authdec-3809cc3e2575437ca5f3c9298dcd7753",
+      "permit_id": "permit-b659726777604053a7f1bc78fcdb59cb"
+    }
+  },
+  "permits": {
+    "e0a743787aeae709a8dc0f3ffc44403a1716bd6c1ad1dd1056b99b2b797bd399": {
+      "permit_id": "permit-b659726777604053a7f1bc78fcdb59cb",
+      "decision_id": "authdec-3809cc3e2575437ca5f3c9298dcd7753",
+      "proof_id": "authproof-3b7edae0fa554c8180603ad1d24a92f7",
+      "operation_fingerprint": "6f9e2b8192f86c0d1768371f564f4500041eb197a79ad4f9524dc115d41a834e",
+      "request_id": "exec-2dab39daad38490ab4aadc99fca790cd",
+      "effect_id": "system.install.rollback",
+      "session_id": "install-session",
+      "issued_at": "2026-09-28T23:56:02.587266+00:00",
+      "expires_at": "2026-09-28T23:58:02.587266+00:00",
+      "state": "active",
+      "proof": {
+        "proof_id": "authproof-3b7edae0fa554c8180603ad1d24a92f7",
+        "principal_id": "interactive-local-user",
+        "authenticated_session_id": "install-session",
+        "interaction_id": "rollback-drift-interaction",
+        "operation_fingerprint": "6f9e2b8192f86c0d1768371f564f4500041eb197a79ad4f9524dc115d41a834e",
+        "effect_id": "system.install.rollback",
+        "user_decision": "approve",
+        "issued_at": "2026-09-28T23:56:02.587266+00:00",
+        "expires_at": "2026-09-28T23:58:02.587266+00:00",
+        "provenance": {
+          "kind": "direct_user_interaction",
+          "channel": "desktop",
+          "verified_by": "server_native_dialog",
+          "contract": "bago.authorization/v2"
+        }
+      },
+      "decision": {
+        "decision_id": "authdec-3809cc3e2575437ca5f3c9298dcd7753",
+        "result": "allow",
+        "proof_id": "authproof-3b7edae0fa554c8180603ad1d24a92f7",
+        "operation_fingerprint": "6f9e2b8192f86c0d1768371f564f4500041eb197a79ad4f9524dc115d41a834e",
+        "effect_id": "system.install.rollback",
+        "reason": "verified_direct_user_interaction",
+        "decided_at": "2026-09-28T23:56:02.587266+00:00"
+      }
+    }
+  }
+}

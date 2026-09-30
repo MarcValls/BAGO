@@ -18,6 +18,20 @@ class SystemUpdateApplyEffectAdapter:
     effect_ids = frozenset({"system.update.apply"})
 
     @staticmethod
+    def revalidate_world_state(request: ExecutionRequest, context: ExecutionContext) -> None:
+        manager = context.manager
+        if manager is None or str(getattr(manager, "session_id", "") or "") != request.session_id:
+            raise ExecutionGatewayError("System update requires the current SessionManager", code="system_update_session_mismatch")
+        from update_manager import _lock, update_apply_descriptor
+        try:
+            with _lock:
+                current = update_apply_descriptor()
+        except Exception as exc:
+            raise ExecutionGatewayError(f"Prepared update is no longer applicable: {exc}", code="system_update_preflight_failed") from exc
+        if current != dict(request.target):
+            raise ExecutionGatewayError("Prepared update or installation changed after authorization", code="system_update_target_changed")
+
+    @staticmethod
     def _write_helper_ticket(
         request: ExecutionRequest,
         authorization: dict[str, Any],

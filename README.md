@@ -35,6 +35,73 @@
 > Este bloque es una proyeccion de fuentes canonicas. Si cualquiera de ellas cambia y el README no se regenera, CI falla.
 <!-- BAGO:README_TRUTH:END -->
 
+## Estado operativo de la frontera de ejecución
+
+Captura global del inventario oficial: **2026-09-27 08:59 UTC**, rama
+`fix/spbe-runtime-fix1-20260927`, HEAD `a21858780615440a775a7989970b8917fc0d6732`.
+El worktree escaneado tenía fingerprint `a3aa488110ecc9c7a371fff3cbb5d6912adc56b516cfe840423eb9e42c47609a`.
+La salida JSON tiene SHA-256
+`bce18854e392774f981d06cab31299dabdbb1143b0cffdc474f780d7b56568e4`;
+scanner SHA-256 `59c4d9cc38d2b46acb081dc0083da2c4185866c297ea41070690d384f4896b0a`;
+registry `bago.effect-registry.v1` 1.24.0, SHA-256
+`ab1edad052f705ae01092b120858c876ce1ec760e88875beb89b37d55fd61f30`.
+El PR #236 de este HEAD se fusionó en `origin/main` como `283bfce6` el
+2026-09-27 a las 08:44 UTC. Esta captura de sinks pertenece al HEAD fuente del
+PR (`a2185878`), no al estado post-merge; el checkout local sigue divergente y
+requiere reconciliación y un inventario nuevo sobre `main`.
+
+| Inventario | Estado de esta captura |
+|---|---:|
+| Sinks detectados | **4.503** |
+| `runtime-unbound` | **265 · ABIERTO** |
+| `gateway-owned` | **336** |
+| Sin clasificar | **0** |
+| `strict-classification` | **PASS** · exit 0 |
+| `strict-runtime` | **OPEN** · exit 2 |
+
+Un inventario oficial acotado a `releases/`, ejecutado sobre el mismo HEAD
+con fingerprint `de8840b5aabda2751bee6fd3c39ba655d9ff605c9a26ead1ce9e06743a309c0a`,
+detectó **64 runtime-unbound en 8 archivos** (JSON SHA-256
+`55f6cc978fc0bd627ac7b06035d7a3d2c82af72d150f7b95f1400c9636ea8b21`):
+33 en el NSIS oficial, 10 en su helper transitivo y 21 en instaladores
+legacy/wrappers; estos últimos requieren clasificación individual de
+publicación y alcance. NSIS + helper suman **43 operaciones detectadas** en
+la ruta oficial, antes de contar terminaciones PowerShell que el scanner omite
+o clasifica fuera de runtime.
+
+```mermaid
+flowchart LR
+    A["Snapshot<br/>4.503 sinks"] --> B["Clasificación estricta<br/>0 sin clasificar · PASS"]
+    B --> C{"Runtime único<br/>265 sin owner"}
+    C -->|"bloqueo actual"| D["P0 · instalación oficial<br/>NSIS + helper"]
+    D --> X["Ruta oficial: 43 detectados<br/>NSIS + helper transitivo"]
+    X --> Y["64 en releases<br/>21 legacy/wrappers por clasificar"]
+    Y --> Z["Cobertura incompleta<br/>10 Stop-Process ocultos o no detectados"]
+    Z --> E["Diseño y cierre del bootstrap<br/>sin segunda autoridad"]
+    E --> F["Partición global<br/>detenida en P0"]
+    F --> G["Trace de habituación"]
+    G --> H["Reparación por clusters"]
+    H --> I["strict-runtime + suite backend<br/>+ revisión independiente"]
+    classDef pass fill:#e4f4eb,stroke:#278052,color:#123b28;
+    classDef open fill:#fff1d8,stroke:#c37a12,color:#553400;
+    classDef blocked fill:#fbe5e3,stroke:#ad3f35,color:#5b201b;
+    class B pass;
+    class C,D,F open;
+    class G,H,I open;
+```
+
+### Qué significa ahora
+
+- La clasificación cubre los sinks que el scanner detecta; `PASS` **no demuestra cobertura completa**.
+- La ruta P0 oficial confirmada incluye **43 operaciones runtime-unbound detectadas**: 33 en el NSIS alcanzable y 10 en el helper transitivo que este incorpora. El inventario acotado detecta 21 adicionales en instaladores legacy y wrappers; varios siguen publicados y deben retirarse o gobernarse, mientras `bago-install.ps1` necesita aclarar distribución/reachability antes de llamarlo código muerto.
+- La revisión fuente encontró diez terminaciones PowerShell que faltan de detección/binding runtime: dos en `releases/`, tres en `scripts/dev.ps1` copiado e invocado por el runtime empaquetado, tres en `backend/scripts/runtime-service.ps1` (entrypoint de Electron clasificado como build/admin) y dos en `backend/.bago/api/apply_release_update.ps1`, que deben seguir visibles como `gateway_owned`. Otras tres llamadas viven en workflows CI. La prueba global del helper espera 19 detecciones, cuando los dos procesos omitidos la llevan a 21. Por tanto, los 265 runtime-unbound son **hallazgos detectados**, no el total probado; `strict-classification=PASS` no cierra esta brecha de cobertura.
+- La precisión también necesita trabajo: en `Install-BAGO.ps1`, `Remove-Item` aparece dentro de una cadena `UninstallString`, otro supuesto borrado es solo `Write-Host`, y escrituras de registro se tipan como `filesystem.write`. El inventario tiene omisiones, alcance mal asignado y falsos positivos; no sirve todavía como partición completa.
+- Estado remoto verificado tras `git fetch origin`: PR #236 MERGED en `283bfce6`; los checks mostrados son SUCCESS, excepto `Real installer E2E` SKIPPED. No se ha vuelto a ejecutar el inventario sobre ese merge commit.
+- La partición global está **PARTIAL / STOPPED_AT_P0**. De los 265 hallazgos detectados, 201 están fuera de `releases/` y siguen sin partición; los 21 adicionales de `releases/` están en clasificación de publicación/reachability/owner. La traza global de habituación, las reparaciones, la suite backend sobre el candidato final y la revisión independiente siguen pendientes.
+- No iniciar reparaciones globales hasta cerrar el trace y completar la autorización explícita exigida por el flujo de BAGO.
+
+El [mapa mental actualizado](docs/architecture/bago_mind_map.html) ofrece la vista navegable del producto; su [fuente estructurada](docs/architecture/bago_mind_map.data.json) es la referencia editable. Esta sección resume una captura concreta del scanner y no sustituye al mapa ni a un recibo de cierre.
+
 ---
 
 ## Principio arquitectónico

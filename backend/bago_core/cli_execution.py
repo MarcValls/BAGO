@@ -4,6 +4,7 @@ from __future__ import annotations
 import sys
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Callable
 
 _CORE_MODULE_ROOT = Path(__file__).resolve().parents[1] / ".bago" / "core"
@@ -48,8 +49,14 @@ def execute_cli_effect(
         session_id=request.session_id,
         terminal_confirmed=True,
     )
+    execution_manager = manager
+    if isinstance(manager, (str, Path)):
+        execution_manager = SimpleNamespace(
+            base_path=str(Path(manager).expanduser().resolve()),
+            session_id=request.session_id,
+        )
     return ExecutionGateway(boundary).execute(
         permit_token=str(approval["permit"]["token"]),
         request=request,
-        context=ExecutionContext(manager=manager),
+        context=ExecutionContext(manager=execution_manager),
     )

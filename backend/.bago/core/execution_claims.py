@@ -308,6 +308,15 @@ class SQLiteExecutionClaimStore:
         now = self._clock()
         connection = self._connect()
         try:
+            # A read in WAL mode remains available while another process holds
+            # the writer transaction across a material callback. Check a live
+            # lease before BEGIN IMMEDIATE so contenders fail closed promptly
+            # instead of waiting for the entire install to finish.
+            row = connection.execute(
+                "SELECT * FROM execution_claims WHERE resource_key=?", (resource_key,)
+            ).fetchone()
+            if row and row["status"] == "ACTIVE" and float(row["lease_until"]) > now:
+                return None
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
                 "SELECT * FROM execution_claims WHERE resource_key=?", (resource_key,)
@@ -743,6 +752,21 @@ def execution_resource_key(
         )
     if effect_id == "process.execute":
         return process_resource_key(target, arguments, manager, session_id=session_id)
+    if effect_id in {
+        "system.install.apply",
+        "system.install.rollback",
+        "system.install.uninstall",
+        "system.install.archive.rollback",
+    }:
+        raw_target = str(
+            target.get("install_dir") or target.get("install_path") or ""
+        ).strip()
+        if not raw_target or not Path(raw_target).is_absolute():
+            raise ValueError("system install claim requires an absolute target")
+        canonical_target = os.path.normcase(
+            str(Path(os.path.abspath(raw_target)).resolve(strict=False))
+        )
+        return f"system-install:{canonical_target}"
     raise ValueError(f"unsupported execution claim effect: {effect_id}")
 
 

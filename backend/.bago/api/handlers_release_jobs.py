@@ -20,6 +20,7 @@ def _dispatch(effect_id: str, source_surface: str, target: dict, manager, argume
         target=target,
         arguments=arguments or {},
         scope="system",
+        world_state_authority=manager,
     )
     return ExecutionGateway().execute_server_owned(
         request=request,
@@ -225,6 +226,7 @@ def handle_archive_job(handler: "BaseHTTPRequestHandler", body: dict | None = No
             target={"job_id": job_id, "state_sha256": hashlib.sha256(encoded_state).hexdigest()},
             arguments={"archived_at": str(payload.get("archived_at") or "")},
             scope="system",
+        world_state_authority=manager,
         )
         boundary = AuthorizationBoundary()
         if action == "challenge":

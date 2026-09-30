@@ -2,6 +2,25 @@
 
 Record architectural or product decisions that affect canon here.
 
+## 2026-09-29 — MSIX seed-only bootstrap selected for P0 implementation
+
+- Se selecciona el handoff MSIX de semilla como dirección de implementación
+  del goal `CRIT-BOOTSTRAP-AUTHORITY-2026`, conforme al contrato
+  `backend/docs/contracts/bootstrap_authority.v1.md`.
+- Windows Package Deployment puede provisionar, actualizar o retirar únicamente
+  el paquete de semilla autenticado. Esos efectos de ciclo de vida del paquete
+  quedan fuera de la instalación del destino BAGO elegido por el usuario; no
+  pueden escribir ese destino, el estado de BAGO, el Registro de producto ni
+  accesos directos.
+- Todo efecto sobre el destino de aplicación BAGO conserva sus owners
+  `system.install.apply`, `system.install.rollback`,
+  `system.install.uninstall` y `process.execute`, con la autorización canónica
+  y el `ExecutionGateway`. No se crea otro emisor de Permit.
+- Esta decisión autoriza implementar y probar la dirección; no afirma que el
+  paquete, la identidad de publisher, la firma, los owners ni la ruta de
+  publicación ya existan o estén verificados. NSIS permanece bloqueado como
+  ruta oficial hasta que el reemplazo y la evidencia clean-machine pasen.
+
 ## 2026-09-27 — La siguiente release mayor será BAGO 5.0
 
 - La próxima release prevista del producto será **BAGO 5.0**.

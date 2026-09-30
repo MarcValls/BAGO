@@ -207,9 +207,10 @@ def create_role(family: str, name: str, propósito: str, alcance: list,
             target={"role_root": str(root), "family": family, "name": name, "manifest_sha256": manifest_digest},
             arguments={"content": content},
             scope="workspace",
+        world_state_authority=root,
         )
         result, _authorization = execute_cli_effect(
-            request, confirmation_text=f"crear el rol {family}/{name.upper()} en {root}"
+            request, confirmation_text=f"crear el rol {family}/{name.upper()} en {root}", manager=root
         )
         if not isinstance(result, dict) or result.get("ok") is not True:
             raise RuntimeError("La creación del rol no produjo un recibo válido")

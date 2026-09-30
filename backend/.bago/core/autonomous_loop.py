@@ -171,6 +171,7 @@ def _atomic_write(path: Path, data: Any) -> None:
         session_id=f"autonomous-loop:{identity}", source_surface="server.autonomous_loop.state.write",
         target={"allowed_root": str(root), "path": str(target), "operation": "replace_text"},
         arguments=arguments, scope="persistent",
+        world_state_authority=root,
     )
     ExecutionGateway().execute_server_owned(
         request=request,
@@ -221,6 +222,7 @@ def _run_tool(
             source_surface="cli.autonomous_loop.tool" if mutating else "server.autonomous_loop.tool",
             target=target, arguments=arguments,
             scope="workspace" if mutating else "session",
+        world_state_authority=_BAGO_ROOT,
         )
         if mutating:
             result, _authorization = execute_cli_effect(
@@ -229,6 +231,7 @@ def _run_tool(
                     f"{sys.executable} {_BAGO_BIN} {cmd} "
                     f"(cwd={_BAGO_ROOT}, timeout={timeout}s); puede modificar estado BAGO"
                 ),
+                manager=_BAGO_ROOT,
             )
         else:
             result, _authorization = ExecutionGateway().execute_server_owned(

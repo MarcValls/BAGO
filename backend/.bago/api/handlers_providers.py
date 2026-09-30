@@ -207,6 +207,16 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         credential_receipt: dict | None = None
         authorization_summary: dict | None = None
         if secret_operation:
+            from bago_core.secrets import secret_state_digest
+            from secret_store import get_secret_store
+
+            secret_key = f"providers/{provider_name}/api_key"
+            secret_store = get_secret_store()
+            try:
+                secret_digest = secret_state_digest(secret_store, secret_key)
+            except OSError as exc:
+                send_json(handler, 503, {"ok": False, "error": str(exc), "code": "credential_write_secret_state_unavailable"})
+                return
             request = build_execution_request(
                 effect_id="credential.write",
                 actor_kind="user",
@@ -220,9 +230,11 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
                     "key": "api_key",
                     "configuration_digest": stable_digest(p_cfg),
                     "configuration_patch": configuration_patch,
+                    "secret_state_sha256": secret_digest,
                 },
                 arguments={"value": secret_value} if secret_operation == "set" else {},
                 scope="persistent",
+        world_state_authority=mgr,
             )
             boundary = AuthorizationBoundary()
             action = str(body.get("authorization_action") or "").strip().lower()
@@ -311,6 +323,7 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
             "authorization_permit_replay",
             "authorization_permit_expired",
             "authorization_operation_mismatch",
+            "authorization_world_state_stale",
         } else 403
         send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
     except ExecutionRequestError as exc:

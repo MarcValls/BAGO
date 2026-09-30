@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import ctypes
+import hashlib
 import os
 import re
 import sys
@@ -77,6 +78,25 @@ def _safe_key_name(key: str) -> str:
 
 def _key_to_path(key: str) -> Path:
     return secrets_root() / _safe_key_name(key)
+
+
+def secret_state_digest(store: "SecretStore", key: str) -> str:
+    """Return identity of the canonical encrypted secret bytes without decrypting them."""
+    path = Path(store.path_for_key(key)).expanduser()
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return "missing"
+    except OSError as exc:
+        raise OSError(f"Cannot inspect canonical secret state: {exc}") from exc
+    is_junction = getattr(path, "is_junction", None)
+    if path.is_symlink() or bool(is_junction and is_junction()) or bool(
+        getattr(metadata, "st_file_attributes", 0) & 0x400
+    ):
+        raise OSError("Canonical secret state cannot be a link or reparse point")
+    if not path.is_file():
+        raise OSError("Canonical secret state must be a regular file")
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _key_read_candidates(key: str) -> tuple[Path, ...]:

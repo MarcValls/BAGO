@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
+import pytest
 import authorization_boundary as auth
 from handlers_process import handle_execute
+
+
+@pytest.fixture(autouse=True)
+def _confirmed_native_dialog_for_process_tests(monkeypatch):
+    monkeypatch.setitem(sys.modules, "authorization_boundary", auth)
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
 
 
 class _Handler:
@@ -232,11 +240,12 @@ def test_supervisor_script_source_drift_is_denied_before_spawn(tmp_path, monkeyp
         **operation, "authorization_action": "execute", "authorization_permit": permit,
     })
     assert handler.response[0] == 409
-    assert handler.response[1]["code"] == "authorization_operation_mismatch"
+    assert handler.response[1]["code"] == "authorization_world_state_stale"
     assert calls == []
 
 
 def test_process_cleanup_requires_strong_desktop_permit_and_dispatches_from_gateway(tmp_path, monkeypatch):
+    import json
     manager = type("Manager", (), {
         "session_id": "cleanup-session", "base_path": str(tmp_path),
         "framework_root": str(Path(__file__).resolve().parents[1]),
@@ -247,30 +256,39 @@ def test_process_cleanup_requires_strong_desktop_permit_and_dispatches_from_gate
     monkeypatch.setattr("api_state.get_mgr", lambda _handler: manager)
     monkeypatch.setattr("api_serializers.send_json", _send_json)
     calls = []
+    identity = {"pid": 99, "executable": r"C:\Python\python.exe",
+                "command_line": f'"C:\\Python\\python.exe" "{manager.framework_root}\\worker.py"',
+                "created_at": "2026-09-30T09:00:00.0000000Z"}
 
     def fake_run(command, **kwargs):
         calls.append((command, kwargs))
+        script = command[-1]
+        if "Invoke-CimMethod" in script:
+            return type("Completed", (), {"returncode": 0, "stdout": json.dumps({"ok": True, "cleaned": 1, "matched": [identity]}), "stderr": ""})()
         return type("Completed", (), {
             "returncode": 0,
-            "stdout": '{"ok":true,"cleaned":1,"matched":[{"pid":99}]}',
+            "stdout": json.dumps([identity]),
             "stderr": "",
         })()
 
     monkeypatch.setattr("execution_adapters.process.subprocess.run", fake_run)
+    monkeypatch.setattr("execution_adapters.process.trusted_windows_powershell", lambda: Path(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"))
     operation = {"operation": "cleanup_zombies", "argv": [], "interaction_id": "cleanup-1"}
     handle_execute(handler, {**operation, "authorization_action": "challenge"})
     challenge = handler.response[1]["authorization"]["challenge"]
     assert challenge["effect_id"] == "process.terminate"
     assert challenge["target"]["operation"] == "cleanup_zombies"
     assert challenge["target"]["cleanup_roots"] == sorted({manager.framework_root, manager.state_root})
-    assert calls == []
+    assert challenge["target"]["process_identities"] == [identity]
+    assert challenge["target"]["process_identities_sha256"]
+    assert len(calls) == 1
 
     handle_execute(handler, {
         **operation, "authorization_action": "approve",
         "challenge_id": challenge["challenge_id"], "user_decision": "approve",
     })
     permit = handler.response[1]["authorization"]["permit"]["token"]
-    assert calls == []
+    assert len(calls) == 2
 
     handle_execute(handler, {
         **operation, "authorization_action": "execute", "authorization_permit": permit,
@@ -278,9 +296,52 @@ def test_process_cleanup_requires_strong_desktop_permit_and_dispatches_from_gate
     assert handler.response[0] == 200
     result = handler.response[1]["process_result"]
     assert result["effect_id"] == "process.terminate"
-    assert result["executed"] is True
     assert result["cleaned"] == 1
-    assert calls and "Stop-Process" in calls[0][0][-1]
+    assert any("Invoke-CimMethod" in call[0][-1] for call in calls)
+
+
+def test_process_cleanup_rejects_changed_process_population_before_dispatch(tmp_path, monkeypatch):
+    import json
+
+    manager = type("Manager", (), {
+        "session_id": "cleanup-drift-session", "base_path": str(tmp_path),
+        "framework_root": str(Path(__file__).resolve().parents[1]),
+        "state_root": str(tmp_path / "state"),
+    })()
+    handler = _Handler(manager=manager, headers={"X-Bago-Channel": "desktop"})
+    monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization-drift")
+    monkeypatch.setattr("api_state.get_mgr", lambda _handler: manager)
+    monkeypatch.setattr("api_serializers.send_json", _send_json)
+    monkeypatch.setattr("execution_adapters.process.trusted_windows_powershell", lambda: Path(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"))
+    original = {"pid": 99, "executable": r"C:\Python\python.exe",
+                "command_line": f'"C:\\Python\\python.exe" "{manager.framework_root}\\worker.py"',
+                "created_at": "2026-09-30T09:00:00.0000000Z"}
+    changed = {**original, "pid": 100}
+    snapshot_reads = 0
+    termination_calls = []
+
+    def fake_run(command, **kwargs):
+        nonlocal snapshot_reads
+        script = command[-1]
+        if "Invoke-CimMethod" in script:
+            termination_calls.append(command)
+            return type("Completed", (), {"returncode": 0, "stdout": '{"ok":true,"cleaned":1,"matched":[]}', "stderr": ""})()
+        snapshot_reads += 1
+        identities = [original] if snapshot_reads <= 3 else [changed]
+        return type("Completed", (), {"returncode": 0, "stdout": json.dumps(identities), "stderr": ""})()
+
+    monkeypatch.setattr("execution_adapters.process.subprocess.run", fake_run)
+    operation = {"operation": "cleanup_zombies", "argv": [], "interaction_id": "cleanup-drift-1"}
+    handle_execute(handler, {**operation, "authorization_action": "challenge"})
+    challenge = handler.response[1]["authorization"]["challenge"]
+    handle_execute(handler, {**operation, "authorization_action": "approve", "challenge_id": challenge["challenge_id"], "user_decision": "approve"})
+    permit = handler.response[1]["authorization"]["permit"]["token"]
+
+    handle_execute(handler, {**operation, "authorization_action": "execute", "authorization_permit": permit})
+
+    assert handler.response[0] == 409
+    assert handler.response[1]["code"] == "process_termination_identity_snapshot_stale"
+    assert not termination_calls
 
 
 def test_webchat_shutdown_uses_gateway_to_schedule_only_the_current_server_termination(tmp_path, monkeypatch):

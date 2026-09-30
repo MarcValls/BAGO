@@ -32,6 +32,7 @@ def _setup(monkeypatch, tmp_path: Path):
     handler = SimpleNamespace(headers={"X-Bago-Channel": "desktop"})
     monkeypatch.setattr(api_state, "get_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "state")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
     monkeypatch.setenv("BAGO_STATE_ROOT", str(tmp_path / "state"))
     monkeypatch.setenv("BAGO_DATA_ROOT", str(tmp_path / "program-data"))
@@ -110,7 +111,7 @@ def test_uninstall_target_drift_blocks_before_helper_launch(monkeypatch, tmp_pat
     })
 
     assert responses[-1][0] == 409
-    assert responses[-1][1]["code"] == "authorization_operation_mismatch"
+    assert responses[-1][1]["code"] == "authorization_world_state_stale"
     assert runs == []
 
 

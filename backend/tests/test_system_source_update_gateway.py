@@ -42,6 +42,7 @@ def _fixture(monkeypatch, tmp_path: Path):
 
     monkeypatch.setattr(adapter_module.SystemSourceUpdateEffectAdapter, "_git", staticmethod(git))
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "state")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     monkeypatch.setattr(api_state, "get_mgr", lambda _handler: SimpleNamespace(session_id="source-session"))
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
     handler = SimpleNamespace(headers={"X-Bago-Channel": "desktop"})
@@ -121,5 +122,5 @@ def test_source_update_checkout_drift_after_approval_blocks_pull(monkeypatch, tm
     })
 
     assert responses[-1][0] == 409
-    assert responses[-1][1]["code"] == "authorization_operation_mismatch"
+    assert responses[-1][1]["code"] == "authorization_world_state_stale"
     assert not any(call[0] == "pull" for call in calls)

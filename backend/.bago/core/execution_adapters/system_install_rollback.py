@@ -8,13 +8,21 @@ from typing import Any
 
 from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
 from execution_request import ExecutionRequest
+from install_plan import InstallPlanError, target_state_digest
 
 
 class SystemInstallRollbackEffectAdapter:
     effect_ids = frozenset({"system.install.rollback"})
 
+    @classmethod
+    def revalidate_world_state(cls, request: ExecutionRequest, context: ExecutionContext) -> None:
+        manager = context.manager
+        if manager is None or str(getattr(manager, "session_id", "") or "") != request.session_id:
+            raise ExecutionGatewayError("System install rollback requires the active SessionManager", code="system_install_session_mismatch")
+        cls._validate_rollback_target(request)
+
     @staticmethod
-    def _execute_rollback(request: ExecutionRequest) -> dict[str, Any]:
+    def _validate_rollback_target(request: ExecutionRequest) -> None:
         target_data = request.target
         target_raw = str(target_data.get("install_dir") or "")
         backup_raw = str(target_data.get("backup_path") or "")
@@ -24,6 +32,24 @@ class SystemInstallRollbackEffectAdapter:
         target = Path(os.path.abspath(target_raw))
         displaced = Path(os.path.abspath(displaced_raw))
         backup = Path(os.path.abspath(backup_raw)) if backup_raw else None
+        try:
+            current_target_state = target_state_digest(str(target))
+            current_backup_state = target_state_digest(str(backup)) if backup else ""
+            current_displaced_state = target_state_digest(str(displaced))
+        except InstallPlanError as exc:
+            raise ExecutionGatewayError(
+                f"Rollback target state could not be verified: {exc}",
+                code="system_install_rollback_preflight_failed",
+            ) from exc
+        if (
+            target_data.get("target_state_sha256") != current_target_state
+            or target_data.get("backup_state_sha256") != current_backup_state
+            or target_data.get("displaced_state_sha256") != current_displaced_state
+        ):
+            raise ExecutionGatewayError(
+                "Rollback target or recovery data changed after approval",
+                code="system_install_rollback_target_changed",
+            )
         if displaced.parent != target.parent or not re.fullmatch(re.escape(target.name) + r"\.bago-(?:failed|replaced)-[A-Za-z0-9._-]+", displaced.name):
             raise ExecutionGatewayError("Rollback preservation path is outside the install target", code="system_install_rollback_path_invalid")
         if backup and (backup.parent != target.parent or not re.fullmatch(re.escape(target.name) + r"\.bago-rollback-permit-[A-Za-z0-9-]+", backup.name)):
@@ -47,6 +73,17 @@ class SystemInstallRollbackEffectAdapter:
             raise ExecutionGatewayError("Rollback preservation target must be a directory", code="system_install_rollback_target_invalid")
         if backup and backup.exists() and not backup.is_dir():
             raise ExecutionGatewayError("Rollback backup must be a directory", code="system_install_rollback_target_invalid")
+
+    @staticmethod
+    def _execute_rollback(request: ExecutionRequest) -> dict[str, Any]:
+        SystemInstallRollbackEffectAdapter._validate_rollback_target(request)
+        target_data = request.target
+        target_raw = str(target_data.get("install_dir") or "")
+        backup_raw = str(target_data.get("backup_path") or "")
+        displaced_raw = str(target_data.get("displaced_path") or "")
+        target = Path(os.path.abspath(target_raw))
+        displaced = Path(os.path.abspath(displaced_raw))
+        backup = Path(os.path.abspath(backup_raw)) if backup_raw else None
 
         if target.exists():
             if displaced.exists():

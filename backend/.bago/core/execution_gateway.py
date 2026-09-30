@@ -12,6 +12,9 @@ from typing import Any
 from authorization_boundary import AuthorizationBoundary, AuthorizationError
 from effect_registry import REGISTRY
 from execution_request import ExecutionRequest
+from execution_request import UNSPECIFIED_WORLD_STATE, stable_digest
+from world_state_snapshot import WorldStateSnapshot
+from execution_envelope import ExecutionEnvelope
 from execution_adapter_contract import EffectAdapter, ExecutionContext, ExecutionGatewayError
 from execution_claims import (
     ExecutionClaimError,
@@ -152,6 +155,20 @@ def build_default_effect_adapter_registry() -> EffectAdapterRegistry:
     registry.register(RuntimeStateBootstrapEffectAdapter())
     registry.register(DatabaseWriteEffectAdapter())
     registry.register(RoleDefinitionCreateEffectAdapter())
+    # Material effects at the strong-human boundary require an adapter-owned,
+    # side-effect-free freshness check before Permit consumption and dispatch.
+    missing_revalidators = sorted(
+        effect_id
+        for effect_id in registry.registered_effects()
+        if REGISTRY.get(effect_id).risk_level in {"E5", "E6"}
+        and REGISTRY.get(effect_id).mutates
+        and not callable(getattr(registry.resolve(effect_id), "revalidate_world_state", None))
+    )
+    if missing_revalidators:
+        raise ExecutionGatewayError(
+            "Strong material effects lack Gateway world-state revalidation: " + ", ".join(missing_revalidators),
+            code="execution_adapter_world_state_revalidation_missing",
+        )
     return registry
 
 
@@ -174,6 +191,35 @@ class ExecutionGateway:
             return self._injected_claim_store
         return execution_claim_store_for(manager)
 
+    def execute_envelope(
+        self,
+        *,
+        envelope: ExecutionEnvelope,
+        context: ExecutionContext | None = None,
+    ) -> tuple[Any, dict[str, Any]]:
+        """Execute a validated envelope while preserving the legacy entrypoint.
+
+        Claim issuance remains inside ``execute`` after Permit consumption;
+        envelope ``claim_id`` is descriptive and cannot grant authority.
+        """
+        # The Windows test/runtime harness can load the same core module under
+        # two compatible import roots; validate the contract shape as well as
+        # the local class identity so that does not create a false rejection.
+        if not isinstance(envelope, ExecutionEnvelope) and not all(
+            hasattr(envelope, name)
+            for name in ("request", "permit_token", "idempotency_key", "reversibility")
+        ):
+            raise ExecutionGatewayError(
+                "ExecutionGateway requires an ExecutionEnvelope",
+                code="execution_envelope_required",
+                pre_dispatch=True,
+            )
+        return self.execute(
+            permit_token=envelope.permit_token,
+            request=envelope.request,
+            context=context,
+        )
+
     def execute(
         self,
         *,
@@ -189,6 +235,7 @@ class ExecutionGateway:
                 code="execution_server_policy_only",
             )
         caller_context = context or ExecutionContext()
+        self._validate_world_state(request, caller_context, adapter)
         authorization = self.boundary.consume_permit(
             permit_token=permit_token,
             request=request,
@@ -198,9 +245,42 @@ class ExecutionGateway:
         # so an invalid/replayed request has no filesystem effect.
         claim_store = (
             self.claim_store_for(caller_context.manager)
-            if request.effect_id == "plan.execute"
+            if request.effect_id in {
+                "plan.execute",
+                "system.install.apply",
+                "system.install.rollback",
+                "system.install.uninstall",
+                "system.install.archive.rollback",
+            }
             else None
         )
+        install_claim = None
+        install_claim_effects = {
+            "system.install.apply",
+            "system.install.rollback",
+            "system.install.uninstall",
+            "system.install.archive.rollback",
+        }
+        if request.effect_id in install_claim_effects:
+            try:
+                resource_key = execution_resource_key(
+                    request.effect_id, request.target, request.arguments,
+                    caller_context.manager, session_id=request.session_id,
+                )
+                install_claim = claim_store.try_acquire(
+                    resource_key, request.effect_id, request.fingerprint,
+                    lease_seconds=7200.0,
+                )
+            except (OSError, RuntimeError, TypeError, ValueError) as exc:
+                raise ExecutionGatewayError(
+                    f"Could not acquire the install target lease: {exc}",
+                    code="system_install_target_lease_failed",
+                ) from exc
+            if install_claim is None:
+                raise ExecutionGatewayError(
+                    "Another authorized install operation already owns this target",
+                    code="system_install_target_busy",
+                )
         trusted_context = caller_context
         trusted_services = dict(trusted_context.services)
         # Claim objects are gateway-issued coordination context, never inputs
@@ -212,12 +292,72 @@ class ExecutionGateway:
         trusted_services["_gateway"] = self
         if claim_store is not None:
             trusted_services["_execution_claim_store"] = claim_store
+        if install_claim is not None:
+            trusted_services["_execution_claim"] = install_claim
         trusted_context = ExecutionContext(
             manager=trusted_context.manager,
             services=trusted_services,
         )
-        result = adapter.execute(request, trusted_context)
-        return result, authorization
+        if install_claim is None:
+            self._validate_world_state(request, trusted_context, adapter)
+            result = adapter.execute(request, trusted_context)
+            return result, authorization
+        try:
+            result = claim_store.execute_if_valid(
+                install_claim,
+                lambda: self._execute_after_world_state_check(adapter, request, trusted_context),
+            )
+            return result, authorization
+        except ExecutionClaimError as exc:
+            raise ExecutionGatewayError(
+                f"Install target lease expired or was fenced: {exc}",
+                code="system_install_target_lease_stale",
+            ) from exc
+        finally:
+            claim_store.release(install_claim)
+
+    @staticmethod
+    def _execute_after_world_state_check(
+        adapter: EffectAdapter, request: ExecutionRequest, context: ExecutionContext
+    ) -> Any:
+        ExecutionGateway._validate_world_state(request, context, adapter)
+        return adapter.execute(request, context)
+
+    @staticmethod
+    def _validate_world_state(
+        request: ExecutionRequest,
+        context: ExecutionContext,
+        adapter: EffectAdapter | None = None,
+    ) -> None:
+        """Require current canonical state for every registered mutating effect."""
+        if not REGISTRY.get(request.effect_id).mutates:
+            return
+        unspecified = stable_digest({"state": UNSPECIFIED_WORLD_STATE})
+        if request.world_state_digest == unspecified:
+            raise ExecutionGatewayError(
+                "Mutating execution requires a WorldStateSnapshot",
+                code="execution_world_state_required",
+                pre_dispatch=True,
+            )
+        authority_root = str(context.services.get("_server_allowed_root") or "")
+        if context.manager is None and not authority_root:
+            raise ExecutionGatewayError(
+                "Mutating execution requires a trusted world-state authority",
+                code="execution_world_state_authority_required",
+                pre_dispatch=True,
+            )
+        snapshot = WorldStateSnapshot.from_request(
+            request, context.manager, authority_root=authority_root
+        )
+        if request.world_state_digest != snapshot.digest:
+            raise ExecutionGatewayError(
+                "WorldStateSnapshot is stale",
+                code="execution_world_state_stale",
+                pre_dispatch=True,
+            )
+        material_revalidator = getattr(adapter, "revalidate_world_state", None)
+        if callable(material_revalidator):
+            material_revalidator(request, context)
 
     def execute_server_owned(
         self,
@@ -239,6 +379,8 @@ class ExecutionGateway:
                 f"{request.effect_id} is not a server-policy adapter",
                 code="execution_server_adapter_required",
             )
+        caller_context = context or ExecutionContext()
+        self._validate_world_state(request, caller_context, adapter)
         try:
             authorization = self.boundary.authorize_server_policy(request)
         except AuthorizationError as exc:
@@ -251,6 +393,7 @@ class ExecutionGateway:
             manager=trusted_context.manager,
             services=trusted_services,
         )
+        self._validate_world_state(request, trusted_context, adapter)
         result = adapter.execute(request, trusted_context)
         return result, authorization
 
@@ -328,6 +471,8 @@ class ExecutionGateway:
                 "Nested child must originate in the governed PlanEngine runtime",
                 code="execution_nested_surface_invalid",
             )
+        child_adapter = self.adapters.resolve(child_request.effect_id)
+        self._validate_world_state(child_request, context, child_adapter)
 
         parent_target = parent_request.target if isinstance(parent_request.target, dict) else {}
         child_effects = parent_target.get("child_effects")

@@ -98,6 +98,10 @@ accounts.json
 
 /ui-react/
 
+# Local MSIX bootstrap host build outputs
+/bootstrap/msix-host/bin/
+/bootstrap/msix-host/obj/
+
 # BAGO runtime transient artifacts
 /.bago/tmp/
 /.bago/audits/electron-closure/

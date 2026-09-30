@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from threading import RLock
 from typing import Any
 
@@ -31,6 +32,10 @@ OUTCOME_STATUSES = frozenset({
     OUTCOME_FAILED,
     OUTCOME_UNKNOWN,
 })
+CHECKPOINT_COMPLETED = "COMPLETED"
+CHECKPOINT_REUSABLE = "REUSABLE"
+CHECKPOINT_STALE = "STALE"
+CHECKPOINT_STATUSES = frozenset({CHECKPOINT_COMPLETED, CHECKPOINT_REUSABLE, CHECKPOINT_STALE})
 
 
 class GovernedWorkError(RuntimeError):
@@ -39,6 +44,49 @@ class GovernedWorkError(RuntimeError):
     def __init__(self, message: str, *, code: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+@dataclass(frozen=True, slots=True)
+class StepCheckpoint:
+    """Durable, revalidatable boundary for one completed pipeline step."""
+
+    step_id: str
+    input_digest: str
+    dependency_digest: str
+    output_digest: str
+    effect_receipt: str
+    verification_state: str
+    status: str = CHECKPOINT_COMPLETED
+
+    def __post_init__(self) -> None:
+        if not self.step_id or not self.input_digest or not self.dependency_digest:
+            raise GovernedWorkError("Checkpoint identity is incomplete", code="pipeline_checkpoint_invalid")
+        if self.status not in CHECKPOINT_STATUSES:
+            raise GovernedWorkError("Checkpoint status is invalid", code="pipeline_checkpoint_invalid")
+
+    @property
+    def checkpoint_digest(self) -> str:
+        return _json_digest({
+            "step_id": self.step_id,
+            "input_digest": self.input_digest,
+            "dependency_digest": self.dependency_digest,
+            "output_digest": self.output_digest,
+            "effect_receipt": self.effect_receipt,
+            "verification_state": self.verification_state,
+            "status": self.status,
+        })
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "step_id": self.step_id,
+            "input_digest": self.input_digest,
+            "dependency_digest": self.dependency_digest,
+            "output_digest": self.output_digest,
+            "effect_receipt": self.effect_receipt,
+            "verification_state": self.verification_state,
+            "status": self.status,
+            "checkpoint_digest": self.checkpoint_digest,
+        }
 
 
 def _json_digest(value: Any) -> str:
@@ -187,6 +235,7 @@ class GovernedPipelineState:
             "step_definition_fingerprint": _json_digest(step_fps),
             "pipeline_operation_id": str(existing.get("pipeline_operation_id") or f"pipeline-operation:{plan_id}"),
             "outcomes": dict(existing.get("outcomes") or {}),
+            "checkpoints": dict(existing.get("checkpoints") or {}),
             "last_execution": dict(existing.get("last_execution") or {}),
         }
         if contract["budget_consumed"] < 0 or contract["budget_consumed"] > budget_limit:
@@ -337,6 +386,85 @@ class GovernedPipelineState:
             record["outcome_receipt_ref"] = str(receipt_id or "")
             record["result"] = result if isinstance(result, (dict, list, str, int, float, bool)) or result is None else str(result)
             record["evidence"] = list(evidence)
+            checkpoint = StepCheckpoint(
+                step_id=str(record["step_id"]),
+                input_digest=str(record["step_definition_fingerprint"]),
+                dependency_digest=str(contract["workflow_fingerprint"]),
+                output_digest=_json_digest(record["result"]),
+                effect_receipt=str(receipt_id or ""),
+                verification_state="VERIFIED" if receipt_id else "UNVERIFIED",
+            )
+            contract["checkpoints"][checkpoint.step_id] = checkpoint.as_dict()
+
+    def checkpoint(self, step_id: str) -> StepCheckpoint | None:
+        with self.lock:
+            contract = self.ensure()
+            raw = contract.get("checkpoints", {}).get(str(step_id))
+            if not isinstance(raw, dict):
+                return None
+            checkpoint = StepCheckpoint(
+                step_id=str(raw.get("step_id") or ""),
+                input_digest=str(raw.get("input_digest") or ""),
+                dependency_digest=str(raw.get("dependency_digest") or ""),
+                output_digest=str(raw.get("output_digest") or ""),
+                effect_receipt=str(raw.get("effect_receipt") or ""),
+                verification_state=str(raw.get("verification_state") or ""),
+                status=str(raw.get("status") or ""),
+            )
+            if raw.get("checkpoint_digest") != checkpoint.checkpoint_digest:
+                raise GovernedWorkError("Checkpoint alterado fuera de su owner", code="pipeline_checkpoint_tampered")
+            return checkpoint
+
+    def revalidate_checkpoint(self, step: Any) -> StepCheckpoint | None:
+        """Return a reusable checkpoint only when its current bindings match."""
+        with self.lock:
+            try:
+                checkpoint = self.checkpoint(_step_id(step))
+            except GovernedWorkError as error:
+                if error.code != "workflow_definition_stale":
+                    raise
+                raw = getattr(self.plan, "governed_work", {})
+                raw = raw.get("checkpoints", {}).get(_step_id(step)) if isinstance(raw, dict) else None
+                if not isinstance(raw, dict):
+                    return None
+                checkpoint = StepCheckpoint(
+                    step_id=str(raw.get("step_id") or ""),
+                    input_digest=str(raw.get("input_digest") or ""),
+                    dependency_digest=str(raw.get("dependency_digest") or ""),
+                    output_digest=str(raw.get("output_digest") or ""),
+                    effect_receipt=str(raw.get("effect_receipt") or ""),
+                    verification_state=str(raw.get("verification_state") or ""),
+                    status=str(raw.get("status") or ""),
+                )
+            if checkpoint is None:
+                return None
+            current_input = step_definition_fingerprint(step)
+            current_workflow = workflow_definition_fingerprint(self.plan)
+            if checkpoint.input_digest != current_input or checkpoint.dependency_digest != current_workflow:
+                stale = StepCheckpoint(
+                    step_id=checkpoint.step_id,
+                    input_digest=checkpoint.input_digest,
+                    dependency_digest=checkpoint.dependency_digest,
+                    output_digest=checkpoint.output_digest,
+                    effect_receipt=checkpoint.effect_receipt,
+                    verification_state=checkpoint.verification_state,
+                    status=CHECKPOINT_STALE,
+                )
+                current = getattr(self.plan, "governed_work", {})
+                if isinstance(current, dict):
+                    current.setdefault("checkpoints", {})[stale.step_id] = stale.as_dict()
+                return stale
+            reusable = StepCheckpoint(
+                step_id=checkpoint.step_id,
+                input_digest=checkpoint.input_digest,
+                dependency_digest=checkpoint.dependency_digest,
+                output_digest=checkpoint.output_digest,
+                effect_receipt=checkpoint.effect_receipt,
+                verification_state=checkpoint.verification_state,
+                status=CHECKPOINT_REUSABLE if checkpoint.verification_state == "VERIFIED" else CHECKPOINT_COMPLETED,
+            )
+            self.ensure()["checkpoints"][reusable.step_id] = reusable.as_dict()
+            return reusable
 
     def fail(self, key: str, *, result: Any, evidence: list[str], error: str) -> None:
         with self.lock:
@@ -656,6 +784,7 @@ def execute_plan_through_gateway(
             parent_execution_id=str(getattr(parent_request, "request_id", "") or ""),
             delegation_id=str(getattr(parent_request, "delegation_id", "") or ""),
             preconditions=preconditions,
+        world_state_authority=context.manager,
         )
         child_services = dict(getattr(context, "services", {}) or {})
         child_services["_execution_claim"] = claim
@@ -783,6 +912,9 @@ def execute_plan_through_gateway(
 
 
 __all__ = [
+    "CHECKPOINT_COMPLETED",
+    "CHECKPOINT_REUSABLE",
+    "CHECKPOINT_STALE",
     "GOVERNED_WORK_CONTRACT",
     "GovernedPipelineState",
     "GovernedWorkError",
@@ -790,6 +922,7 @@ __all__ = [
     "OUTCOME_FAILED",
     "OUTCOME_PENDING",
     "OUTCOME_UNKNOWN",
+    "StepCheckpoint",
     "WORKFLOW_VERSION",
     "authority_references",
     "ensure_pipeline_state",

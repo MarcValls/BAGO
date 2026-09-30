@@ -264,6 +264,7 @@ def cmd_manager(args: argparse.Namespace) -> int:
             },
             arguments={"argv": cmd},
             scope="workspace",
+            world_state_authority=root,
         )
         boundary = AuthorizationBoundary()
         interaction_id = f"cli-manager-{uuid.uuid4().hex}"
@@ -289,7 +290,7 @@ def cmd_manager(args: argparse.Namespace) -> int:
         result, _authorization = ExecutionGateway(boundary).execute(
             permit_token=permit,
             request=request,
-            context=ExecutionContext(),
+            context=ExecutionContext(manager=root),
         )
         if not isinstance(result, dict) or result.get("executed") is not True:
             print("El Gateway no confirmó el inicio del manager.", file=sys.stderr)
