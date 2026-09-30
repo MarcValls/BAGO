@@ -349,7 +349,7 @@ function branchWidth(branch){
 function treeDepth(node){return 1+Math.max(0,...(node.children||[]).map(treeDepth));}
 function refreshPositions(){
   for(const key of Object.keys(topPos))delete topPos[key];
-  const spans=DATA.branches.map(branch=>allBranchesOpen||selectedBranch===branch.id?branchWidth(branch):200);
+  const spans=DATA.branches.map(branch=>allBranchesOpen||selectedBranch===branch.id||(query&&subtreeMatches(branch))?branchWidth(branch):200);
   const lanes=[[],[]];
   const laneWidths=[0,0];
   DATA.branches
@@ -508,7 +508,7 @@ function childPositions(branch){
   });
   return pts;
 }
-function descendantsVisible(key){ return allBranchesOpen || expandedNodeKey===key; }
+function descendantsVisible(key){ return allBranchesOpen || expandedNodeKey===key || !!query; }
 function renderDescendants(items,parentPos,branch,parentKey){
   if(!items || !items.length || !descendantsVisible(parentKey)) return;
   const widths=items.map(subtreeWidth);
@@ -518,7 +518,7 @@ function renderDescendants(items,parentPos,branch,parentKey){
     const width=widths[index];
     const pos=child.position||{x:cursor+width/2,y:parentPos.y+levelStepY};
     cursor+=width+siblingGapX;
-    if(query && !matches([child.title,child.detail,child.status].join(' '))) return;
+    if(query && !subtreeMatches(child)) return;
     const key=parentKey+'/'+index;
     addLine(parentPos.x,parentPos.y,pos.x,pos.y,selectedBranch===branch.id,branch.id);
     const cn=makeNode({
@@ -565,6 +565,13 @@ function makeNode(opts){
 function matches(text){
   return !query || text.toLocaleLowerCase('es').includes(query.toLocaleLowerCase('es'));
 }
+function subtreeMatches(node){
+  const ownText=[node.title,node.summary,node.subtitle,node.detail,node.status,
+    ...(node.comments||[]).map(comment=>comment.text),
+    ...(node.coordination||[]).flatMap(entry=>[entry.type,entry.paths,entry.text])
+  ].filter(value=>typeof value==='string').join(' ');
+  return matches(ownText)||(node.children||[]).some(subtreeMatches);
+}
 
 function render(){
   nodesLayer.innerHTML=''; lines.innerHTML=''; empty.style.display='none';
@@ -581,8 +588,7 @@ function render(){
   DATA.branches.forEach(branch=>{
     const pos=branch.position||topPos[branch.id];
     topPos[branch.id]=pos;
-    const branchText=[branch.title,branch.summary,branch.status,...branch.children.flatMap(c=>[c.title,c.detail,c.status,...(c.comments||[]).map(note=>note.text)])].join(' ');
-    const branchMatch=matches(branchText);
+    const branchMatch=subtreeMatches(branch);
 
     if(query && !branchMatch) return;
     visibleCount++;
@@ -609,7 +615,7 @@ function render(){
     if(reveal){
       const pts=childPositions(branch);
       branch.children.forEach((c,i)=>{
-        if(query && !matches([c.title,c.detail,c.status].join(' '))) return;
+        if(query && !subtreeMatches(c)) return;
         const cp=pts[i];
         addLine(pos.x,pos.y,cp.x,cp.y,selectedBranch===branch.id,branch.id);
         const childKey=branch.id+'/'+i;
@@ -660,6 +666,7 @@ document.getElementById('btnAll').onclick=()=>{
   document.getElementById('btnAll').setAttribute('aria-pressed',String(allBranchesOpen));
   document.getElementById('btnAll').textContent=allBranchesOpen?'Cerrar todas las ramas':'Abrir todas las ramas';
   closeDetail();
+  refreshPositions();
   render();
   centerMap();
 };
@@ -765,26 +772,38 @@ function uniqueRef(prefix){
   return `${prefix}:${id}`;
 }
 function validateData(data){
-  if(!data||typeof data!=='object'||!data.center||!Array.isArray(data.branches))throw new Error('El JSON debe contener center y branches.');
+  const isRecord=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
+  if(!isRecord(data)||!isRecord(data.center)||!Array.isArray(data.branches))throw new Error('El JSON debe contener center y branches.');
   const nodeRefs=new Set(),commentRefs=new Set();
   const check=node=>{
+    if(!isRecord(node))throw new Error('Cada nodo debe ser un objeto.');
+    if(typeof node.title!=='string'||!node.title.trim())throw new Error('Cada nodo debe tener un título de texto.');
+    for(const field of ['summary','subtitle','detail','status']){
+      if(node[field]!==undefined&&typeof node[field]!=='string')throw new Error(`El campo ${field} de ${node.ref||node.title} debe ser texto.`);
+    }
     if(typeof node.ref!=='string'||!node.ref)throw new Error('Cada nodo debe tener una ref.');
     if(nodeRefs.has(node.ref))throw new Error(`Ref de nodo duplicada: ${node.ref}`);nodeRefs.add(node.ref);
-    for(const comment of node.comments||[]){
-      if(!comment.ref||commentRefs.has(comment.ref))throw new Error(`Ref de comentario ausente o duplicada: ${comment.ref||'(vacía)'}`);
+    if(!Array.isArray(node.comments))throw new Error(`Comentarios inválidos en ${node.ref}.`);
+    for(const comment of node.comments){
+      if(!isRecord(comment)||typeof comment.ref!=='string'||!comment.ref||commentRefs.has(comment.ref))throw new Error(`Ref de comentario ausente o duplicada: ${comment?.ref||'(vacía)'}`);
       commentRefs.add(comment.ref);
-      if(!comment.timestamp||!comment.text)throw new Error(`Comentario incompleto: ${comment.ref}`);
+      if(typeof comment.timestamp!=='string'||!Number.isFinite(Date.parse(comment.timestamp))||typeof comment.text!=='string'||!comment.text.trim())throw new Error(`Comentario incompleto: ${comment.ref}`);
     }
-    if(node.coordination&&!Array.isArray(node.coordination))throw new Error(`Hilo de coordinación inválido en ${node.ref}`);
+    if(node.coordination!==undefined&&!Array.isArray(node.coordination))throw new Error(`Hilo de coordinación inválido en ${node.ref}`);
     for(const entry of node.coordination||[]){
-      if(!entry.ref||!entry.timestamp||!Object.hasOwn(coordinationLabels,entry.type)||typeof entry.text!=='string'||!entry.text.trim())throw new Error(`Aportación de coordinación incompleta en ${node.ref}`);
+      if(!isRecord(entry)||typeof entry.ref!=='string'||!entry.ref||typeof entry.timestamp!=='string'||!Number.isFinite(Date.parse(entry.timestamp))||!Object.hasOwn(coordinationLabels,entry.type)||typeof entry.text!=='string'||!entry.text.trim())throw new Error(`Aportación de coordinación incompleta en ${node.ref}`);
       if(typeof entry.paths!=='string')throw new Error(`Rutas de coordinación inválidas en ${node.ref}`);
     }
-    if(node.position&&(!Number.isFinite(node.position.x)||!Number.isFinite(node.position.y)))throw new Error(`Posición inválida en ${node.ref}`);
-    if(node.children&&!Array.isArray(node.children))throw new Error(`children inválido en ${node.ref}`);
+    if(node.position!==undefined&&(!isRecord(node.position)||!Number.isFinite(node.position.x)||!Number.isFinite(node.position.y)))throw new Error(`Posición inválida en ${node.ref}`);
+    if(node.children!==undefined&&!Array.isArray(node.children))throw new Error(`children inválido en ${node.ref}`);
     node.children?.forEach(check);
   };
-  check(data.center);data.branches.forEach(branch=>check(branch));
+  const branchIds=new Set();
+  check(data.center);
+  data.branches.forEach(branch=>{
+    if(!isRecord(branch)||typeof branch.id!=='string'||!branch.id||branchIds.has(branch.id)||!Array.isArray(branch.children))throw new Error('Cada rama debe tener un id único y una lista de hijos.');
+    branchIds.add(branch.id);check(branch);
+  });
 }
 function saveDataFile(){
   ensureNodeRefs();validateData(DATA);
@@ -813,8 +832,24 @@ document.getElementById('jsonFile').addEventListener('change',async event=>{
   event.target.value='';
 });
 function ensureDataRefs(data){
-  const assign=(node,path)=>{if(!node.ref)node.ref='bago:'+path;if(!Array.isArray(node.comments))node.comments=[];if(node.ref===coordinationNodeRef&&!Array.isArray(node.coordination))node.coordination=[];node.children?.forEach((child,index)=>assign(child,path+'/'+index));};
-  assign(data.center,'center');data.branches.forEach(branch=>{if(!branch.ref)branch.ref='bago:branch/'+branch.id;if(!Array.isArray(branch.comments))branch.comments=[];branch.children.forEach((child,index)=>assign(child,'branch/'+branch.id+'/'+index));  });
+  if(!data||typeof data!=='object'||!data.center||!Array.isArray(data.branches))throw new Error('El JSON debe contener center y branches.');
+  const assign=(node,path)=>{
+    if(!node||typeof node!=='object'||Array.isArray(node))throw new Error('Cada nodo debe ser un objeto.');
+    if(node.children!==undefined&&!Array.isArray(node.children))throw new Error(`children inválido en ${node.ref||path}.`);
+    if(node.comments!==undefined&&!Array.isArray(node.comments))throw new Error(`Comentarios inválidos en ${node.ref||path}.`);
+    if(node.coordination!==undefined&&!Array.isArray(node.coordination))throw new Error(`Hilo de coordinación inválido en ${node.ref||path}.`);
+    if(!node.ref)node.ref='bago:'+path;
+    if(node.comments===undefined)node.comments=[];
+    if(node.ref===coordinationNodeRef&&node.coordination===undefined)node.coordination=[];
+    node.children?.forEach((child,index)=>assign(child,path+'/'+index));
+  };
+  assign(data.center,'center');
+  data.branches.forEach((branch,index)=>{
+    if(!branch||typeof branch!=='object'||Array.isArray(branch)||!Array.isArray(branch.children))throw new Error(`Rama inválida en posición ${index}.`);
+    if(!branch.ref)branch.ref='bago:branch/'+branch.id;
+    if(branch.comments===undefined)branch.comments=[];
+    branch.children.forEach((child,childIndex)=>assign(child,'branch/'+branch.id+'/'+childIndex));
+  });
 }
   document.getElementById('coordinationForm').addEventListener('submit',event=>{
     event.preventDefault();
