@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import io
 import json
+import os
+from pathlib import Path
 from types import SimpleNamespace
 import zipfile
 
@@ -14,6 +16,14 @@ from execution_adapters.release_stage import ReleaseBundleStageEffectAdapter
 from api_dispatch import resolve_post
 
 
+def _user_root() -> Path:
+    return Path(os.environ.get("BAGO_USER_ROOT") or Path.cwd()).resolve()
+
+
+def _context() -> ExecutionContext:
+    return ExecutionContext(world_state_authority_root=str(_user_root()))
+
+
 def _request(signature: str, bundle: str):
     return build_execution_request(
         effect_id="release.signature.verify",
@@ -24,6 +34,7 @@ def _request(signature: str, bundle: str):
         target={"signature_path": signature, "bundle_path": bundle},
         arguments={},
         scope="system",
+        world_state_authority=_user_root(),
     )
 
 
@@ -43,7 +54,7 @@ def test_release_signature_is_gateway_owned_and_returns_receipt(tmp_path, monkey
     )
 
     result, authorization = ExecutionGateway().execute_server_owned(
-        request=_request(str(signature), str(bundle)), context=ExecutionContext()
+        request=_request(str(signature), str(bundle)), context=_context()
     )
 
     assert result["ok"] is True
@@ -79,7 +90,7 @@ def test_release_signature_invalid_paths_block_before_process(tmp_path, monkeypa
 
     with pytest.raises(ExecutionGatewayError):
         ExecutionGateway().execute_server_owned(
-            request=_request(str(signature), str(bundle)), context=ExecutionContext()
+            request=_request(str(signature), str(bundle)), context=_context()
         )
     assert calls == []
 
@@ -101,6 +112,7 @@ def _stage_request(bundle: str, job_id: str = "job-1"):
         target={"job_id": job_id, "bundle_path": bundle},
         arguments={},
         scope="system",
+        world_state_authority=_user_root(),
     )
 
 
@@ -113,7 +125,7 @@ def test_release_bundle_stage_is_gateway_owned_and_publishes_receipt(tmp_path, m
         archive.writestr("source/install-v4.ps1", "installer")
         archive.writestr("source/bago_core/launcher.py", "launcher")
     result, authorization = ExecutionGateway().execute_server_owned(
-        request=_stage_request(str(bundle)), context=ExecutionContext()
+        request=_stage_request(str(bundle)), context=_context()
     )
     destination = tmp_path / "manager" / "release-jobs" / "staging" / "job-1"
     assert result["ok"] is True
@@ -137,7 +149,7 @@ def test_release_bundle_preflight_blocks_unsafe_archive_before_staging(tmp_path,
             archive.writestr(name, body)
     with pytest.raises(ExecutionGatewayError):
         ExecutionGateway().execute_server_owned(
-            request=_stage_request(str(bundle)), context=ExecutionContext()
+            request=_stage_request(str(bundle)), context=_context()
         )
     staging = tmp_path / "manager" / "release-jobs" / "staging"
     assert not staging.exists()
@@ -159,7 +171,7 @@ def test_release_stage_http_dispatch_uses_gateway_before_publishing(tmp_path, mo
     bundle = cache / "release.zip"
     with zipfile.ZipFile(bundle, "w") as archive:
         archive.writestr("BAGO/install-v4.ps1", "installer")
-    manager = SimpleNamespace(session_id="test-session")
+    manager = SimpleNamespace(session_id="test-session", base_path=tmp_path)
     monkeypatch.setattr(api_state, "get_mgr", lambda handler: manager)
 
     class Handler:
@@ -206,7 +218,7 @@ def test_release_stage_rejects_symlinked_staging_root_before_write(tmp_path, mon
 
     with pytest.raises(ExecutionGatewayError) as exc:
         ExecutionGateway().execute_server_owned(
-            request=_stage_request(str(bundle)), context=ExecutionContext()
+            request=_stage_request(str(bundle)), context=_context()
         )
     assert exc.value.code == "release_stage_symlink_forbidden"
     assert list(outside.iterdir()) == []
@@ -221,7 +233,7 @@ def test_release_stage_rejects_traversal_job_id_before_staging(tmp_path, monkeyp
         archive.writestr("safe.txt", "data")
     with pytest.raises(ExecutionGatewayError) as exc:
         ExecutionGateway().execute_server_owned(
-            request=_stage_request(str(bundle), ".."), context=ExecutionContext()
+            request=_stage_request(str(bundle), ".."), context=_context()
         )
     assert exc.value.code == "release_stage_job_id_invalid"
     assert not (tmp_path / "manager" / "release-jobs" / "staging").exists()

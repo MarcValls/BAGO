@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import io
+import os
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,14 @@ from execution_request import build_execution_request
 from api_dispatch import resolve_post
 from authorization_boundary import AuthorizationBoundary
 from execution_adapters.release_job_archive import ReleaseJobArchiveEffectAdapter
+
+
+def _user_root() -> Path:
+    return Path(os.environ.get("BAGO_USER_ROOT") or Path.cwd()).resolve()
+
+
+def _context() -> ExecutionContext:
+    return ExecutionContext(world_state_authority_root=str(_user_root()))
 
 
 def _request(effect_id: str, job_id: str, arguments: dict):
@@ -30,6 +39,7 @@ def _request(effect_id: str, job_id: str, arguments: dict):
         target={"job_id": job_id},
         arguments=arguments,
         scope="system",
+        world_state_authority=_user_root(),
     )
 
 
@@ -38,7 +48,7 @@ def test_release_job_state_is_persisted_atomically_by_gateway(tmp_path, monkeypa
     state = {"id": "release-123-abcd", "state": "queued", "progress": {"percent": 0}}
     result, authorization = ExecutionGateway().execute_server_owned(
         request=_request("release.job.persist", state["id"], {"state": state}),
-        context=ExecutionContext(),
+        context=_context(),
     )
     target = tmp_path / "manager" / "release-jobs" / "jobs" / f"{state['id']}.json"
     assert result["ok"] is True
@@ -52,7 +62,7 @@ def test_release_job_state_identity_mismatch_blocks_before_directory_creation(tm
     monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path))
     request = _request("release.job.persist", "release-expected", {"state": {"id": "release-other"}})
     with pytest.raises(ExecutionGatewayError) as exc:
-        ExecutionGateway().execute_server_owned(request=request, context=ExecutionContext())
+        ExecutionGateway().execute_server_owned(request=request, context=_context())
     assert exc.value.code == "release_job_state_identity_mismatch"
     assert not (tmp_path / "manager" / "release-jobs").exists()
 
@@ -61,7 +71,7 @@ def test_release_job_state_rejects_traversal_id_before_directory_creation(tmp_pa
     monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path))
     request = _request("release.job.persist", "..", {"state": {"id": ".."}})
     with pytest.raises(ExecutionGatewayError) as exc:
-        ExecutionGateway().execute_server_owned(request=request, context=ExecutionContext())
+        ExecutionGateway().execute_server_owned(request=request, context=_context())
     assert exc.value.code == "release_job_state_invalid"
     assert not (tmp_path / "manager" / "release-jobs").exists()
 
@@ -71,7 +81,7 @@ def test_release_job_log_appends_one_bounded_record_through_gateway(tmp_path, mo
     record = {"timestamp": "2026-09-25T05:00:00.000Z", "level": "warn", "message": "cancel requested"}
     result, authorization = ExecutionGateway().execute_server_owned(
         request=_request("release.job.log.append", "release-123-abcd", {"record": record}),
-        context=ExecutionContext(),
+        context=_context(),
     )
     target = tmp_path / "manager" / "release-jobs" / "logs" / "release-123-abcd.jsonl"
     assert result["ok"] is True
@@ -83,7 +93,11 @@ def test_release_job_storage_http_routes_dispatch_to_canonical_adapters(tmp_path
     import api_state
 
     monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path))
-    monkeypatch.setattr(api_state, "get_mgr", lambda handler: object())
+    class StorageManager:
+        session_id = "release-job-manager"
+        base_path = tmp_path
+
+    monkeypatch.setattr(api_state, "get_mgr", lambda handler: StorageManager())
 
     class Handler:
         def __init__(self):
@@ -158,6 +172,7 @@ def test_release_job_archive_is_permit_bound_and_moves_only_exact_terminal_state
         target={"job_id": "release-archive-1", "state_sha256": hashlib.sha256(state_path.read_bytes()).hexdigest()},
         arguments={"archived_at": archived_at},
         scope="system",
+        world_state_authority=_user_root(),
     )
     boundary = AuthorizationBoundary()
     challenge = boundary.create_challenge(request, interaction_id="archive-interaction-1")
@@ -168,7 +183,7 @@ def test_release_job_archive_is_permit_bound_and_moves_only_exact_terminal_state
         channel="desktop",
     )
     result, authorization = ExecutionGateway(boundary).execute(
-        permit_token=approval["permit"]["token"], request=request, context=ExecutionContext()
+        permit_token=approval["permit"]["token"], request=request, context=_context()
     )
     archive_dir = root / "archive" / "deleted-jobs" / "release-archive-1"
     assert authorization["state"] == "consumed"
@@ -193,6 +208,7 @@ def test_release_job_archive_changed_state_blocks_before_archive_creation(tmp_pa
         session_id="archive-test-session", source_surface="api.release.jobs.archive",
         target={"job_id": "release-archive-2", "state_sha256": hashlib.sha256(state_path.read_bytes()).hexdigest()},
         arguments={"archived_at": "2026-09-25T05:30:00Z"}, scope="system",
+        world_state_authority=_user_root(),
     )
     boundary = AuthorizationBoundary()
     challenge = boundary.create_challenge(request, interaction_id="archive-interaction-2")
@@ -202,7 +218,7 @@ def test_release_job_archive_changed_state_blocks_before_archive_creation(tmp_pa
     )
     state_path.write_text('{"id":"release-archive-2","state":"completed"}', encoding="utf-8")
     with pytest.raises(ExecutionGatewayError) as exc:
-        ExecutionGateway(boundary).execute(permit_token=approval["permit"]["token"], request=request, context=ExecutionContext())
+        ExecutionGateway(boundary).execute(permit_token=approval["permit"]["token"], request=request, context=_context())
     assert exc.value.code == "release_job_archive_state_changed"
     assert state_path.exists()
     assert not (tmp_path / "manager" / "release-jobs" / "archive").exists()
@@ -228,6 +244,7 @@ def test_release_job_archive_preserves_recovery_data_if_rollback_move_fails(tmp_
         session_id="archive-recovery-session", source_surface="api.release.jobs.archive",
         target={"job_id": "release-archive-recovery", "state_sha256": hashlib.sha256(state_path.read_bytes()).hexdigest()},
         arguments={"archived_at": "2026-09-25T05:30:00Z"}, scope="system",
+        world_state_authority=_user_root(),
     )
     boundary = AuthorizationBoundary()
     challenge = boundary.create_challenge(request, interaction_id="archive-recovery-interaction")
@@ -246,7 +263,7 @@ def test_release_job_archive_preserves_recovery_data_if_rollback_move_fails(tmp_
 
     monkeypatch.setattr(archive_adapter.os, "replace", fail_stage_and_state_restore)
     with pytest.raises(ExecutionGatewayError) as exc:
-        ExecutionGateway(boundary).execute(permit_token=approval["permit"]["token"], request=request, context=ExecutionContext())
+        ExecutionGateway(boundary).execute(permit_token=approval["permit"]["token"], request=request, context=_context())
     assert exc.value.code == "release_job_archive_recovery_required"
     archive_dir = root / "archive" / "deleted-jobs" / "release-archive-recovery"
     assert (archive_dir / "job.json").is_file()
@@ -266,6 +283,7 @@ def test_release_job_archive_api_uses_boundary_challenge_approve_and_gateway(tmp
 
     class Manager:
         session_id = "release-archive-api-session"
+        base_path = tmp_path
 
     monkeypatch.setattr(api_state, "get_mgr", lambda handler: Manager())
 
