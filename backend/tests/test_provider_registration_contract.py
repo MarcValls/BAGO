@@ -222,7 +222,7 @@ def test_configure_rejects_tampered_fingerprint_and_noninteractive_approval(monk
         "authorization_permit": permit,
     })
     assert responses[-1][0] == 409
-    assert responses[-1][1]["code"] == "authorization_operation_mismatch"
+    assert responses[-1][1]["code"] == "authorization_world_state_stale"
     assert store.get_secret(secret_key) is None
     assert config.saved == []
 

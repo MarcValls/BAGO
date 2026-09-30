@@ -14,6 +14,31 @@ class SystemInstallRollbackEffectAdapter:
     effect_ids = frozenset({"system.install.rollback"})
 
     @staticmethod
+    def revalidate_world_state(request: ExecutionRequest, context: ExecutionContext) -> None:
+        manager = context.manager
+        if manager is None or str(getattr(manager, "session_id", "") or "") != request.session_id:
+            raise ExecutionGatewayError("System install rollback requires the active SessionManager", code="system_install_session_mismatch")
+        # The existing preflight below validates the mutable filesystem target;
+        # invoke it before Permit consumption through the same canonical path.
+        SystemInstallRollbackEffectAdapter._validate_target_shape(request)
+
+    @staticmethod
+    def _validate_target_shape(request: ExecutionRequest) -> None:
+        target_data = request.target
+        target_raw = str(target_data.get("install_dir") or "")
+        backup_raw = str(target_data.get("backup_path") or "")
+        displaced_raw = str(target_data.get("displaced_path") or "")
+        if not os.path.isabs(target_raw) or not os.path.isabs(displaced_raw) or (backup_raw and not os.path.isabs(backup_raw)):
+            raise ExecutionGatewayError("Rollback paths must be absolute", code="system_install_rollback_path_invalid")
+        target = Path(os.path.abspath(target_raw))
+        displaced = Path(os.path.abspath(displaced_raw))
+        backup = Path(os.path.abspath(backup_raw)) if backup_raw else None
+        if displaced.parent != target.parent or not re.fullmatch(re.escape(target.name) + r"\.bago-(?:failed|replaced)-[A-Za-z0-9._-]+", displaced.name):
+            raise ExecutionGatewayError("Rollback preservation path is outside the install target", code="system_install_rollback_path_invalid")
+        if backup and (backup.parent != target.parent or not re.fullmatch(re.escape(target.name) + r"\.bago-rollback-permit-[A-Za-z0-9-]+", backup.name)):
+            raise ExecutionGatewayError("Rollback backup path is not a gateway release backup", code="system_install_rollback_path_invalid")
+
+    @staticmethod
     def _execute_rollback(request: ExecutionRequest) -> dict[str, Any]:
         target_data = request.target
         target_raw = str(target_data.get("install_dir") or "")

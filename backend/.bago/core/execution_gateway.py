@@ -11,7 +11,8 @@ from typing import Any
 
 from authorization_boundary import AuthorizationBoundary, AuthorizationError
 from effect_registry import REGISTRY
-from execution_request import ExecutionRequest
+from execution_request import ExecutionRequest, UNSPECIFIED_WORLD_STATE, stable_digest
+from world_state_snapshot import WorldStateSnapshot
 from execution_adapter_contract import EffectAdapter, ExecutionContext, ExecutionGatewayError
 from execution_claims import (
     ExecutionClaimError,
@@ -46,6 +47,16 @@ class EffectAdapterRegistry:
                 raise ExecutionGatewayError(
                     f"Effect adapter declares unknown canonical effect_id {clean}",
                     code="execution_adapter_effect_unknown",
+                )
+            descriptor = REGISTRY.get(clean)
+            if (
+                descriptor.mutates
+                and descriptor.risk_level in {"E5", "E6"}
+                and not callable(getattr(adapter, "revalidate_world_state", None))
+            ):
+                raise ExecutionGatewayError(
+                    f"Strong material effect {clean} requires Gateway world-state revalidation",
+                    code="execution_adapter_world_state_revalidation_missing",
                 )
             if clean in self._by_effect:
                 raise ExecutionGatewayError(
@@ -152,6 +163,20 @@ def build_default_effect_adapter_registry() -> EffectAdapterRegistry:
     registry.register(RuntimeStateBootstrapEffectAdapter())
     registry.register(DatabaseWriteEffectAdapter())
     registry.register(RoleDefinitionCreateEffectAdapter())
+    # Strong material effects must expose a side-effect-free freshness check
+    # that the Gateway runs before Permit consumption and dispatch.
+    missing_revalidators = sorted(
+        effect_id
+        for effect_id in registry.registered_effects()
+        if REGISTRY.get(effect_id).risk_level in {"E5", "E6"}
+        and REGISTRY.get(effect_id).mutates
+        and not callable(getattr(registry.resolve(effect_id), "revalidate_world_state", None))
+    )
+    if missing_revalidators:
+        raise ExecutionGatewayError(
+            "Strong material effects lack Gateway world-state revalidation: " + ", ".join(missing_revalidators),
+            code="execution_adapter_world_state_revalidation_missing",
+        )
     return registry
 
 
@@ -189,6 +214,7 @@ class ExecutionGateway:
                 code="execution_server_policy_only",
             )
         caller_context = context or ExecutionContext()
+        self._validate_world_state(request, caller_context, adapter)
         authorization = self.boundary.consume_permit(
             permit_token=permit_token,
             request=request,
@@ -215,9 +241,59 @@ class ExecutionGateway:
         trusted_context = ExecutionContext(
             manager=trusted_context.manager,
             services=trusted_services,
+            world_state_authority_root=trusted_context.world_state_authority_root,
         )
+        self._validate_world_state(request, trusted_context, adapter)
         result = adapter.execute(request, trusted_context)
         return result, authorization
+
+    @staticmethod
+    def _validate_world_state(
+        request: ExecutionRequest,
+        context: ExecutionContext,
+        adapter: EffectAdapter | None = None,
+    ) -> None:
+        """Require current canonical state for every registered mutating effect."""
+        if not REGISTRY.get(request.effect_id).mutates:
+            return
+        unspecified = stable_digest({"state": UNSPECIFIED_WORLD_STATE})
+        if request.world_state_digest == unspecified:
+            raise ExecutionGatewayError(
+                "Mutating execution requires a WorldStateSnapshot",
+                code="execution_world_state_required",
+                pre_dispatch=True,
+            )
+        authority_root = str(
+            context.world_state_authority_root
+            or context.services.get("_server_allowed_root")
+            or ""
+        )
+        if context.manager is None and not authority_root:
+            raise ExecutionGatewayError(
+                "Mutating execution requires a trusted world-state authority",
+                code="execution_world_state_authority_required",
+                pre_dispatch=True,
+            )
+        snapshot_manager = None if context.world_state_authority_root else context.manager
+        try:
+            snapshot = WorldStateSnapshot.from_request(
+                request, snapshot_manager, authority_root=authority_root
+            )
+        except ValueError as exc:
+            raise ExecutionGatewayError(
+                str(exc),
+                code="execution_world_state_authority_session_mismatch",
+                pre_dispatch=True,
+            ) from exc
+        if request.world_state_digest != snapshot.digest:
+            raise ExecutionGatewayError(
+                "WorldStateSnapshot is stale",
+                code="execution_world_state_stale",
+                pre_dispatch=True,
+            )
+        material_revalidator = getattr(adapter, "revalidate_world_state", None)
+        if callable(material_revalidator):
+            material_revalidator(request, context)
 
     def execute_server_owned(
         self,
@@ -239,18 +315,22 @@ class ExecutionGateway:
                 f"{request.effect_id} is not a server-policy adapter",
                 code="execution_server_adapter_required",
             )
+        caller_context = context or ExecutionContext()
+        self._validate_world_state(request, caller_context, adapter)
         try:
             authorization = self.boundary.authorize_server_policy(request)
         except AuthorizationError as exc:
             raise ExecutionGatewayError(str(exc), code=exc.code) from exc
-        trusted_context = context or ExecutionContext()
+        trusted_context = caller_context
         trusted_services = dict(trusted_context.services)
         trusted_services["_authorization"] = authorization
         trusted_services["_gateway"] = self
         trusted_context = ExecutionContext(
             manager=trusted_context.manager,
             services=trusted_services,
+            world_state_authority_root=trusted_context.world_state_authority_root,
         )
+        self._validate_world_state(request, trusted_context, adapter)
         result = adapter.execute(request, trusted_context)
         return result, authorization
 
@@ -501,7 +581,11 @@ class ExecutionGateway:
 
             base_path = Path(getattr(context.manager, "base_path", Path.cwd()))
             delegation_state_dir = base_path / ".bago" / "state"
-        nested_context = ExecutionContext(manager=context.manager, services=trusted_services)
+        nested_context = ExecutionContext(
+            manager=context.manager,
+            services=trusted_services,
+            world_state_authority_root=context.world_state_authority_root,
+        )
         try:
             with self.boundary.consumed_authority_lease(
                 authorization=authorization,
@@ -510,7 +594,9 @@ class ExecutionGateway:
             ):
                 result = claim_store.execute_if_valid(
                     claim,
-                    lambda: adapter.execute(child_request, nested_context),
+                    lambda: self._execute_nested_effect(
+                        child_request, nested_context, adapter
+                    ),
                 )
         except AuthorizationError as exc:
             raise ExecutionGatewayError(
@@ -521,6 +607,16 @@ class ExecutionGateway:
         except ExecutionClaimError as exc:
             raise ExecutionGatewayError(str(exc), code=exc.code) from exc
         return result, authorization
+
+    def _execute_nested_effect(
+        self,
+        request: ExecutionRequest,
+        context: ExecutionContext,
+        adapter: EffectAdapter,
+    ) -> Any:
+        """Revalidate the current authority at the last Gateway boundary."""
+        self._validate_world_state(request, context, adapter)
+        return adapter.execute(request, context)
 
 
 __all__ = [

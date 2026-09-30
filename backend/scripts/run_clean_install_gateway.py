@@ -129,6 +129,7 @@ def main() -> int:
         target=target,
         arguments={"configuration": configuration},
         scope="system",
+        world_state_authority=runner_temp,
     )
     boundary = AuthorizationBoundary()
     challenge = boundary.create_challenge(request, interaction_id=interaction_id)
@@ -145,7 +146,10 @@ def main() -> int:
     result, authorization = ExecutionGateway(boundary).execute(
         permit_token=str(approval["permit"]["token"]),
         request=request,
-        context=ExecutionContext(manager=SimpleNamespace(session_id=session_id)),
+        context=ExecutionContext(
+            manager=SimpleNamespace(session_id=session_id),
+            world_state_authority_root=str(runner_temp),
+        ),
     )
     if not result.get("ok") or result.get("status") != "completed":
         raise SystemExit("governed clean-install execution did not complete")

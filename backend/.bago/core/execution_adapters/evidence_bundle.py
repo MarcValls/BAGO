@@ -20,6 +20,22 @@ class EvidenceBundleGenerateEffectAdapter:
     _FORBIDDEN = frozenset({".git", ".env", "node_modules", ".venv", "venv"})
 
     @classmethod
+    def revalidate_world_state(cls, request: ExecutionRequest, context: ExecutionContext) -> None:
+        data = request.target if isinstance(request.target, dict) else {}
+        args = request.arguments if isinstance(request.arguments, dict) else {}
+        target = cls._target(str(data.get("path") or ""))
+        expected = str(data.get("expected_prior_sha256") or "")
+        if expected not in {"missing"} and (len(expected) != 64 or any(c not in "0123456789abcdef" for c in expected)):
+            raise ExecutionGatewayError("Evidence bundle request lacks a valid prior identity", code="evidence_bundle_digest_required")
+        if cls.target_fingerprint(target) != expected:
+            raise ExecutionGatewayError("Evidence bundle target changed after approval", code="evidence_bundle_target_changed")
+        if target.exists() and args.get("overwrite") is not True:
+            raise ExecutionGatewayError("Evidence bundle output already exists", code="evidence_bundle_target_exists")
+        base_path = Path(str(args.get("base_path") or "")).expanduser()
+        if not base_path.is_absolute() or not base_path.is_dir():
+            raise ExecutionGatewayError("Evidence bundle base path must be an existing directory", code="evidence_bundle_base_path_invalid")
+
+    @classmethod
     def _target(cls, raw_path: str) -> Path:
         raw = str(raw_path or "").strip()
         path = Path(raw).expanduser()

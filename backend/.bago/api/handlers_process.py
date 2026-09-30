@@ -124,6 +124,7 @@ def handle_execute(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> N
             target=target,
             arguments={"argv": argv},
             scope="system" if target_kind == "terminate" else "workspace",
+            world_state_authority=manager,
         )
     except ExecutionRequestError as exc:
         send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})
@@ -191,9 +192,9 @@ def handle_execute(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> N
             "authorization_challenge_not_pending", "authorization_challenge_expired",
             "authorization_permit_replay", "authorization_permit_expired",
             "authorization_operation_mismatch",
+            "authorization_world_state_stale",
         } else 403
         send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
     except ExecutionGatewayError as exc:
         code = str(getattr(exc, "code", "") or "")
         send_json(handler, 403 if code.startswith("process_execution_") else 409, {"ok": False, "error": str(exc), "code": code})
-

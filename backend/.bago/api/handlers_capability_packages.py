@@ -33,6 +33,7 @@ def _send(handler: "BaseHTTPRequestHandler", operation: Callable[[], Any]) -> No
             "authorization_permit_replay",
             "authorization_permit_expired",
             "authorization_operation_mismatch",
+            "authorization_world_state_stale",
         } else 403
         send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
         return
@@ -102,6 +103,7 @@ def _handle_import_authorized(handler: "BaseHTTPRequestHandler", body: dict[str,
             principal_id="interactive-local-user", session_id=str(manager.session_id),
             source_surface="api.capability_packages.import", target=target,
             arguments=arguments, scope="persistent",
+            world_state_authority=manager,
         )
         boundary = AuthorizationBoundary()
         action = str(body.get("authorization_action") or "").strip().lower()
@@ -131,7 +133,7 @@ def _handle_import_authorized(handler: "BaseHTTPRequestHandler", body: dict[str,
                                    "operation_fingerprint": authorization.get("operation_fingerprint")}
         send_json(handler, 200, result)
     except AuthorizationError as exc:
-        send_json(handler, 409 if "challenge" in exc.code or "permit" in exc.code else 403,
+        send_json(handler, 409 if "challenge" in exc.code or "permit" in exc.code or "world_state_stale" in exc.code else 403,
                   {"ok": False, "error": str(exc), "code": exc.code})
     except (ExecutionRequestError, ExecutionGatewayError) as exc:
         send_json(handler, 409 if isinstance(exc, ExecutionGatewayError) else 400,
@@ -203,6 +205,7 @@ def handle_execute(handler: "BaseHTTPRequestHandler", capability_id: str, body: 
                 "declared_permissions": list(package.get("permissions", [])),
             },
             arguments=inputs,
+            world_state_authority=mgr,
         )
         boundary = AuthorizationBoundary()
         action = str(payload.get("authorization_action") or "").strip().lower()

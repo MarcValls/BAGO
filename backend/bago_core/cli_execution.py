@@ -22,6 +22,7 @@ def execute_cli_effect(
     input_fn: Callable[[str], str] | None = None,
     output_fn: Callable[[str], Any] | None = None,
     manager: Any = None,
+    world_state_authority: Any = None,
 ) -> Any:
     """Challenge, obtain a TTY-only direct approval, then execute one request."""
     from authorization_boundary import AuthorizationBoundary, AuthorizationError
@@ -48,8 +49,16 @@ def execute_cli_effect(
         session_id=request.session_id,
         terminal_confirmed=True,
     )
+    authority = world_state_authority if world_state_authority is not None else manager
+    if isinstance(authority, (str, Path)):
+        context = ExecutionContext(
+            manager=manager,
+            world_state_authority_root=str(Path(authority).expanduser().resolve())
+        )
+    else:
+        context = ExecutionContext(manager=authority)
     return ExecutionGateway(boundary).execute(
         permit_token=str(approval["permit"]["token"]),
         request=request,
-        context=ExecutionContext(manager=manager),
+        context=context,
     )

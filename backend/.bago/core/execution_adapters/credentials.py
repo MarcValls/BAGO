@@ -25,6 +25,35 @@ class CredentialWriteEffectAdapter:
     _OPERATIONS = frozenset({"set", "delete"})
     _LOCK = threading.RLock()
 
+    @classmethod
+    def revalidate_world_state(cls, request: ExecutionRequest, context: ExecutionContext) -> None:
+        target = request.target if isinstance(request.target, dict) else {}
+        provider = str(target.get("provider") or "").strip()
+        key = str(target.get("key") or "").strip()
+        expected = str(target.get("secret_state_sha256") or "").strip()
+        if not provider or not key or not expected:
+            raise ExecutionGatewayError(
+                "Credential write requires the approved prior SecretStore identity",
+                code="credential_write_secret_state_required",
+                pre_dispatch=True,
+            )
+        try:
+            from bago_core.secrets import secret_state_digest
+            from secret_store import get_secret_store
+            current = secret_state_digest(get_secret_store(), f"providers/{provider}/{key}")
+        except (OSError, RuntimeError) as exc:
+            raise ExecutionGatewayError(
+                f"Canonical SecretStore state is unavailable: {exc}",
+                code="credential_write_secret_state_unavailable",
+                pre_dispatch=True,
+            ) from exc
+        if current != expected:
+            raise ExecutionGatewayError(
+                "SecretStore entry changed after approval; re-authorize the credential write",
+                code="credential_write_secret_state_changed",
+                pre_dispatch=True,
+            )
+
     @staticmethod
     def _is_link(path: Path) -> bool:
         metadata = None

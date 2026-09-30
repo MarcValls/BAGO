@@ -45,6 +45,7 @@ def build_apply_request(adapter: Any, manager: Any, diffs: Any) -> ExecutionRequ
         target={"path": str(target), "allowed_root": str(root), "resource": "project_operation", "operation": "patch", "root_digest": digest},
         arguments={"patches": diffs},
         scope="workspace",
+        world_state_authority=manager,
     )
 
 
@@ -60,6 +61,7 @@ def build_rollback_request(adapter: Any, manager: Any, snapshot_path: str) -> Ex
         target={"path": str(target), "allowed_root": str(root), "resource": "project_operation", "operation": "patch.rollback", "root_digest": digest},
         arguments={"snapshot": snapshot_path},
         scope="workspace",
+        world_state_authority=manager,
     )
 
 

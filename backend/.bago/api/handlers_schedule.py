@@ -71,6 +71,7 @@ def _send_operation(handler: "BaseHTTPRequestHandler", operation) -> None:
             "authorization_permit_replay",
             "authorization_permit_expired",
             "authorization_operation_mismatch",
+            "authorization_world_state_stale",
         } else 403
         send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
         return
@@ -262,6 +263,7 @@ def _delegation_request(mgr, raw: dict[str, Any]):
         arguments={},
         scope="persistent",
         policy_version=REGISTRY.digest,
+        world_state_authority=mgr,
     )
     return request, draft, requested_enabled, grant_id
 
@@ -398,6 +400,7 @@ def _validated_child_for_schedule(mgr, schedule: dict[str, Any]):
         policy_version=str(grant.get("policy_version") or ""),
         parent_execution_id=f"schedule:{schedule.get('id')}",
         delegation_id=grant_id,
+        world_state_authority=mgr,
     )
     schedule_digest = schedule_descriptor_digest(schedule)
     return request, grant, schedule_digest

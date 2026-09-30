@@ -37,6 +37,7 @@ def generate_bundle(
             "overwrite": bool(overwrite),
         },
         scope="workspace",
+        world_state_authority=base_path,
     )
     result, _authorization = execute_cli_effect(
         request,
@@ -44,5 +45,6 @@ def generate_bundle(
             f"Generar bundle de evidencia en {target}"
             + (" reemplazando su contenido actual" if overwrite else "")
         ),
+        world_state_authority=base_path,
     )
     return Path(str(result["manifest_path"]))

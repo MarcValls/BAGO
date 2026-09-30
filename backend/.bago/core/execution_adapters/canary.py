@@ -22,6 +22,20 @@ class SecurityCanaryEffectAdapter:
     _THREAD_LOCKS_GUARD = threading.RLock()
     _THREAD_LOCKS: dict[str, threading.RLock] = {}
 
+    @classmethod
+    def revalidate_world_state(cls, request: ExecutionRequest, context: ExecutionContext) -> None:
+        target = request.target if isinstance(request.target, dict) else {}
+        root, state_path, _canary_dir = cls._paths(str(target.get("project_root") or ""))
+        operation = str(target.get("operation") or "")
+        expected_session = "canary:" + hashlib.sha256(str(root).encode("utf-8")).hexdigest()[:20]
+        if (request.actor_kind != "user" or request.principal_id != "interactive-local-user"
+                or request.session_id != expected_session or request.source_surface != f"cli.security.canary.{operation}"):
+            raise ExecutionGatewayError("Canary request identity does not match its project and operation", code="canary_identity_mismatch")
+        state_bytes = cls._state_bytes(state_path)
+        current_digest = hashlib.sha256(state_bytes).hexdigest() if state_bytes else "missing"
+        if current_digest != str(target.get("state_sha256") or ""):
+            raise ExecutionGatewayError("Canary state changed after approval", code="canary_state_drift")
+
     @staticmethod
     def _is_link(path: Path) -> bool:
         try:

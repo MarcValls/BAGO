@@ -47,6 +47,7 @@ def execute_agent_command(
             "timeout_seconds": min(max(int(timeout), 1), 1800),
         },
         arguments={"argv": clean_argv}, scope="workspace",
+        world_state_authority=manager,
     )
     result, authorization = execute_cli_effect(
         request,

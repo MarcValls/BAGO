@@ -154,7 +154,7 @@ def test_install_changed_helper_rejects_before_ticket_or_process(monkeypatch, tm
     })
 
     assert responses[-1][0] == 409
-    assert responses[-1][1]["code"] == "authorization_operation_mismatch"
+    assert responses[-1][1]["code"] == "authorization_world_state_stale"
     assert launches == []
     assert not (tmp_path / "bago-state" / "authorization" / "install-tickets").exists()
 
@@ -181,7 +181,7 @@ def test_install_changed_destination_rejects_before_ticket_or_process(monkeypatc
     })
 
     assert responses[-1][0] == 409
-    assert responses[-1][1]["code"] == "authorization_operation_mismatch"
+    assert responses[-1][1]["code"] == "authorization_world_state_stale"
     assert launches == []
     assert not (tmp_path / "bago-state" / "authorization" / "install-tickets").exists()
 

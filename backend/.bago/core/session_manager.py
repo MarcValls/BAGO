@@ -326,6 +326,7 @@ class SessionManager(
                 },
                 arguments={},
                 scope="session",
+                world_state_authority=self,
             )
             result, _authorization = ExecutionGateway().execute_server_owned(
                 request=request,

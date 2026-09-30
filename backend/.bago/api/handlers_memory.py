@@ -196,7 +196,7 @@ def handle_embedding_upsert(handler: "BaseHTTPRequestHandler", body: dict) -> No
             "authorization": {"state": "consumed", "permit_id": authorization.get("permit_id")},
         })
     except AuthorizationError as exc:
-        send_json(handler, 409 if "challenge" in exc.code or "permit" in exc.code else 403, {"error": str(exc), "code": exc.code})
+        send_json(handler, 409 if "challenge" in exc.code or "permit" in exc.code or "world_state_stale" in exc.code else 403, {"error": str(exc), "code": exc.code})
     except ExecutionGatewayError as exc:
         send_json(handler, 409 if not exc.code.endswith("failed") else 500, {"error": str(exc), "code": exc.code})
     except (TypeError, ValueError) as exc:
