@@ -87,8 +87,14 @@ def build_operation(
     inputs: Any,
     permissions: Any,
     session_id: str,
+    world_state_authority: Any | None = None,
 ) -> ExecutionRequest:
     """Legacy compatibility shim for pre-v2 callers."""
+    if world_state_authority is None:
+        raise AuthorizationError(
+            "Legacy operation construction requires the active WorldStateSnapshot authority",
+            code="authorization_world_state_authority_required",
+        )
     clean_permissions = sorted({str(item) for item in (permissions or []) if str(item)})
     return build_execution_request(
         effect_id="capability.execute",
@@ -102,6 +108,7 @@ def build_operation(
         },
         arguments=inputs if inputs is not None else {},
         scope="workspace",
+        world_state_authority=world_state_authority,
     )
 
 
@@ -262,6 +269,7 @@ class AuthorizationBoundary:
             "principal_id": request.principal_id,
             "effect_id": request.effect_id,
             "target": request.target,
+            "world_state_digest": request.world_state_digest,
             "arguments_digest": request.arguments_digest,
             "scope": request.scope,
             "operation_fingerprint": request.fingerprint,
@@ -402,6 +410,7 @@ class AuthorizationBoundary:
             permit_hash = _token_hash(raw_token)
             ledger["permits"][permit_hash] = {
                 **{key: value for key, value in asdict(permit).items() if key != "token"},
+                "world_state_digest": str(challenge.get("world_state_digest") or ""),
                 "state": "active",
                 "proof": asdict(proof),
                 "decision": asdict(decision),
@@ -514,6 +523,7 @@ class AuthorizationBoundary:
             ledger = _read_ledger()
             ledger["permits"][permit_hash] = {
                 **{key: value for key, value in asdict(permit).items() if key != "token"},
+                "world_state_digest": request.world_state_digest,
                 "state": "active",
                 "proof": delegated_proof,
                 "decision": asdict(decision),
@@ -616,6 +626,12 @@ class AuthorizationBoundary:
                     "Permit ligado a otro effect_id",
                     code="authorization_effect_mismatch",
                 )
+            recorded_world = str(record.get("world_state_digest") or "")
+            if recorded_world and recorded_world != request.world_state_digest:
+                raise AuthorizationError(
+                    "El estado del mundo cambió después de la autorización",
+                    code="authorization_world_state_stale",
+                )
             if str(record.get("operation_fingerprint") or "") != request.fingerprint:
                 raise AuthorizationError(
                     "La operación cambió después de la autorización",
@@ -692,6 +708,12 @@ class AuthorizationBoundary:
                 raise AuthorizationError(
                     "Permit ligado a otro effect_id",
                     code="authorization_effect_mismatch",
+                )
+            recorded_world = str(record.get("world_state_digest") or "")
+            if recorded_world and recorded_world != request.world_state_digest:
+                raise AuthorizationError(
+                    "El estado del mundo cambió después de la autorización",
+                    code="authorization_world_state_stale",
                 )
             if str(record.get("operation_fingerprint") or "") != request.fingerprint:
                 raise AuthorizationError(

@@ -89,6 +89,7 @@ def save_json(path: Path, data: dict, indent: int = 2) -> bool:
                 "operation": "replace_text",
             },
             arguments={"content": json.dumps(data, indent=indent, ensure_ascii=False)},
+            world_state_authority=root,
         )
         ExecutionGateway().execute_server_owned(
             request=request,

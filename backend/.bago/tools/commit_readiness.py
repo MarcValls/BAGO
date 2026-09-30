@@ -76,6 +76,7 @@ def git(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
         target={"operation": operation, "repository_root": str(root)},
         arguments={},
         scope="workspace",
+        world_state_authority=cwd,
     )
     result, _authorization = execute_cli_effect(
         request,

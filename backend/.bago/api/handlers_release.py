@@ -51,6 +51,7 @@ def handle_apply(handler: "BaseHTTPRequestHandler", body: dict | None = None) ->
             target=target,
             arguments={},
             scope="system",
+            world_state_authority=mgr,
         )
         boundary = AuthorizationBoundary()
         payload = dict(body or {})
@@ -89,7 +90,7 @@ def handle_apply(handler: "BaseHTTPRequestHandler", body: dict | None = None) ->
         }
         send_json(handler, 202 if result.get("ok") else 409, result)
     except AuthorizationError as exc:
-        send_json(handler, 409 if exc.code.startswith("authorization_permit") else 403,
+        send_json(handler, 409 if exc.code.startswith("authorization_permit") or exc.code == "authorization_world_state_stale" else 403,
                   {"ok": False, "error": str(exc), "code": exc.code})
     except ExecutionRequestError as exc:
         send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})

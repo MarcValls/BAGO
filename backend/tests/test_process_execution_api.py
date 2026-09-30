@@ -232,7 +232,7 @@ def test_supervisor_script_source_drift_is_denied_before_spawn(tmp_path, monkeyp
         **operation, "authorization_action": "execute", "authorization_permit": permit,
     })
     assert handler.response[0] == 409
-    assert handler.response[1]["code"] == "authorization_operation_mismatch"
+    assert handler.response[1]["code"] == "authorization_world_state_stale"
     assert calls == []
 
 

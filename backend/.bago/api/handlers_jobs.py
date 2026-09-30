@@ -355,6 +355,7 @@ def _plan_execution_request(mgr: Any, plan: Any):
         arguments={},
         scope=REGISTRY.get("plan.execute").default_scope,
         policy_version=REGISTRY.digest,
+        world_state_authority=mgr,
     )
 
 
@@ -444,6 +445,7 @@ def handle_plans_execute(handler: "BaseHTTPRequestHandler", plan_id: str, body: 
             "authorization_permit_replay",
             "authorization_permit_expired",
             "authorization_operation_mismatch",
+            "authorization_world_state_stale",
         } else 403
         send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code, "plan_id": plan_id})
     except (ExecutionRequestError, GovernedWorkError) as exc:

@@ -33,6 +33,20 @@ class ReleaseDownloadEffectAdapter:
     _MAX_SIZE = 2 * 1024 * 1024 * 1024
 
     @classmethod
+    def revalidate_world_state(cls, request: ExecutionRequest, _context: ExecutionContext) -> None:
+        target = request.target if isinstance(request.target, dict) else {}
+        if target.get("job_id"):
+            return
+        root, _destination = cls._target(str(target.get("filename") or ""))
+        approved_root = str(target.get("download_root") or "").strip()
+        if not approved_root or str(root.resolve()) != str(Path(approved_root).expanduser().resolve()):
+            raise ExecutionGatewayError(
+                "Release download cache changed after request construction",
+                code="release_download_world_state_stale",
+                pre_dispatch=True,
+            )
+
+    @classmethod
     def _target(cls, filename: str, job_id: str = "") -> tuple[Path, Path]:
         if Path(filename).name != filename or filename in {".", ".."}:
             raise ExecutionGatewayError(

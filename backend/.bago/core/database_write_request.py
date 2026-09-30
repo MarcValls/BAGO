@@ -62,4 +62,5 @@ def build_memory_database_request(
         target=target,
         arguments=payload,
         scope="persistent",
+        world_state_authority=manager,
     )

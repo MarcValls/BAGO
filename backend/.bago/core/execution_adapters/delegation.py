@@ -12,6 +12,18 @@ class DelegationGrantEffectAdapter:
 
     effect_ids = frozenset({"schedule.delegate"})
 
+    @staticmethod
+    def revalidate_world_state(request: ExecutionRequest, context: ExecutionContext) -> None:
+        target = request.target
+        if not isinstance(target, dict):
+            raise ExecutionGatewayError("Delegation request shape is invalid", code="execution_delegation_request_invalid")
+        from delegation_grant import stable_digest
+        schedule = target.get("schedule")
+        schedule_id = str(target.get("schedule_id") or "").strip()
+        if (not isinstance(schedule, dict) or not schedule_id or str(schedule.get("id") or "") != schedule_id
+                or stable_digest(schedule) != str(target.get("schedule_digest") or "")):
+            raise ExecutionGatewayError("Delegation schedule changed after authorization", code="execution_delegation_schedule_stale")
+
     def execute(self, request: ExecutionRequest, context: ExecutionContext) -> Any:
         from delegation_grant import DelegationGrantRegistry
 

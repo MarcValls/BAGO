@@ -18,6 +18,16 @@ class SystemInstallUninstallEffectAdapter:
     effect_ids = frozenset({"system.install.uninstall"})
 
     @staticmethod
+    def revalidate_world_state(request: ExecutionRequest, context: ExecutionContext) -> None:
+        manager = context.manager
+        if manager is None or str(getattr(manager, "session_id", "") or "") != request.session_id:
+            raise ExecutionGatewayError("Uninstall requires the active SessionManager", code="system_install_uninstall_session_mismatch")
+        current = build_uninstall_target(str(request.target.get("install_dir") or ""), bool(request.target.get("purge_state")))
+        if current != request.target:
+            raise ExecutionGatewayError("Uninstall target/helper changed after approval", code="system_install_uninstall_target_changed")
+        validate_uninstall_backup_space(current)
+
+    @staticmethod
     def _write_ticket(request: ExecutionRequest, authorization: dict[str, Any]) -> tuple[Path, str, Path]:
         proof = authorization.get("proof")
         provenance = proof.get("provenance") if isinstance(proof, dict) else None

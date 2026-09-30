@@ -15,6 +15,15 @@ from execution_request import ExecutionRequest
 class SystemSourceUpdateEffectAdapter:
     effect_ids = frozenset({"system.source.update"})
 
+    @classmethod
+    def revalidate_world_state(cls, request: ExecutionRequest, context: ExecutionContext) -> None:
+        manager = context.manager
+        if manager is None or str(getattr(manager, "session_id", "") or "") != request.session_id:
+            raise ExecutionGatewayError("Source update requires the active SessionManager", code="system_source_update_session_mismatch")
+        target = cls.prepare_target(str(request.target.get("source_root") or ""), str(request.target.get("branch") or ""))
+        if target != request.target:
+            raise ExecutionGatewayError("Source checkout changed after approval", code="system_source_update_target_changed")
+
     @staticmethod
     def _git(root: Path, *args: str) -> str:
         try:

@@ -27,7 +27,7 @@ def _manager(tmp_path, engine: PlanEngine, *, session_id: str = "session-governe
     )
 
 
-def _request(plan, *, session_id: str = "session-governed"):
+def _request(plan, manager, *, session_id: str = "session-governed"):
     from governed_work_pipeline import plan_execution_target
 
     return build_execution_request(
@@ -40,6 +40,7 @@ def _request(plan, *, session_id: str = "session-governed"):
         arguments={},
         scope=REGISTRY.get("plan.execute").default_scope,
         policy_version=REGISTRY.digest,
+        world_state_authority=manager,
     )
 
 
@@ -74,7 +75,7 @@ def test_plan_engine_material_effects_use_one_consumed_parent_permit(tmp_path, m
         "1. Crear archivo notes/one.txt con contenido: one\n"
         "2. Leer archivo notes/one.txt",
     )
-    request = _request(plan)
+    request = _request(plan, manager)
     boundary = AuthorizationBoundary()
     permit = _permit(boundary, request, "interaction-one-parent")
 
@@ -110,7 +111,7 @@ def test_workflow_mutation_after_authorization_is_rejected_before_child_effect(t
         tmp_path,
         "1. Crear archivo notes/stale.txt con contenido: stale",
     )
-    request = _request(plan)
+    request = _request(plan, manager)
     boundary = AuthorizationBoundary()
     permit = _permit(boundary, request, "interaction-stale-workflow")
     plan.steps[0].description = "Crear archivo notes/stale.txt con contenido: cambiado"
@@ -136,7 +137,7 @@ def test_budget_envelope_is_monotonic_and_blocks_after_limit(tmp_path, monkeypat
         "2. Crear archivo notes/second.txt con contenido: second",
         budget_limit=1,
     )
-    request = _request(plan)
+    request = _request(plan, manager)
     boundary = AuthorizationBoundary()
     permit = _permit(boundary, request, "interaction-budget")
 
@@ -184,7 +185,7 @@ def test_unknown_outcome_blocks_automatic_retry_without_refilling_budget(tmp_pat
     )
     boundary = AuthorizationBoundary()
     gateway = ExecutionGateway(boundary)
-    request = _request(plan)
+    request = _request(plan, manager)
     first_permit = _permit(boundary, request, "interaction-unknown-1")
 
     def ambiguous_dispatch(self, **kwargs):
@@ -207,7 +208,7 @@ def test_unknown_outcome_blocks_automatic_retry_without_refilling_budget(tmp_pat
     plan.steps[0].status = "pending"
     plan.steps[0].block_reason = ""
     plan.steps[0].block_code = ""
-    second_request = _request(plan)
+    second_request = _request(plan, manager)
     second_permit = _permit(boundary, second_request, "interaction-unknown-2")
     second, _ = gateway.execute(
         permit_token=second_permit["token"],
@@ -231,7 +232,7 @@ def test_durable_pending_write_is_reapplied_idempotently_and_reconciled(tmp_path
     manager.state_root = tmp_path / "session-state"
     boundary = AuthorizationBoundary()
     gateway = ExecutionGateway(boundary)
-    request = _request(plan)
+    request = _request(plan, manager)
     permit = _permit(boundary, request, "interaction-reconcile-first")
     import filesystem_effects
     original_write = filesystem_effects.write_file_effect
@@ -253,7 +254,7 @@ def test_durable_pending_write_is_reapplied_idempotently_and_reconciled(tmp_path
     plan.steps[0].status = "pending"
     plan.steps[0].block_reason = ""
     plan.steps[0].block_code = ""
-    retry_request = _request(plan)
+    retry_request = _request(plan, manager)
     retry_permit = _permit(boundary, retry_request, "interaction-reconcile-retry")
     monkeypatch.setattr(filesystem_effects, "write_file_effect", original_write)
     second, _ = gateway.execute(
@@ -282,7 +283,7 @@ def test_concurrent_duplicate_parent_authorizations_materialize_one_child(tmp_pa
     )
     boundary = AuthorizationBoundary()
     gateway = ExecutionGateway(boundary)
-    requests = [_request(plan), _request(plan)]
+    requests = [_request(plan, manager), _request(plan, manager)]
     permits = [
         _permit(boundary, request, f"interaction-concurrent-{index}")
         for index, request in enumerate(requests)
@@ -316,7 +317,7 @@ def test_process_child_uses_gateway_adapter_under_parent_claim(tmp_path, monkeyp
     plan.steps[0].action_payload = {"command": command}
     engine.register_plan(plan)
     manager = _manager(tmp_path, engine)
-    request = _request(plan)
+    request = _request(plan, manager)
     boundary = AuthorizationBoundary()
     permit = _permit(boundary, request, "interaction-process-child")
 
@@ -337,11 +338,11 @@ def test_process_child_uses_gateway_adapter_under_parent_claim(tmp_path, monkeyp
 
 def test_nested_dispatch_cannot_be_called_without_gateway_owned_context(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
-    _, plan, _ = _registered_plan(
+    _, plan, manager = _registered_plan(
         tmp_path,
         "1. Crear archivo notes/no-bypass.txt con contenido: no",
     )
-    request = _request(plan)
+    request = _request(plan, manager)
     gateway = ExecutionGateway(AuthorizationBoundary())
     caller_supplied_authorization = {
         "state": "consumed",

@@ -23,6 +23,27 @@ class SystemInstallArchiveRollbackEffectAdapter:
     _MAX_UNPACKED = 8 * 1024 * 1024 * 1024
     _PRESERVED = (".bago/state", ".bago/logs", "state", "logs")
 
+    def revalidate_world_state(self, request: ExecutionRequest, context: ExecutionContext) -> None:
+        target = request.target if isinstance(request.target, dict) else {}
+        install = self._path(str(target.get("install_dir") or ""))
+        backup_root = self._path(str(target.get("backup_root") or ""))
+        archive = self._path(str(target.get("backup_zip") or ""), allow_missing=False)
+        safety = self._path(str(target.get("safety_zip") or ""))
+        if safety.parent != backup_root or not safety.name.startswith("bago-pre-rollback-safety-") or not safety.name.endswith(".zip"):
+            raise ExecutionGatewayError("Safety archive path is invalid", code="archive_rollback_safety_path_invalid")
+        try:
+            archive.relative_to(backup_root)
+        except ValueError as exc:
+            raise ExecutionGatewayError("Rollback ZIP is outside its approved root", code="archive_rollback_archive_out_of_scope") from exc
+        if not self._BACKUP_NAME.fullmatch(archive.name):
+            raise ExecutionGatewayError("Rollback requires a named BAGO backup ZIP", code="archive_rollback_archive_invalid")
+        if self._file_sha256(archive) != str(target.get("backup_sha256") or ""):
+            raise ExecutionGatewayError("Rollback archive changed after approval", code="archive_rollback_archive_changed")
+        if self._tree_fingerprint(install) != str(target.get("install_tree_sha256") or ""):
+            raise ExecutionGatewayError("Install tree changed after approval", code="archive_rollback_install_changed")
+        if safety.exists():
+            raise ExecutionGatewayError("Safety archive destination already exists", code="archive_rollback_safety_exists")
+
     @staticmethod
     def _file_sha256(path: Path) -> str:
         digest = hashlib.sha256()

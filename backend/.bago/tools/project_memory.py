@@ -706,6 +706,7 @@ def _execute_cli_project_write(
         },
         arguments=arguments or {},
         scope="workspace",
+        world_state_authority=manager,
     )
     boundary = AuthorizationBoundary()
     interaction_id = f"project-cli-{uuid.uuid4().hex}"

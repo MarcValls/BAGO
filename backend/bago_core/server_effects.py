@@ -55,6 +55,7 @@ def _execute_text(
         },
         arguments={"content": str(content)},
         scope=scope,
+        world_state_authority=root,
     )
     result, _authorization = ExecutionGateway().execute_server_owned(
         request=request,
@@ -100,6 +101,7 @@ def ensure_user_directory(path: Path, *, trusted_root: Path, source_surface: str
         target={"path": str(target), "allowed_root": str(root), "operation": "ensure_directory"},
         arguments={},
         scope="persistent",
+        world_state_authority=root,
     )
     result, _authorization = ExecutionGateway().execute_server_owned(
         request=request,
@@ -195,6 +197,7 @@ def _execute_runtime_state_bootstrap(
         },
         arguments={},
         scope="persistent",
+        world_state_authority=root,
     )
     result, _authorization = ExecutionGateway().execute_server_owned(
         request=request,
@@ -250,6 +253,7 @@ def append_structured_log(content: str, *, max_bytes: int, backup_count: int) ->
         target={"path": str(target), "allowed_root": str(root), "operation": "append_rotate"},
         arguments={"content": str(content), "max_bytes": int(max_bytes), "backup_count": int(backup_count)},
         scope="persistent",
+        world_state_authority=root,
     )
     result, _authorization = ExecutionGateway().execute_server_owned(
         request=request,
@@ -279,10 +283,11 @@ def stage_validation_workspace(
         target={"operation": "create", "root": str(root), "source_root": str(Path(source_root).expanduser()), "staging_id": staging_id, "label": label},
         arguments={"ignore": list(ignore)},
         scope="workspace",
+        world_state_authority=root,
     )
     result, _authorization = ExecutionGateway().execute_server_owned(
         request=request,
-        context=ExecutionContext(),
+        context=ExecutionContext(world_state_authority_root=str(root)),
     )
     if not isinstance(result, dict) or result.get("ok") is not True:
         raise RuntimeError("Validation staging effect returned no success receipt")
@@ -301,10 +306,11 @@ def cleanup_validation_workspace(staging_id: str, *, label: str) -> dict[str, An
         target={"operation": "cleanup", "root": str(root), "staging_id": staging_id, "label": label},
         arguments={},
         scope="workspace",
+        world_state_authority=root,
     )
     result, _authorization = ExecutionGateway().execute_server_owned(
         request=request,
-        context=ExecutionContext(),
+        context=ExecutionContext(world_state_authority_root=str(root)),
     )
     if not isinstance(result, dict) or result.get("ok") is not True:
         raise RuntimeError("Validation staging cleanup returned no success receipt")
@@ -349,6 +355,7 @@ def gateway_urlopen(
             "data_b64": base64.b64encode(data).decode("ascii") if isinstance(data, bytes) else "",
         },
         scope="external",
+        world_state_authority=Path.cwd(),
     )
     result, _authorization = ExecutionGateway().execute_server_owned(
         request=request_contract,
@@ -365,6 +372,9 @@ def download_release_bundle(
     filename: str,
 ) -> dict[str, Any]:
     """Download one verified release payload through its registered adapter."""
+    from update_manager import _update_root
+
+    download_root = Path(_update_root()).expanduser().resolve()
 
     request = build_execution_request(
         effect_id="release.download",
@@ -372,13 +382,14 @@ def download_release_bundle(
         principal_id="bago-runtime",
         session_id="release-download",
         source_surface="server.release.download",
-        target={"filename": str(filename)},
+        target={"filename": str(filename), "download_root": str(download_root)},
         arguments={"url": str(url), "digest": str(sha256), "size": int(size)},
         scope="system",
+        world_state_authority=download_root,
     )
     result, _authorization = ExecutionGateway().execute_server_owned(
         request=request,
-        context=ExecutionContext(),
+        context=ExecutionContext(services={"_server_allowed_root": str(download_root)}),
     )
     if not isinstance(result, dict) or result.get("ok") is not True:
         raise RuntimeError("Server-owned release effect returned no success receipt")
@@ -421,6 +432,7 @@ def inspect_process(
         },
         arguments={"argv": clean_argv},
         scope="workspace",
+        world_state_authority=manager,
     )
     result, _authorization = ExecutionGateway().execute_server_owned(
         request=request,

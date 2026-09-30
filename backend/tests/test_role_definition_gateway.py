@@ -26,6 +26,7 @@ def _request(root: Path, *, family: str = "especialistas", name: str = "security
         target={"role_root": str(root), "family": family, "name": name, "manifest_sha256": digest},
         arguments={"content": "# SECURITY_AUDITOR\n"},
         scope="workspace",
+        world_state_authority=root,
     )
 
 
@@ -38,7 +39,10 @@ def _execute(request, monkeypatch):
         challenge_id=challenge["challenge_id"], interaction_id=interaction,
         session_id=request.session_id, terminal_confirmed=True,
     )
-    return ExecutionGateway(boundary).execute(permit_token=approval["permit"]["token"], request=request)[0]
+    return ExecutionGateway(boundary).execute(
+        permit_token=approval["permit"]["token"], request=request,
+        context=ExecutionContext(world_state_authority_root=str(request.target["role_root"])),
+    )[0]
 
 
 def test_role_creation_requires_permit_and_writes_both_files(tmp_path: Path, monkeypatch) -> None:

@@ -21,6 +21,13 @@ class SystemInstallEffectAdapter:
 
     effect_ids = frozenset({"system.install.apply"})
 
+    @classmethod
+    def revalidate_world_state(cls, request: ExecutionRequest, context: ExecutionContext) -> None:
+        manager = context.manager
+        if manager is None or str(getattr(manager, "session_id", "") or "") != request.session_id:
+            raise ExecutionGatewayError("System install requires the active SessionManager", code="system_install_session_mismatch")
+        cls._current_plan(request)
+
     @staticmethod
     def _current_plan(request: ExecutionRequest) -> tuple[dict[str, Any], dict[str, Any]]:
         target = request.target

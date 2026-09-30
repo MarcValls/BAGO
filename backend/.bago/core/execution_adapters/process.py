@@ -25,6 +25,24 @@ class ProcessExecutionEffectAdapter:
     server_policy_effects = frozenset({"process.inspect"})
 
     @staticmethod
+    def revalidate_world_state(request: ExecutionRequest, context: ExecutionContext) -> None:
+        if request.effect_id != "process.terminate":
+            return
+        manager = context.manager
+        if manager is None or str(getattr(manager, "session_id", "") or "") != request.session_id:
+            raise ExecutionGatewayError("Process termination requires the active SessionManager", code="execution_context_session_mismatch")
+        target = request.target if isinstance(request.target, dict) else {}
+        operation = str(target.get("operation") or "")
+        if operation not in {"stop_webchat", "cleanup_zombies"}:
+            raise ExecutionGatewayError("Process termination target is invalid", code="process_termination_target_invalid")
+        framework_root = str(getattr(manager, "framework_root", "") or "")
+        state_root = str(getattr(manager, "state_root", "") or "")
+        if operation == "cleanup_zombies":
+            expected_roots = sorted({str(Path(framework_root).expanduser().resolve()) if framework_root else "", str(Path(state_root).expanduser().resolve()) if state_root else ""})
+            if not framework_root or not state_root or sorted(set(str(item) for item in target.get("cleanup_roots", []))) != expected_roots:
+                raise ExecutionGatewayError("Process cleanup target is not the active trusted runtime and state roots", code="process_termination_target_invalid")
+
+    @staticmethod
     def is_read_only_launcher_argv(argv: Any) -> bool:
         if not isinstance(argv, list):
             return False

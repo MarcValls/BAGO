@@ -429,6 +429,7 @@ def handle_write(handler, body: dict):
         target={"path": raw_path},
         arguments={"content": str(payload.get("content") or "")},
         scope="workspace",
+        world_state_authority=mgr,
     )
     boundary = AuthorizationBoundary()
     action = str(payload.get("authorization_action") or "").strip().lower()
@@ -483,6 +484,7 @@ def handle_write(handler, body: dict):
             "authorization_permit_replay",
             "authorization_permit_expired",
             "authorization_operation_mismatch",
+            "authorization_world_state_stale",
         } else 403
         send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
     except ExecutionRequestError as exc:

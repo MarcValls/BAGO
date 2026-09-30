@@ -32,6 +32,7 @@ def _request(root: Path, *, operation: str = "write", resource: str = "config", 
         target=target,
         arguments={},
         scope="workspace",
+        world_state_authority=root,
     )
 
 
@@ -48,6 +49,7 @@ def _execute(request, monkeypatch):
     )
     return ExecutionGateway(boundary).execute(
         permit_token=approval["permit"]["token"], request=request,
+        context=ExecutionContext(world_state_authority_root=str(request.target["repository_root"])),
     )[0]
 
 

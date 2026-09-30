@@ -656,6 +656,7 @@ def execute_plan_through_gateway(
             parent_execution_id=str(getattr(parent_request, "request_id", "") or ""),
             delegation_id=str(getattr(parent_request, "delegation_id", "") or ""),
             preconditions=preconditions,
+            world_state_authority=context.manager,
         )
         child_services = dict(getattr(context, "services", {}) or {})
         child_services["_execution_claim"] = claim

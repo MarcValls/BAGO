@@ -110,7 +110,7 @@ def test_uninstall_target_drift_blocks_before_helper_launch(monkeypatch, tmp_pat
     })
 
     assert responses[-1][0] == 409
-    assert responses[-1][1]["code"] == "authorization_operation_mismatch"
+    assert responses[-1][1]["code"] == "authorization_world_state_stale"
     assert runs == []
 
 
