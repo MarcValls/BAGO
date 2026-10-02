@@ -1,5 +1,5 @@
 {
-  "current": "4.11.5",
+  "current": "4.11.6",
   "history": [
     {
       "version": "4.9.1",
@@ -52,8 +52,14 @@
     {
       "version": "4.11.5",
       "started": "2026-10-02T00:00:00Z",
-      "ended": null,
+      "ended": "2026-10-02T00:00:00Z",
       "notes": "MSIX bootstrap candidate with corrected main ancestry gate."
+    },
+    {
+      "version": "4.11.6",
+      "started": "2026-10-02T00:00:00Z",
+      "ended": null,
+      "notes": "MSIX candidate reuses workflow-built UI and Electron artifacts during payload construction."
     }
   ]
 }
