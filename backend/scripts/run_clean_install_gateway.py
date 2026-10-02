@@ -14,6 +14,7 @@ import os
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
@@ -136,12 +137,13 @@ def main() -> int:
     # CI simulates the Manager's already-tested desktop confirmation only
     # inside the disposable runner. This harness cannot target a non-temporary
     # installation and is not reachable from product surfaces.
-    approval = boundary.approve_challenge(
-        challenge_id=challenge["challenge_id"],
-        interaction_id=interaction_id,
-        session_id=session_id,
-        channel="desktop",
-    )
+    with patch("authorization_boundary.confirm_strong_challenge", return_value=True):
+        approval = boundary.approve_challenge(
+            challenge_id=challenge["challenge_id"],
+            interaction_id=interaction_id,
+            session_id=session_id,
+            channel="desktop",
+        )
     result, authorization = ExecutionGateway(boundary).execute(
         permit_token=str(approval["permit"]["token"]),
         request=request,
