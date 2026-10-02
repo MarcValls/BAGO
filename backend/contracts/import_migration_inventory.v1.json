@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "generated_from": "AST scan: executable sys.path.insert/append calls and add_piece_paths usage over versioned backend sources (tests, __pycache__ and git-ignored build/output trees excluded)",
   "total_files": 78,
-  "total_mutations": 121,
+  "total_mutations": 119,
   "files": [
     {
       "path": "backend/.bago/agents/agent_gateway.py",
@@ -131,15 +131,15 @@
       "path": "backend/.bago/chat/repl_inventory.py",
       "mutations": [
         {
-          "line": 44,
+          "line": 43,
           "call": "sys.path.insert"
         },
         {
-          "line": 63,
+          "line": 62,
           "call": "sys.path.insert"
         },
         {
-          "line": 78,
+          "line": 77,
           "call": "sys.path.insert"
         }
       ]
@@ -197,16 +197,8 @@
       "path": "backend/.bago/core/session_adapters_mixin.py",
       "mutations": [
         {
-          "line": 19,
-          "call": "import add_piece_paths"
-        },
-        {
-          "line": 16,
+          "line": 15,
           "call": "sys.path.insert"
-        },
-        {
-          "line": 20,
-          "call": "add_piece_paths"
         }
       ]
     },
@@ -267,7 +259,7 @@
       "path": "backend/.bago/core/session_tools_mixin.py",
       "mutations": [
         {
-          "line": 14,
+          "line": 13,
           "call": "sys.path.insert"
         }
       ]
@@ -514,11 +506,11 @@
           "call": "import add_piece_paths"
         },
         {
-          "line": 21,
+          "line": 20,
           "call": "add_piece_paths"
         },
         {
-          "line": 149,
+          "line": 148,
           "call": "add_piece_paths"
         }
       ]
@@ -670,7 +662,7 @@
           "call": "sys.path.insert"
         },
         {
-          "line": 359,
+          "line": 358,
           "call": "add_piece_paths"
         }
       ]
