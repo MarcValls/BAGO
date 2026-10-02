@@ -1,5 +1,5 @@
 {
-  "current": "4.11.1",
+  "current": "4.11.9",
   "history": [
     {
       "version": "4.0.0",
@@ -152,9 +152,15 @@
       "released": null
     },
     {
-      "ended": null,
+      "ended": "2026-10-02T00:00:00Z",
       "version": "4.11.1",
       "notes": "Patch release: el instalador NSIS nunca invocaba -Finalize tras verificar una instalacion exitosa, por lo que el backup .BAGO-rollback nunca se limpiaba. En la siguiente instalacion/actualizacion, install-embedded-payload.ps1 confundia ese backup obsoleto con una instalacion interrumpida y lo restauraba antes de reinstalar, corrompiendo la red de seguridad de rollback en cada actualizacion normal.",
+      "released": null
+    },
+    {
+      "ended": null,
+      "version": "4.11.9",
+      "notes": "Release candidate: MSIX bootstrap pipeline and gateway-owned signing workflow.",
       "released": null
     }
   ]

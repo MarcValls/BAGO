@@ -212,8 +212,6 @@ POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"\b(?:Invoke-WebRequest|Invoke-RestMethod)\b.*\s-Method\s+(?:POST|PUT|PATCH|DELETE)\b", re.I), "network.external_write", "high"),
     (re.compile(r"\b(?:Invoke-WebRequest|Invoke-RestMethod)\b.*\s-OutFile\b", re.I), "filesystem.write", "high"),
     (re.compile(r"\b(?:Invoke-WebRequest|Invoke-RestMethod)\b", re.I), "network.read", "medium"),
-    (re.compile(r"\bStop-Process\b", re.I), "process.terminate", "high"),
-    (re.compile(r"\b(?:taskkill|tskill)\b", re.I), "process.terminate", "high"),
 )
 
 JS_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
@@ -956,7 +954,7 @@ def _iter_files(roots: Iterable[Path]) -> Iterable[Path]:
                 continue
             if any(part in EXCLUDED_DIRS for part in path.parts):
                 continue
-            if path.suffix.lower() in {".py", ".pyw", ".ps1", ".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx", ".html", ".htm", ".cmd", ".bat", ".sh", ".vbs", ".nsi", ".yml", ".yaml"} or path.name == "bago":
+            if path.suffix.lower() in {".py", ".pyw", ".ps1", ".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx", ".cs", ".html", ".htm", ".cmd", ".bat", ".sh", ".vbs", ".nsi", ".yml", ".yaml"} or path.name == "bago":
                 yield path
 
 
@@ -970,6 +968,8 @@ def scan_paths(roots: Iterable[Path]) -> list[SinkFinding]:
             findings.extend(_scan_text(path, "powershell", POWERSHELL_RULES))
         elif suffix in {".js", ".cjs", ".mjs", ".jsx", ".ts", ".tsx"}:
             findings.extend(_scan_text(path, "javascript", JS_RULES))
+        elif suffix == ".cs":
+            findings.extend(_scan_text(path, "csharp", CSHARP_RULES))
         elif suffix in {".html", ".htm"}:
             findings.extend(_scan_text(path, "html", (*HTML_RULES, *JS_RULES)))
         elif suffix in {".cmd", ".bat"}:
