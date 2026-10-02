@@ -1,5 +1,5 @@
 {
-  "current": "4.11.1",
+  "current": "4.11.2",
   "history": [
     {
       "version": "4.9.1",
@@ -28,8 +28,14 @@
     {
       "version": "4.11.1",
       "started": "2026-09-10T21:33:00Z",
-      "ended": null,
+      "ended": "2026-10-02T00:00:00Z",
       "notes": "Fix: the offline NSIS installer never called install-embedded-payload.ps1 -Finalize after a verified successful install, so the .BAGO-rollback backup was never cleaned up. On the next install/update, the payload script's crash-recovery heuristic (presence of electron-viewer\\BAGO.exe) misread that stale backup as an interrupted swap and restored it before reinstalling, corrupting the rollback safety net on every normal update. Adds -Finalize call after verification and a regression test."
+    },
+    {
+      "version": "4.11.2",
+      "started": "2026-10-02T00:00:00Z",
+      "ended": null,
+      "notes": "MSIX bootstrap release candidate: official release routes moved from NSIS to protected Azure-signed MSIX."
     }
   ]
 }
