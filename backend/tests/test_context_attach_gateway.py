@@ -97,5 +97,5 @@ def test_http_context_attach_source_change_invalidates_permit_before_copy(monkey
     })
 
     assert responses[-1][0] == 409
-    assert responses[-1][1]["code"] == "authorization_operation_mismatch"
+    assert responses[-1][1]["code"] == "authorization_world_state_stale"
     assert not manager.workspace_context_root.exists()

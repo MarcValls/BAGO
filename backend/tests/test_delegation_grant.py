@@ -92,6 +92,7 @@ def _issue_grant(tmp_path, monkeypatch, *, max_runs: int = 2, allowed_effect: st
         arguments={},
         scope="persistent",
         policy_version=REGISTRY.digest,
+        world_state_authority=tmp_path,
     )
     challenge = boundary.create_challenge(parent, interaction_id="interaction-delegation")
     permit = boundary.approve_challenge(
@@ -103,7 +104,7 @@ def _issue_grant(tmp_path, monkeypatch, *, max_runs: int = 2, allowed_effect: st
     result, consumed = ExecutionGateway(boundary).execute(
         permit_token=permit["token"],
         request=parent,
-        context=ExecutionContext(services={"state_dir": tmp_path / "state"}),
+        context=ExecutionContext(manager=tmp_path, services={"state_dir": tmp_path / "state"}),
     )
     grant = result["delegation_grant"]
 
@@ -119,6 +120,7 @@ def _issue_grant(tmp_path, monkeypatch, *, max_runs: int = 2, allowed_effect: st
         policy_version=REGISTRY.digest,
         parent_execution_id=f"schedule:{schedule_id}",
         delegation_id=grant_id,
+        world_state_authority=tmp_path,
     )
     return {
         "boundary": boundary,
@@ -127,6 +129,7 @@ def _issue_grant(tmp_path, monkeypatch, *, max_runs: int = 2, allowed_effect: st
         "schedule_id": schedule_id,
         "schedule_digest": schedule_digest,
         "state_dir": tmp_path / "state",
+        "world_state_authority": tmp_path,
         "parent_consumed": consumed,
     }
 
@@ -170,6 +173,7 @@ def test_each_delegated_run_gets_fresh_one_time_permit(tmp_path, monkeypatch):
     result, consumed = gateway.execute(
         permit_token=delegated["permit"]["token"],
         request=child,
+        context=ExecutionContext(manager=issued["world_state_authority"]),
     )
     assert result["ok"] is True
     assert consumed["state"] == "consumed"
@@ -179,6 +183,7 @@ def test_each_delegated_run_gets_fresh_one_time_permit(tmp_path, monkeypatch):
         gateway.execute(
             permit_token=delegated["permit"]["token"],
             request=child,
+            context=ExecutionContext(manager=issued["world_state_authority"]),
         )
     assert replay.value.code == "authorization_permit_replay"
 
@@ -334,6 +339,7 @@ def test_nondelegable_effect_cannot_be_granted(tmp_path, monkeypatch):
         arguments={},
         scope="persistent",
         policy_version=REGISTRY.digest,
+        world_state_authority=tmp_path,
     )
     challenge = boundary.create_challenge(parent, interaction_id="interaction-delete")
     permit = boundary.approve_challenge(
@@ -347,7 +353,7 @@ def test_nondelegable_effect_cannot_be_granted(tmp_path, monkeypatch):
         ExecutionGateway(boundary).execute(
             permit_token=permit["token"],
             request=parent,
-            context=ExecutionContext(services={"state_dir": tmp_path / "state"}),
+            context=ExecutionContext(manager=tmp_path, services={"state_dir": tmp_path / "state"}),
         )
     assert denied.value.code == "delegation_effect_not_delegable"
 

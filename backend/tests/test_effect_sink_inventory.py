@@ -49,6 +49,37 @@ def test_inventory_scans_pythonw_entrypoints(tmp_path: Path) -> None:
     ]
 
 
+def test_csharp_scanner_classifies_bootstrap_material_sinks(tmp_path: Path) -> None:
+    source = tmp_path / "Program.cs"
+    source.write_text(
+        "using System.Diagnostics;\n"
+        "File.WriteAllText(path, payload);\n"
+        "Process.Start(command);\n"
+        "Process.Kill(pid);\n"
+        "File.Delete(path);\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([source])
+
+    assert [(item.line, item.effect_id, item.language) for item in findings] == [
+        (2, "filesystem.write", "csharp"),
+        (3, "process.execute", "csharp"),
+        (4, "process.terminate", "csharp"),
+        (5, "filesystem.delete", "csharp"),
+    ]
+
+
+def test_bootstrap_root_is_scanned_and_runtime_scoped(tmp_path: Path) -> None:
+    relative_roots = {inventory._relative(path) for path in inventory.DEFAULT_ROOTS}
+    assert "bootstrap" in relative_roots
+    source = tmp_path / "Program.cs"
+    source.write_text("File.WriteAllText(path, payload);\n", encoding="utf-8")
+    findings = inventory.scan_paths([source])
+    assert any(item.effect_id == "filesystem.write" for item in findings)
+    assert inventory._scope_for(inventory.REPO_ROOT / "bootstrap" / "msix-host" / "Program.cs") == inventory.SCOPE_RUNTIME_AUTHORITY
+
+
 def test_html_inventory_detects_external_scripts_browser_state_and_network(tmp_path: Path) -> None:
     source = tmp_path / "mini-manager.html"
     source.write_text(
@@ -171,6 +202,24 @@ def test_powershell_scanner_classifies_process_and_delete(tmp_path: Path) -> Non
         "network.read",
     }
     assert any(item.effect_id == "network.external_write" and item.line == 4 for item in findings)
+
+
+def test_powershell_scanner_detects_process_termination_primitives(tmp_path: Path) -> None:
+    script = tmp_path / "process-termination.ps1"
+    script.write_text(
+        "Stop-Process -Id $pid -Force\n"
+        "taskkill /F /PID $pid /T\n"
+        "tskill $pid\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([script])
+
+    assert [(item.line, item.sink, item.effect_id) for item in findings] == [
+        (1, "Stop-Process", "process.terminate"),
+        (2, "taskkill", "process.terminate"),
+        (3, "tskill", "process.terminate"),
+    ]
 
 
 def test_powershell_scanner_detects_call_operator_dot_source_and_archive_write(tmp_path: Path) -> None:
@@ -322,6 +371,7 @@ def test_default_inventory_roots_include_runtime_entrypoints_and_release_scripts
     relative_roots = {inventory._relative(path) for path in inventory.DEFAULT_ROOTS}
 
     assert "releases" in relative_roots
+    assert "bootstrap" in relative_roots
     assert "frontend" in relative_roots
     assert "ARRANCAR_BAGO.bat" in relative_roots
     assert "DETENER_BAGO.bat" in relative_roots
@@ -331,6 +381,8 @@ def test_default_inventory_roots_include_runtime_entrypoints_and_release_scripts
     assert inventory._scope_for(inventory.REPO_ROOT / "backend/scripts/bago_supervisor.py") == inventory.SCOPE_RUNTIME_AUTHORITY
     assert inventory._scope_for(inventory.REPO_ROOT / "backend/scripts/bago_supervisor.pyw") == inventory.SCOPE_RUNTIME_AUTHORITY
     assert inventory._scope_for(inventory.REPO_ROOT / "backend/scripts/publish_release.py") == inventory.SCOPE_RUNTIME_AUTHORITY
+    assert inventory._scope_for(inventory.REPO_ROOT / "backend/scripts/runtime-service.ps1") == inventory.SCOPE_RUNTIME_AUTHORITY
+    assert inventory._scope_for(inventory.REPO_ROOT / "scripts/dev.ps1") == inventory.SCOPE_RUNTIME_AUTHORITY
     assert inventory._scope_for(inventory.REPO_ROOT / "ARRANCAR_BAGO.bat") == inventory.SCOPE_RUNTIME_AUTHORITY
     assert inventory._scope_for(inventory.REPO_ROOT / "update-release-v4.8.4.sh") == inventory.SCOPE_BUILD_RELEASE_ADMIN
     assert inventory._scope_for(inventory.REPO_ROOT / "releases" / "compiled" / "backend" / "main.py") == inventory.SCOPE_DERIVED_RELEASE_SNAPSHOT
@@ -675,6 +727,44 @@ def test_release_update_helper_sinks_remain_visible_and_require_gateway_ticket()
     assert len(findings) == 21
     assert all(item.binding == "gateway_owned" for item in findings)
     assert all(item.binding_class == "gateway_adapter" for item in findings)
+    assert all(item.scope == inventory.SCOPE_RUNTIME_AUTHORITY for item in findings)
+    assert {
+        (item.line, item.sink, item.effect_id, item.binding_class)
+        for item in findings
+        if item.effect_id == "process.terminate"
+    } == {
+        (233, "Stop-Process", "process.terminate", "gateway_adapter"),
+        (237, "Stop-Process", "process.terminate", "gateway_adapter"),
+    }
+
+
+def test_runtime_powershell_lifecycle_terminations_are_in_inventory() -> None:
+    roots = [
+        inventory.REPO_ROOT / "releases" / "install-embedded-payload.ps1",
+        inventory.REPO_ROOT / "releases" / "Uninstall-BAGO.ps1",
+        inventory.REPO_ROOT / "scripts" / "dev.ps1",
+        inventory.REPO_ROOT / "backend" / "scripts" / "runtime-service.ps1",
+        inventory.REPO_ROOT / "backend" / ".bago" / "api" / "apply_release_update.ps1",
+    ]
+    findings = [
+        item
+        for item in inventory.scan_paths(roots)
+        if item.effect_id == "process.terminate"
+    ]
+    observed = {(item.path, item.line, item.sink, item.binding_class) for item in findings}
+
+    assert observed == {
+        ("releases/install-embedded-payload.ps1", 51, "Stop-Process", "runtime_unbound"),
+        ("releases/Uninstall-BAGO.ps1", 22, "Stop-Process", "runtime_unbound"),
+        ("scripts/dev.ps1", 75, "Stop-Process", "runtime_unbound"),
+        ("scripts/dev.ps1", 87, "taskkill", "runtime_unbound"),
+        ("scripts/dev.ps1", 193, "taskkill", "runtime_unbound"),
+        ("backend/scripts/runtime-service.ps1", 65, "Stop-Process", "runtime_unbound"),
+        ("backend/scripts/runtime-service.ps1", 91, "Stop-Process", "runtime_unbound"),
+        ("backend/scripts/runtime-service.ps1", 99, "Stop-Process", "runtime_unbound"),
+        ("backend/.bago/api/apply_release_update.ps1", 233, "Stop-Process", "gateway_adapter"),
+        ("backend/.bago/api/apply_release_update.ps1", 237, "Stop-Process", "gateway_adapter"),
+    }
     assert all(item.scope == inventory.SCOPE_RUNTIME_AUTHORITY for item in findings)
 
 

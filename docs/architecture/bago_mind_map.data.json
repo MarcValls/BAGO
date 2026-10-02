@@ -106,7 +106,24 @@
         {
           "title": "Workspace explícito",
           "status": "IMPLEMENTADO",
-          "detail": "El proyecto activo debe ser explícito, persistente y autoridad de archivos, editor, cambios y diagnósticos."
+          "detail": "El proyecto activo debe ser explícito, persistente y autoridad de archivos, editor, cambios y diagnósticos.",
+          "children": [
+            {
+              "title": "Identidad sesión + raíz",
+              "status": "VINCULADO",
+              "detail": "Las operaciones workspace validan sesión activa y raíz autorizada antes de leer o materializar."
+            },
+            {
+              "title": "workspace.bind",
+              "status": "CERRADO ACOTADO",
+              "detail": "Challenge, aprobación, Permit y Gateway vinculan el workspace; el adapter revalida identidad y estado del destino."
+            },
+            {
+              "title": "ProjectWriteEffectAdapter",
+              "status": "OWNER EXISTENTE",
+              "detail": "La materialización inicial del proyecto y el seed usan project.write; no deben duplicar el writer de workspace."
+            }
+          ]
         },
         {
           "title": "Nodos y conectores",
@@ -162,8 +179,25 @@
         },
         {
           "title": "Instalador y rollback",
-          "status": "IMPLEMENTADO",
-          "detail": "Instalación, reparación, backup, rollback seguro, sidecar SHA-256 y limpieza posterior al éxito."
+          "status": "CONECTADO ACOTADO · P0 ABIERTO",
+          "detail": "Las rutas de instalación, rollback y desinstalación con sesión tienen owners y contratos. El bootstrap NSIS de máquina limpia aún puede producir efectos antes de la autoridad BAGO; el P0 sigue abierto y Real installer E2E quedó SKIPPED en CI.",
+          "children": [
+            {
+              "title": "system.install.apply",
+              "status": "OWNER EXISTENTE",
+              "detail": "Owner para instalar/reparar en runtime con Permit consumido, ExecutionGateway y ticket de un uso."
+            },
+            {
+              "title": "rollback / uninstall",
+              "status": "OWNERS SEPARADOS",
+              "detail": "Rollback y desinstalación conservan operation identity y owners propios; no heredan autorización de apply."
+            },
+            {
+              "title": "Bootstrap limpio NSIS",
+              "status": "P0 ABIERTO",
+              "detail": "Staging/extracción y otras operaciones del instalador preceden al runtime de autorización. No hay reparación ni cierre de trust handoff."
+            }
+          ]
         },
         {
           "title": "Release candidate-bound",
@@ -232,8 +266,25 @@
         },
         {
           "title": "ExecutionGateway",
-          "status": "CONECTADO ACOTADO",
-          "detail": "ExecutionRequest → Authorization → Permit → ExecutionGateway → EffectAdapter. La unicidad runtime global sigue abierta."
+          "status": "CONECTADO ACOTADO · STRICT RUNTIME ABIERTO",
+          "detail": "El Gateway consume el Permit, resuelve el adapter server-owned y despacha el efecto. La arquitectura de dispatch está conectada; el inventario global aún reporta runtime-unbound y cobertura incompleta.",
+          "children": [
+            {
+              "title": "Permit de un solo uso",
+              "status": "CONSUMIDO ANTES DEL EFECTO",
+              "detail": "AuthorizationBoundary liga la solicitud al Permit; Gateway consume autoridad antes de dispatch y antes de inicializar el store durable de claims."
+            },
+            {
+              "title": "Resolución del adapter",
+              "status": "SERVER-OWNED",
+              "detail": "El caller entrega effect_id canónico; el registro del servidor elige el adapter. El caller no suministra una función ejecutable."
+            },
+            {
+              "title": "Nested dispatch",
+              "status": "ACOTADO A plan.execute",
+              "detail": "Los efectos hijos requieren el contexto Gateway autorizado y no pueden superar el riesgo/presupuesto de la operación padre."
+            }
+          ]
         },
         {
           "title": "Adapters server-owned",
@@ -360,8 +411,8 @@
         },
         {
           "title": "Contexto y memoria",
-          "detail": "Siguiente bloque funcional tras cerrar la reorganización de documentación: revalidar Contexto y memoria sobre el checkout actual, empezando por la ruta SQLite/FTS5/embeddings, persistencia de sesión, CLI/API/UI y los sinks restantes. Las cifras y pruebas históricas de esta ficha son contexto; no sustituyen evidencia nueva.",
-          "status": "SIGUIENTE PRIORIDAD"
+          "detail": "Sigue siendo una prioridad funcional, pero la secuencia de cierre de sinks tiene precedencia: resolver cobertura/P0, terminar partition read-only y habituation trace antes de iniciar reparaciones. No se confunde una prioridad de producto con autorización para ejecutar cambios.",
+          "status": "SIGUIENTE PRIORIDAD · GATEADA"
         },
         {
           "title": "Gate de unicidad global",
@@ -426,7 +477,34 @@
         {
           "title": "Providers y modelos",
           "status": "IMPLEMENTADO",
-          "detail": "BAGO mantiene sesión y cambia el motor; discovery, selección y configuración se canalizan por el backend."
+          "detail": "Los providers y modelos son motores intercambiables dentro de la sesión. El runtime semántico filtra capacidades elegibles con requisitos explícitos; elegir un candidato no concede autorización para efectos.",
+          "children": [
+            {
+              "title": "Capable",
+              "status": "CAPACIDAD DECLARADA",
+              "detail": "Describe qué operaciones/capacidades ofrece un candidato; no decide si encaja con la solicitud concreta."
+            },
+            {
+              "title": "Eligible",
+              "status": "HARD GATES DETERMINISTAS",
+              "detail": "EligibilityEvaluator comprueba requisitos explícitos; fallos duros excluyen, desconocidos duros producen UNKNOWN. No usa el orden de llegada como prueba de calidad."
+            },
+            {
+              "title": "Authorized",
+              "status": "DECISIÓN SEPARADA",
+              "detail": "La elegibilidad semántica no sustituye AuthorizationBoundary, challenge, Permit ni policy para el efecto solicitado."
+            },
+            {
+              "title": "Executable",
+              "status": "CONDICIÓN COMPUESTA",
+              "detail": "Requiere elegibilidad, autorización aplicable, runtime disponible y condiciones de seguridad; un score no puede superar estos gates."
+            },
+            {
+              "title": "Evaluación modelo × herramienta",
+              "status": "PENDIENTE DE EVIDENCIA",
+              "detail": "La elegibilidad determinista filtra requisitos, pero no demuestra calidad relativa. Antes de rankear candidatos, evaluar combinaciones viables Modelo × Herramienta con tareas y presupuestos equivalentes, orden contrabalanceado y resultados comparables; el primer uso o score histórico no debe ganar por prioridad."
+            }
+          ]
         },
         {
           "title": "Credenciales",

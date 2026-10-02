@@ -446,7 +446,12 @@ def test_invalid_plan_permit_does_not_materialize_gateway_claim_store(tmp_path):
     from effect_registry import REGISTRY
 
     state_root = tmp_path / "untrusted-state"
-    manager = SimpleNamespace(state_root=state_root)
+    manager = SimpleNamespace(
+        state_root=state_root,
+        base_path=tmp_path,
+        project_root=tmp_path,
+        session_id="invalid-plan-permit-session",
+    )
     request = build_execution_request(
         effect_id="plan.execute",
         actor_kind="user",

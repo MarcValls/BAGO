@@ -1,0 +1,235 @@
+{
+  "schema": "bago.sink-inventory-reconciliation.v1",
+  "purpose": "Complete normalized scanner outputs and exact set reconciliation for a clean published-map candidate versus a separate dirty comparison worktree. Only repo_root is normalized to $REPO_ROOT; every finding is retained in the compressed outputs.",
+  "generated_at_utc": "2026-09-27T10:44:27Z",
+  "scanner_sha256": "59c4d9cc38d2b46acb081dc0083da2c4185866c297ea41070690d384f4896b0a",
+  "effect_registry": {
+    "contract": "bago.effect-registry.v1",
+    "version": "1.24.0",
+    "sha256": "ab1edad052f705ae01092b120858c876ce1ec760e88875beb89b37d55fd61f30"
+  },
+  "snapshots": [
+    {
+      "label": "published_map_candidate",
+      "captured_at_utc": "2026-09-27T10:42:54Z",
+      "repository_root": "$REPO_ROOT",
+      "command": "python backend/.bago/tools/effect_sink_inventory.py --json",
+      "strict_classification_command": "python backend/.bago/tools/effect_sink_inventory.py --strict-classification",
+      "strict_runtime_command": "python backend/.bago/tools/effect_sink_inventory.py --strict-runtime",
+      "strict_classification_exit": 0,
+      "strict_runtime_exit": 2,
+      "head": "b990c8b5699ae8429fd8e91f8c977484fbc8d6bd",
+      "tree_oid": "235ffa7ec329db470298766679547647afd72865",
+      "branch": "docs/sink-snapshot-reconciliation-20260927",
+      "worktree_dirty": false,
+      "porcelain_status": [],
+      "scan_input_files": 1005,
+      "scan_input_manifest_sha256": "53745874cf4e80e8171e611900086f3014c406917502c54c2f9145390232b8e9",
+      "audit_worktree_fingerprint": "bb893649d90fb66be9230279541b339ea4c6a37022abac7f91b102d4d69aa0c0",
+      "scanner_sha256": "59c4d9cc38d2b46acb081dc0083da2c4185866c297ea41070690d384f4896b0a",
+      "effect_registry_contract": "bago.effect-registry.v1",
+      "effect_registry_version": "1.24.0",
+      "effect_registry_sha256": "ab1edad052f705ae01092b120858c876ce1ec760e88875beb89b37d55fd61f30",
+      "raw_stdout_sha256": "ad9c17004516d71aa7c66c088c8af42ea1e92f2ad67b44c6467661b2d7e23b87",
+      "normalized_inventory_sha256": "03c360023a327622265feb719889a4abe67672911a13a05c1b862e5ea815c0c9",
+      "summary": {
+        "total_sinks": 1705,
+        "unbound_sinks": 1343,
+        "authority_internal_sinks": 26,
+        "high_confidence_unbound_sinks": 879,
+        "runtime_unbound_sinks": 265,
+        "runtime_high_confidence_unbound_sinks": 206,
+        "unclassified_scope_sinks": 0,
+        "unclassified_binding_sinks": 0,
+        "by_effect": {
+          "database.write": 67,
+          "filesystem.delete": 166,
+          "filesystem.write": 1102,
+          "network.external_write": 10,
+          "network.read": 45,
+          "process.execute": 246,
+          "process.terminate": 3,
+          "state.delete": 7,
+          "state.write": 40,
+          "system.configuration.write": 19
+        },
+        "by_binding": {
+          "authority_internal": 26,
+          "gateway_owned": 336,
+          "unbound": 1343
+        },
+        "by_binding_class": {
+          "authority_internal": 26,
+          "gateway_adapter": 336,
+          "nonruntime_effect": 1078,
+          "runtime_unbound": 265
+        },
+        "by_scope": {
+          "build_release_admin": 336,
+          "runtime_authority": 553,
+          "runtime_client_transport": 7,
+          "runtime_tool_pending": 74,
+          "test": 735
+        }
+      },
+      "roots": [
+        "backend",
+        "scripts",
+        "electron-viewer",
+        "frontend",
+        "releases",
+        "manager/android",
+        "ARRANCAR_BAGO.bat",
+        "DETENER_BAGO.bat",
+        "install-remote.ps1",
+        "update-release-v4.8.4.ps1",
+        "update-release-v4.8.4.sh"
+      ],
+      "audit_worktree_fingerprint_formula": "SHA256(HEAD + LF + tree OID + LF + git status --porcelain=v1 --untracked-files=all + LF + scan_input_manifest_sha256)",
+      "scan_input_manifest_formula": "SHA256 of sorted concatenation: relative path + NUL + SHA256(file bytes) + LF, over the scanner default roots and source extensions."
+    },
+    {
+      "label": "comparison_worktree",
+      "captured_at_utc": "2026-09-27T10:44:27Z",
+      "repository_root": "$REPO_ROOT",
+      "command": "python backend/.bago/tools/effect_sink_inventory.py --json",
+      "strict_classification_command": "python backend/.bago/tools/effect_sink_inventory.py --strict-classification",
+      "strict_runtime_command": "python backend/.bago/tools/effect_sink_inventory.py --strict-runtime",
+      "strict_classification_exit": 0,
+      "strict_runtime_exit": 2,
+      "head": "a21858780615440a775a7989970b8917fc0d6732",
+      "tree_oid": "80a13e2b54439df6d4948c93b158048d90666f72",
+      "branch": "fix/spbe-runtime-fix1-20260927",
+      "worktree_dirty": true,
+      "porcelain_status": [
+        "M README.md",
+        " M backend/docs/contracts/bootstrap_authority.v1.md",
+        " M docs/architecture/bago_mind_map.data.json",
+        " M docs/architecture/bago_mind_map.html",
+        " M scripts/render_bago_context_audit_pdf.py",
+        "?? docs/architecture/bago_context_audit_editorial.md",
+        "?? scripts/editorial/ialp_base.css",
+        "?? scripts/editorial/ialp_doctrina.css",
+        "?? scripts/editorial/ialp_informe.css",
+        "?? scripts/editorial/ialp_puerta.css",
+        "?? scripts/editorial/ialp_sintesis.css",
+        "?? scripts/editorial/render_markdown.py"
+      ],
+      "scan_input_files": 2334,
+      "scan_input_manifest_sha256": "359229223b4bdd37fdc9cf6d79df83f49c64df3999e7990ef10c056cce88efa8",
+      "audit_worktree_fingerprint": "57f705c72faf73018c38f28e9a3af597d09fe66d95b9649ec9c6abaeeb35f1a9",
+      "scanner_sha256": "59c4d9cc38d2b46acb081dc0083da2c4185866c297ea41070690d384f4896b0a",
+      "effect_registry_contract": "bago.effect-registry.v1",
+      "effect_registry_version": "1.24.0",
+      "effect_registry_sha256": "ab1edad052f705ae01092b120858c876ce1ec760e88875beb89b37d55fd61f30",
+      "raw_stdout_sha256": "a8c46ca67fa1c4dbf16f8513ba0034bff30c79fa7722eab0c397f208bbdd6fc0",
+      "normalized_inventory_sha256": "9fab3fdeca0b5f6ef9ec381f86534b26ef3ec4ad0a8a587bcd8a7cf7536e1606",
+      "summary": {
+        "total_sinks": 4503,
+        "unbound_sinks": 4141,
+        "authority_internal_sinks": 26,
+        "high_confidence_unbound_sinks": 2578,
+        "runtime_unbound_sinks": 265,
+        "runtime_high_confidence_unbound_sinks": 206,
+        "unclassified_scope_sinks": 0,
+        "unclassified_binding_sinks": 0,
+        "by_effect": {
+          "database.write": 184,
+          "filesystem.delete": 442,
+          "filesystem.write": 2947,
+          "network.external_write": 16,
+          "network.read": 181,
+          "process.execute": 591,
+          "process.terminate": 7,
+          "state.delete": 9,
+          "state.write": 95,
+          "system.configuration.write": 31
+        },
+        "by_binding": {
+          "authority_internal": 26,
+          "gateway_owned": 336,
+          "unbound": 4141
+        },
+        "by_binding_class": {
+          "authority_internal": 26,
+          "gateway_adapter": 336,
+          "nonruntime_effect": 3876,
+          "runtime_unbound": 265
+        },
+        "by_scope": {
+          "build_release_admin": 347,
+          "derived_release_snapshot": 2787,
+          "runtime_authority": 553,
+          "runtime_client_transport": 7,
+          "runtime_tool_pending": 74,
+          "test": 735
+        }
+      },
+      "roots": [
+        "backend",
+        "scripts",
+        "electron-viewer",
+        "frontend",
+        "releases",
+        "manager/android",
+        "ARRANCAR_BAGO.bat",
+        "DETENER_BAGO.bat",
+        "install-remote.ps1",
+        "update-release-v4.8.4.ps1",
+        "update-release-v4.8.4.sh"
+      ],
+      "audit_worktree_fingerprint_formula": "SHA256(HEAD + LF + tree OID + LF + git status --porcelain=v1 --untracked-files=all + LF + scan_input_manifest_sha256)",
+      "scan_input_manifest_formula": "SHA256 of sorted concatenation: relative path + NUL + SHA256(file bytes) + LF, over the scanner default roots and source extensions."
+    }
+  ],
+  "reconciliation": {
+    "baseline_total": 1705,
+    "comparison_total": 4503,
+    "added_findings": 2799,
+    "removed_findings": [
+      {
+        "path": "scripts/render_bago_context_audit_pdf.py",
+        "line": 105,
+        "column": 8,
+        "effect_id": "filesystem.write",
+        "scope": "build_release_admin"
+      }
+    ],
+    "added_by_scope": {
+      "build_release_admin": 12,
+      "derived_release_snapshot": 2787
+    },
+    "removed_by_scope": {
+      "build_release_admin": 1
+    },
+    "net_added_by_scope": {
+      "build_release_admin": 11,
+      "derived_release_snapshot": 2787
+    },
+    "local_build_admin_additions_by_path": {
+      "scripts/editorial/render_markdown.py": 5,
+      "scripts/render_bago_context_audit_pdf.py": 7
+    },
+    "baseline_runtime_unbound": 265,
+    "comparison_runtime_unbound": 265,
+    "arithmetic": "4503 = 1705 + 2787 derived_release_snapshot + 12 build_release_admin additions - 1 removed build_release_admin finding"
+  },
+  "artifacts": [
+    {
+      "label": "published_map_candidate",
+      "file": "sink-inventory-published-map-candidate.json.gz",
+      "normalized_sha256": "03c360023a327622265feb719889a4abe67672911a13a05c1b862e5ea815c0c9",
+      "gzip_sha256": "d7bd18960a5e9701cc507eb8d8bf56b13d529d5d304157b26f5ab92b42340d9e",
+      "compressed_bytes": 43185,
+      "uncompressed_bytes": 846457
+    },
+    {
+      "label": "comparison_worktree",
+      "file": "sink-inventory-comparison-worktree.json.gz",
+      "normalized_sha256": "9fab3fdeca0b5f6ef9ec381f86534b26ef3ec4ad0a8a587bcd8a7cf7536e1606",
+      "gzip_sha256": "3d31eaab1db0accefde32c6058a7a52afef4e789302f6c1b320ad4a47775637a",
+      "compressed_bytes": 109785,
+      "uncompressed_bytes": 2369656
+    }
+  ]
+}

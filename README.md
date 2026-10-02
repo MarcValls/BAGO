@@ -154,6 +154,10 @@ Reglas de autoridad:
 - `ExecutionGateway` todavía **no** se declara frontera única mientras queden P5–P12
 - `StrongHumanAuthorizationProof` sigue pendiente de P13; procedencia interactiva no equivale a identidad humana fuerte
 
+### Frescura del estado material
+
+Las peticiones mutables usan `WorldStateSnapshot` v1, ligado a la sesión, workspace, raíz de estado, revisión de contexto, política, efecto y target; el contrato de petición es `bago.execution-request/v3`. `ExecutionGateway` rechaza el estado `unspecified` y vuelve a validar el snapshot antes de consumir el `Permit` y justo antes de despachar el adapter. Los efectos mutables E5/E6 requieren además un hook de revalidación material. El inventario acotado de constructores registra 57 callsites y cero sin autoridad declarada; esta cobertura no cierra el inventario global `strict-runtime`, que continúa abierto.
+
 ---
 
 ## Estado de la unificación de ejecución

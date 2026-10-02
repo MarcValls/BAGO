@@ -21,5 +21,7 @@ python scripts/update_bago_mind_map.py --check
 
 El generador valida la estructura de los datos y comprueba que las reglas de
 superposición mantienen por encima la rama seleccionada y el nodo enfocado.
+Los nodos con `+` tienen hijos: selecciónalos para abrirlos. La búsqueda recorre
+también los niveles anidados y muestra la ruta hasta cada coincidencia.
 El mapa comunica contexto; para el estado operativo vigente prevalecen los
 contratos y recibos del repositorio.

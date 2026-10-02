@@ -23,6 +23,7 @@ def execute_cli_effect(
     input_fn: Callable[[str], str] | None = None,
     output_fn: Callable[[str], Any] | None = None,
     manager: Any = None,
+    world_state_authority: Any = None,
 ) -> Any:
     """Challenge, obtain a TTY-only direct approval, then execute one request."""
     from authorization_boundary import AuthorizationBoundary, AuthorizationError

@@ -40,6 +40,7 @@ DEFAULT_ROOTS = (
     REPO_ROOT / "electron-viewer",
     REPO_ROOT / "frontend",
     REPO_ROOT / "releases",
+    REPO_ROOT / "bootstrap",
     REPO_ROOT / "manager" / "android",
     REPO_ROOT / ".github" / "workflows",
     REPO_ROOT / "ARRANCAR_BAGO.bat",
@@ -137,7 +138,7 @@ NON_RUNTIME_SCOPES = frozenset({
 
 # These backend/scripts files are reachable from runtime launchers or the
 # legacy manager UI. The directory is otherwise treated as build/release admin.
-RUNTIME_BACKEND_SCRIPT_ENTRYPOINTS = frozenset({
+RUNTIME_SCRIPT_ENTRYPOINTS = frozenset({
     "backend/scripts/bago_supervisor.py",
     "backend/scripts/bago_supervisor.pyw",
     "backend/scripts/publish_release.py",
@@ -199,6 +200,8 @@ POWERSHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"\[\s*(?:System\.IO\.)?File\s*\]\s*::\s*(?:WriteAllText|WriteAllBytes|AppendAllText|AppendAllBytes)\s*\(", re.I), "filesystem.write", "high"),
     (re.compile(r"\[\s*(?:System\.)?Environment\s*\]\s*::\s*SetEnvironmentVariable\s*\(", re.I), "system.configuration.write", "high"),
     (re.compile(r"\b(?:Set-Content|Add-Content|Out-File|Copy-Item|Move-Item|New-Item)\b", re.I), "filesystem.write", "medium"),
+    (re.compile(r"\bStop-Process\b", re.I), "process.terminate", "high"),
+    (re.compile(r"\b(?:taskkill(?:\.exe)?|tskill(?:\.exe)?)\b", re.I), "process.terminate", "high"),
     (re.compile(r"\bStart-Process\b", re.I), "process.execute", "high"),
     # PowerShell's call operator can invoke external programs via literal or
     # computed command names; dot-sourcing executes another script in-process.
@@ -247,7 +250,8 @@ NSIS_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
 # rules are intentionally high-signal; dynamic command construction still
 # requires source review and must not be mistaken for complete static proof.
 SHELL_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
-    (re.compile(r"\b(?:exec|nohup|bash|sh|cmd|powershell|pwsh|pythonw?|python3|node|npm|npx|electron|gh|gpg|curl|wget|taskkill)\b"), "process.execute", "high"),
+    (re.compile(r"\b(?:exec|nohup|bash|sh|cmd|powershell|pwsh|pythonw?|python3|node|npm|npx|electron|gh|gpg|curl|wget)\b"), "process.execute", "high"),
+    (re.compile(r"\b(?:taskkill(?:\.exe)?|tskill(?:\.exe)?)\b", re.I), "process.terminate", "high"),
     (re.compile(r"\bkill\s+(?!-0\b)"), "process.terminate", "high"),
     (re.compile(r"\b(?:mkdir|mktemp|touch|cp|mv|install)\b"), "filesystem.write", "medium"),
     (re.compile(r"\b(?:rm|rmdir|unlink)\b"), "filesystem.delete", "high"),
@@ -261,6 +265,15 @@ CMD_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (re.compile(r"^\s*(?:mkdir|md|copy|xcopy|move)\b|\bcertutil\b.*>\s*", re.I), "filesystem.write", "medium"),
     (re.compile(r"^\s*reg\s+(?:add|delete)\b|^\s*setx\b", re.I), "system.configuration.write", "high"),
     (re.compile(r">>{1,2}\s*\S+"), "filesystem.write", "medium"),
+)
+
+CSHARP_RULES: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (re.compile(r"\bFile\.(?:WriteAllText|WriteAllBytes|AppendAllText|AppendAllBytes)\s*\("), "filesystem.write", "high"),
+    (re.compile(r"\bDirectory\.CreateDirectory\s*\("), "filesystem.write", "high"),
+    (re.compile(r"\b(?:Directory\.Delete|File\.Delete)\s*\("), "filesystem.delete", "high"),
+    (re.compile(r"\b(?:Directory\.Move|File\.(?:Move|Copy))\s*\("), "filesystem.write", "high"),
+    (re.compile(r"\bProcess\.Start\s*\("), "process.execute", "high"),
+    (re.compile(r"\bProcess\.Kill\s*\("), "process.terminate", "high"),
 )
 
 
@@ -315,6 +328,8 @@ def _scope_for(path: Path) -> str:
         return SCOPE_DERIVED_RELEASE_SNAPSHOT
     if rel.startswith("manager/android/"):
         return SCOPE_RUNTIME_AUTHORITY
+    if rel.startswith("bootstrap/"):
+        return SCOPE_RUNTIME_AUTHORITY
     if rel.startswith("releases/"):
         if Path(rel).name.startswith(("build-", "resolve-")):
             return SCOPE_BUILD_RELEASE_ADMIN
@@ -327,7 +342,7 @@ def _scope_for(path: Path) -> str:
         return SCOPE_BUILD_RELEASE_ADMIN
     if rel.startswith("frontend/"):
         return SCOPE_RUNTIME_CLIENT_TRANSPORT
-    if rel in RUNTIME_BACKEND_SCRIPT_ENTRYPOINTS:
+    if rel in RUNTIME_SCRIPT_ENTRYPOINTS:
         return SCOPE_RUNTIME_AUTHORITY
     if (
         rel.startswith("scripts/")

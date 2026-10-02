@@ -65,7 +65,7 @@ def handle_write(handler: "BaseHTTPRequestHandler", body: dict[str, Any] | None 
                                    "operation_fingerprint": authorization.get("operation_fingerprint")}
         send_json(handler, 200, result)
     except AuthorizationError as exc:
-        send_json(handler, 409 if "challenge" in exc.code or "permit" in exc.code else 403,
+        send_json(handler, 409 if "challenge" in exc.code or "permit" in exc.code or "world_state_stale" in exc.code else 403,
                   {"ok": False, "error": str(exc), "code": exc.code})
     except ExecutionRequestError as exc:
         send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})

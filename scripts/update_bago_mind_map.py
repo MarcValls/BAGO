@@ -35,7 +35,7 @@ def _render(data: dict) -> str:
         raise ValueError("HTML must contain exactly one pair of BAGO map data markers")
     start = html.index(DATA_START) + len(DATA_START)
     end = html.index(DATA_END, start)
-    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     rendered = html[:start] + payload + html[end:]
     _validate_document(rendered)
     return rendered
