@@ -1,5 +1,5 @@
 {
-  "current": "4.11.8",
+  "current": "4.11.9",
   "history": [
     {
       "version": "4.9.1",
@@ -70,8 +70,14 @@
     {
       "version": "4.11.8",
       "started": "2026-10-02T00:00:00Z",
-      "ended": null,
+      "ended": "2026-10-02T00:00:00Z",
       "notes": "MSIX release manifest records detached tag identity during tag-locked builds."
+    },
+    {
+      "version": "4.11.9",
+      "started": "2026-10-02T00:00:00Z",
+      "ended": null,
+      "notes": "MSIX detached tag manifest uses null-safe PowerShell identity capture."
     }
   ]
 }

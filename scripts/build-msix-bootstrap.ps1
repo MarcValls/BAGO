@@ -81,9 +81,9 @@ $packagePayloadDigest = ($hashOutput | ForEach-Object { [string]$_ } | Where-Obj
 if ($null -eq $packagePayloadDigest -or $hashExit -ne 0 -or $packagePayloadDigest -notmatch '^[0-9a-f]{64}$') {
     throw "Could not calculate canonical package payload digest (exit=$hashExit; output=$($hashOutput -join ' | '))."
 }
-$branch = ([string](git -C $repo branch --show-current)).Trim()
+$branch = "$(git -C $repo branch --show-current)".Trim()
 if ([string]::IsNullOrWhiteSpace($branch)) {
-    $tag = ([string](git -C $repo describe --exact-match --tags HEAD)).Trim()
+    $tag = "$(git -C $repo describe --exact-match --tags HEAD)".Trim()
     $branch = if ([string]::IsNullOrWhiteSpace($tag)) { 'DETACHED' } else { "DETACHED@$tag" }
 }
 $releaseManifest = [ordered]@{

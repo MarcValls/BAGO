@@ -32,7 +32,7 @@
     "node_engine": ">=22.12.0",
     "npm_engine": ">=10.0.0",
     "python_ci": "3.14",
-    "version": "4.11.8"
+    "version": "4.11.9"
   },
   "providers": [
     "ollama-local",
