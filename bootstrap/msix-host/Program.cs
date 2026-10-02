@@ -3,27 +3,73 @@ using Python.Runtime;
 
 namespace Bago.Bootstrap.Host;
 
+internal static class BootstrapLogger
+{
+    private static readonly string LogDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BAGO", "logs");
+
+    private static readonly string LogPath = Path.Combine(LogDirectory, "bootstrap-host.log");
+
+    private static readonly object Lock = new();
+
+    internal static void Write(string phase, string? message = null, Exception? ex = null)
+    {
+        try
+        {
+            Directory.CreateDirectory(LogDirectory);
+            var line = $"{DateTime.UtcNow:O}\t{Environment.ProcessId}\t{phase}\t{message ?? ""}";
+            if (ex is not null)
+            {
+                line += $"\nEXCEPTION: {ex.GetType().FullName}\n{ex}";
+            }
+            lock (Lock)
+            {
+                File.AppendAllText(LogPath, line + Environment.NewLine);
+            }
+        }
+        catch
+        {
+            // Logging is best-effort; never block bootstrap authority on log failure.
+        }
+    }
+}
+
 internal static class Program
 {
     [STAThread]
     private static int Main()
     {
         var args = Environment.GetCommandLineArgs();
+        BootstrapLogger.Write("host_start", $"args={string.Join(' ', args)}");
         if (args.Length == 4 && args[1] == "--hash-package-tree")
         {
-            File.WriteAllText(args[3], BootstrapPolicy.HashPackageTree(args[2]));
-            return 0;
+            BootstrapLogger.Write("hash_package_tree", $"root={args[2]} out={args[3]}");
+            try
+            {
+                File.WriteAllText(args[3], BootstrapPolicy.HashPackageTree(args[2]));
+                BootstrapLogger.Write("hash_package_tree_done");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                BootstrapLogger.Write("hash_package_tree_error", ex.Message, ex);
+                return 1;
+            }
         }
         ApplicationConfiguration.Initialize();
         try
         {
             var packageRoot = PackageIdentity.RequirePackageRoot();
+            BootstrapLogger.Write("package_identity", $"root={packageRoot}");
+
             var authorityRoot = Path.Combine(packageRoot, "authority");
             var pythonRoot = Path.Combine(packageRoot, "python");
             var payloadRoot = Path.Combine(packageRoot, "payload");
             var policyPath = Path.Combine(packageRoot, "bootstrap-policy.json");
+            BootstrapLogger.Write("policy_load_start", $"path={policyPath}");
             var policy = BootstrapPolicy.LoadAndVerify(policyPath, authorityRoot, payloadRoot,
                 Path.Combine(packageRoot, "release-manifest.json"), packageRoot);
+            BootstrapLogger.Write("policy_load_done", $"publisher={policy.Publisher} version={policy.Version} manifest={policy.ReleaseManifestSha256}");
 
             Environment.SetEnvironmentVariable("BAGO_SESSION_MIRROR", "0");
             Environment.SetEnvironmentVariable("PYTHONHOME", pythonRoot);
@@ -31,8 +77,10 @@ internal static class Program
             Environment.SetEnvironmentVariable("PYTHONNET_PYDLL", null);
             Environment.SetEnvironmentVariable("PYTHONNOUSERSITE", "1");
             Environment.SetEnvironmentVariable("PYTHONDONTWRITEBYTECODE", "1");
-            PythonEngine.PythonHome = pythonRoot;
+            BootstrapLogger.Write("python_env", $"home={pythonRoot}");
+
             Runtime.PythonDLL = Path.Combine(pythonRoot, "python314.dll");
+            PythonEngine.PythonHome = pythonRoot;
             PythonEngine.PythonPath = string.Join(Path.PathSeparator, new[]
             {
                 Path.Combine(pythonRoot, "python314.zip"),
@@ -42,28 +90,47 @@ internal static class Program
                 Path.Combine(authorityRoot, "core"),
                 Path.Combine(authorityRoot, "api"),
             });
+            BootstrapLogger.Write("pythonnet_init_start");
             PythonEngine.Initialize();
+            BootstrapLogger.Write("pythonnet_init_done");
+            dynamic authority;
             using (Py.GIL())
             {
+                BootstrapLogger.Write("python_gil_acquired");
                 dynamic sys = Py.Import("sys");
                 sys.dont_write_bytecode = true;
-                dynamic authority = Py.Import("msix_bootstrap");
+                BootstrapLogger.Write("authority_verify_start", $"root={authorityRoot}");
+                authority = Py.Import("msix_bootstrap");
                 authority.verify_loaded_authority(authorityRoot, policy.ReleaseManifestSha256);
-                authority.create_bootstrap_session(
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BAGO", "state"));
+                BootstrapLogger.Write("authority_verify_done");
+                BootstrapLogger.Write("session_create_start");
+                var sessionId = authority.create_bootstrap_session(
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BAGO-bootstrap-state"));
+                BootstrapLogger.Write("session_create_done", $"session_id={sessionId}");
             }
 
-            Application.Run(new BootstrapForm(policy));
+            BootstrapLogger.Write("form_run_start");
+            Application.Run(new BootstrapForm(policy, packageRoot, () =>
+            {
+                using (Py.GIL())
+                {
+                    return (string)authority.install_from_package(packageRoot, policy.Publisher, policy.PackagePayloadSha256);
+                }
+            }));
+            BootstrapLogger.Write("form_run_done");
             return 0;
         }
         catch (Exception ex)
         {
+            BootstrapLogger.Write("host_fatal", $"message={ex.Message}", ex);
             MessageBox.Show(ex.Message, "BAGO Bootstrap", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }
         finally
         {
+            BootstrapLogger.Write("shutdown", $"python_initialized={PythonEngine.IsInitialized}");
             if (PythonEngine.IsInitialized) PythonEngine.Shutdown();
+            BootstrapLogger.Write("shutdown_done");
         }
     }
 }
