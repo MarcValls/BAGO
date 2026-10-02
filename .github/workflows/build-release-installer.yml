@@ -7,10 +7,19 @@ on:
         description: Immutable release tag to build
         required: true
         type: string
+      signing_backend:
+        description: Signing backend (azure or ssl-esigner-cka)
+        required: false
+        default: azure
+        type: string
   workflow_call:
     inputs:
       release_tag:
         required: true
+        type: string
+      signing_backend:
+        required: false
+        default: azure
         type: string
     secrets: inherit
 
@@ -23,4 +32,5 @@ jobs:
     uses: ./.github/workflows/build-release-msix-bootstrap.yml
     with:
       release_tag: ${{ inputs.release_tag }}
+      signing_backend: ${{ inputs.signing_backend }}
     secrets: inherit
