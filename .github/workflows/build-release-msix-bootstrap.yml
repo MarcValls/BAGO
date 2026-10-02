@@ -107,6 +107,7 @@ jobs:
           SSL_ESIGNER_PASSWORD: ${{ secrets.SSL_ESIGNER_PASSWORD }}
           SSL_ESIGNER_TOTP_SECRET: ${{ secrets.SSL_ESIGNER_TOTP_SECRET }}
           SSL_ESIGNER_MODE: ${{ vars.SSL_ESIGNER_MODE }}
+          SSL_ESIGNER_CERT_THUMBPRINT: ${{ vars.SSL_ESIGNER_CERT_THUMBPRINT }}
         run: |
           $required = 'SSL_ESIGNER_USERNAME','SSL_ESIGNER_PASSWORD','SSL_ESIGNER_TOTP_SECRET','SSL_ESIGNER_MODE','BAGO_EXPECTED_PUBLISHER'
           $missing = @($required | Where-Object { -not [Environment]::GetEnvironmentVariable($_) })
@@ -173,7 +174,13 @@ jobs:
           & $tool unload
           & $tool load
           if ($LASTEXITCODE -ne 0) { throw "eSigner CKA certificate load failed: $LASTEXITCODE" }
-          $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Select-Object -First 1
+          $certs = @(Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert)
+          if ($env:SSL_ESIGNER_CERT_THUMBPRINT) {
+            $wanted = $env:SSL_ESIGNER_CERT_THUMBPRINT.Replace(' ', '').ToUpperInvariant()
+            $cert = $certs | Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $wanted } | Select-Object -First 1
+          } else {
+            $cert = $certs | Select-Object -First 1
+          }
           if (-not $cert) { throw 'No code-signing certificate was loaded by eSigner CKA.' }
           "BAGO_SIGNING_CERT_THUMBPRINT=$($cert.Thumbprint)" | Out-File $env:GITHUB_ENV -Append
 
