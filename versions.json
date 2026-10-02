@@ -1,5 +1,5 @@
 {
-  "current": "4.11.7",
+  "current": "4.11.8",
   "history": [
     {
       "version": "4.9.1",
@@ -64,8 +64,14 @@
     {
       "version": "4.11.7",
       "started": "2026-10-02T00:00:00Z",
-      "ended": null,
+      "ended": "2026-10-02T00:00:00Z",
       "notes": "MSIX payload digest capture is fail-closed and diagnostic."
+    },
+    {
+      "version": "4.11.8",
+      "started": "2026-10-02T00:00:00Z",
+      "ended": null,
+      "notes": "MSIX release manifest records detached tag identity during tag-locked builds."
     }
   ]
 }

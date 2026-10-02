@@ -81,8 +81,13 @@ $packagePayloadDigest = ($hashOutput | ForEach-Object { [string]$_ } | Where-Obj
 if ($null -eq $packagePayloadDigest -or $hashExit -ne 0 -or $packagePayloadDigest -notmatch '^[0-9a-f]{64}$') {
     throw "Could not calculate canonical package payload digest (exit=$hashExit; output=$($hashOutput -join ' | '))."
 }
+$branch = ([string](git -C $repo branch --show-current)).Trim()
+if ([string]::IsNullOrWhiteSpace($branch)) {
+    $tag = ([string](git -C $repo describe --exact-match --tags HEAD)).Trim()
+    $branch = if ([string]::IsNullOrWhiteSpace($tag)) { 'DETACHED' } else { "DETACHED@$tag" }
+}
 $releaseManifest = [ordered]@{
-    schema='bago.release-manifest.v1'; version=$version; git_head=$head; branch=(git -C $repo branch --show-current).Trim(); dirty=$dirty
+    schema='bago.release-manifest.v1'; version=$version; git_head=$head; branch=$branch; dirty=$dirty
     package_payload_sha256=$packagePayloadDigest
     payload_root=(Split-Path $payload -Leaf)
 }
