@@ -312,6 +312,8 @@ Los valores exactos de Python CI, Node y npm se muestran en el bloque canónico 
 ### Windows — release publicada
 
 La última release pública es [v4.11.1](https://github.com/MarcValls/BAGO/releases/tag/v4.11.1). Descarga `bago-4.11.1-setup.exe`; el artefacto publicado está firmado con Authenticode SHA-256 y acompañado por su sidecar `.sha256`.
+
+El candidato de la siguiente release es [v4.11.9](https://github.com/MarcValls/BAGO/releases/tag/v4.11.9); su instalador previsto es `bago-4.11.9-setup.exe` y solo se considerará publicado cuando exista el tag, el artefacto firmado y sus gates de instalación.
 - Instala backend (Python), frontend compilado y Electron viewer
 - Crea accesos directos "BAGO" en el Escritorio y el Menú Inicio
 - El acceso directo apunta al `BAGO.exe` empaquetado (sin consola y sin navegador)
