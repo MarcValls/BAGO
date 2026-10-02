@@ -1,5 +1,5 @@
 {
-  "current": "4.11.9",
+  "current": "4.11.10",
   "history": [
     {
       "version": "4.9.1",
@@ -76,8 +76,14 @@
     {
       "version": "4.11.9",
       "started": "2026-10-02T00:00:00Z",
-      "ended": null,
+      "ended": "2026-10-03T00:00:00Z",
       "notes": "MSIX detached tag manifest uses null-safe PowerShell identity capture."
+    },
+    {
+      "version": "4.11.10",
+      "started": "2026-10-03T00:00:00Z",
+      "ended": null,
+      "notes": "MSIX bootstrap candidate; PENDING_CERTIFICATE_IV: public individual-validation certificate and signing evidence are still required."
     }
   ]
 }
