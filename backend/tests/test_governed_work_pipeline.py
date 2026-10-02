@@ -369,7 +369,7 @@ def test_nested_dispatch_cannot_be_called_without_gateway_owned_context(tmp_path
         tmp_path,
         "1. Crear archivo notes/no-bypass.txt con contenido: no",
     )
-    request = _request(plan, manager)
+    request = _request(plan, world_state_authority=manager)
     gateway = ExecutionGateway(AuthorizationBoundary())
     caller_supplied_authorization = {
         "state": "consumed",

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sys
+
+import pytest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -111,6 +113,16 @@ def _clear_bago_modules() -> None:
 def pytest_configure(config) -> None:  # noqa: D401
     _clear_bago_modules()
     _bind_legacy_commands()
+
+
+@pytest.fixture(autouse=True)
+def _headless_native_confirmation(monkeypatch):
+    """Approve strong prompts in headless CI unless a test overrides it."""
+    try:
+        import authorization_boundary as auth
+    except ImportError:
+        return
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
 
 
 def pytest_runtest_setup(item) -> None:  # noqa: D401

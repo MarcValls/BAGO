@@ -2,7 +2,7 @@
 
 Effect registry: `bago.effect-registry.v1` `1.24.0` SHA-256 `309702e4871ff90ca527e9d2ae7f8bcfa669a91a8a79c0dcd2cfbbe49f8ff119`.
 Scope: direct `build_execution_request` calls in `backend/.bago/` and `backend/bago_core/`.
-Callsites: 57; mutating or dynamic-effect calls without a usable `world_state_authority` input: 0.
+Callsites: 58; mutating or dynamic-effect calls without a usable `world_state_authority` input: 0.
 Gateway: mutating requests reject unspecified state and revalidate their authority-bound snapshot before Permit consumption and immediately before adapter dispatch.
 Strong effects: every registered mutating E5/E6 adapter must expose `revalidate_world_state`; missing hooks fail Gateway registry construction and unadapted effects remain denied.
 Process termination: `cleanup_zombies` binds PID, executable, command line, and creation time into the Permit target; the Gateway re-enumerates candidates before consumption/dispatch and the Windows terminator rechecks exact identities before acting.
@@ -40,6 +40,7 @@ Process termination: `cleanup_zombies` binds PID, executable, command line, and 
 | backend/.bago/core/credential_manager.py | 223 | _execute_secret_write | credential.write | True | E5 | manager |
 | backend/.bago/core/database_write_request.py | 56 | build_memory_database_request | database.write | True | E3 | manager |
 | backend/.bago/core/governed_work_pipeline.py | 774 | _executor | <dynamic> | dynamic | dynamic | context.manager |
+| backend/.bago/core/msix_bootstrap.py | 81 | install_from_package | system.install.apply | True | E5 | _SESSION_MANAGER |
 | backend/.bago/core/project_patch_operations.py | 39 | build_apply_request | project.write | True | E3 | manager |
 | backend/.bago/core/project_patch_operations.py | 55 | build_rollback_request | project.write | True | E3 | manager |
 | backend/.bago/core/session_manager.py | 317 | _prepare_session_mirror | workspace.mirror.prepare | True | E2 | self |
@@ -63,9 +64,9 @@ Process termination: `cleanup_zombies` binds PID, executable, command line, and 
 | backend/bago_core/server_effects.py | 277 | stage_validation_workspace | workspace.validation.stage | True | E2 | root |
 | backend/bago_core/server_effects.py | 300 | cleanup_validation_workspace | workspace.validation.stage | True | E2 | root |
 | backend/bago_core/server_effects.py | 341 | gateway_urlopen | network.read | False | E1 | Path.cwd() |
-| backend/bago_core/server_effects.py | 380 | download_release_bundle | release.download | True | E2 | download_root |
-| backend/bago_core/server_effects.py | 421 | inspect_process | process.inspect | False | E1 | manager |
-| backend/bago_core/server_effects.py | 450 | inspect_process_identities | process.inspect | False | E1 | manager |
+| backend/bago_core/server_effects.py | 383 | download_release_bundle | release.download | True | E2 | download_root |
+| backend/bago_core/server_effects.py | 424 | inspect_process | process.inspect | False | E1 | manager |
+| backend/bago_core/server_effects.py | 453 | inspect_process_identities | process.inspect | False | E1 | manager |
 
 Unbound callsites:
 - None.

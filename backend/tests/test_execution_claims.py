@@ -48,6 +48,10 @@ class _BlockingInstallApplyAdapter:
         self.entered = entered
         self.release = release
 
+    @staticmethod
+    def revalidate_world_state(request, context):
+        return None
+
     def execute(self, request, context):
         self.entered.set()
         if not self.release.wait(timeout=15):
@@ -360,6 +364,10 @@ def test_install_apply_and_uninstall_share_one_gateway_target_claim(tmp_path):
 
     class Adapter:
         effect_ids = frozenset({"system.install.apply"})
+
+        @staticmethod
+        def revalidate_world_state(request, context):
+            return None
 
         def execute(self, request, context):
             entered.set()
