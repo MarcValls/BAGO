@@ -75,10 +75,12 @@ $null = New-Item -ItemType Directory -Path (Join-Path $out 'pri')
 if ($LASTEXITCODE -ne 0) { throw 'MakePri createconfig failed.' }
 & (Join-Path $sdkBin 'makepri.exe') new /pr $stage /cf (Join-Path $out 'pri/priconfig.xml') /of (Join-Path $stage 'resources.pri')
 if ($LASTEXITCODE -ne 0) { throw 'MakePri failed.' }
-$hashTool = Join-Path $out 'hash-tool'
-$packagePayloadDigest = (& dotnet run --project (Join-Path $hostSource 'HashTool/HashTool.csproj') -c Release -- $stage 2>$null | Select-Object -Last 1).Trim()
-if ($LASTEXITCODE -ne 0 -or $packagePayloadDigest -notmatch '^[0-9a-f]{64}$') { throw 'Could not calculate canonical package payload digest.' }
-if ($LASTEXITCODE -ne 0 -or $packagePayloadDigest -notmatch '^[0-9a-f]{64}$') { throw 'Could not calculate canonical package payload digest.' }
+$hashOutput = @(& dotnet run --project (Join-Path $hostSource 'HashTool/HashTool.csproj') -c Release -- $stage 2>&1)
+$hashExit = $LASTEXITCODE
+$packagePayloadDigest = ($hashOutput | ForEach-Object { [string]$_ } | Where-Object { $_ -match '^[0-9a-fA-F]{64}$' } | Select-Object -Last 1)
+if ($null -eq $packagePayloadDigest -or $hashExit -ne 0 -or $packagePayloadDigest -notmatch '^[0-9a-f]{64}$') {
+    throw "Could not calculate canonical package payload digest (exit=$hashExit; output=$($hashOutput -join ' | '))."
+}
 $releaseManifest = [ordered]@{
     schema='bago.release-manifest.v1'; version=$version; git_head=$head; branch=(git -C $repo branch --show-current).Trim(); dirty=$dirty
     package_payload_sha256=$packagePayloadDigest
@@ -97,4 +99,3 @@ if ($LASTEXITCODE -ne 0) { throw 'MakeAppx failed.' }
 $receipt = [ordered]@{ candidate_head=$head; branch=$releaseManifest.branch; dirty=$dirty; payload=$payload; manifest_sha256=$manifestDigest; package=$msix; package_sha256=(Get-FileHash $msix -Algorithm SHA256).Hash.ToLowerInvariant(); signature='NOT_SIGNED' }
 Set-Content -LiteralPath (Join-Path $out 'build-receipt.json') -Value ($receipt | ConvertTo-Json -Depth 5)
 Write-Output (Join-Path $out 'build-receipt.json')
-
