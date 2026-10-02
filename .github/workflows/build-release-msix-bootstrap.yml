@@ -45,7 +45,7 @@ jobs:
           git fetch --force origin main
           $head = (git rev-parse HEAD).Trim()
           if ((git rev-parse "$tag`^{commit}").Trim() -ne $head -or (git describe --exact-match --tags HEAD).Trim() -ne $tag) { throw 'Candidate is not exactly the requested tag.' }
-          git merge-base --is-ancestor $head origin/main
+          git merge-base --is-ancestor origin/main $head
           if ($LASTEXITCODE -ne 0) { throw 'Requested tag is not reachable from origin/main.' }
           python scripts/verify_version_consistency.py --tag $tag --is-tag true
           if ($LASTEXITCODE -ne 0) { throw 'Canonical version mismatch.' }

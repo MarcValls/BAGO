@@ -1,5 +1,5 @@
 {
-  "current": "4.11.4",
+  "current": "4.11.5",
   "history": [
     {
       "version": "4.9.1",
@@ -46,8 +46,14 @@
     {
       "version": "4.11.4",
       "started": "2026-10-02T00:00:00Z",
-      "ended": null,
+      "ended": "2026-10-02T00:00:00Z",
       "notes": "MSIX bootstrap production signing candidate on main-descendant merge."
+    },
+    {
+      "version": "4.11.5",
+      "started": "2026-10-02T00:00:00Z",
+      "ended": null,
+      "notes": "MSIX bootstrap candidate with corrected main ancestry gate."
     }
   ]
 }
