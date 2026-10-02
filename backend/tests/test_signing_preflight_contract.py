@@ -8,11 +8,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "check-signing-preflight.ps1"
 WORKFLOW = ROOT / ".github" / "workflows" / "build-release-installer.yml"
+REUSABLE_WORKFLOW = ROOT / ".github" / "workflows" / "build-release-msix-bootstrap.yml"
 
 
 def test_preflight_checks_every_value_the_workflow_gate_requires() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
-    workflow = WORKFLOW.read_text(encoding="utf-8")
+    workflow = "\n".join(
+        (
+            WORKFLOW.read_text(encoding="utf-8"),
+            REUSABLE_WORKFLOW.read_text(encoding="utf-8"),
+        )
+    )
 
     for name in (
         "AZURE_CLIENT_ID",
