@@ -109,6 +109,15 @@ con los manifiestos directos ya declarados.
    que el repositorio cumpla todavía todas sus condiciones de proyecto open
    source.
 
+## Candidate package preparation
+
+The unsigned pre-signing bundle `bago-4.11.3-signpath-candidate-unsigned-v2.zip`
+was built from the clean runtime payload. Its manifest records the source HEAD,
+file hashes and a zero count of `bin/Release` and `obj` outputs. The bundle
+contains `third_party_notices/`, the CPython and Python.NET license texts, and
+this inventory report. It is an unsigned preparation artifact; the production
+MSIX must be rebuilt with the SignPath publisher subject before signing.
+
 ## Veredicto
 
 `PASS_WITH_DOCUMENTED_PACKAGE_NOTICES_PENDING`
