@@ -45,6 +45,7 @@ def _future(minutes: int = 30) -> str:
 
 def _issue_grant(tmp_path, monkeypatch, *, max_runs: int = 2, allowed_effect: str = "filesystem.write"):
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     boundary = auth.AuthorizationBoundary()
 
     child_target = {"path": "notes/example.txt"}

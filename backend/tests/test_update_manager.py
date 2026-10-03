@@ -136,6 +136,7 @@ class _FixtureOpener:
 
 @pytest.fixture
 def isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setitem(sys.modules, "update_manager", updater)
     install_root = tmp_path / "BAGO"
     (install_root / "backend").mkdir(parents=True)
     (install_root / "electron-viewer").mkdir()
