@@ -216,7 +216,7 @@ def render_block(projection: dict[str, Any]) -> str:
         f"[![Python CI](https://img.shields.io/badge/python_CI-{_badge_value(product['python_ci'])}-blue)]()",
         f"[![Node](https://img.shields.io/badge/node-{_badge_value(product['node_engine'])}-green)]()",
         "[![README truth](https://img.shields.io/badge/README-generated%20%2B%20drift--checked-blueviolet)]()",
-        "[![License](https://img.shields.io/badge/license-Proprietary-red)]()",
+        "[![License](https://img.shields.io/badge/license-MIT-green)]()",
         "",
         "### Estado canonico generado",
         "",

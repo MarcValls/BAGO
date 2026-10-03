@@ -4,7 +4,7 @@
 
 [![Version](https://img.shields.io/badge/version-4.10.0-blue)]()
 [![Python](https://img.shields.io/badge/python-3.14%2B-blue)]()
-[![License](https://img.shields.io/badge/license-Proprietary-red)]()
+[![License](https://img.shields.io/badge/license-MIT-green)]()
 
 BAGO is a local-first AI control plane. Its main job is to keep the session as the source of truth while providers and models remain interchangeable execution engines.
 
@@ -183,22 +183,9 @@ See [`docs/MVP.md`](docs/MVP.md), [`docs/MODULES.md`](docs/MODULES.md), and [`do
 
 ## License
 
-BAGO is proprietary at this stage.
-
-Allowed:
-
-- inspect the public source,
-- run local validation,
-- submit issues or proposed changes through GitHub.
-
-Not allowed without written permission:
-
-- redistribute BAGO as a competing package,
-- sell hosted or packaged copies,
-- remove attribution,
-- extract private release assets for third-party distribution.
-
-Future licensing may change, but the current release line remains proprietary.
+BAGO is distributed under the MIT License. See the repository root `LICENSE`
+file for the complete terms. Third-party dependencies and generated assets
+remain subject to their own licenses and notices.
 
 ## Documentation
 

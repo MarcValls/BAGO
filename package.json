@@ -1,7 +1,7 @@
 {
   "name": "bago-monorepo",
   "version": "4.11.3",
-  "private": true,
+  "license": "MIT",
   "description": "BAGO monorepo (frontend + backend + electron viewer)",
   "engines": {
     "node": ">=22.12.0"
