@@ -7,12 +7,25 @@ model catalog, and provider switching with context compression.
 """
 from __future__ import annotations
 
+import logging
+import os
 import sys
 import time
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# CLI/REPL launchers need not preload API paths. Resolve the catalog owner via
+# the canonical piece resolver instead of relying on pytest/HTTP import state.
+from bago_core.resolver import add_piece_paths
+add_piece_paths("api.package")
+from provider_catalog import (
+    canonical_provider_id,
+    is_fixed_cloud_provider,
+    normalize_provider_base_url,
+    provider_canonical_base_url,
+    validate_provider_endpoint,
+)
 from session_utils import ADAPTER_REGISTRY, normalize_bridges, model_quality_key
 from context_compressor import ContextCompressor, LayerStore
 from context_store import ContextMessage
@@ -25,10 +38,41 @@ import translation_middleware as _tm
 class SessionAdaptersMixin:
     """Mixin: adapter lifecycle, provider listing, model catalog, switching."""
 
+    _logger = logging.getLogger(__name__)
+
     def _build_adapter_config(self, provider_name: str | None = None) -> dict:
-        """Construye dict de config para el adapter activo desde ConfigManager + CredentialManager."""
+        """Construye dict de config para el adapter activo desde ConfigManager + CredentialManager.
+
+        Endpoint boundary: the effective base_url (persisted config or legacy env
+        fallback) is validated against the canonical fixed URL for named cloud
+        providers before any credential is read.  Credentials are then merged, and
+        the final base_url is re-validated so a credential-level override cannot
+        exfiltrate a stored secret either.
+        """
         target_provider = provider_name or self.provider
         cfg = self.config.provider_config(target_provider)
+
+        # Determine the effective base_url from persisted config before touching secrets.
+        effective_url = str(cfg.get("base_url", "") or "").strip()
+        # For ollama-cloud the adapter also falls back to the OLLAMA_CLOUD_URL env var.
+        # Resolve it here so a malicious env value is blocked before secret access.
+        if target_provider == "ollama-cloud" and not effective_url:
+            effective_url = str(os.environ.get("OLLAMA_CLOUD_URL", "") or "").strip()
+
+        if effective_url and is_fixed_cloud_provider(target_provider):
+            valid, code = validate_provider_endpoint(target_provider, effective_url)
+            if not valid:
+                raise RuntimeError(
+                    f"Provider '{target_provider}' persisted endpoint drift blocked: {code}"
+                )
+
+        # Only a genuinely absent canonical secret permits legacy fallback.
+        # Store/read failures must not silently select an older credential.
+        from secret_store import get_secret_store
+        stored_secret = get_secret_store().get_secret(
+            f"providers/{target_provider}/api_key"
+        )
+
         creds = {}
         for key in self.credentials.required_keys(target_provider):
             val = self.credentials.get(target_provider, key)
@@ -44,24 +88,14 @@ class SessionAdaptersMixin:
                 if upper == "OLLAMA_CLOUD_URL":
                     creds.setdefault("base_url", val)
 
-        # Esta ruta .bago/core es una fachada de compatibilidad. Conserva la
-        # superficie legacy inyectable y delega en el almacenamiento canónico
-        # de bago_core, sin que el kernel use esta fachada.
-        try:
-            from secret_store import get_secret_store
-            stored_secret = get_secret_store().get_secret(
-                f"providers/{target_provider}/api_key"
-            )
-            if stored_secret:
-                previous_secret = creds.get("api_key") or creds.get("token") or ""
-                # API/UI registration writes here. It is the canonical and
-                # newest source, so it must override legacy credentials.json.
-                creds["api_key"] = stored_secret
-                creds["token"] = stored_secret
-                if previous_secret and previous_secret != stored_secret:
-                    creds["fallback_api_key"] = previous_secret
-        except Exception:
-            pass
+        if stored_secret:
+            previous_secret = creds.get("api_key") or creds.get("token") or ""
+            # API/UI registration writes here. It is the canonical and
+            # newest source, so it must override legacy credentials.json.
+            creds["api_key"] = stored_secret
+            creds["token"] = stored_secret
+            if previous_secret and previous_secret != stored_secret:
+                creds["fallback_api_key"] = previous_secret
 
         merged = dict(cfg)
         if merged.get("default_model") and not merged.get("model"):
@@ -69,6 +103,16 @@ class SessionAdaptersMixin:
         merged.update(creds)
         merged.setdefault("base_path", str(self.base_path))
         merged.setdefault("timeout_seconds", self.config.get("timeout_seconds", 60.0))
+
+        # Final endpoint check after all overrides (config, credentials, env).
+        merged_url = str(merged.get("base_url", "") or "").strip()
+        if merged_url and is_fixed_cloud_provider(target_provider):
+            valid, code = validate_provider_endpoint(target_provider, merged_url)
+            if not valid:
+                raise RuntimeError(
+                    f"Provider '{target_provider}' merged endpoint drift blocked: {code}"
+                )
+
         return merged
 
     def _init_adapter(self) -> dict:
@@ -118,8 +162,11 @@ class SessionAdaptersMixin:
                     import json as _j
                     _model = self.model
                     _base = str(tm_cfg.get("translator_base_url", "http://127.0.0.1:11434"))
+
                     def _preload():
                         try:
+                            from bago_core.server_effects import gateway_urlopen
+
                             body = _j.dumps({
                                 "model": _model,
                                 "prompt": "hi",
@@ -131,14 +178,23 @@ class SessionAdaptersMixin:
                                 f"{_base}/api/generate", data=body,
                                 headers={"Content-Type": "application/json"},
                                 method="POST")
-                            with _ur.urlopen(req, timeout=300) as r:
+                            with gateway_urlopen(
+                                req, timeout=300, network_class="provider_transport",
+                            ) as r:
                                 _ = r.read()
                         except Exception as exc:
-                            import sys
-                            print(f"[translation_middleware] preload fail {_model}: {exc}", file=sys.stderr)
+                            self._logger.warning(
+                                "Translation model preload failed for %s (%s)",
+                                _model,
+                                type(exc).__name__,
+                            )
+
                     _thr.Thread(target=_preload, daemon=True).start()
-            except Exception:
-                pass
+            except Exception as exc:
+                self._logger.warning(
+                    "Unable to schedule translation model preload (%s)",
+                    type(exc).__name__,
+                )
 
             adapter = TranslationAdapter(adapter, tm_cfg)
             self._translation_middleware_active = True

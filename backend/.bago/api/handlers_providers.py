@@ -9,10 +9,14 @@ from typing import TYPE_CHECKING
 
 from provider_catalog import (
     PROVIDER_CATALOG,
+    canonical_provider_id,
+    is_fixed_cloud_provider,
     normalize_provider_base_url,
     provider_base_url,
+    provider_canonical_base_url,
     provider_descriptor,
     provider_discovery,
+    validate_provider_endpoint,
 )
 
 if TYPE_CHECKING:
@@ -178,7 +182,7 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         return
     p_cfg = _provider_config(mgr, provider_name)
 
-    # `configuration_patch` carries only the normalized non-secret fields this
+    # ``configuration_patch`` carries only the normalized non-secret fields this
     # request intends to change. It is bound into the credential-write
     # ExecutionRequest so the gateway can recompute the authorized digest
     # against the *current* backend config plus this same-request patch,
@@ -189,7 +193,17 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         p_cfg["enabled"] = bool(body["enabled"])
         configuration_patch["enabled"] = p_cfg["enabled"]
     if "base_url" in body and str(body["base_url"]).strip():
-        p_cfg["base_url"] = normalize_provider_base_url(provider_name, body["base_url"])
+        candidate = normalize_provider_base_url(provider_name, body["base_url"])
+        valid, code = validate_provider_endpoint(provider_name, candidate)
+        if not valid:
+            send_json(handler, 403, {
+                "ok": False,
+                "provider": provider_name,
+                "code": code,
+                "detail": "Custom cloud endpoints must use a local/custom provider; fixed cloud providers keep their canonical URL.",
+            })
+            return
+        p_cfg["base_url"] = candidate
         configuration_patch["base_url"] = p_cfg["base_url"]
     if "model" in body and str(body["model"]).strip():
         p_cfg["default_model"] = str(body["model"]).strip()
@@ -346,6 +360,30 @@ def handle_test(handler: "BaseHTTPRequestHandler", body: dict) -> None:
         cls = ADAPTER_REGISTRY.get(provider_name)
         if cls is None:
             raise ValueError(f"Provider '{provider_name}' no registrado")
+
+        # Determine the effective base_url before we touch any secret or build config.
+        # It may come from the request, from the manager config, or from the canonical default.
+        effective_base_url = ""
+        if mgr is not None:
+            mgr_raw_cfg = getattr(mgr, "config", None)
+            if mgr_raw_cfg is not None and hasattr(mgr_raw_cfg, "provider_config"):
+                effective_base_url = str(mgr_raw_cfg.provider_config(provider_name).get("base_url", "")).strip()
+        for key in ("base_url",):
+            value = str(body.get(key, "")).strip()
+            if value:
+                effective_base_url = value
+        if not effective_base_url:
+            effective_base_url = provider_canonical_base_url(provider_name)
+        valid, code = validate_provider_endpoint(provider_name, effective_base_url)
+        if not valid:
+            send_json(handler, 403, {
+                "ok": False,
+                "provider": provider_name,
+                "code": code,
+                "detail": "Custom cloud endpoints must use a local/custom provider; fixed cloud providers keep their canonical URL.",
+            })
+            return
+
         config = dict(mgr._build_adapter_config(provider_name)) if mgr is not None else {}
         for key in ("base_url", "api_key", "model"):
             value = str(body.get(key, "")).strip()
@@ -513,6 +551,9 @@ def _discover_models(provider_id: str) -> tuple[list[str], str | None, str]:
     base_url = _provider_base_url(provider_id, cfg)
     if not base_url:
         return [], "Sin base_url configurada", "manual"
+    valid, code = validate_provider_endpoint(provider_id, base_url)
+    if not valid:
+        return [], code, kind
 
     path = discovery.get("path", "/models")
     full_url = f"{base_url}{path}"

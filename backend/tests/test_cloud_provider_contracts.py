@@ -76,7 +76,7 @@ def test_ollama_cloud_retries_legacy_key_only_after_unauthorized(monkeypatch):
             raise urllib.error.HTTPError(request.full_url, 401, "Unauthorized", None, None)
         return Reply()
 
-    monkeypatch.setattr(ollama_cloud.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ollama_cloud, "gateway_urlopen", fake_urlopen)
     adapter = ollama_cloud.OllamaCloudAdapter({
         "base_url": "https://contract.invalid",
         "api_key": "canonical-secret",
@@ -114,7 +114,7 @@ def test_ollama_cloud_stream_retries_legacy_key_after_unauthorized(monkeypatch):
             raise urllib.error.HTTPError(request.full_url, 401, "Unauthorized", None, None)
         return StreamReply()
 
-    monkeypatch.setattr(ollama_cloud.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(ollama_cloud, "gateway_urlopen", fake_urlopen)
     adapter = ollama_cloud.OllamaCloudAdapter({
         "base_url": "https://contract.invalid",
         "api_key": "canonical-secret",

@@ -1,13 +1,58 @@
 """Registered server-owned effect adapters for this domain."""
 from __future__ import annotations
 
-from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
 import base64
 import urllib.error
 import urllib.request
 from typing import Any, Mapping
 from urllib.parse import urlparse
+
+from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
 from execution_request import ExecutionRequest
+
+
+def _origin_tuple(parsed) -> tuple[str, str, int]:
+    """Return (scheme, hostname_lower, effective_port) for an endpoint."""
+    scheme = parsed.scheme.lower()
+    hostname = (parsed.hostname or "").lower()
+    port = parsed.port
+    if port is None:
+        port = 443 if scheme == "https" else 80 if scheme == "http" else 0
+    return (scheme, hostname, int(port))
+
+
+def _same_endpoint_origin(original_url: str, final_url: str) -> bool:
+    """True when two URLs share scheme, host and effective port."""
+    a = urlparse(str(original_url or "").strip())
+    b = urlparse(str(final_url or "").strip())
+    return _origin_tuple(a) == _origin_tuple(b)
+
+
+def _request_has_auth_header(headers: dict[str, str]) -> bool:
+    """Detect headers that commonly carry provider credentials."""
+    for key in headers:
+        lower = str(key).lower()
+        if lower in {"authorization", "x-api-key"}:
+            return True
+    return False
+
+
+class _ProviderRedirectGuard(urllib.request.HTTPRedirectHandler):
+    """Restrict provider-transport redirects to the original endpoint origin.
+
+    Authorization and API-key headers are not stripped by urllib before following
+    redirects, so a compromised provider or MITM can exfiltrate credentials on a
+    cross-origin redirect.  This handler blocks such redirects at the urllib layer.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if _request_has_auth_header(dict(req.headers)) or _request_has_auth_header(dict(req.unredirected_hdrs)):
+            if not _same_endpoint_origin(req.full_url, newurl):
+                raise ExecutionGatewayError(
+                    "Provider transport redirect would leave the original endpoint origin",
+                    code="network_read_provider_redirect_blocked",
+                )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 class GatewayHTTPResponse:
@@ -167,7 +212,12 @@ class NetworkReadEffectAdapter:
                 method=method,
             )
             timeout = float(request.target.get("timeout") or 30.0)
-            if release_hosts is None:
+            if network_class == "provider_transport" and _request_has_auth_header(headers):
+                # Keep the policy local to this gateway-owned transport. Never
+                # install a process-wide opener or affect unrelated HTTP clients.
+                opener = urllib.request.build_opener(_ProviderRedirectGuard())
+                response = opener.open(outbound, timeout=timeout)
+            elif release_hosts is None:
                 response = urllib.request.urlopen(outbound, timeout=timeout)
             else:
                 opener = urllib.request.build_opener(_ReleaseRedirectGuard(release_hosts))
@@ -185,6 +235,14 @@ class NetworkReadEffectAdapter:
                     raise ExecutionGatewayError(
                         "Release response resolved outside the approved GitHub hosts",
                         code="network_read_release_redirect_blocked",
+                    )
+            # Defense in depth: the opener must also return the authorized origin.
+            if network_class == "provider_transport" and not _same_endpoint_origin(url, final_url):
+                if _request_has_auth_header(arguments.get("headers", {})):
+                    response.close()
+                    raise ExecutionGatewayError(
+                        "Provider transport resolved outside the original endpoint origin",
+                        code="network_read_provider_redirect_blocked",
                     )
         except ExecutionGatewayError:
             raise

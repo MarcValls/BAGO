@@ -244,16 +244,13 @@ class CredentialManager:
         return bool(result.get("changed", False)) if operation == "delete" and isinstance(result, dict) else True
 
     def get(self, provider: str, key: str, default: str = "") -> str:
-        """Obtiene credencial. Fallback: archivo -> env var -> default."""
+        """Use legacy file/env credentials only when the canonical secret is absent."""
         # The canonical SecretStore wins over retained legacy read-only data.
-        val = ""
         if key in CREDENTIAL_SCHEMA.get(provider, {}):
-            try:
-                from bago_core.secrets import get_secret_store
-                val = get_secret_store().get_secret(_secret_store_key(provider, key)) or ""
-            except (ImportError, OSError, RuntimeError):
-                val = ""
-            if val:
+            from bago_core.secrets import get_secret_store
+
+            val = get_secret_store().get_secret(_secret_store_key(provider, key))
+            if val is not None:
                 return val
         # Legacy credential files remain readable but are no longer writable.
         val = self._data.get(provider, {}).get(key, "")
@@ -288,11 +285,9 @@ class CredentialManager:
             if not values:
                 del self._data[provider]
             return True
-        try:
-            from bago_core.secrets import get_secret_store
-            exists = bool(get_secret_store().get_secret(_secret_store_key(provider, key)))
-        except (ImportError, OSError, RuntimeError):
-            exists = False
+        from bago_core.secrets import get_secret_store
+
+        exists = bool(get_secret_store().get_secret(_secret_store_key(provider, key)))
         if exists and self._execute_secret_write(provider, key, "delete"):
             if provider in self._data and key in self._data[provider]:
                 del self._data[provider][key]
