@@ -12,6 +12,10 @@ on:
       release_tag:
         required: true
         type: string
+      signing_backend:
+        required: false
+        default: azure
+        type: string
 
 permissions:
   contents: read
@@ -25,6 +29,7 @@ jobs:
     environment: release-signing
     env:
       REQUESTED_TAG: ${{ inputs.release_tag }}
+      REQUESTED_SIGNING_BACKEND: ${{ inputs.signing_backend || 'azure' }}
       BAGO_EXPECTED_PUBLISHER: ${{ vars.BAGO_SIGNING_PUBLISHER }}
       BAGO_EXPECTED_THUMBPRINT: ${{ vars.BAGO_SIGNING_THUMBPRINT }}
       BAGO_PACKAGE_NAME: BAGO.Bootstrap
@@ -39,6 +44,7 @@ jobs:
       - name: Verify tag and canonical version
         shell: pwsh
         run: |
+          if ($env:REQUESTED_SIGNING_BACKEND -ne 'azure') { throw 'Unsupported signing backend; only azure is implemented.' }
           $tag = $env:REQUESTED_TAG
           if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid release tag.' }
           git fetch --force --tags origin
