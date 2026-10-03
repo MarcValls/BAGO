@@ -301,6 +301,7 @@ def test_expired_grant_fails_closed(tmp_path, monkeypatch):
 
 def test_nondelegable_effect_cannot_be_granted(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     boundary = auth.AuthorizationBoundary()
     schedule_id = "schedule-delete"
     schedule_descriptor = canonical_schedule_descriptor(
