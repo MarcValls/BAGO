@@ -595,7 +595,13 @@ class SessionTurnMixin:
         return False, fallback, repaired_report.to_dict()
 
     def send(self, user_message: str, **kwargs: Any) -> str:
-        """Send a user message to the active provider and persist the turn."""
+        """Keep history, messages and receipts on the conversation at turn entry."""
+        conversation_id = kwargs.pop("conversation_id", None) or self.store.active_conversation_id
+        with self.store.conversation_scope(conversation_id):
+            return self._send_turn(user_message, **kwargs)
+
+    def _send_turn(self, user_message: str, **kwargs: Any) -> str:
+        """Send a user message to the active provider and persist the bound turn."""
         self.last_clarification = None
         self.last_response_state = "running"
         route_info = kwargs.pop("route_info", None) or self.route_user_message(user_message)
@@ -1265,7 +1271,42 @@ class SessionTurnMixin:
         return responses
 
     def send_stream(self, user_message: str, **kwargs: Any):
-        """Send a user message with streaming and persist the completed turn."""
+        """Capture conversation identity before the returned iterator is advanced."""
+        store = self.store
+        conversation_id = store.require_conversation(
+            kwargs.pop("conversation_id", None) or store.active_conversation_id
+        )
+        iterator = self._send_stream_turn(user_message, **kwargs)
+
+        class BoundStream:
+            # Enter only while executing the inner generator, never across a
+            # yield to its caller. Sequential resumes may use different threads.
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                return self.send(None)
+
+            def send(self, value):
+                with store.conversation_scope(conversation_id, allow_archived=True):
+                    return iterator.send(value)
+
+            def throw(self, *args):
+                with store.conversation_scope(conversation_id, allow_archived=True):
+                    return iterator.throw(*args)
+
+            def close(self):
+                with store.conversation_scope(conversation_id, allow_archived=True):
+                    return iterator.close()
+
+        def bound_stream():
+            # Keep normal generator send/throw/close and GC-finalization semantics.
+            yield from BoundStream()
+
+        return bound_stream()
+
+    def _send_stream_turn(self, user_message: str, **kwargs: Any):
+        """Stream and persist under the caller's bound conversation scope."""
         self.last_clarification = None
         self.last_response_state = "running"
         self.last_stream_interpretation = None

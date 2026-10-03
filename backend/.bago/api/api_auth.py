@@ -84,6 +84,27 @@ class BagoAuthMixin:
     def _cors_origin_allowed(cls, origin: str) -> bool:
         return bool(cls._normalized_cors_origin(origin))
 
+    def _origin_allowed_for_mutation(self) -> bool:
+        """Execution boundary for browser-originated mutating requests.
+
+        POST/PUT/DELETE may be issued by browsers with an ``Origin`` header.
+        Only native/originless callers and explicitly trusted origins are
+        allowed to drive mutations. A literal ``null`` origin, and any other
+        untrusted origin, must be rejected with HTTP 403 before auth, body
+        parsing, or dispatch.
+
+        CORS response headers are a separate concern managed by
+        ``_send_cors_headers``; this check is the execution gate.
+        """
+        origin = self.headers.get("Origin", "")
+        # Native or originless callers are allowed (e.g. local scripts, Electron).
+        if not origin:
+            return True
+        # Sandbox / opaque origins are never trusted for mutations.
+        if origin == "null":
+            return False
+        return self._cors_origin_allowed(origin)
+
     def _send_cors_headers(self) -> None:
         origin = self.headers.get("Origin", "")
         allowed_origin = self._normalized_cors_origin(origin)

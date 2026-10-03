@@ -176,6 +176,10 @@ class BagoAPIHandler(BagoAuthMixin, BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_PUT(self) -> None:
+        if not self._origin_allowed_for_mutation():
+            get_logger().warn("origin_rejected", path=self.path, origin=self.headers.get("Origin", ""), client=self.client_address[0])
+            self._send_json(403, {"error": "Forbidden \u2014 Origin no permitido"})
+            return
         if not self._check_auth():
             self._send_json(401, {"error": "Unauthorized"})
             return
@@ -195,6 +199,10 @@ class BagoAPIHandler(BagoAuthMixin, BaseHTTPRequestHandler):
         self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
 
     def do_DELETE(self) -> None:
+        if not self._origin_allowed_for_mutation():
+            get_logger().warn("origin_rejected", path=self.path, origin=self.headers.get("Origin", ""), client=self.client_address[0])
+            self._send_json(403, {"error": "Forbidden \u2014 Origin no permitido"})
+            return
         if not self._check_auth():
             self._send_json(401, {"error": "Unauthorized"})
             return
@@ -246,6 +254,10 @@ class BagoAPIHandler(BagoAuthMixin, BaseHTTPRequestHandler):
         self._send_json(404, {"error": f"Ruta no encontrada: {path}"})
 
     def do_POST(self) -> None:
+        if not self._origin_allowed_for_mutation():
+            get_logger().warn("origin_rejected", path=self.path, origin=self.headers.get("Origin", ""), client=self.client_address[0])
+            self._send_json(403, {"error": "Forbidden \u2014 Origin no permitido"})
+            return
         if not self._check_auth():
             get_logger().warn("auth_failed", path=self.path, client=self.client_address[0])
             self._send_json(401, {"error": "Unauthorized \u2014 X-Bago-Token requerido"})
