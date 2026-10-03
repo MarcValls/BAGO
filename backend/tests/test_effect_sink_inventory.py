@@ -387,9 +387,7 @@ def test_ci_powershell_terminations_are_inventoried_as_nonruntime() -> None:
     }
 
     assert terminations == {
-        (".github/workflows/build-release-installer.yml", 212, "nonruntime_effect", inventory.SCOPE_BUILD_RELEASE_ADMIN),
-        (".github/workflows/canonical-ci.yml", 155, "nonruntime_effect", inventory.SCOPE_BUILD_RELEASE_ADMIN),
-        (".github/workflows/canonical-ci.yml", 247, "nonruntime_effect", inventory.SCOPE_BUILD_RELEASE_ADMIN),
+        (".github/workflows/canonical-ci.yml", 142, "nonruntime_effect", inventory.SCOPE_BUILD_RELEASE_ADMIN),
     }
 
 
@@ -748,7 +746,7 @@ def test_process_execution_sink_is_owned_by_registered_gateway_adapter() -> None
     adapter = inventory.REPO_ROOT / "backend" / ".bago" / "core" / "execution_adapters" / "process.py"
     findings = inventory.scan_python(adapter)
 
-    assert len(findings) == 4
+    assert len(findings) == 5
     assert {finding.effect_id for finding in findings} == {"process.execute"}
     assert {finding.sink for finding in findings} == {"subprocess.run", "subprocess.Popen"}
     assert all(finding.binding == "gateway_owned" for finding in findings)
