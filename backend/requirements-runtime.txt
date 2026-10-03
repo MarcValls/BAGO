@@ -1,0 +1,9 @@
+# Direct Python runtime dependencies observed in production code.
+# Optional integrations remain lazily imported by the runtime.
+jsonschema==4.23.0
+numpy==2.4.4
+prompt_toolkit==3.0.52
+psycopg==3.3.6
+tzdata==2026.2
+PyYAML==6.0.3
+tomli==2.4.1; python_version < "3.11"

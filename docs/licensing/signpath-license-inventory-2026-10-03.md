@@ -80,9 +80,16 @@ propios y de dependencias opcionales. `anthropic` es un modulo propio de
 | `pytest` | `pytest 9.0.3` | MIT | Solo herramienta de desarrollo/test |
 | pytest-subtests | pytest-subtests 0.15.0 | MIT | Solo herramienta de desarrollo/test; instalada en workflow de validacion |
 
-El workflow de CI declara actualmente estas versiones de validacion: `pytest==9.0.3`, `pytest-subtests==0.15.0`, `numpy==2.4.4`, `prompt_toolkit==3.0.52` y `tzdata` sin pin. Se ha incluido `pytest-subtests` en esta revision porque forma parte del entorno de validacion aunque no sea una dependencia de produccion.`r`n`r`nEsta tabla es un inventario de procedencia, no un lockfile. Las versiones
+El workflow de CI declara actualmente estas versiones de validacion: `pytest==9.0.3`, `pytest-subtests==0.15.0`, `numpy==2.4.4`, `prompt_toolkit==3.0.52` y `tzdata` sin pin. Se ha incluido `pytest-subtests` en esta revision porque forma parte del entorno de validacion aunque no sea una dependencia de produccion.
+
+El inventario instalable queda separado en `backend/requirements-runtime.txt`
+(dependencias directas de runtime, incluidas las opcionales) y
+`backend/requirements-ci.txt` (validacion). Los workflows de CI consumen el
+segundo archivo; ambos manifiestos fijan las versiones directas observadas.
+
+Esta tabla es un inventario de procedencia, no un lockfile. Las versiones
 observadas se conservaron como evidencia de la revision, pero el backend sigue
-sin declarar un conjunto instalable y congelado.
+con los manifiestos directos ya declarados.
 
 ## Hallazgos y límites
 
@@ -91,10 +98,10 @@ sin declarar un conjunto instalable y congelado.
 2. Los componentes Microsoft requieren que el paquete distribuido conserve sus
    avisos y términos aplicables; esta revisión no sustituye una comprobación de
    los notices incluidos en el artefacto final.
-3. El backend Python no tiene un `requirements.txt` o `pyproject.toml` que
-   declare de forma reproducible todas sus dependencias. Las licencias de los
-   imports observados se han identificado, pero la reproducibilidad del
-   conjunto sigue `OPEN` hasta declarar y congelar versiones y extras.
+3. Los manifiestos `backend/requirements-runtime.txt` y
+   `backend/requirements-ci.txt` declaran y fijan las dependencias directas
+   observadas. Sus dependencias transitivas no estan fijadas mediante hashes;
+   ese es el limite reproducible que queda documentado.
 4. Los binarios generados rastreados bajo `bin/Release` deben excluirse del
    origen de publicación o regenerarse desde un build reproducible antes de
    enviar la solicitud a SignPath.
@@ -104,9 +111,10 @@ sin declarar un conjunto instalable y congelado.
 
 ## Veredicto
 
-`PASS_WITH_OPEN_REPRODUCIBILITY_GAP`
+`PASS_WITH_DOCUMENTED_PACKAGE_NOTICES_PENDING`
 
-La revisión superficial no encontró componentes de terceros claramente
-propietarios o incompatibles. La solicitud a SignPath debe esperar a cerrar la
-declaración reproducible de dependencias Python y la política de notices de
-Microsoft/terceros en el paquete final.
+La revision superficial no encontro componentes de terceros claramente
+propietarios o incompatibles. La solicitud a SignPath puede pasar a revision de
+elegibilidad desde el punto de vista de licencias directas. Antes de publicar
+un candidato debe cerrarse la politica de notices de Microsoft/terceros y
+excluir binarios generados no reproducibles.

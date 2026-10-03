@@ -1,0 +1,7 @@
+# Canonical Python validation dependencies for BAGO CI.
+# Keep versions pinned here so license and build audits inspect one source.
+pytest==9.0.3
+pytest-subtests==0.15.0
+numpy==2.4.4
+prompt_toolkit==3.0.52
+tzdata==2026.2
