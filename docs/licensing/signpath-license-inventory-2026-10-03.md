@@ -1,0 +1,112 @@
+# SignPath Foundation dependency and binary inventory
+
+Estado de esta revisión: `EXECUTED · PRELIMINARY REVIEW`
+
+Esta revisión comprueba la composición visible del candidato local antes de
+solicitar admisión en SignPath Foundation. No es una opinión legal ni una
+aceptación de SignPath.
+
+## Alcance y reproducibilidad
+
+Se inspeccionaron los manifiestos `package.json`, los lockfiles npm, los dos
+proyectos .NET del bootstrap y los binarios rastreados bajo
+`bootstrap/msix-host/HashTool/bin/Release`.
+
+Comandos ejecutados:
+
+```text
+npm ci --ignore-scripts --no-audit --no-fund
+npx --yes license-checker --start . --json
+npx --yes license-checker --start frontend --json
+npx --yes license-checker --start electron-viewer --json
+npx --yes license-checker --start backend --json
+dotnet list bootstrap/msix-host/Bago.Bootstrap.Host.csproj package --include-transitive
+dotnet list bootstrap/msix-host/HashTool/HashTool.csproj package --include-transitive
+```
+
+La herramienta npm usada fue `license-checker 25.0.1`.
+
+## Dependencias npm
+
+| Árbol | Paquetes observados | Licencias observadas | Resultado superficial |
+|---|---:|---|---|
+| raíz y workspaces | 351 | MIT, ISC, BSD-2-Clause, BSD-3-Clause, Apache-2.0, MPL-2.0, 0BSD, BlueOak-1.0.0, Python-2.0, WTFPL y combinaciones permisivas | Sin `UNLICENSED`, `Proprietary` o licencia desconocida detectada |
+| `frontend` | 5 instalados en el árbol local | MIT | Sin licencia sospechosa |
+| `electron-viewer` | 1 propio en el árbol aislado | MIT | Sin licencia sospechosa |
+| `backend` | 257 | Las mismas familias permisivas; predominan MIT/BSD/ISC/Apache | Sin licencia sospechosa |
+
+El resultado no detectó dependencias npm con licencia `UNKNOWN`, `UNLICENSED`,
+`Proprietary`, `Commercial` o `Custom`. `MPL-2.0` es una licencia OSI, pero
+requiere conservar sus avisos y respetar sus condiciones de modificación del
+componente cubierto.
+
+## Bootstrap .NET y binarios
+
+El proyecto `Bago.Bootstrap.Host` declara `pythonnet 3.1.0`. El paquete NuGet
+incluye su fichero `LICENSE` MIT y el nupkg observado tiene este SHA-256:
+
+```text
+17CDBE152BA4ECE3A6F0D04A3A3C5B6459532F58DB3545DECE0CA3AD9C5B7B23
+```
+
+Los binarios rastreados fueron inspeccionados por metadatos PE:
+
+| Binario | Editor/metadatos | Licencia/procedencia observada | SHA-256 |
+|---|---|---|---|
+| `Microsoft.Windows.SDK.NET.dll` | Microsoft Corporation; Windows SDK for .NET 8; 10.0.19041.55 | Licencia Microsoft enlazada desde el nuspec (`https://aka.ms/WinSDKLicenseURL`) | `0EC371D93798852E36461C8ADDDBEADCE0F963A04752F0B64E54FE19C1C834A7` |
+| `Python.Runtime.dll` | Python.Runtime; 3.1.0.0 | MIT por el paquete `pythonnet` | `B6BC592D4F9CB5CCA23328BC45CC37A9E237D15FD2EDEC660B4C74DB1CED534F` |
+| `WinRT.Runtime.dll` | Microsoft Corporation; C#/WinRT; 2.2.0.48161 | Componente Microsoft del Windows SDK; conservar aviso/licencia Microsoft | `BCF3A14E8712A90837FC5C8D8C8A24696AF2BD7F74E9767597EC81EDEDFB23DB` |
+
+No se observó un binario de tercero con editor desconocido que pudiera
+clasificarse como propietario a simple vista.
+
+## Imports Python observados
+
+El análisis AST del backend detectó imports de terceros además de la biblioteca
+estándar. Como el repositorio no tiene un manifiesto Python reproducible, se
+contrastaron los paquetes disponibles en el intérprete de revisión:
+
+| Import | Distribución/versión observada | Licencia observada | Estado |
+|---|---|---|---|
+| `jsonschema` | `jsonschema 4.23.0` | MIT (`COPYING`) | Identificada |
+| `numpy` | `numpy 2.4.4` | BSD-3-Clause y avisos de componentes incluidos | Identificada; revisar notices transitivos |
+| `packaging` | `packaging 26.2` | Apache-2.0/BSD | Identificada |
+| `prompt_toolkit` | `prompt_toolkit 3.0.52` | BSD-3-Clause | Identificada |
+| `pytest` | `pytest 9.0.3` | MIT | Solo herramienta de desarrollo/test |
+| `requests` | `requests 2.33.1` | Apache-2.0 | Identificada |
+| `tzdata` | `tzdata 2026.2` | Apache-2.0 | Identificada |
+| `yaml` | `PyYAML 6.0.3` | MIT | Identificada |
+| `anthropic` | PyPI `1.11.0` (wheel descargado para revisión) | MIT | Identificada; no declarada en un manifiesto del repositorio |
+| `psycopg` | PyPI `3.3.6` (wheel descargado para revisión) | LGPL-3.0 con permisos adicionales de Psycopg | Identificada; conservar el texto LGPL y sus avisos |
+| `tomli` | PyPI `2.4.1` (wheel descargado para revisión) | MIT | Identificada; no declarada en un manifiesto del repositorio |
+
+Esta tabla no debe interpretarse como un lockfile: el resultado confirma que el
+backend todavía necesita declarar sus dependencias Python y sus versiones para
+que la revisión sea reproducible y completa.
+
+## Hallazgos y límites
+
+1. No hay evidencia de una dependencia propietaria incompatible en los árboles
+   npm inspeccionados.
+2. Los componentes Microsoft requieren que el paquete distribuido conserve sus
+   avisos y términos aplicables; esta revisión no sustituye una comprobación de
+   los notices incluidos en el artefacto final.
+3. El backend Python no tiene un `requirements.txt` o `pyproject.toml` que
+   declare de forma reproducible todas sus dependencias. Las licencias de los
+   imports observados se han identificado, pero la reproducibilidad del
+   conjunto sigue `OPEN` hasta declarar y congelar versiones y extras.
+4. Los binarios generados rastreados bajo `bin/Release` deben excluirse del
+   origen de publicación o regenerarse desde un build reproducible antes de
+   enviar la solicitud a SignPath.
+5. Este documento no demuestra que SignPath Foundation haya aceptado BAGO ni
+   que el repositorio cumpla todavía todas sus condiciones de proyecto open
+   source.
+
+## Veredicto
+
+`PASS_WITH_OPEN_REPRODUCIBILITY_GAP`
+
+La revisión superficial no encontró componentes de terceros claramente
+propietarios o incompatibles. La solicitud a SignPath debe esperar a cerrar la
+declaración reproducible de dependencias Python y la política de notices de
+Microsoft/terceros en el paquete final.
