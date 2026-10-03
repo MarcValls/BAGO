@@ -7,6 +7,7 @@ not execute material effects; ExecutionGateway owns dispatch.
 from __future__ import annotations
 
 import base64
+import copy
 import hashlib
 from contextlib import contextmanager
 import json
@@ -21,6 +22,7 @@ from typing import Any
 from bago_core.user_state_paths import state_root
 from effect_registry import REGISTRY
 from execution_request import ExecutionRequest, build_execution_request
+from native_approval import confirm_strong_challenge
 
 
 AUTHORIZATION_CONTRACT_VERSION = "bago.authorization/v2"
@@ -28,6 +30,11 @@ CHALLENGE_TTL_SECONDS = 180
 PERMIT_TTL_SECONDS = 120
 INTERACTIVE_CHANNELS = frozenset({"ui-react", "desktop"})
 _LOCK = threading.RLock()
+_NATIVE_CONFIRMATION_LOCK = threading.Lock()
+# Active authority is process-local. The JSON file remains a projection for
+# helper inspection and audit, but bytes written by another local process can
+# never create, revive or alter a live challenge or Permit.
+_PROCESS_AUTHORITY: dict[str, dict[str, Any]] = {}
 
 
 class AuthorizationError(ValueError):
@@ -138,7 +145,7 @@ def _ledger_path() -> Path:
 
 
 def authorization_ledger_path() -> Path:
-    """Return the canonical authority ledger path for delegated consumers."""
+    """Return the compatibility projection path for delegated consumers."""
 
     return _ledger_path()
 
@@ -152,17 +159,9 @@ def _empty_ledger() -> dict[str, Any]:
 
 
 def _read_ledger() -> dict[str, Any]:
-    path = _ledger_path()
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, TypeError):
-        return _empty_ledger()
-    if not isinstance(data, dict):
-        return _empty_ledger()
-    data["contract_version"] = AUTHORIZATION_CONTRACT_VERSION
-    data.setdefault("challenges", {})
-    data.setdefault("permits", {})
-    return data
+    key = str(_ledger_path().resolve(strict=False))
+    with _LOCK:
+        return copy.deepcopy(_PROCESS_AUTHORITY.get(key, _empty_ledger()))
 
 
 def _write_ledger(data: dict[str, Any]) -> None:
@@ -175,6 +174,8 @@ def _write_ledger(data: dict[str, Any]) -> None:
     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     temporary.replace(path)
+    with _LOCK:
+        _PROCESS_AUTHORITY[str(path.resolve(strict=False))] = copy.deepcopy(data)
 
 
 def _token_hash(token: str) -> str:
@@ -183,6 +184,53 @@ def _token_hash(token: str) -> str:
 
 def _new_permit_token() -> str:
     return base64.urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode("ascii")
+
+
+def _requires_native_confirmation(effect_id: str, target: dict[str, Any]) -> bool:
+    mode = REGISTRY.get(effect_id).authorization_mode
+    if mode == "strong":
+        return True
+    if mode != "inherit_max_child":
+        return False
+    children = target.get("child_effects")
+    if children is None:
+        # Some compound owners resolve children from a package at execution.
+        # Require strong confirmation when the public target cannot prove the
+        # absence of a strong child.
+        return True
+    if not isinstance(children, list):
+        raise AuthorizationError(
+            "No se pueden resolver los efectos hijos del plan",
+            code="authorization_child_effects_invalid",
+        )
+    for child in children:
+        if not isinstance(child, dict) or not isinstance(child.get("effect_id"), str):
+            raise AuthorizationError(
+                "Effect child inválido",
+                code="authorization_child_effects_invalid",
+            )
+        child_mode = REGISTRY.get(child["effect_id"]).authorization_mode
+        if child_mode == "strong":
+            return True
+        if child_mode == "inherit_max_child":
+            raise AuthorizationError(
+                "Effect child compuesto no resoluble",
+                code="authorization_child_effects_invalid",
+            )
+    return False
+
+
+def _has_verified_strong_provenance(record: dict[str, Any], request: ExecutionRequest) -> bool:
+    proof = record.get("proof") if isinstance(record.get("proof"), dict) else {}
+    provenance = proof.get("provenance") if isinstance(proof.get("provenance"), dict) else {}
+    if provenance.get("kind") == "delegation_grant":
+        claim = record.get("delegation") if isinstance(record.get("delegation"), dict) else {}
+        grant_id = str(provenance.get("grant_id") or "")
+        return bool(grant_id and grant_id == request.delegation_id == str(claim.get("grant_id") or ""))
+    return bool(
+        provenance.get("kind") == "direct_user_interaction"
+        and provenance.get("verified_by") in {"server_native_dialog", "interactive_tty"}
+    )
 
 
 class AuthorizationBoundary:
@@ -301,10 +349,60 @@ class AuthorizationBoundary:
                 "La autorización no procede de una superficie interactiva admitida",
                 code="authorization_user_origin_unverified",
             )
-        return self._approve_challenge_record(
-            challenge_id=challenge_id, interaction_id=interaction_id,
-            session_id=session_id, channel=clean_channel,
-        )
+        confirmation_nonce = ""
+        fingerprint = ""
+        prompt_lock_acquired = False
+        try:
+            with _LOCK:
+                ledger = _read_ledger()
+                challenge = self._checked_challenge(
+                    ledger, challenge_id=challenge_id, interaction_id=interaction_id,
+                    session_id=session_id, expected_state="pending", now=_now(),
+                )
+                if _requires_native_confirmation(
+                    str(challenge.get("effect_id") or ""),
+                    challenge.get("target") if isinstance(challenge.get("target"), dict) else {},
+                ):
+                    if not _NATIVE_CONFIRMATION_LOCK.acquire(blocking=False):
+                        raise AuthorizationError(
+                            "Ya hay una confirmación fuerte en curso",
+                            code="authorization_strong_confirmation_busy",
+                        )
+                    prompt_lock_acquired = True
+                    confirmation_nonce = uuid.uuid4().hex
+                    fingerprint = str(challenge.get("operation_fingerprint") or "")
+                    challenge["state"] = "confirming"
+                    challenge["confirmation_nonce"] = confirmation_nonce
+                    _write_ledger(ledger)
+                    confirmation_challenge = dict(challenge)
+            if confirmation_nonce:
+                try:
+                    confirmed = confirm_strong_challenge(confirmation_challenge)
+                except Exception:
+                    confirmed = False
+                if not confirmed:
+                    with _LOCK:
+                        ledger = _read_ledger()
+                        pending = ledger["challenges"].get(str(challenge_id or ""))
+                        if isinstance(pending, dict) and pending.get("state") == "confirming" and pending.get("confirmation_nonce") == confirmation_nonce:
+                            pending["state"] = "denied"
+                            pending.pop("confirmation_nonce", None)
+                            _write_ledger(ledger)
+                    raise AuthorizationError(
+                        "La operación fuerte no recibió confirmación nativa del usuario",
+                        code="authorization_strong_confirmation_denied",
+                    )
+            return self._approve_challenge_record(
+                challenge_id=challenge_id, interaction_id=interaction_id,
+                session_id=session_id, channel=clean_channel,
+                expected_state="confirming" if confirmation_nonce else "pending",
+                confirmation_nonce=confirmation_nonce,
+                expected_fingerprint=fingerprint,
+                verified_by="server_native_dialog" if confirmation_nonce else "channel_declaration",
+            )
+        finally:
+            if prompt_lock_acquired:
+                _NATIVE_CONFIRMATION_LOCK.release()
 
     def approve_cli_challenge(
         self,
@@ -324,8 +422,29 @@ class AuthorizationBoundary:
             )
         return self._approve_challenge_record(
             challenge_id=challenge_id, interaction_id=interaction_id,
-            session_id=session_id, channel="cli",
+            session_id=session_id, channel="cli", verified_by="interactive_tty",
         )
+
+    @staticmethod
+    def _checked_challenge(
+        ledger: dict[str, Any], *, challenge_id: str, interaction_id: str,
+        session_id: str, expected_state: str, now: datetime,
+    ) -> dict[str, Any]:
+        challenge = ledger["challenges"].get(str(challenge_id or ""))
+        if not isinstance(challenge, dict):
+            raise AuthorizationError("Challenge inexistente", code="authorization_challenge_not_found")
+        if challenge.get("state") != expected_state:
+            raise AuthorizationError("Challenge ya resuelto", code="authorization_challenge_not_pending")
+        if str(challenge.get("interaction_id") or "") != str(interaction_id or ""):
+            raise AuthorizationError("interaction_id no coincide", code="authorization_interaction_mismatch")
+        if str(challenge.get("session_id") or "") != str(session_id or ""):
+            raise AuthorizationError("La sesión no coincide", code="authorization_session_mismatch")
+        if _parse_iso(str(challenge.get("expires_at") or "")) <= now:
+            challenge["state"] = "expired"
+            challenge.pop("confirmation_nonce", None)
+            _write_ledger(ledger)
+            raise AuthorizationError("Challenge expirado", code="authorization_challenge_expired")
+        return challenge
 
     def _approve_challenge_record(
         self,
@@ -334,37 +453,25 @@ class AuthorizationBoundary:
         interaction_id: str,
         session_id: str,
         channel: str,
+        expected_state: str = "pending",
+        confirmation_nonce: str = "",
+        expected_fingerprint: str = "",
+        verified_by: str = "channel_declaration",
     ) -> dict[str, Any]:
         now = _now()
         with _LOCK:
             ledger = _read_ledger()
-            challenge = ledger["challenges"].get(str(challenge_id or ""))
-            if not isinstance(challenge, dict):
+            challenge = self._checked_challenge(
+                ledger, challenge_id=challenge_id, interaction_id=interaction_id,
+                session_id=session_id, expected_state=expected_state, now=now,
+            )
+            if expected_state == "confirming" and (
+                challenge.get("confirmation_nonce") != confirmation_nonce
+                or challenge.get("operation_fingerprint") != expected_fingerprint
+            ):
                 raise AuthorizationError(
-                    "Challenge inexistente",
-                    code="authorization_challenge_not_found",
-                )
-            if challenge.get("state") != "pending":
-                raise AuthorizationError(
-                    "Challenge ya resuelto",
-                    code="authorization_challenge_not_pending",
-                )
-            if str(challenge.get("interaction_id") or "") != str(interaction_id or ""):
-                raise AuthorizationError(
-                    "interaction_id no coincide",
-                    code="authorization_interaction_mismatch",
-                )
-            if str(challenge.get("session_id") or "") != str(session_id or ""):
-                raise AuthorizationError(
-                    "La sesión no coincide",
-                    code="authorization_session_mismatch",
-                )
-            if _parse_iso(str(challenge.get("expires_at") or "")) <= now:
-                challenge["state"] = "expired"
-                _write_ledger(ledger)
-                raise AuthorizationError(
-                    "Challenge expirado",
-                    code="authorization_challenge_expired",
+                    "La operación cambió durante la confirmación nativa",
+                    code="authorization_strong_confirmation_mismatch",
                 )
 
             effect_id = str(challenge.get("effect_id") or "")
@@ -382,6 +489,7 @@ class AuthorizationBoundary:
                 provenance={
                     "kind": "direct_user_interaction",
                     "channel": channel,
+                    "verified_by": verified_by,
                     "contract": AUTHORIZATION_CONTRACT_VERSION,
                 },
             )
@@ -416,6 +524,7 @@ class AuthorizationBoundary:
                 "decision": asdict(decision),
             }
             challenge["state"] = "approved"
+            challenge.pop("confirmation_nonce", None)
             challenge["approved_at"] = _iso(now)
             challenge["proof_id"] = proof.proof_id
             challenge["decision_id"] = decision.decision_id
@@ -637,6 +746,12 @@ class AuthorizationBoundary:
                     "La operación cambió después de la autorización",
                     code="authorization_operation_mismatch",
                 )
+            if _requires_native_confirmation(request.effect_id, request.target):
+                if not _has_verified_strong_provenance(record, request):
+                    raise AuthorizationError(
+                        "El Permit fuerte carece de prueba interactiva verificada",
+                        code="authorization_strong_proof_required",
+                    )
             if str(record.get("executed_request_id") or "") != request.request_id:
                 raise AuthorizationError(
                     "El Permit consumido pertenece a otra ejecución",
@@ -727,6 +842,13 @@ class AuthorizationBoundary:
                     "Permit expirado",
                     code="authorization_permit_expired",
                 )
+
+            if _requires_native_confirmation(request.effect_id, request.target):
+                if not _has_verified_strong_provenance(record, request):
+                    raise AuthorizationError(
+                        "El Permit fuerte carece de prueba interactiva verificada",
+                        code="authorization_strong_proof_required",
+                    )
 
             # Consume-before-execute closes replay even if the material effect fails.
             record["state"] = "consumed"

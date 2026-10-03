@@ -46,7 +46,7 @@ def handle_apply(handler: "BaseHTTPRequestHandler", body: dict[str, Any] | None 
             target=target,
             arguments={"configuration": configuration},
             scope="system",
-            world_state_authority=manager,
+        world_state_authority=manager,
         )
         boundary = AuthorizationBoundary()
         action = str(payload.get("authorization_action") or "").strip().lower()
@@ -121,7 +121,7 @@ def handle_source_update(handler: "BaseHTTPRequestHandler", body: dict[str, Any]
             session_id=str(getattr(manager, "session_id", "") or ""),
             source_surface="api.install.source-update", target=target,
             arguments={}, scope="system",
-            world_state_authority=manager,
+        world_state_authority=manager,
         )
         boundary = AuthorizationBoundary()
         action = str(payload.get("authorization_action") or "").strip().lower()
@@ -189,7 +189,7 @@ def handle_uninstall(handler: "BaseHTTPRequestHandler", body: dict[str, Any] | N
             principal_id="interactive-local-user",
             session_id=str(getattr(manager, "session_id", "") or ""),
             source_surface="api.install.uninstall", target=target, arguments={}, scope="system",
-            world_state_authority=manager,
+        world_state_authority=manager,
         )
         boundary = AuthorizationBoundary()
         action = str(payload.get("authorization_action") or "").strip().lower()
@@ -243,6 +243,7 @@ def handle_rollback(handler: "BaseHTTPRequestHandler", body: dict[str, Any] | No
     from execution_adapter_contract import ExecutionContext
     from execution_gateway import ExecutionGateway, ExecutionGatewayError
     from execution_request import ExecutionRequestError, build_execution_request
+    from install_plan import InstallPlanError, target_state_digest
 
     manager = get_mgr(handler)
     if manager is None:
@@ -259,6 +260,9 @@ def handle_rollback(handler: "BaseHTTPRequestHandler", body: dict[str, Any] | No
             "install_dir": os.path.abspath(install_dir),
             "backup_path": os.path.abspath(backup_path) if backup_path else "",
             "displaced_path": os.path.abspath(displaced_path),
+            "target_state_sha256": target_state_digest(install_dir),
+            "backup_state_sha256": target_state_digest(backup_path) if backup_path else "",
+            "displaced_state_sha256": target_state_digest(displaced_path),
         }
         request = build_execution_request(
             effect_id="system.install.rollback",
@@ -269,7 +273,7 @@ def handle_rollback(handler: "BaseHTTPRequestHandler", body: dict[str, Any] | No
             target=target,
             arguments={},
             scope="system",
-            world_state_authority=manager,
+        world_state_authority=manager,
         )
         boundary = AuthorizationBoundary()
         action = str(payload.get("authorization_action") or "").strip().lower()
@@ -313,5 +317,5 @@ def handle_rollback(handler: "BaseHTTPRequestHandler", body: dict[str, Any] | No
     except ExecutionGatewayError as exc:
         send_json(handler, 409 if not exc.code.endswith("failed") else 500,
                   {"ok": False, "error": str(exc), "code": exc.code})
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (InstallPlanError, OSError, RuntimeError, ValueError) as exc:
         send_json(handler, 409, {"ok": False, "error": str(exc), "code": "system_install_rollback_preflight_failed"})

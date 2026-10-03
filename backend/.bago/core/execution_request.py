@@ -233,11 +233,13 @@ def build_execution_request(
         preconditions=canonical_preconditions,
     )
     if world_state_authority is not None:
-        # Local import keeps the request contract independent from gateway wiring.
+        # Local import avoids making the request contract depend on gateway
+        # wiring while still deriving the digest from the single snapshot type.
         from world_state_snapshot import WorldStateSnapshot
-        from dataclasses import replace
 
         snapshot = WorldStateSnapshot.from_request(request, world_state_authority)
+        from dataclasses import replace
+
         request = replace(request, world_state_digest=snapshot.digest)
     # Force canonical serialization now, before authority can be requested.
     _ = request.fingerprint

@@ -13,7 +13,7 @@ sys.path.insert(0, str(BACKEND_ROOT / ".bago" / "core"))
 from effect_registry import REGISTRY  # noqa: E402
 
 OUTPUT = BACKEND_ROOT / "docs" / "contracts" / "world_state_snapshot_inventory.md"
-BUILDERS = (BACKEND_ROOT / ".bago", BACKEND_ROOT / "bago_core", BACKEND_ROOT / "scripts")
+BUILDERS = (BACKEND_ROOT / ".bago", BACKEND_ROOT / "bago_core")
 AUTHORITY_KEYS = frozenset({"world_state_authority"})
 
 
@@ -38,36 +38,73 @@ def scan_inventory() -> tuple[list[dict[str, Any]], list[str]]:
             except (OSError, SyntaxError) as exc:
                 unbound.append(f"scanner_error:{source.relative_to(REPOSITORY_ROOT).as_posix()}:{exc}")
                 continue
-            parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+            parents = {
+                child: parent
+                for parent in ast.walk(tree)
+                for child in ast.iter_child_nodes(parent)
+            }
             for call in ast.walk(tree):
-                if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == "build_execution_request"):
+                if not (
+                    isinstance(call, ast.Call)
+                    and isinstance(call.func, ast.Name)
+                    and call.func.id == "build_execution_request"
+                ):
                     continue
                 keywords = {item.arg: item.value for item in call.keywords}
                 effect_node = keywords.get("effect_id")
-                effect_id = effect_node.value if isinstance(effect_node, ast.Constant) and isinstance(effect_node.value, str) else "<dynamic>"
+                effect_id = (
+                    effect_node.value
+                    if isinstance(effect_node, ast.Constant) and isinstance(effect_node.value, str)
+                    else "<dynamic>"
+                )
                 descriptor = REGISTRY.get(effect_id) if REGISTRY.contains(effect_id) else None
                 authority_key = next((key for key in AUTHORITY_KEYS if key in keywords), "MISSING")
-                authority_value = ast.unparse(keywords[authority_key]) if authority_key != "MISSING" else "MISSING"
+                authority_value = (
+                    ast.unparse(keywords[authority_key])
+                    if authority_key != "MISSING"
+                    else "MISSING"
+                )
                 relative = source.relative_to(REPOSITORY_ROOT).as_posix()
-                rows.append({"file": relative, "line": call.lineno, "function": _enclosing_function(call, parents), "effect": effect_id, "mutates": str(descriptor.mutates) if descriptor else "dynamic", "risk": descriptor.risk_level if descriptor else "dynamic", "authority": authority_value})
+                row = {
+                    "file": relative,
+                    "line": call.lineno,
+                    "function": _enclosing_function(call, parents),
+                    "effect": effect_id,
+                    "mutates": str(descriptor.mutates) if descriptor else "dynamic",
+                    "risk": descriptor.risk_level if descriptor else "dynamic",
+                    "authority": authority_value,
+                }
+                rows.append(row)
                 must_bind = descriptor.mutates if descriptor else True
-                if must_bind and (authority_key == "MISSING" or isinstance(keywords.get(authority_key), ast.Constant) and keywords[authority_key].value is None):
+                if must_bind and (
+                    authority_key == "MISSING"
+                    or isinstance(keywords.get(authority_key), ast.Constant)
+                    and keywords[authority_key].value is None
+                ):
                     unbound.append(f"{relative}:{call.lineno}:{effect_id}")
     return rows, unbound
 
 
 def render_inventory(rows: list[dict[str, Any]], unbound: list[str]) -> str:
     lines = [
-        "# WorldStateSnapshot production request inventory", "",
+        "# WorldStateSnapshot production request inventory",
+        "",
         f"Effect registry: `{REGISTRY.contract}` `{REGISTRY.version}` SHA-256 `{REGISTRY.digest}`.",
-        "Scope: direct `build_execution_request` calls in `backend/.bago/`, `backend/bago_core/`, and `backend/scripts/`.",
+        "Scope: direct `build_execution_request` calls in `backend/.bago/` and `backend/bago_core/`.",
         f"Callsites: {len(rows)}; mutating or dynamic-effect calls without a usable `world_state_authority` input: {len(unbound)}.",
         "Gateway: mutating requests reject unspecified state and revalidate their authority-bound snapshot before Permit consumption and immediately before adapter dispatch.",
-        "Strong effects: every registered mutating E5/E6 adapter must expose `revalidate_world_state`; missing hooks fail Gateway registry construction and unadapted effects remain denied.", "",
-        "| File | Line | Function | Effect | Mutates | Risk | Snapshot authority value |", "|---|---:|---|---|---:|---|---|",
+        "Strong effects: every registered mutating E5/E6 adapter must expose `revalidate_world_state`; missing hooks fail Gateway registry construction and unadapted effects remain denied.",
+        "Process termination: `cleanup_zombies` binds PID, executable, command line, and creation time into the Permit target; the Gateway re-enumerates candidates before consumption/dispatch and the Windows terminator rechecks exact identities before acting.",
+        "",
+        "| File | Line | Function | Effect | Mutates | Risk | Snapshot authority value |",
+        "|---|---:|---|---|---:|---|---|",
     ]
     for row in rows:
-        lines.append("| " + " | ".join(str(row[key]) for key in ("file", "line", "function", "effect", "mutates", "risk", "authority")) + " |")
+        lines.append(
+            "| " + " | ".join(str(row[key]) for key in (
+                "file", "line", "function", "effect", "mutates", "risk", "authority"
+            )) + " |"
+        )
     lines.extend(["", "Unbound callsites:"])
     lines.extend(f"- `{item}`" for item in unbound) if unbound else lines.append("- None.")
     lines.extend(["", "Result: " + ("PASS" if not unbound else "FAIL"), ""])

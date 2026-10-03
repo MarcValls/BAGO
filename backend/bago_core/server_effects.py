@@ -287,7 +287,7 @@ def stage_validation_workspace(
     )
     result, _authorization = ExecutionGateway().execute_server_owned(
         request=request,
-        context=ExecutionContext(world_state_authority_root=str(root)),
+        context=ExecutionContext(services={"_server_allowed_root": str(root)}),
     )
     if not isinstance(result, dict) or result.get("ok") is not True:
         raise RuntimeError("Validation staging effect returned no success receipt")
@@ -310,7 +310,7 @@ def cleanup_validation_workspace(staging_id: str, *, label: str) -> dict[str, An
     )
     result, _authorization = ExecutionGateway().execute_server_owned(
         request=request,
-        context=ExecutionContext(world_state_authority_root=str(root)),
+        context=ExecutionContext(services={"_server_allowed_root": str(root)}),
     )
     if not isinstance(result, dict) or result.get("ok") is not True:
         raise RuntimeError("Validation staging cleanup returned no success receipt")
@@ -372,6 +372,10 @@ def download_release_bundle(
     filename: str,
 ) -> dict[str, Any]:
     """Download one verified release payload through its registered adapter."""
+    from update_manager import _update_root
+
+    download_root = Path(_update_root()).expanduser().resolve()
+
     from update_manager import _update_root
 
     download_root = Path(_update_root()).expanduser().resolve()
@@ -441,6 +445,38 @@ def inspect_process(
     return result
 
 
+def inspect_process_identities(*, manager: Any) -> list[dict[str, Any]]:
+    """Read exact cleanup candidates through the server-policy Gateway path."""
+    from execution_adapters.process import ProcessExecutionEffectAdapter
+
+    roots = ProcessExecutionEffectAdapter._cleanup_roots(manager)
+    request = build_execution_request(
+        effect_id="process.inspect",
+        actor_kind="server",
+        principal_id="bago-runtime",
+        session_id=str(getattr(manager, "session_id", "") or ""),
+        source_surface="server.process.inspect",
+        target={
+            "operation": "process_identity_snapshot",
+            "executable": "process_identity_snapshot",
+            "cleanup_roots": roots,
+            "cwd": str(getattr(manager, "base_path", "") or ""),
+            "timeout_seconds": 20,
+        },
+        arguments={"argv": []},
+        scope="system",
+        world_state_authority=manager,
+    )
+    result, _authorization = ExecutionGateway().execute_server_owned(
+        request=request,
+        context=ExecutionContext(manager=manager),
+    )
+    identities = result.get("process_identities") if isinstance(result, dict) else None
+    if not isinstance(identities, list):
+        raise RuntimeError("Server process identity inspection returned no snapshot")
+    return identities
+
+
 __all__ = [
     "append_text_durable",
     "append_learning_text",
@@ -448,6 +484,7 @@ __all__ = [
     "download_release_bundle",
     "gateway_urlopen",
     "inspect_process",
+    "inspect_process_identities",
     "write_text_atomic",
     "write_learning_text",
 ]

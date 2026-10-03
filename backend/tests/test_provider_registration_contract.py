@@ -124,6 +124,7 @@ def test_configure_requires_strong_gateway_authorization_without_disclosing_secr
 
     monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
     monkeypatch.setattr(handlers, "_has_provider_secret", lambda provider: store.get_secret(f"providers/{provider}/api_key") is not None)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: captured.append((status, body)))
@@ -189,6 +190,7 @@ def test_configure_rejects_tampered_fingerprint_and_noninteractive_approval(monk
     }
     monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
     monkeypatch.setattr(handlers, "_has_provider_secret", lambda provider: store.get_secret(f"providers/{provider}/api_key") is not None)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
@@ -250,6 +252,7 @@ def test_configure_clear_secret_executes_only_after_approval(monkeypatch, tmp_pa
     }
     monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
     monkeypatch.setattr(handlers, "_has_provider_secret", lambda provider: store.get_secret(f"providers/{provider}/api_key") is not None)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
@@ -387,6 +390,7 @@ def test_configure_legitimate_nonsecret_update_with_secret_set_succeeds(monkeypa
     }
     monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
     monkeypatch.setattr(handlers, "_has_provider_secret", lambda provider: store.get_secret(f"providers/{provider}/api_key") is not None)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))
@@ -452,6 +456,7 @@ def test_configure_blocks_on_live_backend_drift_between_approval_and_execute(mon
     }
     monkeypatch.setattr(handlers, "_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     monkeypatch.setattr(secrets_module, "get_secret_store", lambda: store)
     monkeypatch.setattr(handlers, "_has_provider_secret", lambda provider: store.get_secret(f"providers/{provider}/api_key") is not None)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, body: responses.append((status, body)))

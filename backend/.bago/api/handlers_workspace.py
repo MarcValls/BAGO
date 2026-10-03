@@ -191,7 +191,7 @@ def handle_persist(handler: "BaseHTTPRequestHandler", body: dict) -> None:
             },
             arguments={},
             scope="workspace",
-            world_state_authority=mgr,
+        world_state_authority=mgr,
         )
         boundary = AuthorizationBoundary()
         payload = dict(body or {})

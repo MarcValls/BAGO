@@ -323,7 +323,7 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
                 },
                 arguments={"operation": "clear"},
                 scope="session",
-                world_state_authority=mgr,
+        world_state_authority=mgr,
             )
         except ExecutionRequestError as exc:
             send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})
@@ -420,7 +420,7 @@ def handle_session_model(handler: "BaseHTTPRequestHandler", body: dict) -> None:
                 "authorization_permit_replay",
                 "authorization_permit_expired",
                 "authorization_operation_mismatch",
-                "authorization_world_state_stale",
+            "authorization_world_state_stale",
             } else 403
             send_json(handler, status, {"ok": False, "error": str(exc), "code": exc.code})
         except ExecutionRequestError as exc:

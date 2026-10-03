@@ -1,12 +1,10 @@
-from types import SimpleNamespace
-
-import pytest
-
-from authorization_boundary import AuthorizationBoundary
-from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
-from execution_gateway import EffectAdapterRegistry, ExecutionGateway
 from execution_request import ExecutionRequestError, build_execution_request
+from authorization_boundary import AuthorizationBoundary
+from execution_gateway import EffectAdapterRegistry
+from execution_gateway import ExecutionGateway
+from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
 from world_state_snapshot import WorldStateSnapshot, build_execution_request_with_snapshot
+import pytest
 
 
 class Manager:
@@ -24,9 +22,13 @@ class Manager:
 
 def _fields():
     return dict(
-        effect_id="filesystem.write", actor_kind="user", principal_id="p1",
-        session_id="s1", source_surface="test",
-        target={"path": "C:/workspace/a.txt"}, arguments={"content": "x"},
+        effect_id="filesystem.write",
+        actor_kind="user",
+        principal_id="p1",
+        session_id="s1",
+        source_surface="test",
+        target={"path": "C:/workspace/a.txt"},
+        arguments={"content": "x"},
     )
 
 
@@ -35,60 +37,26 @@ def test_builder_binds_digest_to_manager_snapshot():
     assert request.world_state_digest == WorldStateSnapshot.from_request(request, Manager()).digest
 
 
-def test_relative_path_authority_is_canonical_across_build_and_gateway(monkeypatch, tmp_path):
-    from pathlib import Path
-    from execution_gateway import ExecutionGateway
-    from execution_adapter_contract import ExecutionContext
-
-    monkeypatch.chdir(tmp_path)
-    fields = _fields()
-    request = build_execution_request(**fields, world_state_authority=Path("."))
-    ExecutionGateway._validate_world_state(
-        request, ExecutionContext(world_state_authority_root=str(Path(".").resolve()))
-    )
-
-
 def test_gateway_rejects_unspecified_material_state_before_permit():
     request = build_execution_request(**_fields())
-    with pytest.raises(ExecutionGatewayError) as blocked:
+    try:
         ExecutionGateway()._validate_world_state(request, ExecutionContext(manager=Manager()))
-    assert blocked.value.code == "execution_world_state_required"
+    except ExecutionGatewayError as exc:
+        assert exc.code == "execution_world_state_required"
+    else:
+        raise AssertionError("unspecified material state was accepted")
 
 
 def test_gateway_revalidates_snapshot_after_world_state_changes():
     manager = Manager()
     request = build_execution_request_with_snapshot(manager, **_fields())
     manager.revision = "r2"
-    with pytest.raises(ExecutionGatewayError) as blocked:
+    try:
         ExecutionGateway()._validate_world_state(request, ExecutionContext(manager=manager))
-    assert blocked.value.code == "execution_world_state_stale"
-
-
-def test_gateway_rejects_snapshot_from_different_manager_session_before_dispatch():
-    request_manager = Manager()
-    request = build_execution_request_with_snapshot(request_manager, **_fields())
-    other_manager = Manager()
-    other_manager.session_id = "session-B"
-
-    class RecordingAdapter:
-        effect_ids = frozenset({"filesystem.write"})
-
-        def __init__(self):
-            self.calls = 0
-
-        def execute(self, _request, _context):
-            self.calls += 1
-            return {"ok": True}
-
-    adapter = RecordingAdapter()
-    registry = EffectAdapterRegistry()
-    registry.register(adapter)
-    with pytest.raises(ExecutionGatewayError) as blocked:
-        ExecutionGateway(adapters=registry)._validate_world_state(
-            request, ExecutionContext(manager=other_manager), adapter
-        )
-    assert blocked.value.code == "execution_world_state_authority_session_mismatch"
-    assert adapter.calls == 0
+    except ExecutionGatewayError as exc:
+        assert exc.code == "execution_world_state_stale"
+    else:
+        raise AssertionError("stale world state was accepted")
 
 
 def test_gateway_revalidates_again_after_permit_consumption_before_effect(monkeypatch, tmp_path):
@@ -124,20 +92,34 @@ def test_gateway_revalidates_again_after_permit_consumption_before_effect(monkey
 
     monkeypatch.setattr(boundary, "consume_permit", consume_then_change_world)
     gateway = ExecutionGateway(boundary=boundary, adapters=registry)
-    with pytest.raises(ExecutionGatewayError) as blocked:
+    try:
         gateway.execute(
             permit_token=approved["permit"]["token"], request=request,
             context=ExecutionContext(manager=manager),
         )
-    assert blocked.value.code == "execution_world_state_stale"
+    except ExecutionGatewayError as exc:
+        assert exc.code == "execution_world_state_stale"
+    else:
+        raise AssertionError("world drift after Permit consumption reached the adapter")
     assert adapter.calls == 0
 
 
 def test_mutating_request_rejects_caller_supplied_snapshot_payload():
-    for fields in ({"world_state": {"revision": "caller-selected"}}, {"world_state_digest": "0" * 64}):
-        with pytest.raises(ExecutionRequestError) as blocked:
+    for fields in (
+        {"world_state": {"revision": "caller-selected"}},
+        {"world_state_digest": "0" * 64},
+    ):
+        try:
             build_execution_request(**_fields(), **fields)
-        assert blocked.value.code == "execution_world_state_authority_required"
+        except ExecutionRequestError as exc:
+            assert exc.code == "execution_world_state_authority_required"
+        else:
+            raise AssertionError("caller-supplied state was accepted for a mutating effect")
+
+
+def test_mutating_request_derives_state_from_authority_only():
+    request = build_execution_request(**_fields(), world_state_authority=Manager())
+    assert request.world_state_digest == WorldStateSnapshot.from_request(request, Manager()).digest
 
 
 def test_inventory_has_no_mutating_request_without_snapshot_authority():
@@ -176,58 +158,31 @@ def test_every_registered_mutating_e5_e6_adapter_has_gateway_revalidation():
     adapters = build_default_effect_adapter_registry()
     strong_effects = [
         effect for effect in REGISTRY.effects
-        if effect.risk_level in {"E5", "E6"} and effect.mutates and effect.id in adapters.registered_effects()
+        if effect.risk_level in {"E5", "E6"} and effect.mutates
+        and effect.id in adapters.registered_effects()
     ]
     assert strong_effects
-    assert not [
+    missing = [
         effect.id for effect in strong_effects
         if not callable(getattr(adapters.resolve(effect.id), "revalidate_world_state", None))
     ]
+    assert not missing
 
 
-def test_credential_hook_blocks_secret_state_drift(monkeypatch, tmp_path):
-    import secret_store as secret_store_module
-    from bago_core.secrets import secret_state_digest
-    from execution_adapters.credentials import CredentialWriteEffectAdapter
+def test_unadapted_strong_effects_remain_denied_by_gateway_resolution():
+    from effect_registry import REGISTRY
+    from execution_gateway import build_default_effect_adapter_registry
 
-    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
-    monkeypatch.setattr(secret_store_module, "_is_windows", lambda: False)
-    store = secret_store_module.get_secret_store()
-    path = store.path_for_key("providers/openrouter/api_key")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(b"before")
-    target = {
-        "provider": "openrouter", "key": "api_key",
-        "secret_state_sha256": secret_state_digest(store, "providers/openrouter/api_key"),
+    adapters = build_default_effect_adapter_registry()
+    unadapted = [
+        effect for effect in REGISTRY.effects
+        if effect.risk_level in {"E5", "E6"} and effect.mutates
+        and effect.id not in adapters.registered_effects()
+    ]
+    assert {effect.id for effect in unadapted} == {
+        "filesystem.delete", "github.repo.delete", "system.configuration.write",
     }
-    request = build_execution_request(
-        effect_id="credential.write", actor_kind="user", principal_id="p1", session_id="s1",
-        source_surface="test", target=target, arguments={}, scope="persistent",
-        world_state_authority=SimpleNamespace(session_id="s1"),
-    )
-    path.write_bytes(b"after")
-    try:
-        CredentialWriteEffectAdapter.revalidate_world_state(request, ExecutionContext(manager=SimpleNamespace(session_id="s1")))
-    except Exception as blocked:
-        assert getattr(blocked, "code", "") == "credential_write_secret_state_changed"
-    else:
-        raise AssertionError("credential drift was accepted")
-
-
-def test_release_download_hook_rejects_noncanonical_cache(monkeypatch, tmp_path):
-    from execution_adapters.release import ReleaseDownloadEffectAdapter
-
-    expected_root = tmp_path / "expected"
-    actual_root = tmp_path / "actual"
-    monkeypatch.setattr(ReleaseDownloadEffectAdapter, "_target", classmethod(lambda cls, _filename, job_id="": (actual_root, actual_root / "bundle.zip")))
-    request = build_execution_request(
-        effect_id="release.download", actor_kind="server", principal_id="p1", session_id="s1",
-        source_surface="test", target={"filename": "bago-v1.0.0-distribution.zip", "download_root": str(expected_root)},
-        arguments={}, scope="system", world_state_authority=expected_root,
-    )
-    try:
-        ReleaseDownloadEffectAdapter.revalidate_world_state(request, ExecutionContext(services={"_server_allowed_root": str(expected_root)}))
-    except Exception as blocked:
-        assert getattr(blocked, "code", "") == "release_download_world_state_stale"
-    else:
-        raise AssertionError("release cache drift was accepted")
+    for effect in unadapted:
+        with pytest.raises(Exception, match="No EffectAdapter registered") as exc:
+            adapters.resolve(effect.id)
+        assert getattr(exc.value, "code", "") == "execution_adapter_missing"

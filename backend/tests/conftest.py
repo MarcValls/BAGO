@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sys
+
+import pytest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -111,6 +113,33 @@ def _clear_bago_modules() -> None:
 def pytest_configure(config) -> None:  # noqa: D401
     _clear_bago_modules()
     _bind_legacy_commands()
+
+
+_HEADLESS_APPROVAL_MODULES = frozenset({
+    "test_capability_import_gateway.py",
+    "test_delegation_grant.py",
+    "test_execution_claims.py",
+    "test_governed_work_pipeline.py",
+    "test_update_manager.py",
+    "test_world_state_snapshot.py",
+})
+
+
+@pytest.fixture(autouse=True)
+def _headless_native_confirmation(request, monkeypatch):
+    """Approve only the strong prompts used by headless gateway tests.
+
+    Tests that exercise denial or tampering explicitly patch the function and
+    therefore retain their negative assertions. Other test modules remain
+    fail-closed instead of globally bypassing native approval.
+    """
+    if Path(str(request.fspath)).name not in _HEADLESS_APPROVAL_MODULES:
+        return
+    try:
+        import authorization_boundary as auth
+    except ImportError:
+        return
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
 
 
 def pytest_runtest_setup(item) -> None:  # noqa: D401

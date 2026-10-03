@@ -222,7 +222,7 @@ def _run_tool(
             source_surface="cli.autonomous_loop.tool" if mutating else "server.autonomous_loop.tool",
             target=target, arguments=arguments,
             scope="workspace" if mutating else "session",
-            world_state_authority=_BAGO_ROOT,
+        world_state_authority=_BAGO_ROOT,
         )
         if mutating:
             result, _authorization = execute_cli_effect(
@@ -231,7 +231,7 @@ def _run_tool(
                     f"{sys.executable} {_BAGO_BIN} {cmd} "
                     f"(cwd={_BAGO_ROOT}, timeout={timeout}s); puede modificar estado BAGO"
                 ),
-                world_state_authority=_BAGO_ROOT,
+                manager=_BAGO_ROOT,
             )
         else:
             result, _authorization = ExecutionGateway().execute_server_owned(

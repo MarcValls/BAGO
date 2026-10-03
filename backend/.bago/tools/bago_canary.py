@@ -130,7 +130,7 @@ def deploy(root: Path, token_type: str) -> list[dict[str, object]]:
     result, _authorization = execute_cli_effect(
         request,
         confirmation_text=f"desplegar {', '.join(types)} en {root} (tokens sintéticos)",
-        world_state_authority=root,
+        manager=root,
     )
     if not isinstance(result, dict) or result.get("ok") is not True:
         raise RuntimeError("Canary deployment returned no success receipt")
@@ -183,7 +183,7 @@ def purge(root: Path) -> int:
     result, _authorization = execute_cli_effect(
         request,
         confirmation_text=f"eliminar {len(artifacts)} canary(s) registrados en {root}",
-        world_state_authority=root,
+        manager=root,
     )
     if not isinstance(result, dict) or result.get("ok") is not True:
         raise RuntimeError("Canary purge returned no success receipt")

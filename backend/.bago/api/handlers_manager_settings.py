@@ -35,7 +35,7 @@ def handle_write(handler: "BaseHTTPRequestHandler", body: dict[str, Any] | None 
             effect_id="manager.settings.write", actor_kind="user",
             principal_id="interactive-local-user", session_id=str(getattr(manager, "session_id", "") or ""),
             source_surface="api.manager.settings.write", target=target, arguments=arguments, scope="persistent",
-            world_state_authority=manager,
+        world_state_authority=manager,
         )
         boundary = AuthorizationBoundary()
         action = str(payload.get("authorization_action") or "").strip().lower()

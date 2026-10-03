@@ -115,19 +115,6 @@ jobs:
           npm run build --workspace frontend
           npm run dist --workspace electron-viewer
 
-      - name: Resolve pinned NSIS 3.10
-        shell: pwsh
-        run: |
-          $makensis = & "$PWD\releases\resolve-nsis.ps1" -ToolsDirectory (Join-Path $env:RUNNER_TEMP 'nsis-tools')
-          "NSIS_MAKENSIS=$makensis" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Build canonical installer path
-        shell: pwsh
-        run: |
-          $version = (Get-Content release_version.txt -Raw).Trim()
-          & "$PWD\releases\build-installer.ps1" -SkipBuild -Version $version -GitRef "${{ github.ref_name }}" -GitSha "${{ github.sha }}" -NsisMakensis $env:NSIS_MAKENSIS
-          if ($LASTEXITCODE -ne 0) { throw "Fallo al construir el instalador canónico." }
-
       - name: Smoke packaged BAGO.exe lifecycle
         shell: pwsh
         run: |
@@ -200,53 +187,18 @@ jobs:
           npm run build --workspace frontend
           npm run dist --workspace electron-viewer
 
-      - name: Resolve pinned NSIS 3.10
+      - name: Build tag-locked MSIX bootstrap candidate
         shell: pwsh
         run: |
-          $makensis = & "$PWD\releases\resolve-nsis.ps1" -ToolsDirectory (Join-Path $env:RUNNER_TEMP 'nsis-tools')
-          "NSIS_MAKENSIS=$makensis" | Out-File -FilePath $env:GITHUB_ENV -Append
+          & "$PWD\scripts\build-msix-release.ps1" -Version $env:BAGO_VERSION -Publisher 'CN=BAGO-CI-Test' -PackageName 'BAGO.Bootstrap' -OutputRoot "$env:RUNNER_TEMP\bago-msix"
 
-      - name: Build canonical tag-locked installer
+      - name: Register and activate MSIX on disposable runner
         shell: pwsh
         run: |
-          & "$PWD\releases\build-installer.ps1" -SkipBuild -Version $env:BAGO_VERSION -GitRef "${{ github.ref_name }}" -GitSha $env:CANDIDATE_SHA -NsisMakensis $env:NSIS_MAKENSIS
-          if ($LASTEXITCODE -ne 0) { throw "Fallo al construir el instalador canónico." }
-
-      - name: Run installer and verify identity
-        shell: pwsh
-        run: |
-          $setup = Join-Path $PWD "releases\bago-$env:BAGO_VERSION-setup.exe"
-          $installProc = Start-Process -FilePath $setup -ArgumentList '/S' -PassThru -Wait
-          if ($installProc.ExitCode -ne 0) { throw "El instalador terminó con código $($installProc.ExitCode)." }
-          $reg = Get-ItemProperty -LiteralPath 'HKCU:\Software\BAGO' -ErrorAction Stop
-          if ($reg.Version -ne $env:BAGO_VERSION) { throw "Version inesperada: $($reg.Version)" }
-          if ($reg.InstallRef -ne "${{ github.ref_name }}") { throw "InstallRef inesperado: $($reg.InstallRef)" }
-          if ($reg.InstallSha -ne $env:CANDIDATE_SHA) { throw "InstallSha inesperado: $($reg.InstallSha)" }
-          $exe = Join-Path $reg.InstallPath 'electron-viewer\BAGO.exe'
-          if (-not (Test-Path -LiteralPath $exe)) { throw "No existe BAGO.exe instalado." }
-          $env:BAGO_E2E_AUTOCLOSE_SECONDS = '8'
-          $proc = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
-          try {
-            $healthy = $false
-            for ($i = 0; $i -lt 90; $i++) {
-              $proc.Refresh()
-              if ($proc.HasExited) { throw "BAGO.exe terminó antes de estar saludable." }
-              try {
-                if ((Invoke-WebRequest -Uri '${{ env.HEALTH_URL }}' -UseBasicParsing -TimeoutSec 2).StatusCode -eq 200) {
-                  $healthy = $true
-                  break
-                }
-              } catch {}
-              Start-Sleep -Seconds 1
-            }
-            if (-not $healthy) { throw "BAGO.exe no levantó backend saludable." }
-            Wait-Process -Id $proc.Id -Timeout 90 -ErrorAction SilentlyContinue
-            $proc.Refresh()
-            if (-not $proc.HasExited -or $proc.ExitCode -ne 0) { throw "BAGO.exe no cerró correctamente." }
-          } finally {
-            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
-            Remove-Item Env:BAGO_E2E_AUTOCLOSE_SECONDS -ErrorAction SilentlyContinue
-          }
-          $uninstall = Join-Path $reg.InstallPath 'uninstall.exe'
-          $uninstallProc = Start-Process -FilePath $uninstall -ArgumentList '/S' -PassThru -Wait
-          if ($uninstallProc.ExitCode -ne 0 -or (Test-Path -LiteralPath $reg.InstallPath)) { throw "La desinstalación falló." }
+          $msix = "$env:RUNNER_TEMP\bago-msix\BAGO-Bootstrap-$env:BAGO_VERSION.msix"
+          if (-not (Test-Path $msix)) { throw 'MSIX candidate missing.' }
+          # The CI candidate is unsigned by design; package activation remains
+          # a release-signing workflow responsibility.
+          $receipt = Get-Content "$env:RUNNER_TEMP\bago-msix\build-receipt.json" -Raw | ConvertFrom-Json
+          if ($receipt.signature -ne 'NOT_SIGNED') { throw 'Unsigned CI candidate has invalid receipt state.' }
+          if ($receipt.candidate_head -ne $env:CANDIDATE_SHA) { throw 'Candidate identity drifted.' }

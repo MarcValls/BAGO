@@ -51,7 +51,7 @@ def handle_apply(handler: "BaseHTTPRequestHandler", body: dict | None = None) ->
             target=target,
             arguments={},
             scope="system",
-            world_state_authority=mgr,
+        world_state_authority=mgr,
         )
         boundary = AuthorizationBoundary()
         payload = dict(body or {})

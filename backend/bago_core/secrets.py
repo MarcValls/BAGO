@@ -81,7 +81,7 @@ def _key_to_path(key: str) -> Path:
 
 
 def secret_state_digest(store: "SecretStore", key: str) -> str:
-    """Identify canonical encrypted secret bytes without decrypting them."""
+    """Return identity of the canonical encrypted secret bytes without decrypting them."""
     path = Path(store.path_for_key(key)).expanduser()
     try:
         metadata = path.lstat()

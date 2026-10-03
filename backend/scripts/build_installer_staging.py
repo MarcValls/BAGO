@@ -64,7 +64,7 @@ def main() -> int:
         _exe("npx"),
         "electron-builder",
         "--win",
-        "nsis",
+        "dir",
         "--config.directories.output=" + str(DIST_OUT),
     ])
 

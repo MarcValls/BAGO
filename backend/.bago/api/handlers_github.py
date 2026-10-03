@@ -44,7 +44,7 @@ def _run_gh(handler, args: list[str], timeout: int = 30) -> tuple[int, str, str]
                 "cwd": str(getattr(manager, "base_path", "") or ""),
                 "timeout_seconds": min(max(int(timeout), 1), 30),
             }, arguments={"argv": args}, scope="workspace",
-            world_state_authority=manager,
+        world_state_authority=manager,
         )
         result, _authorization = ExecutionGateway().execute_server_owned(
             request=request, context=ExecutionContext(manager=manager),

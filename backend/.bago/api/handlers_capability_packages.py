@@ -103,7 +103,7 @@ def _handle_import_authorized(handler: "BaseHTTPRequestHandler", body: dict[str,
             principal_id="interactive-local-user", session_id=str(manager.session_id),
             source_surface="api.capability_packages.import", target=target,
             arguments=arguments, scope="persistent",
-            world_state_authority=manager,
+        world_state_authority=manager,
         )
         boundary = AuthorizationBoundary()
         action = str(body.get("authorization_action") or "").strip().lower()
@@ -205,7 +205,7 @@ def handle_execute(handler: "BaseHTTPRequestHandler", capability_id: str, body: 
                 "declared_permissions": list(package.get("permissions", [])),
             },
             arguments=inputs,
-            world_state_authority=mgr,
+        world_state_authority=mgr,
         )
         boundary = AuthorizationBoundary()
         action = str(payload.get("authorization_action") or "").strip().lower()

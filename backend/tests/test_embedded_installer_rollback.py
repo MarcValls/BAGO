@@ -157,51 +157,29 @@ def test_nsis_installer_finalizes_after_verified_success() -> None:
 
 
 def test_builder_resolves_installer_version_from_canonical_authority() -> None:
-    """Installer artifact names must follow release_version.txt, not a hard-coded value."""
     builder = BUILDER.read_text(encoding="utf-8")
-    workflow = (ROOT / ".github" / "workflows" / "build-installer.yml").read_text(encoding="utf-8")
-
+    workflow = (ROOT / ".github/workflows/build-installer.yml").read_text(encoding="utf-8")
+    msix_builder = (ROOT / "scripts/build-msix-release.ps1").read_text(encoding="utf-8")
     assert r'Join-Path $repoRoot "release_version.txt"' in builder
     assert r'backend\release_version.txt' not in builder
-    assert '$version = "' not in builder, "builder must not hard-code a mutable product version"
-    assert "-SkipBuild -Version $version" in workflow
-    assert "[Parameter(Mandatory = $true)]" in builder
-    assert '-GitRef $env:SOURCE_GIT_REF' in workflow
-    assert '-GitSha $env:SOURCE_GIT_SHA' in workflow
-    assert 'ref: ${{ inputs.source_ref || github.sha }}' in workflow
-    assert 'git rev-parse HEAD' in workflow
-    assert 'Join-Path $repoRoot "frontend\\dist"' in builder
-    assert "Copy-Item -LiteralPath $frontendDist -Destination $runtimeUiDist -Recurse -Force" in builder
-    assert "release_version.txt" in workflow, (
-        "version authority changes must trigger the installer workflow"
-    )
-    assert "backend/release_version.txt" not in workflow
+    assert "release_version.txt" in msix_builder
+    assert "build-msix-bootstrap.ps1" in msix_builder
+    assert "ref: ${{ inputs.source_ref || github.sha }}" in workflow
     assert "node-version: '22.16.0'" in workflow
-    assert "python-version: '3.14.5'" in workflow
-    assert "resolve-nsis.ps1" in workflow
+    assert "python-version: '3.14'" in workflow
+    assert "makensis" not in workflow.lower()
 
 
-def test_workflows_pin_the_official_nsis_310_zip_digest() -> None:
-    """CI must reject a mirror error page as well as a tampered NSIS archive."""
-    expected_url = "https://sourceforge.net/projects/nsis/files/NSIS%203/3.10/nsis-3.10.zip/download"
-    expected_sha = "FCDCE3229717A2A148E7CDA0AB5BDB667F39D8FB33EDE1DA8DABC336BD5AD110"
-    resolver = ROOT / "releases" / "resolve-nsis.ps1"
-    resolver_text = resolver.read_text(encoding="utf-8")
-    assert expected_url in resolver_text
-    assert expected_sha in resolver_text
-    assert "curl.exe --fail --location --retry 3 --output $zip" in resolver_text
-    assert "prdownloads.sourceforge.net/nsis/nsis-3.10.zip" not in resolver_text
-
-    workflows = (
-        ROOT / ".github" / "workflows" / "build-installer.yml",
-        ROOT / ".github" / "workflows" / "build-release-installer.yml",
-        ROOT / ".github" / "workflows" / "canonical-ci.yml",
-    )
-    for workflow in workflows:
-        text = workflow.read_text(encoding="utf-8")
-        assert "resolve-nsis.ps1" in text
-
-
+def test_official_workflows_have_no_nsis_materialization() -> None:
+    for path in (
+        ROOT / ".github/workflows/build-installer.yml",
+        ROOT / ".github/workflows/build-release-installer.yml",
+        ROOT / ".github/workflows/canonical-ci.yml",
+    ):
+        text = path.read_text(encoding="utf-8").lower()
+        assert "resolve-nsis.ps1" not in text
+        assert "makensis" not in text
+        assert "bago-installer.nsi" not in text
 def test_release_build_requires_explicit_identity_and_embedded_inputs() -> None:
     """No local default may mint an installer whose version or source is ambiguous."""
     nsi = NSIS.read_text(encoding="utf-8")
@@ -216,24 +194,20 @@ def test_release_build_requires_explicit_identity_and_embedded_inputs() -> None:
     assert '"/DAPP_GIT_SHA=$GitSha"' in builder
 
 
-def test_release_workflows_bind_checkout_tag_sha_and_installed_identity() -> None:
-    manual = (ROOT / ".github" / "workflows" / "build-release-installer.yml").read_text(encoding="utf-8")
-    canonical = (ROOT / ".github" / "workflows" / "canonical-ci.yml").read_text(encoding="utf-8")
-
-    assert "ref: ${{ inputs.release_tag }}" in manual
-    assert 'git rev-parse HEAD' in manual
-    assert 'git rev-parse "$tag`^{commit}"' in manual
-    assert "python scripts/verify_version_consistency.py --tag $tag --is-tag true" in manual
-    assert "-GitSha $env:CANDIDATE_SHA" in manual
-    for value in ("$reg.Version", "$reg.InstallRef", "$reg.InstallSha"):
-        assert value in manual
-        assert value in canonical
-    assert "runs-on: windows-latest" in canonical
+def test_release_workflows_bind_checkout_tag_sha_and_msix_identity() -> None:
+    manual = (ROOT / ".github/workflows/build-release-installer.yml").read_text(encoding="utf-8")
+    msix = (ROOT / ".github/workflows/build-release-msix-bootstrap.yml").read_text(encoding="utf-8")
+    canonical = (ROOT / ".github/workflows/canonical-ci.yml").read_text(encoding="utf-8")
+    assert "build-release-msix-bootstrap.yml" in manual
+    assert "ref: ${{ inputs.release_tag }}" in msix
+    assert 'git rev-parse "$tag`^{commit}"' in msix
+    assert "python scripts/verify_version_consistency.py --tag $tag --is-tag true" in msix
+    assert "BAGO_EXPECTED_PUBLISHER" in msix
+    assert "Add-AppxPackage -Path" in msix
+    assert "CLEAN_MACHINE_INSTALL_OPEN" in msix
     assert "Assert disposable runner and tag-only execution" in canonical
-    assert '$env:GITHUB_ACTIONS -ne \'true\'' in canonical
-    assert "refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+" in canonical
-
-
+    assert "build-msix-release.ps1" in canonical
+    assert "bago-installer.nsi" not in canonical
 def test_embedded_nsi_payload_includes_and_passes_distribution_hash_sidecar() -> None:
     """The embedded installer must satisfy the payload script's mandatory hash input."""
     nsi = NSIS.read_text(encoding="utf-8")

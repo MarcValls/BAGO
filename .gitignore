@@ -46,6 +46,7 @@ __pycache__/
 *.so
 .Python
 .pytest_cache/
+backend/.pytest-tmp-*/
 .mypy_cache/
 .venv/
 venv/
@@ -97,6 +98,10 @@ accounts.json
 .impeccable/hook.cache.*
 
 /ui-react/
+
+# Local MSIX bootstrap host build outputs
+/bootstrap/msix-host/bin/
+/bootstrap/msix-host/obj/
 
 # BAGO runtime transient artifacts
 /.bago/tmp/

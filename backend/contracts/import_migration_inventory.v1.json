@@ -484,7 +484,7 @@
       "path": "backend/bago_core/cli_execution.py",
       "mutations": [
         {
-          "line": 11,
+          "line": 12,
           "call": "sys.path.insert"
         }
       ]

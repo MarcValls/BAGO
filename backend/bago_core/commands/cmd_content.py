@@ -290,7 +290,7 @@ def cmd_manager(args: argparse.Namespace) -> int:
         result, _authorization = ExecutionGateway(boundary).execute(
             permit_token=permit,
             request=request,
-            context=ExecutionContext(world_state_authority_root=str(root)),
+            context=ExecutionContext(manager=root),
         )
         if not isinstance(result, dict) or result.get("executed") is not True:
             print("El Gateway no confirmó el inicio del manager.", file=sys.stderr)

@@ -1,0 +1,245 @@
+name: Build Release MSIX Bootstrap Candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Immutable release tag to build
+        required: true
+        type: string
+      signing_backend:
+        description: Signing backend (azure or ssl-esigner-cka)
+        required: false
+        default: azure
+        type: string
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+      signing_backend:
+        required: false
+        default: azure
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-msix:
+    name: Build and sign tag-locked MSIX bootstrap
+    runs-on: windows-latest
+    timeout-minutes: 60
+    environment: release-signing
+    env:
+      REQUESTED_TAG: ${{ inputs.release_tag }}
+      BAGO_SIGNING_BACKEND: ${{ inputs.signing_backend || 'azure' }}
+      BAGO_EXPECTED_PUBLISHER: ${{ vars.BAGO_SIGNING_PUBLISHER }}
+      BAGO_EXPECTED_THUMBPRINT: ${{ vars.BAGO_SIGNING_THUMBPRINT }}
+      BAGO_PACKAGE_NAME: BAGO.Bootstrap
+
+    steps:
+      - name: Checkout exact release tag
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
+
+      - name: Verify tag and canonical version
+        shell: pwsh
+        run: |
+          $tag = $env:REQUESTED_TAG
+          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid release tag.' }
+          git fetch --force --tags origin
+          git fetch --force origin main
+          $head = (git rev-parse HEAD).Trim()
+          if ((git rev-parse "$tag`^{commit}").Trim() -ne $head -or (git describe --exact-match --tags HEAD).Trim() -ne $tag) { throw 'Candidate is not exactly the requested tag.' }
+          git merge-base --is-ancestor origin/main $head
+          if ($LASTEXITCODE -ne 0) { throw 'Requested tag is not reachable from origin/main.' }
+          python scripts/verify_version_consistency.py --tag $tag --is-tag true
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical version mismatch.' }
+          "BAGO_TAG=$tag" | Out-File $env:GITHUB_ENV -Append
+          "BAGO_VERSION=$($tag.TrimStart('v'))" | Out-File $env:GITHUB_ENV -Append
+          "CANDIDATE_SHA=$head" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Setup toolchains
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Build frontend and packaged host dependencies
+        shell: pwsh
+        run: |
+          npm ci
+          npm run build
+          npm run typecheck
+          npm run test:frontend
+          Push-Location electron-viewer
+          npm ci
+          npm run dist
+          Pop-Location
+
+      - name: Require protected Azure production signing configuration
+        if: env.BAGO_SIGNING_BACKEND == 'azure'
+        shell: pwsh
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          BAGO_SIGNING_ENDPOINT: ${{ vars.BAGO_SIGNING_ENDPOINT }}
+          BAGO_SIGNING_ACCOUNT: ${{ vars.BAGO_SIGNING_ACCOUNT }}
+          BAGO_SIGNING_PROFILE: ${{ vars.BAGO_SIGNING_PROFILE }}
+        run: |
+          $required = 'AZURE_CLIENT_ID','AZURE_TENANT_ID','AZURE_SUBSCRIPTION_ID','BAGO_SIGNING_ENDPOINT','BAGO_SIGNING_ACCOUNT','BAGO_SIGNING_PROFILE','BAGO_EXPECTED_PUBLISHER'
+          $missing = @($required | Where-Object { -not [Environment]::GetEnvironmentVariable($_) })
+          if ($missing.Count) { throw "Protected signing configuration missing: $($missing -join ', ')." }
+          if ($env:BAGO_EXPECTED_PUBLISHER -notmatch '^CN=') { throw 'Expected publisher must be the exact CN= subject.' }
+
+      - name: Require protected SSL.com eSigner production configuration
+        if: env.BAGO_SIGNING_BACKEND == 'ssl-esigner-cka'
+        shell: pwsh
+        env:
+          SSL_ESIGNER_USERNAME: ${{ secrets.SSL_ESIGNER_USERNAME }}
+          SSL_ESIGNER_PASSWORD: ${{ secrets.SSL_ESIGNER_PASSWORD }}
+          SSL_ESIGNER_TOTP_SECRET: ${{ secrets.SSL_ESIGNER_TOTP_SECRET }}
+          SSL_ESIGNER_MODE: ${{ vars.SSL_ESIGNER_MODE }}
+          SSL_ESIGNER_CERT_THUMBPRINT: ${{ vars.SSL_ESIGNER_CERT_THUMBPRINT }}
+        run: |
+          $required = 'SSL_ESIGNER_USERNAME','SSL_ESIGNER_PASSWORD','SSL_ESIGNER_TOTP_SECRET','SSL_ESIGNER_MODE','BAGO_EXPECTED_PUBLISHER'
+          $missing = @($required | Where-Object { -not [Environment]::GetEnvironmentVariable($_) })
+          if ($missing.Count) { throw "Protected eSigner configuration missing: $($missing -join ', ')." }
+          if ($env:SSL_ESIGNER_MODE -notin @('product','production')) { throw 'SSL_ESIGNER_MODE must be product or production.' }
+          if ($env:BAGO_EXPECTED_PUBLISHER -notmatch '^CN=') { throw 'Expected publisher must be the exact CN= subject.' }
+
+      - name: Azure login with protected OIDC identity
+        if: env.BAGO_SIGNING_BACKEND == 'azure'
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build unsigned MSIX candidate
+        shell: pwsh
+        run: |
+          & "$PWD/scripts/build-msix-release.ps1" -Version $env:BAGO_VERSION -Publisher $env:BAGO_EXPECTED_PUBLISHER -PackageName $env:BAGO_PACKAGE_NAME -OutputRoot "$env:RUNNER_TEMP\bago-msix"
+
+      - name: Sign canonical MSIX package with Azure Artifact Signing
+        if: env.BAGO_SIGNING_BACKEND == 'azure'
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.BAGO_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.BAGO_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.BAGO_SIGNING_PROFILE }}
+          files: ${{ runner.temp }}\bago-msix\BAGO-Bootstrap-${{ env.BAGO_VERSION }}.msix
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Install SSL.com eSigner CKA
+        if: env.BAGO_SIGNING_BACKEND == 'ssl-esigner-cka'
+        shell: pwsh
+        env:
+          CKA_ROOT: ${{ runner.temp }}\eSignerCKA
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'eSignerCKA.zip'
+          Invoke-WebRequest -Uri 'https://github.com/SSLcom/eSignerCKA/releases/download/v1.0.6/SSL.COM-eSigner-CKA_1.0.6.zip' -OutFile $zip
+          $extract = Join-Path $env:RUNNER_TEMP 'eSignerCKA-extract'
+          Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force
+          $installer = Get-ChildItem -LiteralPath $extract -Filter '*.exe' -Recurse | Select-Object -First 1
+          if (-not $installer) { throw 'eSigner CKA installer was not found.' }
+          New-Item -ItemType Directory -Path $env:CKA_ROOT -Force | Out-Null
+          & $installer.FullName /CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES "/DIR=$env:CKA_ROOT"
+          if ($LASTEXITCODE -ne 0) { throw "eSigner CKA installation failed: $LASTEXITCODE" }
+
+      - name: Load SSL.com eSigner certificate
+        if: env.BAGO_SIGNING_BACKEND == 'ssl-esigner-cka'
+        shell: pwsh
+        env:
+          CKA_ROOT: ${{ runner.temp }}\eSignerCKA
+          SSL_ESIGNER_USERNAME: ${{ secrets.SSL_ESIGNER_USERNAME }}
+          SSL_ESIGNER_PASSWORD: ${{ secrets.SSL_ESIGNER_PASSWORD }}
+          SSL_ESIGNER_TOTP_SECRET: ${{ secrets.SSL_ESIGNER_TOTP_SECRET }}
+          SSL_ESIGNER_MODE: ${{ vars.SSL_ESIGNER_MODE }}
+          CKA_MASTER_KEY: ${{ runner.temp }}\eSignerCKA\master.key
+        run: |
+          $tool = Join-Path $env:CKA_ROOT 'eSignerCKATool.exe'
+          if (-not (Test-Path $tool)) { throw "eSigner CKA tool missing: $tool" }
+          & $tool config -mode $env:SSL_ESIGNER_MODE -user $env:SSL_ESIGNER_USERNAME -pass $env:SSL_ESIGNER_PASSWORD -totp $env:SSL_ESIGNER_TOTP_SECRET -key $env:CKA_MASTER_KEY -r
+          if ($LASTEXITCODE -ne 0) { throw "eSigner CKA configuration failed: $LASTEXITCODE" }
+          & $tool unload
+          & $tool load
+          if ($LASTEXITCODE -ne 0) { throw "eSigner CKA certificate load failed: $LASTEXITCODE" }
+          $certs = @(Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert)
+          if ($env:SSL_ESIGNER_CERT_THUMBPRINT) {
+            $wanted = $env:SSL_ESIGNER_CERT_THUMBPRINT.Replace(' ', '').ToUpperInvariant()
+            $cert = $certs | Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $wanted } | Select-Object -First 1
+          } else {
+            $cert = $certs | Select-Object -First 1
+          }
+          if (-not $cert) { throw 'No code-signing certificate was loaded by eSigner CKA.' }
+          "BAGO_SIGNING_CERT_THUMBPRINT=$($cert.Thumbprint)" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Sign canonical MSIX package with SSL.com eSigner CKA
+        if: env.BAGO_SIGNING_BACKEND == 'ssl-esigner-cka'
+        shell: pwsh
+        run: |
+          $msix = "$env:RUNNER_TEMP\bago-msix\BAGO-Bootstrap-$env:BAGO_VERSION.msix"
+          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe | Where-Object FullName -match '\\x64\\signtool\.exe$' | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signtool) { throw 'SignTool unavailable on runner.' }
+          & $signtool.FullName sign /debug /fd SHA256 /tr http://ts.ssl.com /td SHA256 /sha1 $env:BAGO_SIGNING_CERT_THUMBPRINT $msix
+          if ($LASTEXITCODE -ne 0) { throw "SSL.com eSigner SignTool failed: $LASTEXITCODE" }
+
+      - name: Verify signed package identity and digest
+        shell: pwsh
+        run: |
+          $msix = "$env:RUNNER_TEMP\bago-msix\BAGO-Bootstrap-$env:BAGO_VERSION.msix"
+          if (-not (Test-Path $msix)) { throw 'Signed MSIX was not produced.' }
+          $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signtool) { throw 'SignTool unavailable on runner.' }
+          & $signtool.FullName verify /pa /all /v $msix
+          if ($LASTEXITCODE -ne 0) { throw 'MSIX Authenticode verification failed.' }
+          Add-AppxPackage -Path $msix -ForceApplicationShutdown
+          $pkg = Get-AppxPackage -Name $env:BAGO_PACKAGE_NAME | Select-Object -First 1
+          if (-not $pkg) { throw 'Signed MSIX was not registered on the clean runner.' }
+
+      - name: Clean-machine activation and in-process session gate
+        shell: pwsh
+        run: |
+          $pkg = Get-AppxPackage -Name $env:BAGO_PACKAGE_NAME | Select-Object -First 1
+          if (-not $pkg) { throw 'Registered MSIX package disappeared before activation.' }
+          $exe = Join-Path $pkg.InstallLocation 'BAGO.Bootstrap.Host.exe'
+          if (-not (Test-Path $exe)) { throw "Packaged host missing: $exe" }
+          $log = Join-Path $env:LOCALAPPDATA 'BAGO\logs\bootstrap-host.log'
+          Remove-Item $log -Force -ErrorAction SilentlyContinue
+          $proc = Start-Process -FilePath $exe -PassThru
+          try {
+            $sessionReady = $false
+            for ($i = 0; $i -lt 90; $i++) {
+              if ($proc.HasExited) { throw "MSIX host exited during activation (code $($proc.ExitCode))." }
+              if ((Test-Path $log) -and (Select-String -Path $log -Pattern 'session_create_done' -Quiet)) { $sessionReady = $true; break }
+              Start-Sleep -Seconds 1
+            }
+            if (-not $sessionReady) { throw 'MSIX host did not create an in-process BAGO session.' }
+          } finally {
+            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+          }
+          Remove-AppxPackage -Package $pkg.PackageFullName
+
+      - name: First-install acceptance gate (fail closed until desktop approval E2E)
+        shell: pwsh
+        run: |
+          throw 'CLEAN_MACHINE_INSTALL_OPEN: package registration and in-process session pass; first-install desktop approval and authenticated helper completion still require a real interactive clean-machine run.'
+
+      - name: Upload candidate evidence
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: bago-msix-bootstrap-${{ inputs.release_tag }}
+          path: ${{ runner.temp }}\bago-msix
+          if-no-files-found: warn
+          retention-days: 7

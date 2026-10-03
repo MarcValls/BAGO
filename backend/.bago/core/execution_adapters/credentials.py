@@ -6,8 +6,9 @@ import hashlib
 import os
 import threading
 import uuid
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 from execution_request import ExecutionRequest, stable_digest
 
 
@@ -27,6 +28,7 @@ class CredentialWriteEffectAdapter:
 
     @classmethod
     def revalidate_world_state(cls, request: ExecutionRequest, context: ExecutionContext) -> None:
+        """Revalidate the encrypted SecretStore entry at the Gateway boundary."""
         target = request.target if isinstance(request.target, dict) else {}
         provider = str(target.get("provider") or "").strip()
         key = str(target.get("key") or "").strip()
@@ -40,6 +42,7 @@ class CredentialWriteEffectAdapter:
         try:
             from bago_core.secrets import secret_state_digest
             from secret_store import get_secret_store
+
             current = secret_state_digest(get_secret_store(), f"providers/{provider}/{key}")
         except (OSError, RuntimeError) as exc:
             raise ExecutionGatewayError(
@@ -73,6 +76,41 @@ class CredentialWriteEffectAdapter:
                 break
             if cls._is_link(component):
                 raise ExecutionGatewayError("Credential target cannot traverse a link or reparse point", code="credential_write_link_forbidden")
+
+    @classmethod
+    @contextmanager
+    def _store_lock(cls, root: Path) -> Iterator[None]:
+        """Serialize credential compare-and-write across BAGO processes."""
+        lock_path = root.parent / ".credential-write.lock"
+        root.parent.mkdir(parents=True, exist_ok=True)
+        if cls._is_link(lock_path):
+            raise ExecutionGatewayError(
+                "Credential state lock cannot be linked",
+                code="credential_write_lock_invalid",
+            )
+        with lock_path.open("a+b") as handle:
+            if os.name == "nt":
+                import msvcrt
+
+                handle.seek(0)
+                if handle.read(1) == b"":
+                    handle.write(b"0")
+                    handle.flush()
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                try:
+                    yield
+                finally:
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
     def execute(self, request: ExecutionRequest, context: ExecutionContext) -> Any:
         from provider_catalog import PROVIDER_CATALOG
@@ -204,6 +242,8 @@ class CredentialWriteEffectAdapter:
                 code="credential_write_configuration_changed",
             )
 
+        from secret_store import get_secret_store
+
         secret_store = get_secret_store()
         secret_key = f"providers/{provider}/{key}"
         path = secret_store.path_for_key(secret_key)
@@ -213,6 +253,7 @@ class CredentialWriteEffectAdapter:
         if path.parent.expanduser().resolve() != root:
             raise ExecutionGatewayError("Credential target is not under the canonical SecretStore root", code="credential_write_path_invalid")
         self._validate_secret_path(path, root)
+        self.revalidate_world_state(request, context)
 
         if operation == "set":
             arguments = request.arguments if isinstance(request.arguments, dict) else {}
@@ -223,10 +264,11 @@ class CredentialWriteEffectAdapter:
                     code="credential_write_value_required",
                 )
             try:
-                ciphertext = secret_store.protect_secret(value)
-                with self._LOCK:
-                    root.mkdir(parents=True, exist_ok=True)
+                root.mkdir(parents=True, exist_ok=True)
+                with self._LOCK, self._store_lock(root):
                     self._validate_secret_path(path, root)
+                    self.revalidate_world_state(request, context)
+                    ciphertext = secret_store.protect_secret(value)
                     temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
                     try:
                         with temporary.open("xb") as handle:
@@ -241,6 +283,8 @@ class CredentialWriteEffectAdapter:
                             pass
                     finally:
                         temporary.unlink(missing_ok=True)
+            except ExecutionGatewayError:
+                raise
             except Exception as exc:
                 raise ExecutionGatewayError(
                     f"Error guardando credencial: {exc}",
@@ -250,11 +294,14 @@ class CredentialWriteEffectAdapter:
             deleted = False
         else:
             try:
-                with self._LOCK:
+                with self._LOCK, self._store_lock(root):
                     self._validate_secret_path(path, root)
+                    self.revalidate_world_state(request, context)
                     deleted = path.exists()
                     if deleted:
                         path.unlink()
+            except ExecutionGatewayError:
+                raise
             except Exception as exc:
                 raise ExecutionGatewayError(
                     f"Error eliminando credencial: {exc}",

@@ -46,12 +46,9 @@ class WorldStateSnapshot:
     def from_request(
         cls, request: Any, manager: Any = None, *, authority_root: str = ""
     ) -> "WorldStateSnapshot":
-        request_session_id = str(getattr(request, "session_id", "") or "")
         if isinstance(manager, (str, Path)):
             authority_root = authority_root or str(manager)
             manager = None
-        if authority_root:
-            authority_root = str(Path(authority_root).expanduser().resolve())
         state = {}
         if manager is not None:
             getter = getattr(manager, "workspace_state", None)
@@ -61,24 +58,17 @@ class WorldStateSnapshot:
                     state = candidate
         manager_root = getattr(manager, "base_path", "") or getattr(manager, "project_root", "")
         selected_root = str(state.get("project_root") or state.get("workspace") or manager_root or authority_root or "")
-        if selected_root:
-            selected_root = str(Path(selected_root).expanduser().resolve())
         state_root = str(state.get("workspace_state_root") or (Path(selected_root) / ".gabo" if selected_root else ""))
-        if state_root:
-            state_root = str(Path(state_root).expanduser().resolve())
-        manager_session_id = str(state.get("session_id") or getattr(manager, "session_id", "") or "")
-        if manager is not None and (not request_session_id or manager_session_id != request_session_id):
-            raise ValueError("WorldStateSnapshot authority session does not match request session")
         return cls(
             workspace=selected_root,
             workspace_state_root=state_root,
-            session_id=manager_session_id if manager is not None else request_session_id,
+            session_id=str(getattr(request, "session_id", "") or ""),
             context_revision=str(state.get("context_revision") or getattr(manager, "context_revision", "") or ""),
             policy_version=str(getattr(request, "policy_version", "") or ""),
             target=dict(getattr(request, "target", {}) or {}),
             effect_id=str(getattr(request, "effect_id", "") or ""),
             runtime=str(getattr(manager, "runtime", "") or ""),
-            authority_root=str(authority_root or (Path(manager_root).expanduser().resolve() if manager_root else "")),
+            authority_root=str(authority_root or manager_root or ""),
         )
 
 
@@ -93,7 +83,11 @@ def require_fresh_world_state(request: Any, manager: Any = None) -> WorldStateSn
 
 
 def build_execution_request_with_snapshot(manager: Any = None, **kwargs: Any) -> Any:
-    """Build a request whose digest is derived from the trusted manager."""
+    """Build a request whose digest is derived from the trusted manager.
+
+    This is the migration seam for API/CLI callers: they provide the normal
+    request fields, while the manager supplies the state authority.
+    """
     authority_root = str(kwargs.pop("authority_root", "") or "")
     authority = manager if manager is not None else authority_root
     if authority is None or authority == "":

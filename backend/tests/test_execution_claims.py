@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 import multiprocessing
 import os
+from pathlib import Path
 
 import pytest
 
@@ -23,6 +24,81 @@ def _postgres_claim_worker(dsn: str, resource_key: str, barrier, queue, owner: s
     barrier.wait(timeout=20)
     claim = store.try_acquire(resource_key, owner, f"op-{owner}", lease_seconds=30)
     queue.put((owner, claim.fencing_token if claim else None))
+
+
+class _GatewayInstallPermitBoundary:
+    def consume_permit(self, *, permit_token, request):
+        return {
+            "state": "consumed",
+            "permit_id": permit_token,
+            "effect_id": request.effect_id,
+            "operation_fingerprint": request.fingerprint,
+        }
+
+
+class _BlockingInstallApplyAdapter:
+    effect_ids = frozenset({
+        "system.install.apply",
+        "system.install.rollback",
+        "system.install.uninstall",
+        "system.install.archive.rollback",
+    })
+
+    def __init__(self, entered, release):
+        self.entered = entered
+        self.release = release
+
+    @staticmethod
+    def revalidate_world_state(request, context):
+        return None
+
+    def execute(self, request, context):
+        self.entered.set()
+        if not self.release.wait(timeout=15):
+            raise TimeoutError("test install callback was not released")
+        return {"ok": True, "target": request.target["install_dir"]}
+
+
+def _gateway_install_claim_worker(
+    db_path, target, entered, release, result_queue, permit, effect_id
+):
+    from types import SimpleNamespace
+
+    from effect_registry import REGISTRY
+    from execution_adapter_contract import ExecutionContext
+    from execution_claims import SQLiteExecutionClaimStore
+    from execution_gateway import EffectAdapterRegistry, ExecutionGateway
+    from execution_request import build_execution_request
+
+    session_id = "session-cross-process-install-claim"
+    request = build_execution_request(
+        effect_id=effect_id,
+        actor_kind="user",
+        principal_id="interactive-local-user",
+        session_id=session_id,
+        source_surface="test.install-target-cross-process",
+        target={"install_dir": target},
+        arguments={},
+        scope=REGISTRY.get(effect_id).default_scope,
+        policy_version=REGISTRY.digest,
+        world_state_authority=Path(target).parent,
+    )
+    adapters = EffectAdapterRegistry()
+    adapters.register(_BlockingInstallApplyAdapter(entered, release))
+    gateway = ExecutionGateway(
+        _GatewayInstallPermitBoundary(),
+        adapters=adapters,
+        claim_store=SQLiteExecutionClaimStore(db_path),
+    )
+    try:
+        result, _authorization = gateway.execute(
+            permit_token=permit,
+            request=request,
+            context=ExecutionContext(manager=SimpleNamespace(session_id=session_id, base_path=Path(target).parent)),
+        )
+        result_queue.put((permit, "executed", result))
+    except Exception as exc:  # send the child failure back to the parent test
+        result_queue.put((permit, "rejected", getattr(exc, "code", type(exc).__name__)))
 
 
 def test_claims_are_exclusive_per_resource_and_independent_between_resources():
@@ -264,6 +340,95 @@ def test_sqlite_claim_survives_store_restart_and_fencing_generation_is_durable(t
     assert replacement.fencing_token == first.fencing_token + 1
 
 
+def test_install_apply_and_uninstall_share_one_gateway_target_claim(tmp_path):
+    from threading import Event, Thread
+
+    from types import SimpleNamespace
+
+    from effect_registry import REGISTRY
+    from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
+    from execution_claims import InMemoryExecutionClaimStore
+    from execution_gateway import EffectAdapterRegistry, ExecutionGateway
+    from execution_request import build_execution_request
+
+    entered = Event()
+    finish = Event()
+    results = []
+
+    class Boundary:
+        def consume_permit(self, *, permit_token, request):
+            return {
+                "state": "consumed", "effect_id": request.effect_id,
+                "operation_fingerprint": request.fingerprint,
+            }
+
+    class Adapter:
+        effect_ids = frozenset({"system.install.apply"})
+
+        @staticmethod
+        def revalidate_world_state(request, context):
+            return None
+
+        def execute(self, request, context):
+            entered.set()
+            assert finish.wait(timeout=5)
+            return {"ok": True}
+
+    manager = SimpleNamespace(session_id="session-install-claim")
+    request = build_execution_request(
+        effect_id="system.install.apply", actor_kind="user",
+        principal_id="interactive-local-user", session_id=manager.session_id,
+        source_surface="test.install-target-claim",
+        target={"install_dir": str((tmp_path / "BAGO").resolve())},
+        arguments={}, scope=REGISTRY.get("system.install.apply").default_scope,
+        policy_version=REGISTRY.digest,
+        world_state_authority=manager,
+    )
+    adapters = EffectAdapterRegistry()
+    adapters.register(Adapter())
+    gateway = ExecutionGateway(
+        Boundary(), adapters=adapters, claim_store=InMemoryExecutionClaimStore()
+    )
+
+    def first_execution():
+        results.append(gateway.execute(
+            permit_token="permit-one", request=request,
+            context=ExecutionContext(manager=manager),
+        )[0])
+
+    worker = Thread(target=first_execution)
+    worker.start()
+    assert entered.wait(timeout=5)
+    try:
+        with pytest.raises(ExecutionGatewayError) as rejected:
+            gateway.execute(
+                permit_token="permit-two", request=request,
+                context=ExecutionContext(manager=manager),
+            )
+        assert rejected.value.code == "system_install_target_busy"
+    finally:
+        finish.set()
+        worker.join(timeout=5)
+
+    assert not worker.is_alive()
+    assert results == [{"ok": True}]
+
+
+def test_install_lifecycle_effects_share_canonical_target_resource_key(tmp_path):
+    from execution_claims import execution_resource_key
+
+    target = (tmp_path / "BAGO").resolve()
+    apply_key = execution_resource_key(
+        "system.install.apply", {"install_dir": str(target)}, {}, None,
+        session_id="session-a",
+    )
+    uninstall_key = execution_resource_key(
+        "system.install.uninstall", {"install_dir": str(target)}, {}, None,
+        session_id="session-b",
+    )
+    assert apply_key == uninstall_key == f"system-install:{os.path.normcase(str(target))}"
+
+
 def test_gateway_uses_sqlite_under_session_manager_state_root(tmp_path):
     from types import SimpleNamespace
 
@@ -379,6 +544,35 @@ def test_sqlite_does_not_transfer_claim_during_material_callback(tmp_path):
     assert replacement[0].fencing_token == stale.fencing_token + 1
 
 
+def test_sqlite_live_claim_rejects_same_target_promptly_during_material_callback(tmp_path):
+    from execution_claims import SQLiteExecutionClaimStore
+
+    db_path = tmp_path / "execution_claims.sqlite3"
+    owner_store = SQLiteExecutionClaimStore(db_path)
+    contender_store = SQLiteExecutionClaimStore(db_path)
+    claim = owner_store.try_acquire("system-install:c:\\bago", "apply", "op-a", lease_seconds=120)
+    assert claim is not None
+    entered = threading.Event()
+    resume = threading.Event()
+
+    def effect():
+        entered.set()
+        assert resume.wait(timeout=5)
+
+    effect_thread = threading.Thread(target=lambda: owner_store.execute_if_valid(claim, effect))
+    effect_thread.start()
+    assert entered.wait(timeout=5)
+    try:
+        assert contender_store.try_acquire(
+            claim.resource_key, "uninstall", "op-b", lease_seconds=120
+        ) is None
+    finally:
+        resume.set()
+        effect_thread.join(timeout=5)
+
+    assert not effect_thread.is_alive()
+
+
 def test_sqlite_store_allows_only_one_simultaneous_acquisition_across_processes(tmp_path):
     db_path = tmp_path / "execution_claims.sqlite3"
     from execution_claims import SQLiteExecutionClaimStore
@@ -400,6 +594,46 @@ def test_sqlite_store_allows_only_one_simultaneous_acquisition_across_processes(
 
     assert sum(token is not None for _, token in results) == 1
     assert sorted(token for _, token in results if token is not None) == [1]
+
+
+def test_execution_gateway_fences_same_install_target_across_processes(tmp_path):
+    db_path = tmp_path / "execution_claims.sqlite3"
+    target = str((tmp_path / "BAGO").resolve())
+    context = multiprocessing.get_context("spawn")
+    entered = context.Event()
+    release = context.Event()
+    result_queue = context.Queue()
+    owner = context.Process(
+        target=_gateway_install_claim_worker,
+        args=(str(db_path), target, entered, release, result_queue,
+              "permit-owner", "system.install.apply"),
+    )
+    contender = context.Process(
+        target=_gateway_install_claim_worker,
+        args=(str(db_path), target, entered, release, result_queue,
+              "permit-contender", "system.install.uninstall"),
+    )
+
+    owner.start()
+    assert entered.wait(timeout=15), "owner did not reach the material adapter"
+    contender.start()
+    try:
+        contender_result = result_queue.get(timeout=15)
+        assert contender_result == (
+            "permit-contender", "rejected", "system_install_target_busy"
+        )
+    finally:
+        release.set()
+        owner_result = result_queue.get(timeout=15)
+        owner.join(timeout=15)
+        contender.join(timeout=15)
+
+    assert not owner.is_alive()
+    assert not contender.is_alive()
+    assert owner.exitcode == 0
+    assert contender.exitcode == 0
+    assert owner_result[0:2] == ("permit-owner", "executed")
+    assert owner_result[2]["target"] == target
 
 
 def test_postgres_store_coordinates_processes_when_integration_database_is_configured():

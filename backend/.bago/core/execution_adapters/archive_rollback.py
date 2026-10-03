@@ -24,6 +24,20 @@ class SystemInstallArchiveRollbackEffectAdapter:
     _PRESERVED = (".bago/state", ".bago/logs", "state", "logs")
 
     def revalidate_world_state(self, request: ExecutionRequest, context: ExecutionContext) -> None:
+        authorization = context.services.get("_authorization")
+        proof = authorization.get("proof") if isinstance(authorization, dict) else None
+        provenance = proof.get("provenance") if isinstance(proof, dict) else None
+        if (authorization is not None and not isinstance(authorization, dict)):
+            raise ExecutionGatewayError("Archive rollback authorization context is inconsistent", code="archive_rollback_authorization_required")
+        if (isinstance(authorization, dict) and authorization.get("state") == "consumed"
+                and (authorization.get("effect_id") != request.effect_id or authorization.get("operation_fingerprint") != request.fingerprint)):
+            raise ExecutionGatewayError("Archive rollback authorization context is inconsistent", code="archive_rollback_authorization_required")
+        if (isinstance(proof, dict) and (proof.get("effect_id") != request.effect_id or proof.get("operation_fingerprint") != request.fingerprint)
+                or (isinstance(provenance, dict) and provenance.get("kind") != "direct_user_interaction")):
+            raise ExecutionGatewayError("Archive rollback authorization context is inconsistent", code="archive_rollback_authorization_required")
+        self._validate_target(request)
+
+    def _validate_target(self, request: ExecutionRequest) -> None:
         target = request.target if isinstance(request.target, dict) else {}
         install = self._path(str(target.get("install_dir") or ""))
         backup_root = self._path(str(target.get("backup_root") or ""))

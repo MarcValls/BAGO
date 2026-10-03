@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from install_uninstall_plan import build_uninstall_target, path_has_link, resolve_uninstall_python, validate_uninstall_backup_space
+from windows_execution import trusted_windows_powershell
 
 
 def _normalize_path_entry(entry: str) -> str:
@@ -190,7 +191,7 @@ def run_authorized_uninstall(args: Any) -> int:
     install_dir = Path(target["install_dir"])
     if _needs_elevation(install_dir) and not bool(getattr(args, "elevated_child", False)):
         from bago_core.launcher import BAGO_ROOT
-        executable = shutil.which("pwsh.exe") or shutil.which("powershell.exe") or "powershell.exe"
+        executable = str(trusted_windows_powershell())
         cli_path = Path(BAGO_ROOT) / "bago_core" / "cli.py"
         argv = [str(cli_path), "uninstall", "--install-dir", str(install_dir),
                 "--backup-root", target["backup_root"], "--user-state-dir", target["user_state_dir"],

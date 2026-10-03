@@ -1,34 +1,25 @@
-name: Build BAGO Installer
+name: Build BAGO MSIX Bootstrap Candidate
 
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version tag (e.g., v4.9.0)'
-        required: true
       source_ref:
-        description: 'Git branch, tag, or commit to package (defaults to the selected workflow ref)'
+        description: Git ref or commit to package
         required: false
   push:
-    branches:
-      - main
-      - fix/installer-e2e-path
+    branches: [main]
     paths:
-      - 'releases/bago-installer.nsi'
-      - 'releases/install-embedded-payload.ps1'
-      - 'releases/build-installer.ps1'
-      - 'releases/resolve-nsis.ps1'
-      - 'backend/scripts/package_v4.py'
+      - 'scripts/build-msix-bootstrap.ps1'
+      - 'scripts/build-msix-release.ps1'
+      - 'bootstrap/msix-host/**'
       - 'release_version.txt'
       - '.github/workflows/build-installer.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'releases/bago-installer.nsi'
-      - 'releases/install-embedded-payload.ps1'
-      - 'releases/build-installer.ps1'
-      - 'releases/resolve-nsis.ps1'
-      - 'backend/scripts/package_v4.py'
+      - 'scripts/build-msix-bootstrap.ps1'
+      - 'scripts/build-msix-release.ps1'
+      - 'bootstrap/msix-host/**'
       - 'release_version.txt'
       - '.github/workflows/build-installer.yml'
 
@@ -36,106 +27,43 @@ permissions:
   contents: read
 
 jobs:
-  build-nsis:
+  build-msix-candidate:
     runs-on: windows-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout candidate
         uses: actions/checkout@v5
         with:
           ref: ${{ inputs.source_ref || github.sha }}
-
-      - name: Resolve checked out source identity
-        id: candidate
-        env:
-          SOURCE_REF: ${{ inputs.source_ref }}
-          EVENT_REF_NAME: ${{ github.ref_name }}
-        run: |
-          $sha = (git rev-parse HEAD).Trim()
-          if ($LASTEXITCODE -ne 0 -or $sha -notmatch '^[0-9a-f]{40}$') { throw "Could not resolve checked out commit SHA" }
-          $ref = $env:SOURCE_REF.Trim()
-          if (-not $ref) { $ref = $env:EVENT_REF_NAME }
-          if ($ref -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$') { throw "Selected source ref contains unsupported characters" }
-          "git_sha=$sha" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "git_ref=$ref" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          Write-Host "Packaging ref '$ref' at exact commit $sha"
-        shell: pwsh
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v5
         with:
           node-version: '22.16.0'
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.14.5'
-
-      - name: Install and validate candidate
+          cache: npm
+      - name: Build candidate payload and host
+        shell: pwsh
         run: |
-          python -m pip install pytest==9.0.3 pytest-subtests==0.15.0 numpy==2.4.4 prompt_toolkit==3.0.52 tzdata
           npm ci
           npm run build
           npm run typecheck
           npm run test:frontend
-          python -m pytest backend/tests -q
-
-      - name: Resolve current version
-        id: version
-        run: |
-          $version = (Get-Content -LiteralPath "$PWD\release_version.txt" -Raw).Trim()
-          "BAGO_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
-          Write-Host "Resolved BAGO version: $version"
-        shell: pwsh
-
-      - name: Install NSIS
-        run: |
-          $makensis = & "$PWD\releases\resolve-nsis.ps1" -ToolsDirectory (Join-Path $env:RUNNER_TEMP 'nsis-tools')
-          "NSIS_MAKENSIS=$makensis" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      - name: Compile electron-viewer
-        working-directory: electron-viewer
-        run: |
+          Push-Location electron-viewer
           npm ci
           npm run dist
+          Pop-Location
+          $version = (Get-Content release_version.txt -Raw).Trim()
+          & "$PWD/scripts/build-msix-release.ps1" -Version $version -Publisher 'CN=BAGO-CI-Test' -PackageName 'BAGO.Bootstrap' -OutputRoot "$env:RUNNER_TEMP\bago-msix"
+      - name: Verify unsigned candidate evidence
         shell: pwsh
-
-      - name: Build canonical installer
-        working-directory: releases
-        env:
-          SOURCE_GIT_REF: ${{ steps.candidate.outputs.git_ref }}
-          SOURCE_GIT_SHA: ${{ steps.candidate.outputs.git_sha }}
         run: |
-          Write-Host "Building canonical embedded-payload installer..."
-          $version = $env:BAGO_VERSION
-          & .\build-installer.ps1 -SkipBuild -Version $version -GitRef $env:SOURCE_GIT_REF -GitSha $env:SOURCE_GIT_SHA -NsisMakensis $env:NSIS_MAKENSIS
-
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "ERROR: canonical installer build failed"
-            exit 1
-          }
-
-          $setupFile = "bago-$version-setup.exe"
-          $sidecar = "$setupFile.sha256"
-          if (-not (Test-Path $setupFile) -or -not (Test-Path $sidecar)) {
-            Write-Host "ERROR: Installer file not created"
-            exit 1
-          }
-          $expected = ((Get-Content -LiteralPath $sidecar -Raw).Trim().Split(' ')[0])
-          $actual = (Get-FileHash -LiteralPath $setupFile -Algorithm SHA256).Hash
-          if ($actual -ne $expected) { throw "Installer SHA256 sidecar mismatch" }
-          $size = [Math]::Round((Get-Item $setupFile).Length / 1MB, 2)
-          Write-Host "✓ Installer created: $setupFile ($size MB, SHA256 verified)"
-        shell: pwsh
-
-      - name: Upload unsigned CI installer as artifact
+          $receipt = Get-Content "$env:RUNNER_TEMP\bago-msix\build-receipt.json" -Raw | ConvertFrom-Json
+          if ($receipt.signature -ne 'NOT_SIGNED') { throw 'Diagnostic artifact must remain explicitly unsigned.' }
+          if (-not (Test-Path "$env:RUNNER_TEMP\bago-msix\BAGO-Bootstrap-$((Get-Content release_version.txt -Raw).Trim()).msix")) { throw 'MSIX artifact missing.' }
+      - name: Upload unsigned diagnostic MSIX
         uses: actions/upload-artifact@v5
         with:
-          name: unsigned-ci-bago-${{ env.BAGO_VERSION }}-setup
-          path: |
-            releases/bago-${{ env.BAGO_VERSION }}-setup.exe
-            releases/bago-${{ env.BAGO_VERSION }}-setup.exe.sha256
+          name: unsigned-ci-bago-msix-bootstrap
+          path: ${{ runner.temp }}\bago-msix
           retention-days: 30
-
-      # This artifact is deliberately named unsigned-ci. It is diagnostic and
-      # cannot be published as a release asset. Publicable installers are built,
-      # signed, verified and evidenced by build-release-installer.yml.

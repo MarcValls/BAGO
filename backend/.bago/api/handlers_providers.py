@@ -211,8 +211,9 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
             from secret_store import get_secret_store
 
             secret_key = f"providers/{provider_name}/api_key"
+            secret_store = get_secret_store()
             try:
-                secret_digest = secret_state_digest(get_secret_store(), secret_key)
+                secret_digest = secret_state_digest(secret_store, secret_key)
             except OSError as exc:
                 send_json(handler, 503, {"ok": False, "error": str(exc), "code": "credential_write_secret_state_unavailable"})
                 return
@@ -233,7 +234,7 @@ def handle_configure(handler: "BaseHTTPRequestHandler", body: dict) -> None:
                 },
                 arguments={"value": secret_value} if secret_operation == "set" else {},
                 scope="persistent",
-                world_state_authority=mgr,
+        world_state_authority=mgr,
             )
             boundary = AuthorizationBoundary()
             action = str(body.get("authorization_action") or "").strip().lower()

@@ -1,6 +1,6 @@
 {
   "name": "bago-installation-manager",
-  "version": "4.11.1",
+  "version": "4.11.10",
   "private": true,
   "description": "Electron packaged installation manager for BAGO.",
   "main": "electron/main.cjs",
@@ -14,7 +14,7 @@
     "manager:dist-staging": "python scripts/build_installer_staging.py",
     "manager:dev": "electron .",
     "manager:pack": "npm run manager:build-ui && npm run manager:prepare-release-tree && electron-builder --dir",
-    "manager:dist": "npm run manager:build-ui && npm run manager:prepare-release-tree && electron-builder --win nsis",
+    "manager:dist": "npm run manager:build-ui && npm run manager:prepare-release-tree && electron-builder --dir",
     "manager:test-jobs": "node tests/test_release_job_manager.cjs",
     "manager:test-smoke": "node tests/test_manager_electron_smoke.cjs",
     "manager:test-jobs-live": "node tests/test_release_job_manager_live.cjs"
@@ -90,20 +90,12 @@
       "icon": "bago.ico",
       "target": [
         {
-          "target": "nsis",
+          "target": "dir",
           "arch": [
             "x64"
           ]
         }
       ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "perMachine": false,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "BAGO Installation Manager"
     }
   },
   "devDependencies": {

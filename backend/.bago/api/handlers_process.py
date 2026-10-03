@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -104,6 +105,16 @@ def handle_execute(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> N
                 send_json(handler, 503, {"ok": False, "error": "Raíz de estado confiable no disponible"})
                 return
             target["cleanup_roots"] = sorted({str(trusted_root), str(Path(state_root).expanduser().resolve())})
+            try:
+                from bago_core.server_effects import inspect_process_identities
+                identities = inspect_process_identities(manager=manager)
+            except Exception as exc:
+                send_json(handler, 503, {"ok": False, "error": f"No se pudo fijar la identidad de los procesos candidatos: {exc}", "code": "process_termination_inspection_failed"})
+                return
+            target["process_identities"] = identities
+            target["process_identities_sha256"] = hashlib.sha256(
+                json.dumps(identities, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            ).hexdigest()
         else:
             server = getattr(handler, "server", None)
             try:
@@ -124,7 +135,7 @@ def handle_execute(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> N
             target=target,
             arguments={"argv": argv},
             scope="system" if target_kind == "terminate" else "workspace",
-            world_state_authority=manager,
+        world_state_authority=manager,
         )
     except ExecutionRequestError as exc:
         send_json(handler, 400, {"ok": False, "error": str(exc), "code": exc.code})

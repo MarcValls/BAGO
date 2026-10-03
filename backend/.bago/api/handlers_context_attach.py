@@ -50,7 +50,7 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
             },
             arguments={"paths": paths},
             scope="workspace",
-            world_state_authority=manager,
+        world_state_authority=manager,
         )
         boundary = AuthorizationBoundary()
         action = str(payload.get("authorization_action") or "").strip().lower()

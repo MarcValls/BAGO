@@ -534,7 +534,7 @@ def main(argv: list[str] | None = None) -> int:
             },
             arguments={"content": html},
             scope="workspace",
-            world_state_authority=root,
+        world_state_authority=root,
         )
         try:
             result, _authorization = execute_cli_effect(
@@ -543,7 +543,7 @@ def main(argv: list[str] | None = None) -> int:
                     f"Generar informe Process Monitor en {out_path} "
                     f"({len(html.encode('utf-8'))} bytes, sha256 {content_sha256})"
                 ),
-                world_state_authority=root,
+                manager=root,
             )
         except Exception as exc:
             print(f"[BAGO Monitor] Generación bloqueada: {exc}", file=sys.stderr)

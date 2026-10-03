@@ -218,7 +218,8 @@ class CredentialManager:
             raise RuntimeError("No hay configuración autoritativa del proveedor.")
         from bago_core.secrets import get_secret_store, secret_state_digest
         normalized_key = "api_key" if (provider, key) in _PROVIDER_API_KEY_ALIASES else key
-        secret_digest = secret_state_digest(get_secret_store(), f"providers/{provider}/{normalized_key}")
+        secret_store = get_secret_store()
+        secret_digest = secret_state_digest(secret_store, f"providers/{provider}/{normalized_key}")
         request = build_execution_request(
             effect_id="credential.write", actor_kind="user",
             principal_id="interactive-local-user",
@@ -233,7 +234,7 @@ class CredentialManager:
             },
             arguments={"value": value} if operation == "set" else {},
             scope="persistent",
-            world_state_authority=manager,
+        world_state_authority=manager,
         )
         result, _authorization = execute_cli_effect(
             request,

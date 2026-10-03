@@ -1,10 +1,11 @@
 # WorldStateSnapshot production request inventory
 
 Effect registry: `bago.effect-registry.v1` `1.24.0` SHA-256 `309702e4871ff90ca527e9d2ae7f8bcfa669a91a8a79c0dcd2cfbbe49f8ff119`.
-Scope: direct `build_execution_request` calls in `backend/.bago/`, `backend/bago_core/`, and `backend/scripts/`.
-Callsites: 57; mutating or dynamic-effect calls without a usable `world_state_authority` input: 0.
+Scope: direct `build_execution_request` calls in `backend/.bago/` and `backend/bago_core/`.
+Callsites: 58; mutating or dynamic-effect calls without a usable `world_state_authority` input: 0.
 Gateway: mutating requests reject unspecified state and revalidate their authority-bound snapshot before Permit consumption and immediately before adapter dispatch.
 Strong effects: every registered mutating E5/E6 adapter must expose `revalidate_world_state`; missing hooks fail Gateway registry construction and unadapted effects remain denied.
+Process termination: `cleanup_zombies` binds PID, executable, command line, and creation time into the Permit target; the Gateway re-enumerates candidates before consumption/dispatch and the Windows terminator rechecks exact identities before acting.
 
 | File | Line | Function | Effect | Mutates | Risk | Snapshot authority value |
 |---|---:|---|---|---:|---|---|
@@ -17,13 +18,13 @@ Strong effects: every registered mutating E5/E6 adapter must expose `revalidate_
 | backend/.bago/api/handlers_install.py | 40 | handle_apply | system.install.apply | True | E5 | manager |
 | backend/.bago/api/handlers_install.py | 118 | handle_source_update | system.source.update | True | E5 | manager |
 | backend/.bago/api/handlers_install.py | 187 | handle_uninstall | system.install.uninstall | True | E5 | manager |
-| backend/.bago/api/handlers_install.py | 263 | handle_rollback | system.install.rollback | True | E5 | manager |
+| backend/.bago/api/handlers_install.py | 267 | handle_rollback | system.install.rollback | True | E5 | manager |
 | backend/.bago/api/handlers_jobs.py | 348 | _plan_execution_request | plan.execute | True | E3 | mgr |
 | backend/.bago/api/handlers_manager_settings.py | 34 | handle_write | manager.settings.write | True | E4 | manager |
-| backend/.bago/api/handlers_process.py | 118 | handle_execute | <dynamic> | dynamic | dynamic | manager |
+| backend/.bago/api/handlers_process.py | 129 | handle_execute | <dynamic> | dynamic | dynamic | manager |
 | backend/.bago/api/handlers_project.py | 223 | handle_project_sync | workspace.mirror.sync | True | E3 | mgr |
 | backend/.bago/api/handlers_project.py | 317 | _handle_project_write | project.write | True | E3 | mgr |
-| backend/.bago/api/handlers_providers.py | 219 | handle_configure | credential.write | True | E5 | mgr |
+| backend/.bago/api/handlers_providers.py | 220 | handle_configure | credential.write | True | E5 | mgr |
 | backend/.bago/api/handlers_release.py | 45 | handle_apply | system.update.apply | True | E5 | mgr |
 | backend/.bago/api/handlers_release_jobs.py | 14 | _dispatch | <dynamic> | dynamic | dynamic | manager |
 | backend/.bago/api/handlers_release_jobs.py | 220 | handle_archive_job | release.job.archive | True | E3 | manager |
@@ -33,12 +34,13 @@ Strong effects: every registered mutating E5/E6 adapter must expose `revalidate_
 | backend/.bago/api/handlers_workspace.py | 177 | handle_persist | workspace.bind | True | E3 | mgr |
 | backend/.bago/bin/bago.py | 105 | _execute_verify_command | process.execute | True | E4 | manager |
 | backend/.bago/chat/project_commands.py | 40 | build_project_write_request | project.write | True | E3 | mgr |
-| backend/.bago/core/authorization_boundary.py | 99 | build_operation | capability.execute | True | E3 | world_state_authority |
+| backend/.bago/core/authorization_boundary.py | 106 | build_operation | capability.execute | True | E3 | world_state_authority |
 | backend/.bago/core/autonomous_loop.py | 169 | _atomic_write | state.write | True | E2 | root |
 | backend/.bago/core/autonomous_loop.py | 217 | _run_tool | <dynamic> | dynamic | dynamic | _BAGO_ROOT |
-| backend/.bago/core/credential_manager.py | 222 | _execute_secret_write | credential.write | True | E5 | manager |
+| backend/.bago/core/credential_manager.py | 223 | _execute_secret_write | credential.write | True | E5 | manager |
 | backend/.bago/core/database_write_request.py | 56 | build_memory_database_request | database.write | True | E3 | manager |
-| backend/.bago/core/governed_work_pipeline.py | 646 | _executor | <dynamic> | dynamic | dynamic | context.manager |
+| backend/.bago/core/governed_work_pipeline.py | 774 | _executor | <dynamic> | dynamic | dynamic | context.manager |
+| backend/.bago/core/msix_bootstrap.py | 81 | install_from_package | system.install.apply | True | E5 | _SESSION_MANAGER |
 | backend/.bago/core/project_patch_operations.py | 39 | build_apply_request | project.write | True | E3 | manager |
 | backend/.bago/core/project_patch_operations.py | 55 | build_rollback_request | project.write | True | E3 | manager |
 | backend/.bago/core/session_manager.py | 317 | _prepare_session_mirror | workspace.mirror.prepare | True | E2 | self |
@@ -62,9 +64,9 @@ Strong effects: every registered mutating E5/E6 adapter must expose `revalidate_
 | backend/bago_core/server_effects.py | 277 | stage_validation_workspace | workspace.validation.stage | True | E2 | root |
 | backend/bago_core/server_effects.py | 300 | cleanup_validation_workspace | workspace.validation.stage | True | E2 | root |
 | backend/bago_core/server_effects.py | 341 | gateway_urlopen | network.read | False | E1 | Path.cwd() |
-| backend/bago_core/server_effects.py | 379 | download_release_bundle | release.download | True | E2 | download_root |
-| backend/bago_core/server_effects.py | 420 | inspect_process | process.inspect | False | E1 | manager |
-| backend/scripts/run_clean_install_gateway.py | 123 | main | system.install.apply | True | E5 | runner_temp |
+| backend/bago_core/server_effects.py | 383 | download_release_bundle | release.download | True | E2 | download_root |
+| backend/bago_core/server_effects.py | 424 | inspect_process | process.inspect | False | E1 | manager |
+| backend/bago_core/server_effects.py | 453 | inspect_process_identities | process.inspect | False | E1 | manager |
 
 Unbound callsites:
 - None.

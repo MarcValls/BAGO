@@ -7,6 +7,7 @@ import sys
 from types import SimpleNamespace
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -302,7 +303,10 @@ def test_process_execute_runs_only_a_digest_bound_bago_module(tmp_path, monkeypa
     workspace.mkdir()
     digest = hashlib.sha256(module_file.read_bytes()).hexdigest()
     boundary = auth.AuthorizationBoundary()
-    manager = type("Manager", (), {"session_id": "session-module", "base_path": str(workspace), "framework_root": str(framework)})()
+    manager = type("Manager", (), {
+        "session_id": "session-module", "base_path": str(workspace),
+        "framework_root": str(framework),
+    })()
     request = build_execution_request(
         effect_id="process.execute",
         actor_kind="user",
@@ -342,7 +346,10 @@ def test_process_execute_module_digest_drift_blocks_before_spawn(tmp_path, monke
     workspace.mkdir()
     digest = hashlib.sha256(module_file.read_bytes()).hexdigest()
     boundary = auth.AuthorizationBoundary()
-    manager = type("Manager", (), {"session_id": "session-module-drift", "base_path": str(workspace), "framework_root": str(framework)})()
+    manager = type("Manager", (), {
+        "session_id": "session-module-drift", "base_path": str(workspace),
+        "framework_root": str(framework),
+    })()
     request = build_execution_request(
         effect_id="process.execute", actor_kind="user",
         principal_id="interactive-local-user", session_id="session-module-drift",
@@ -688,7 +695,7 @@ def test_project_operation_allows_authorized_root_switch(tmp_path, monkeypatch) 
         target={"path": str(target), "allowed_root": str(trusted_root),
                 "resource": "project_operation", "operation": "init",
                 "root_digest": target_digest}, arguments={}, scope="workspace",
-                world_state_authority=manager,
+        world_state_authority=manager,
     )
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     boundary = auth.AuthorizationBoundary()
@@ -712,7 +719,7 @@ def test_project_operation_rejects_tampered_authorized_target(tmp_path, monkeypa
         session_id=manager.session_id, source_surface="test.project.root",
         target={"path": str(target), "allowed_root": str(trusted_root), "resource": "project_operation",
                 "operation": "init", "root_digest": target_digest}, arguments={}, scope="workspace",
-                world_state_authority=manager,
+        world_state_authority=manager,
     )
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     boundary = auth.AuthorizationBoundary()
@@ -756,7 +763,7 @@ def test_project_root_switch_rejects_post_authorization_tampering_without_mutati
         session_id=manager.session_id, source_surface="test.project.root-switch",
         target={"path": str(target), "allowed_root": str(trusted_root), "resource": "project_operation",
                 "operation": "init", "root_digest": target_digest}, arguments={}, scope="workspace",
-                world_state_authority=manager,
+        world_state_authority=manager,
     )
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "authorization")
     boundary = auth.AuthorizationBoundary()
@@ -835,6 +842,11 @@ def _consumed_authorization() -> dict:
 
 
 def _credential_request(*, operation: str, configuration_digest: str, configuration_patch: dict, provider: str = "openrouter"):
+    from bago_core.secrets import secret_state_digest
+    import secret_store as secret_store_module
+
+    secret_store = secret_store_module.get_secret_store()
+    secret_digest = secret_state_digest(secret_store, f"providers/{provider}/api_key")
     manager = SimpleNamespace(session_id="credential-session")
     return build_execution_request(
         effect_id="credential.write",
@@ -849,6 +861,7 @@ def _credential_request(*, operation: str, configuration_digest: str, configurat
             "key": "api_key",
             "configuration_digest": configuration_digest,
             "configuration_patch": configuration_patch,
+            "secret_state_sha256": secret_digest,
         },
         arguments={"value": "fresh-secret"} if operation == "set" else {},
         scope="persistent",
@@ -909,6 +922,33 @@ def test_credential_adapter_rejects_drifted_configuration_before_secret_store_ac
 
     assert blocked.value.code == "credential_write_configuration_changed"
     assert not (tmp_path / "user" / "secrets").exists()
+
+
+def test_gateway_revalidates_credential_secret_state_before_permit_consumption(monkeypatch, tmp_path) -> None:
+    import secret_store as secret_store_module
+    from execution_adapters.credentials import CredentialWriteEffectAdapter
+
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path / "user"))
+    monkeypatch.setattr(secret_store_module, "_is_windows", lambda: False)
+    store = secret_store_module.get_secret_store()
+    secret_path = store.path_for_key("providers/openrouter/api_key")
+    secret_path.parent.mkdir(parents=True, exist_ok=True)
+    secret_path.write_bytes(b"ciphertext-before-approval")
+    manager = type("Manager", (), {"session_id": "credential-session"})()
+    manager.config = _FakeProviderConfig({"openrouter": {"enabled": True}})
+    request = _credential_request(
+        operation="delete",
+        configuration_digest="approved-config",
+        configuration_patch={},
+    )
+    secret_path.write_bytes(b"ciphertext-changed-after-approval")
+
+    with pytest.raises(Exception) as blocked:
+        ExecutionGateway._validate_world_state(
+            request, ExecutionContext(manager=manager), CredentialWriteEffectAdapter(),
+        )
+
+    assert blocked.value.code == "credential_write_secret_state_changed"
 
 
 def test_credential_adapter_rejects_drifted_configuration_before_secret_store_access_delete(monkeypatch, tmp_path) -> None:

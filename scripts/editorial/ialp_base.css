@@ -1,0 +1,62 @@
+@page {
+  size: A4;
+  margin: 18mm 17mm 19mm 18mm;
+  @top-left { content: "BAGO · ARQUITECTURA DE CONTEXTO"; font-size: 7pt; letter-spacing: .12em; color: #777; }
+  @top-right { content: string(chapter); font-size: 7pt; color: #777; }
+  @bottom-left { content: "BAGO · INFORME EDITORIAL"; font-size: 7pt; color: #999; }
+  @bottom-right { content: "Página " counter(page) " de " counter(pages); font-size: 7pt; color: #999; }
+}
+@page cover { margin: 0; @top-left {content:none} @top-right {content:none} @bottom-left {content:none} @bottom-right {content:none} }
+@page toc { @top-right {content:"Índice"} }
+:root {
+  --navy:#0f2b40; --navy2:#173d57; --gold:#c9a64a; --ink:#1d2630; --muted:#65727d;
+  --paper:#fcfbf7; --line:#d7d9d9; --soft:#f3f5f5; --code:#f4f6f7;
+}
+* { box-sizing: border-box; }
+html { font-family: "Aptos", "Segoe UI", Arial, sans-serif; color:var(--ink); background:white; }
+body { margin:0; font-size:10.15pt; line-height:1.48; }
+main { hyphens:auto; }
+p { margin: 0 0 7.5pt; widows:3; orphans:3; }
+a { color: inherit; text-decoration:none; }
+h1,h2,h3 { color:var(--navy); break-after:avoid; page-break-after:avoid; }
+h1 { font-size:19pt; line-height:1.1; margin: 20pt 0 11pt; string-set:chapter content(); }
+h2 { font-size:14pt; line-height:1.18; margin:17pt 0 7pt; padding-bottom:4pt; border-bottom:1.2pt solid var(--gold); }
+h3 { font-size:11.5pt; line-height:1.2; margin:13pt 0 5pt; }
+h4 { font-size:10.3pt; margin:10pt 0 4pt; color:var(--navy2); }
+ul,ol { margin:5pt 0 8pt 18pt; padding:0; }
+li { margin:1.5pt 0; font-size:9.4pt; line-height:1.34; break-inside:avoid; }
+blockquote { margin:10pt 0; padding:8pt 11pt; background:var(--soft); border-left:3pt solid var(--gold); color:#34414b; }
+pre,code { font-family:"Cascadia Mono","Consolas",monospace; }
+code { font-size:.9em; background:var(--code); padding:.08em .25em; border-radius:2px; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:8.4pt; line-height:1.35; background:var(--code); padding:8pt; border:1px solid #dfe4e6; border-radius:3px; break-inside:avoid; }
+.math-block { margin:9pt 0 11pt; border-left:3pt solid var(--gold); background:#f7f8f8; padding:7pt 9pt; break-inside:avoid; }
+.math-block pre { border:0; background:transparent; padding:0; margin:0; font-size:9pt; text-align:center; }
+table { width:100%; border-collapse:collapse; margin:8pt 0 12pt; font-size:8.6pt; break-inside:auto; }
+thead { display:table-header-group; }
+tr { break-inside:avoid; }
+th { background:var(--navy); color:white; font-weight:600; text-align:left; padding:5.2pt 5.5pt; border:1px solid var(--navy); }
+td { padding:4.6pt 5.5pt; border:1px solid #cfd5d8; vertical-align:top; }
+tr:nth-child(even) td { background:#f7f8f8; }
+img { max-width:100%; height:auto; display:block; margin:10pt auto; break-inside:avoid; }
+.page-break { break-before:page; page-break-before:always; height:0; }
+.cover { page:cover; width:210mm; height:297mm; position:relative; overflow:hidden; background:linear-gradient(132deg,var(--navy) 0%,var(--navy2) 64.5%,var(--paper) 64.7%,var(--paper) 100%); color:white; padding:0; }
+.cover::before { content:none; }
+.cover .eyebrow,.cover .vol,.cover h1,.cover .subtitle,.cover .rule,.cover .author { position:relative; margin-left:28mm; width:116mm; z-index:2; }
+.cover .eyebrow { padding-top:30mm; font-size:7pt; letter-spacing:.24em; text-transform:uppercase; color:#d8e2e8; }
+.cover .vol { margin-top:37mm; color:var(--gold); font-size:18pt; font-weight:700; letter-spacing:.02em; }
+.cover h1 { color:white; border:0; margin-top:7mm; font-size:25pt; line-height:1.06; max-width:116mm; }
+.cover .subtitle { margin-top:7mm; color:#dbe3e8; font-size:10pt; line-height:1.4; }
+.cover .rule { margin-top:12mm; width:28mm; border-top:2pt solid var(--gold); }
+.cover .author { position:absolute; left:0; bottom:20mm; color:#6d7378; font-size:7.5pt; margin-left:170mm; width:28mm; text-align:right; }
+.toc { page:toc; }
+.toc h1 { margin-top:2mm; border-bottom:2pt solid var(--gold); padding-bottom:5pt; }
+.toc div { line-height:1.3; margin:3.2pt 0; }
+.toc a { display:flex; align-items:baseline; gap:4pt; width:100%; }
+.toc-title { flex:0 1 auto; }
+.toc-leader { flex:1 1 auto; min-width:8mm; border-bottom:1px dotted #aab1b4; transform:translateY(-2pt); }
+.toc-page { flex:0 0 18pt; text-align:right; font-size:8.6pt; font-variant-numeric:tabular-nums; color:#55616a; }
+.toc-l1 { font-weight:650; margin-top:6pt!important; }
+.toc-l2 { padding-left:5mm; font-size:9pt; }
+.toc-l3 { padding-left:10mm; font-size:8.3pt; color:#4f5960; }
+hr { border:0; border-top:1px solid var(--line); margin:12pt 0; }
+strong { color:#172d3b; }

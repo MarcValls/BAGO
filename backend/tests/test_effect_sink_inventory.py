@@ -376,6 +376,7 @@ def test_default_inventory_roots_include_runtime_entrypoints_and_release_scripts
     assert "ARRANCAR_BAGO.bat" in relative_roots
     assert "DETENER_BAGO.bat" in relative_roots
     assert "install-remote.ps1" in relative_roots
+    assert ".github/workflows" in relative_roots
     assert "manager/android" in relative_roots
     assert inventory._scope_for(inventory.REPO_ROOT / "backend/scripts/bago_supervisor.py") == inventory.SCOPE_RUNTIME_AUTHORITY
     assert inventory._scope_for(inventory.REPO_ROOT / "backend/scripts/bago_supervisor.pyw") == inventory.SCOPE_RUNTIME_AUTHORITY
@@ -389,6 +390,57 @@ def test_default_inventory_roots_include_runtime_entrypoints_and_release_scripts
     assert inventory._scope_for(inventory.REPO_ROOT / "releases" / "bago-installer.nsi") == inventory.SCOPE_RUNTIME_AUTHORITY
     assert inventory._scope_for(inventory.REPO_ROOT / "frontend" / "src" / "api" / "client.ts") == inventory.SCOPE_RUNTIME_CLIENT_TRANSPORT
     assert inventory._scope_for(inventory.REPO_ROOT / "frontend" / "capture_screenshots.mjs") == inventory.SCOPE_BUILD_RELEASE_ADMIN
+
+
+def test_github_workflow_scanner_finds_powerShell_run_block_and_inline_effects(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(inventory, "REPO_ROOT", tmp_path)
+    workflow = tmp_path / ".github" / "workflows" / "workflow.yml"
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(
+        "name: scanner fixture\n"
+        "jobs:\n"
+        "  check:\n"
+        "    runs-on: windows-latest\n"
+        "    steps:\n"
+        "      - shell: pwsh\n"
+        "        run: |\n"
+        "          $proc = Start-Process app.exe\n"
+        "          if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }\n"
+        "          Remove-Item Env:BAGO_TEST -ErrorAction SilentlyContinue\n"
+        "      - shell: pwsh\n"
+        "        run: 'Stop-Process -Id 123 -Force'\n",
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([workflow])
+
+    assert [(item.line, item.effect_id, item.scope) for item in findings] == [
+        (8, "process.execute", inventory.SCOPE_BUILD_RELEASE_ADMIN),
+        (9, "process.terminate", inventory.SCOPE_BUILD_RELEASE_ADMIN),
+        (10, "filesystem.delete", inventory.SCOPE_BUILD_RELEASE_ADMIN),
+        (12, "process.terminate", inventory.SCOPE_BUILD_RELEASE_ADMIN),
+    ]
+
+
+def test_ci_powershell_terminations_are_inventoried_as_nonruntime() -> None:
+    workflows = [
+        inventory.REPO_ROOT / ".github" / "workflows" / "build-release-installer.yml",
+        inventory.REPO_ROOT / ".github" / "workflows" / "canonical-ci.yml",
+    ]
+
+    findings = inventory.scan_paths(workflows)
+    terminations = {
+        (item.path, item.line, item.binding_class, item.scope)
+        for item in findings
+        if item.effect_id == "process.terminate"
+    }
+
+    assert terminations == {
+        (".github/workflows/canonical-ci.yml", 142, "nonruntime_effect", inventory.SCOPE_BUILD_RELEASE_ADMIN),
+    }
 
 
 def test_powershell_scanner_detects_registry_environment_and_dotnet_file_writes(tmp_path: Path) -> None:
@@ -409,6 +461,75 @@ def test_powershell_scanner_detects_registry_environment_and_dotnet_file_writes(
         (3, "system.configuration.write"),
         (4, "filesystem.write"),
     }
+
+
+def test_powershell_scanner_tracks_registry_targets_and_ignores_embedded_commands(tmp_path: Path) -> None:
+    script = tmp_path / "registry-and-help.ps1"
+    script.write_text(
+        '$regPath = "HKCU:\\Software\\BAGO"\n'
+        "New-Item -Path $regPath -Force | Out-Null\n"
+        'Set-ItemProperty -Path $regPath -Name "UninstallString" -Value "Remove-Item $target"\n'
+        'Write-Host "Remove-Item $target"\n'
+        "# Stop-Process -Id 123\n"
+        "Stop-Process -Id 123 -Force\n"
+        "taskkill /F /PID 123 /T\n"
+        'Write-Host "$(Stop-Process -Id 456)"\n',
+        encoding="utf-8",
+    )
+
+    findings = inventory.scan_paths([script])
+
+    assert [(item.line, item.effect_id) for item in findings] == [
+        (2, "system.configuration.write"),
+        (3, "system.configuration.write"),
+        (6, "process.terminate"),
+        (7, "process.terminate"),
+        (8, "process.terminate"),
+    ]
+
+
+def test_reachable_powershell_termination_calls_are_discovered_with_correct_scope() -> None:
+    paths = [
+        inventory.REPO_ROOT / "scripts" / "dev.ps1",
+        inventory.REPO_ROOT / "backend" / "scripts" / "runtime-service.ps1",
+        inventory.REPO_ROOT / "releases" / "install-embedded-payload.ps1",
+        inventory.REPO_ROOT / "releases" / "Uninstall-BAGO.ps1",
+        inventory.REPO_ROOT / "backend" / ".bago" / "api" / "apply_release_update.ps1",
+    ]
+
+    findings = inventory.scan_paths(paths)
+    terminations = {
+        (item.path, item.line, item.binding_class, item.scope)
+        for item in findings
+        if item.effect_id == "process.terminate"
+    }
+
+    assert terminations == {
+        ("scripts/dev.ps1", 75, "runtime_unbound", inventory.SCOPE_RUNTIME_AUTHORITY),
+        ("scripts/dev.ps1", 87, "runtime_unbound", inventory.SCOPE_RUNTIME_AUTHORITY),
+        ("scripts/dev.ps1", 193, "runtime_unbound", inventory.SCOPE_RUNTIME_AUTHORITY),
+        ("backend/scripts/runtime-service.ps1", 65, "runtime_unbound", inventory.SCOPE_RUNTIME_AUTHORITY),
+        ("backend/scripts/runtime-service.ps1", 91, "runtime_unbound", inventory.SCOPE_RUNTIME_AUTHORITY),
+        ("backend/scripts/runtime-service.ps1", 99, "runtime_unbound", inventory.SCOPE_RUNTIME_AUTHORITY),
+        ("releases/install-embedded-payload.ps1", 51, "runtime_unbound", inventory.SCOPE_RUNTIME_AUTHORITY),
+        ("releases/Uninstall-BAGO.ps1", 22, "runtime_unbound", inventory.SCOPE_RUNTIME_AUTHORITY),
+        ("backend/.bago/api/apply_release_update.ps1", 233, "gateway_adapter", inventory.SCOPE_RUNTIME_AUTHORITY),
+        ("backend/.bago/api/apply_release_update.ps1", 237, "gateway_adapter", inventory.SCOPE_RUNTIME_AUTHORITY),
+    }
+
+
+def test_legacy_installer_registry_writes_are_not_misclassified_as_filesystem_effects() -> None:
+    installer = inventory.REPO_ROOT / "releases" / "Install-BAGO.ps1"
+
+    findings = inventory.scan_paths([installer])
+    line_effects: dict[int, set[str]] = {}
+    for item in findings:
+        line_effects.setdefault(item.line, set()).add(item.effect_id)
+
+    assert line_effects[165] == {"system.configuration.write"}
+    assert line_effects[170] == {"system.configuration.write"}
+    assert line_effects[173] == {"system.configuration.write"}
+    assert 187 not in line_effects
 
 
 def test_install_v4_inventory_retains_effects_under_ticket_bound_gateway_owner() -> None:
@@ -580,7 +701,16 @@ def test_evidence_bundle_private_materializer_has_one_gateway_caller() -> None:
         except (OSError, SyntaxError):
             continue
         for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "_materialize_bundle":
+            if not isinstance(node, ast.Call):
+                continue
+            if isinstance(node.func, ast.Name) and node.func.id == "_materialize_bundle":
+                callsites.append(source_path.resolve())
+            elif (
+                isinstance(node.func, ast.Attribute)
+                and node.func.attr == "_materialize_bundle"
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "evidence_generator"
+            ):
                 callsites.append(source_path.resolve())
     expected = (backend / ".bago" / "core" / "execution_adapters" / "evidence_bundle.py").resolve()
     assert set(callsites) == {expected}
@@ -715,7 +845,7 @@ def test_process_execution_sink_is_owned_by_registered_gateway_adapter() -> None
     adapter = inventory.REPO_ROOT / "backend" / ".bago" / "core" / "execution_adapters" / "process.py"
     findings = inventory.scan_python(adapter)
 
-    assert len(findings) == 4
+    assert len(findings) == 5
     assert {finding.effect_id for finding in findings} == {"process.execute"}
     assert {finding.sink for finding in findings} == {"subprocess.run", "subprocess.Popen"}
     assert all(finding.binding == "gateway_owned" for finding in findings)

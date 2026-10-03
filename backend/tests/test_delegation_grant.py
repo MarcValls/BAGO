@@ -28,6 +28,11 @@ def _bind_dynamic_p4_modules(monkeypatch):
     monkeypatch.setitem(sys.modules, "execution_gateway", eg)
 
 
+@pytest.fixture(autouse=True)
+def _confirm_headless_strong_challenges(monkeypatch):
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
+
+
 class _RecordingAdapter:
     effect_ids = frozenset({"filesystem.write"})
 

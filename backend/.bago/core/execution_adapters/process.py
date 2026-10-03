@@ -16,6 +16,7 @@ from typing import Any
 from execution_adapter_contract import ExecutionContext, ExecutionGatewayError
 from execution_request import ExecutionRequest
 from execution_claims import process_working_directory
+from windows_execution import trusted_windows_powershell
 
 
 class ProcessExecutionEffectAdapter:
@@ -33,14 +34,114 @@ class ProcessExecutionEffectAdapter:
             raise ExecutionGatewayError("Process termination requires the active SessionManager", code="execution_context_session_mismatch")
         target = request.target if isinstance(request.target, dict) else {}
         operation = str(target.get("operation") or "")
-        if operation not in {"stop_webchat", "cleanup_zombies"}:
-            raise ExecutionGatewayError("Process termination target is invalid", code="process_termination_target_invalid")
+        if operation == "stop_webchat":
+            root = Path(str(getattr(manager, "framework_root", "") or "")).expanduser().resolve(strict=True)
+            launcher = Path(str(sys.argv[0])).resolve(strict=True)
+            argv_port = int(sys.argv[sys.argv.index("--port") + 1]) if "--port" in sys.argv else 0
+            if (str(target.get("python_root") or "") != str(root) or int(target.get("process_id", 0)) != os.getpid()
+                    or not 1 <= int(target.get("port", 0)) <= 65535 or argv_port != int(target.get("port", 0))
+                    or "serve" not in sys.argv or launcher.name.lower() != "launcher.py"):
+                raise ExecutionGatewayError("Termination target is not the active BAGO webchat server", code="process_termination_target_invalid")
+            try:
+                launcher.relative_to(root)
+            except ValueError as exc:
+                raise ExecutionGatewayError("Webchat launcher is outside the trusted runtime", code="process_termination_identity_invalid") from exc
+            return
+        if operation == "cleanup_zombies":
+            ProcessExecutionEffectAdapter._validate_cleanup_snapshot(request, context)
+            return
+        if os.name != "nt":
+            raise ExecutionGatewayError("Process termination target is invalid or unsupported", code="process_termination_target_invalid")
         framework_root = str(getattr(manager, "framework_root", "") or "")
         state_root = str(getattr(manager, "state_root", "") or "")
-        if operation == "cleanup_zombies":
-            expected_roots = sorted({str(Path(framework_root).expanduser().resolve()) if framework_root else "", str(Path(state_root).expanduser().resolve()) if state_root else ""})
-            if not framework_root or not state_root or sorted(set(str(item) for item in target.get("cleanup_roots", []))) != expected_roots:
-                raise ExecutionGatewayError("Process cleanup target is not the active trusted runtime and state roots", code="process_termination_target_invalid")
+        expected_roots = sorted({str(Path(framework_root).expanduser().resolve()) if framework_root else "", str(Path(state_root).expanduser().resolve()) if state_root else ""})
+        if not framework_root or not state_root or sorted(set(str(item) for item in target.get("cleanup_roots", []))) != expected_roots:
+            raise ExecutionGatewayError("Process cleanup target is not the active trusted runtime and state roots", code="process_termination_target_invalid")
+
+    @staticmethod
+    def _cleanup_roots(manager: Any) -> list[str]:
+        framework_root = str(getattr(manager, "framework_root", "") or "").strip()
+        state_root = str(getattr(manager, "state_root", "") or "").strip()
+        roots = sorted({str(Path(framework_root).expanduser().resolve()) if framework_root else "", str(Path(state_root).expanduser().resolve()) if state_root else ""})
+        if not all(roots):
+            raise ExecutionGatewayError("Process cleanup requires trusted framework and state roots", code="process_termination_target_invalid")
+        return roots
+
+    @staticmethod
+    def _query_cleanup_processes(manager: Any) -> list[dict[str, Any]]:
+        if os.name != "nt":
+            raise ExecutionGatewayError("Zombie process cleanup is supported only on Windows", code="process_termination_platform_unsupported")
+        roots = ProcessExecutionEffectAdapter._cleanup_roots(manager)
+        payload = base64.b64encode(json.dumps(roots, ensure_ascii=True).encode("utf-8")).decode("ascii")
+        script = f"""
+$ErrorActionPreference = 'Stop'
+$roots = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{payload}')) | ConvertFrom-Json
+$backendPid = {int(os.getpid())}
+$rows = @(Get-CimInstance Win32_Process -Filter \"Name='python.exe' OR Name='pythonw.exe'\" | ForEach-Object {{
+  $proc = $_
+  if ($proc.ProcessId -eq $backendPid -or -not $proc.CommandLine -or -not $proc.ExecutablePath -or -not $proc.CreationDate) {{ return }}
+  foreach ($root in $roots) {{
+    if ($proc.CommandLine.IndexOf([string]$root, [StringComparison]::OrdinalIgnoreCase) -ge 0) {{
+      [ordered]@{{ pid = [int]$proc.ProcessId; executable = [string]$proc.ExecutablePath; command_line = [string]$proc.CommandLine; created_at = ([datetime]$proc.CreationDate).ToUniversalTime().ToString('o') }}
+      break
+    }}
+  }}
+}} | Sort-Object pid)
+ConvertTo-Json -InputObject @($rows) -Depth 4 -Compress
+"""
+        try:
+            powershell = trusted_windows_powershell()
+            completed = subprocess.run(
+                [str(powershell), "-NoProfile", "-NonInteractive", "-Command", script],
+                cwd=str(Path(str(getattr(manager, "framework_root", ""))).resolve()),
+                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                text=True, encoding="utf-8", errors="replace", timeout=20, check=False, shell=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ExecutionGatewayError(f"Process identity inspection failed: {exc}", code="process_termination_inspection_failed") from exc
+        if completed.returncode != 0:
+            raise ExecutionGatewayError(f"Process identity inspection failed: {str(completed.stderr or '')[-2048:]}", code="process_termination_inspection_failed")
+        try:
+            raw = json.loads(str(completed.stdout or "[]"))
+        except json.JSONDecodeError as exc:
+            raise ExecutionGatewayError("Process identity inspection returned invalid JSON", code="process_termination_inspection_invalid") from exc
+        rows = raw if isinstance(raw, list) else [raw] if isinstance(raw, dict) else None
+        if rows is None or len(rows) > 128:
+            raise ExecutionGatewayError("Process identity snapshot is invalid or exceeds policy", code="process_termination_snapshot_invalid")
+        canonical: list[dict[str, Any]] = []
+        seen: set[int] = set()
+        for item in rows:
+            if not isinstance(item, dict):
+                raise ExecutionGatewayError("Process identity snapshot contains an invalid row", code="process_termination_snapshot_invalid")
+            try:
+                pid = int(item.get("pid", 0))
+            except (TypeError, ValueError) as exc:
+                raise ExecutionGatewayError("Process identity snapshot contains an invalid PID", code="process_termination_snapshot_invalid") from exc
+            executable = str(item.get("executable") or "")
+            command_line = str(item.get("command_line") or "")
+            created_at = str(item.get("created_at") or "")
+            if (pid <= 0 or pid in seen or not executable or Path(executable).name.casefold() not in {"python.exe", "pythonw.exe"}
+                    or not command_line or not created_at or not any(root.casefold() in command_line.casefold() for root in ProcessExecutionEffectAdapter._cleanup_roots(manager))):
+                raise ExecutionGatewayError("Process identity snapshot contains an out-of-scope process", code="process_termination_snapshot_invalid")
+            seen.add(pid)
+            canonical.append({"pid": pid, "executable": executable, "command_line": command_line, "created_at": created_at})
+        return sorted(canonical, key=lambda row: row["pid"])
+
+    @classmethod
+    def _validate_cleanup_snapshot(cls, request: ExecutionRequest, context: ExecutionContext) -> None:
+        if os.name != "nt":
+            raise ExecutionGatewayError("Zombie process cleanup is supported only on Windows", code="process_termination_platform_unsupported", pre_dispatch=True)
+        manager = context.manager
+        target = request.target if isinstance(request.target, dict) else {}
+        identities = target.get("process_identities")
+        digest = str(target.get("process_identities_sha256") or "")
+        if (target.get("operation") != "cleanup_zombies" or target.get("cleanup_roots") != cls._cleanup_roots(manager)
+                or not isinstance(identities, list) or len(identities) > 128
+                or hashlib.sha256(json.dumps(identities, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest() != digest):
+            raise ExecutionGatewayError("Cleanup Permit lacks a valid process identity snapshot", code="process_termination_identity_snapshot_required", pre_dispatch=True)
+        current = cls._query_cleanup_processes(manager)
+        if current != identities:
+            raise ExecutionGatewayError("Candidate process identities changed after authorization", code="process_termination_identity_snapshot_stale", pre_dispatch=True)
 
     @staticmethod
     def is_read_only_launcher_argv(argv: Any) -> bool:
@@ -211,6 +312,11 @@ class ProcessExecutionEffectAdapter:
                         (request.arguments if isinstance(request.arguments, dict) else {}).get("argv")
                     )
                 )
+                or (
+                    str((request.target or {}).get("operation") or "") == "process_identity_snapshot"
+                    and str((request.target or {}).get("executable") or "") == "process_identity_snapshot"
+                    and (request.arguments if isinstance(request.arguments, dict) else {}).get("argv") == []
+                )
             )
         )
         parent = context.services.get("_parent_request")
@@ -234,6 +340,10 @@ class ProcessExecutionEffectAdapter:
                 "Process execution requires an exact consumed Permit or verified plan child context",
                 code="process_execution_authorization_required",
             )
+
+        if request.effect_id == "process.inspect" and operation == "process_identity_snapshot":
+            identities = self._query_cleanup_processes(manager)
+            return {"ok": True, "executed": True, "effect_id": request.effect_id, "process_identities": identities}
 
         if request.effect_id == "process.terminate":
             if str((request.target if isinstance(request.target, dict) else {}).get("operation") or "") == "stop_webchat":
@@ -546,13 +656,13 @@ class ProcessExecutionEffectAdapter:
                 "Webchat process termination is supported only on Windows",
                 code="process_termination_platform_unsupported",
             )
-        system_root = str(os.environ.get("SystemRoot") or r"C:\Windows")
-        powershell = Path(system_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
-        if not powershell.is_file():
+        try:
+            powershell = trusted_windows_powershell()
+        except OSError as exc:
             raise ExecutionGatewayError(
-                "Trusted Windows PowerShell is unavailable",
+                f"Trusted Windows PowerShell is unavailable: {exc}",
                 code="process_termination_executor_unavailable",
-            )
+            ) from exc
         root_payload = base64.b64encode(str(root).encode("utf-8")).decode("ascii")
         script = f"""
 $ErrorActionPreference = 'Stop'
@@ -601,58 +711,59 @@ Stop-Process -Id $targetPid -Force
     def _terminate_zombies(request: ExecutionRequest, context: ExecutionContext, authorization: dict[str, Any]) -> dict[str, Any]:
         manager = context.manager
         target = request.target if isinstance(request.target, dict) else {}
-        framework_root = str(getattr(manager, "framework_root", "") or "").strip()
-        state_root = str(getattr(manager, "state_root", "") or "").strip()
-        expected_roots = sorted({
-            str(Path(framework_root).expanduser().resolve()) if framework_root else "",
-            str(Path(state_root).expanduser().resolve()) if state_root else "",
-        })
-        roots = target.get("cleanup_roots")
-        if (
-            target.get("operation") != "cleanup_zombies"
-            or not isinstance(roots, list)
-            or sorted(set(str(item) for item in roots)) != expected_roots
-            or not framework_root
-            or not state_root
-        ):
-            raise ExecutionGatewayError(
-                "Process cleanup target is not the active trusted runtime and state roots",
-                code="process_termination_target_invalid",
-            )
-        if os.name != "nt":
-            raise ExecutionGatewayError(
-                "Zombie process cleanup is supported only on Windows",
-                code="process_termination_platform_unsupported",
-            )
-        payload = base64.b64encode(
-            json.dumps(expected_roots, ensure_ascii=True).encode("utf-8")
-        ).decode("ascii")
+        expected_roots = ProcessExecutionEffectAdapter._cleanup_roots(manager)
+        identities = target.get("process_identities")
+        ProcessExecutionEffectAdapter._validate_cleanup_snapshot(request, context)
+        if not identities:
+            return {
+                "ok": True, "executed": True, "effect_id": request.effect_id,
+                "cleaned": 0, "matched": [], "roots": expected_roots,
+                "receipt_id": f"process-terminate:{request.fingerprint}",
+                "authorization_decision_id": authorization.get("decision_id"),
+            }
+        payload = base64.b64encode(json.dumps(identities, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")).decode("ascii")
+        roots_payload = base64.b64encode(json.dumps(expected_roots, ensure_ascii=True).encode("utf-8")).decode("ascii")
         script = f"""
 $ErrorActionPreference = 'Stop'
-$roots = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{payload}')) | ConvertFrom-Json
+$expected = @([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{payload}')) | ConvertFrom-Json)
+$roots = @([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{roots_payload}')) | ConvertFrom-Json)
 $backendPid = {int(os.getpid())}
-$stopped = @()
-Get-CimInstance Win32_Process -Filter \"Name='python.exe' OR Name='pythonw.exe'\" | ForEach-Object {{
+$live = @(Get-CimInstance Win32_Process -Filter \"Name='python.exe' OR Name='pythonw.exe'\" | ForEach-Object {{
   $proc = $_
-  if ($proc.ProcessId -eq $backendPid -or -not $proc.CommandLine) {{ return }}
-  $matched = $false
+  if ($proc.ProcessId -eq $backendPid -or -not $proc.CommandLine -or -not $proc.ExecutablePath -or -not $proc.CreationDate) {{ return }}
   foreach ($root in $roots) {{
-    if ($proc.CommandLine.IndexOf([string]$root, [StringComparison]::OrdinalIgnoreCase) -ge 0) {{ $matched = $true; break }}
+    if ($proc.CommandLine.IndexOf([string]$root, [StringComparison]::OrdinalIgnoreCase) -ge 0) {{
+      [ordered]@{{ pid = [int]$proc.ProcessId; executable = [string]$proc.ExecutablePath; command_line = [string]$proc.CommandLine; created_at = ([datetime]$proc.CreationDate).ToUniversalTime().ToString('o') }}
+      break
+    }}
   }}
-  if ($matched) {{
-    Stop-Process -Id $proc.ProcessId -Force
-    $stopped += [ordered]@{{ pid = $proc.ProcessId; executable = $proc.ExecutablePath; command_line = $proc.CommandLine }}
-  }}
+}} | Sort-Object pid)
+if ($live.Count -ne $expected.Count) {{ exit 23 }}
+for ($i = 0; $i -lt $expected.Count; $i++) {{
+  if ([int]$live[$i].pid -ne [int]$expected[$i].pid -or
+      [string]$live[$i].executable -cne [string]$expected[$i].executable -or
+      [string]$live[$i].command_line -cne [string]$expected[$i].command_line -or
+      [string]$live[$i].created_at -cne [string]$expected[$i].created_at) {{ exit 23 }}
 }}
-[ordered]@{{ ok = $true; cleaned = $stopped.Count; matched = $stopped }} | ConvertTo-Json -Depth 4 -Compress
+$stopped = @()
+foreach ($identity in $expected) {{
+  $proc = Get-CimInstance Win32_Process -Filter ('ProcessId=' + [string]$identity.pid)
+  if (-not $proc -or [string]$proc.ExecutablePath -cne [string]$identity.executable -or
+      [string]$proc.CommandLine -cne [string]$identity.command_line -or
+      ([datetime]$proc.CreationDate).ToUniversalTime().ToString('o') -cne [string]$identity.created_at) {{ exit 23 }}
+  $result = Invoke-CimMethod -InputObject $proc -MethodName Terminate -Arguments @{{ Reason = [uint32]0 }}
+  if ([uint32]$result.ReturnValue -ne 0) {{ exit 24 }}
+  $stopped += [ordered]@{{ pid = [int]$identity.pid; executable = [string]$identity.executable; command_line = [string]$identity.command_line; created_at = [string]$identity.created_at }}
+}}
+[ordered]@{{ ok = $true; cleaned = $stopped.Count; matched = @($stopped) }} | ConvertTo-Json -Depth 4 -Compress
 """
-        system_root = str(os.environ.get("SystemRoot") or r"C:\Windows")
-        powershell = Path(system_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
-        if not powershell.is_file():
+        try:
+            powershell = trusted_windows_powershell()
+        except OSError as exc:
             raise ExecutionGatewayError(
-                "Trusted Windows PowerShell is unavailable",
+                f"Trusted Windows PowerShell is unavailable: {exc}",
                 code="process_termination_executor_unavailable",
-            )
+            ) from exc
         try:
             completed = subprocess.run(
                 [str(powershell), "-NoProfile", "-NonInteractive", "-Command", script],
@@ -673,6 +784,8 @@ Get-CimInstance Win32_Process -Filter \"Name='python.exe' OR Name='pythonw.exe'\
                 code="process_termination_failed",
             ) from exc
         if completed.returncode != 0:
+            if completed.returncode == 23:
+                raise ExecutionGatewayError("Candidate process identities changed before termination", code="process_termination_identity_snapshot_stale", pre_dispatch=True)
             raise ExecutionGatewayError(
                 f"Process cleanup failed: {str(completed.stderr or '')[-2048:]}",
                 code="process_termination_failed",

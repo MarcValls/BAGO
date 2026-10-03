@@ -35,8 +35,9 @@ def _setup(monkeypatch, tmp_path: Path):
     handler = SimpleNamespace(headers={"X-Bago-Channel": "desktop"})
     monkeypatch.setattr(api_state, "get_mgr", lambda _handler: manager)
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "bago-state")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     monkeypatch.setattr(serializers, "send_json", lambda _handler, status, payload: responses.append((status, payload)))
-    monkeypatch.setattr(adapter.shutil, "which", lambda _name: "powershell.exe")
+    monkeypatch.setattr(adapter, "trusted_windows_powershell", lambda: Path("powershell.exe"))
     def launch(command, **kwargs):
         ticket_path = Path(command[command.index("-AuthorizationTicketPath") + 1])
         ticket = json.loads(ticket_path.read_text(encoding="utf-8"))
@@ -64,6 +65,22 @@ def _setup(monkeypatch, tmp_path: Path):
         "interaction_id": "install-interaction",
     }
     return handler, manager, responses, launches, payload
+
+
+def test_desktop_header_alone_cannot_issue_install_permit(monkeypatch, tmp_path: Path) -> None:
+    handler, _manager, responses, launches, payload = _setup(monkeypatch, tmp_path)
+    auth = importlib.import_module("authorization_boundary")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: False)
+    MODULE.handle_apply(handler, {**payload, "authorization_action": "challenge"})
+    challenge = responses[-1][1]["authorization"]["challenge"]
+
+    MODULE.handle_apply(handler, {
+        **payload, "authorization_action": "approve",
+        "challenge_id": challenge["challenge_id"], "user_decision": "approve",
+    })
+    assert responses[-1][0] == 403
+    assert responses[-1][1]["code"] == "authorization_strong_confirmation_denied"
+    assert launches == []
 
 
 def test_install_challenge_is_secret_free_and_has_no_process_effect(monkeypatch, tmp_path: Path) -> None:
@@ -329,6 +346,41 @@ def test_manual_release_rollback_is_strong_permit_gateway_effect(monkeypatch, tm
     assert not backup.exists()
 
 
+def test_manual_release_rollback_rejects_target_drift_after_approval(monkeypatch, tmp_path: Path) -> None:
+    handler, _manager, responses, _launches, _payload = _setup(monkeypatch, tmp_path)
+    install_dir = tmp_path / "programs" / "BAGO"
+    install_dir.mkdir(parents=True)
+    current = install_dir / "current.txt"
+    current.write_text("approved runtime", encoding="utf-8")
+    backup = Path(f"{install_dir}.bago-rollback-permit-install456")
+    backup.mkdir()
+    (backup / "previous.txt").write_text("previous runtime", encoding="utf-8")
+    displaced = Path(f"{install_dir}.bago-replaced-job_456")
+    payload = {
+        "install_dir": str(install_dir), "backup_path": str(backup),
+        "displaced_path": str(displaced), "interaction_id": "rollback-drift-interaction",
+    }
+
+    MODULE.handle_rollback(handler, {**payload, "authorization_action": "challenge"})
+    challenge = responses[-1][1]["authorization"]["challenge"]
+    MODULE.handle_rollback(handler, {
+        **payload, "authorization_action": "approve",
+        "challenge_id": challenge["challenge_id"], "user_decision": "approve",
+    })
+    permit = responses[-1][1]["authorization"]["permit"]["token"]
+    current.write_text("changed after approval", encoding="utf-8")
+
+    MODULE.handle_rollback(handler, {
+        **payload, "authorization_action": "execute", "authorization_permit": permit,
+    })
+
+    assert responses[-1][0] == 409
+    assert responses[-1][1]["code"] == "authorization_world_state_stale"
+    assert current.read_text(encoding="utf-8") == "changed after approval"
+    assert (backup / "previous.txt").is_file()
+    assert not displaced.exists()
+
+
 def test_release_rollback_rejects_non_gateway_backup_before_effect(monkeypatch, tmp_path: Path) -> None:
     handler, _manager, responses, _launches, _payload = _setup(monkeypatch, tmp_path)
     install_dir = tmp_path / "programs" / "BAGO"
@@ -378,4 +430,6 @@ def test_install_helper_rejects_missing_authorization_before_self_elevation() ->
 
     output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode != 0
-    assert "requiere autorización de ExecutionGateway" in output
+    # PowerShell's Windows console code page varies across CI/local shells;
+    # assert the stable ASCII portion rather than a localized accent.
+    assert "ExecutionGateway antes de elevar privilegios" in output

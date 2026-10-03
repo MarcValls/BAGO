@@ -97,7 +97,7 @@ def _execute_repository_mutation(
             f"{operation} debt guard {resource} en {canonical}; "
             f"contenido sha256 {target.get('after_sha256', 'delete')}"
         ),
-        world_state_authority=canonical,
+        manager=root,
     )
     if not isinstance(result, dict) or result.get("ok") is not True:
         raise RuntimeError("Repository guard mutation returned no success receipt")
@@ -187,8 +187,8 @@ def _staged_python_files(root: Path) -> list[Path]:
         world_state_authority=canonical,
     )
     result, _authorization = execute_cli_effect(
-        request,
-        confirmation_text=f"leer los archivos staged para Debt Guard en {canonical}",
+        request, confirmation_text=f"leer los archivos staged para Debt Guard en {canonical}",
+        manager=canonical,
     )
     if not isinstance(result, dict) or result.get("ok") is not True:
         raise RuntimeError("Repository inspection returned no success receipt")

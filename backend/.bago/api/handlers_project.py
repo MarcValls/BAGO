@@ -228,7 +228,7 @@ def handle_project_sync(handler: "BaseHTTPRequestHandler", body: dict[str, Any])
                     "workspace_id": str(getattr(mgr, "workspace_id", "") or ""),
                     "resource": "workspace_mirror", "operation": "sync"},
             arguments={}, scope="workspace",
-            world_state_authority=mgr,
+        world_state_authority=mgr,
         )
         boundary = AuthorizationBoundary()
         payload = dict(body or {})
@@ -329,7 +329,7 @@ def _handle_project_write(
                 },
                 arguments={},
                 scope="workspace",
-                world_state_authority=mgr,
+        world_state_authority=mgr,
             )
         else:
             root_text = str(

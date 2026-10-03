@@ -1,0 +1,91 @@
+{
+  "goal_id": "CRIT-BOOTSTRAP-AUTHORITY-2026",
+  "status": "EXECUTED",
+  "baseline": {
+    "candidate_sha": "a21858780615440a775a7989970b8917fc0d6732",
+    "branch": "fix/spbe-runtime-fix1-20260927",
+    "worktree_was_dirty": true,
+    "pre_goal_fingerprint": "7c4a4ba6496458f0ca7e37e137bcdba841936cade1ad4a12bde9ea521e2b142c"
+  },
+  "implementation_authorized": true,
+  "selected_direction": "MSIX seed-only OS provisioning; all BAGO selected-target effects remain under existing canonical owners",
+  "acceptance": {
+    "canonical_boundary_and_gateway": "OPEN: NSIS and Electron bootstrap routes still bypass the selected boundary",
+    "signed_package_identity_and_clean_machine": "PARTIAL: exact package identity signed with ephemeral test publisher installed successfully after importing the cert into LocalMachine TrustedPeople. AppX activation created a package-identity process; host exited before Python initialization and no new canonical BAGO session was observed. Clean-machine and production signer remain OPEN.",
+    "permit_before_target_effect": "PARTIAL: rollback binds target/recovery tree digests to Permit; current NSIS route still has pre-Permit effects",
+    "helper_authentication_and_target_fencing": "PARTIAL: canonical install-target lease/fencing is exercised through the full Gateway across Windows processes for apply vs uninstall; rollback digests and OS-resolved inbox PowerShell are implemented; helper JSON authentication across elevation remains OPEN",
+    "rollback_uninstall_separation": "OPEN: distinct effects exist; clean-machine and replay/crash evidence remain outstanding",
+    "all_official_nsis_routes_replaced": "OPEN: official workflows still build and run NSIS",
+    "seed_lifecycle_boundary": "PREPARED: seed-only external OS provisioning boundary recorded in DECISIONS.md; package implementation absent",
+    "native_interaction_proof": "PARTIAL: server native confirmation implemented in worktree; package-bound interaction capability and live Windows proof remain OPEN",
+    "post_install_launch_owner": "OPEN: packaged Electron still starts the backend directly",
+    "strict_classification": "PASS: current scan 3115 findings, 0 unclassified, exit 0",
+    "strict_runtime": "FAIL/OPEN: current scan 296 runtime-unbound findings, exit 1",
+    "legacy_nsis_rebuild": "PASS: v4.11.1 rebuilt and signed with the exact published certificate; installer/uninstaller lifecycle not run",
+    "worktree_changes_integration_candidate": "PASS: backend/ worktree changes included byte-for-byte in a separately signed local candidate; not a release",
+    "protected_azure_signing_service": "FAIL/OPEN: HTTP 403; local signing with the same installed certificate succeeded",
+    "focused_install_tests": "PASS: 102 passed in 66.71s",
+    "independent_verification": "OPEN",
+    "current_worktree_focus_tests": "PASS: database.write/session/RAG/scanner focal suite 65 passed in 38.91s via bago verify on official fingerprint 5310bffb140285694d7f7c7688b1e53f4c4c4e899b85b93c86b83ab7a22d5d34; earlier install and Windows helper evidence remains listed below",
+    "current_habituation_trace": "PARTIAL: bootstrap scope traced; other global clusters remain untraced",
+    "worktree_candidate_identity": "REFRESHED after final-source MSIX build/deployment evidence and contract update: HEAD a21858780615440a775a7989970b8917fc0d6732, branch fix/spbe-runtime-fix1-20260927, official dirty fingerprint 3333bc7c0972513ebe35fe1df666cb609ce65b37e66454ac9d80e61f004ef559; supplementary untracked payload SHA-256 61f3b17a05c122d22c681b1b68f6234d3a9a76f8e68f660efd54d88d5539d703 over 61 files; goal remains EXECUTED/OPEN.",
+    "cross_process_gateway_target_fencing": "PASS: Windows multiprocessing test proves a second process with a system.install.uninstall Permit cannot enter its adapter while system.install.apply owns the same canonical target lease",
+    "msix_host_in_process": "EXECUTED: native WinForms host and Python.NET bridge added; canonical Boundary/Gateway/SessionManager imports pass in clean CPython embeddable 3.14.7; SessionManager mirror disabled. Host package intentionally exposes no install action until native interaction capability and authenticated elevated helper are closed.",
+    "msix_host_compilation": "PASS: self-contained win-x64 publish and 3 bridge tests pass. Runtime Package Integrity digest was corrected for OS-generated AppxMetadata/CodeIntegrity.cat. Local AppX install/activation reached packaged executable but hostpolicy.dll still failed from WindowsApps before authority startup.",
+    "current_msix_tests": "PASS: 3 pytest tests, dotnet publish, SignTool /pa, Add-AppxPackage/Add-Remove registration. Final test package identity BAGO.Bootstrap.Test_4.11.1.0_x64__n45qsze3n717y; ephemeral signer DE162FC62302DAF9D92415872EBF8ADB6FA2F9BD. Host Python/session NOT_VERIFIED."
+  },
+  "current_candidate": {
+    "head": "a21858780615440a775a7989970b8917fc0d6732",
+    "branch": "fix/spbe-runtime-fix1-20260927",
+    "worktree_dirty": true,
+    "worktree_fingerprint": "NOT_RECOMPUTED_AFTER_FINAL_LEDGER_EDITS",
+    "inventory": {
+      "total_sinks": 3115,
+      "unbound_sinks": 2751,
+      "runtime_unbound": 296,
+      "unclassified_scope": 0,
+      "unclassified_binding": 0,
+      "strict_classification_exit": 0,
+      "strict_runtime_exit": 1
+    },
+    "untracked_payload_sha256": "NOT_RECOMPUTED_AFTER_FINAL_LEDGER_EDITS",
+    "untracked_payload_count": 15,
+    "untracked_payload_excludes": [
+      ".goals/CRIT-BOOTSTRAP-AUTHORITY-2026/status.json",
+      "backend/.pytest-tmp-bago-final-20260929"
+    ],
+    "untracked_payload_file_count": 61,
+    "untracked_top_level_path_count": 96,
+    "untracked_payload_digest_method": "sha256(relative_path UTF-8 + NUL + file_sha256_bytes), sorted by relative path"
+  },
+  "executed_changes": [
+    "Created this goal contract/status to track P0 acceptance without overwriting the pre-existing dirty boundary.",
+    "Made the Windows PowerShell diagnostic assertion in backend/tests/test_system_install_gateway.py encoding-tolerant by matching its stable ASCII portion; the previous assertion failed on Windows output decoding, not on the pre-effect authorization behavior.",
+    "Rebuilt v4.11.1 from immutable tag 957f3ae50f5b40cd4b964dc69b67c8947bb5e6c5 in a temporary detached worktree; signed the packaged executable and NSIS setup using the exact certificate already used by the published v4.11.1 artifact.",
+    "Built a separate signed integration candidate from HEAD a21858780615440a775a7989970b8917fc0d6732 plus the captured backend/ worktree changes (fingerprint 1b693cbfadccd2defee1e2ebdd2f7d5b9f23b38ffbc63ddbbad0e44d2662af94); no commit, merge, or publication was performed."
+  ],
+  "evidence": [
+    "Focused install/auth/inventory tests: 102 passed in 66.71s after the assertion correction.",
+    "effect_sink_inventory.py --strict-classification: PASS; 4565 total findings, 0 unclassified.",
+    "effect_sink_inventory.py --strict-runtime: FAIL/OPEN; 296 runtime-unbound findings.",
+    "git diff --check: PASS with existing CRLF/LF warnings.",
+    "Rebuild output: %USERPROFILE%/Downloads/BAGO-rebuilt-v4.11.1; Authenticode evidence validates both BAGO.exe and setup.exe with thumbprint 11CCFC230C38B2886E15D3E122EAD40BC8BD5180 and RFC 3161 timestamp; installer SHA-256 BECF025EF5127540634BF9C2B5E324B8DBBCE7393E62BF722B1BD080B498A2A4.",
+    "Immutable-tag release checks passed locally: npm build, frontend typecheck, 44 frontend test files/174 tests, electron-viewer packaging, global payload validation, and NSIS 3.10 compilation.",
+    "Dirty-worktree integration candidate: 123 focused backend tests and 45 frontend test files/188 tests passed; NSIS 3.10 and payload validation passed; changed backend files and signed BAGO.exe were verified byte-for-byte in the distribution archive; both Authenticode signatures passed. Output is %USERPROFILE%/Downloads/BAGO-integration-candidate-a2185878-1b693cbf; receipt is build-receipt.json.",
+    "Integration candidate strict-runtime inventory remains FAIL/OPEN with 296 runtime-unbound findings; installer lifecycle and clean-machine tests remain OPEN.",
+    "Latest implementation verification: install rollback/claims/uninstall/Windows executor tests 35 passed, 1 skipped; py_compile passed for modified production and test modules; strict classification exit 0 (3115 findings, 0 unclassified), strict runtime exit 1 (296 runtime-unbound); git diff --check passed with existing line-ending warnings.",
+    "Candidate-bound BAGO gate after the cross-process regression: python .bago/bin/bago.py verify -- python -m pytest backend/tests/test_execution_claims.py backend/tests/test_system_install_gateway.py backend/tests/test_system_install_uninstall_gateway.py backend/tests/test_windows_execution.py -q --basetemp %TEMP%\\bago-bootstrap-gates-20260929 -> 36 passed, 1 skipped in 7.05s. py_compile passed. strict-classification exit 0 (3115 findings, 0 unclassified); strict-runtime exit 1 (296 runtime-unbound); git diff --check passed with CRLF/LF warnings.",
+    "Database-write/session closure on final map candidate: HEAD a21858780615440a775a7989970b8917fc0d6732, branch fix/spbe-runtime-fix1-20260927, official BAGO dirty worktree fingerprint 5310bffb140285694d7f7c7688b1e53f4c4c4e899b85b93c86b83ab7a22d5d34. `bago verify` focused suite: 65 passed in 38.91s. `effect_sink_inventory.py --strict-classification`: PASS, 3115 findings, 0 unclassified; `--strict-runtime`: FAIL/OPEN, exit 1, 296 runtime-unbound. Mind-map projection check and JSON parse PASS; `git diff --check` PASS with existing CRLF/LF warnings.",
+    "Final focused BAGO verify after documentation/map synchronization: 36 passed, 1 skipped in 6.92s. Final strict-classification exit 0 (3115 findings, 0 unclassified), strict-runtime exit 1 (296 runtime-unbound), map projection --check PASS, JSON parse PASS, git diff --check PASS with CRLF/LF warning.",
+    "MSIX host spike on HEAD a21858780615440a775a7989970b8917fc0d6732: dotnet self-contained win-x64 publish PASS; backend/tests/test_msix_bootstrap.py 3 passed via python .bago/bin/bago.py verify; clean CPython embeddable imports of authorization_boundary/execution_gateway/session_manager PASS; SessionManager temp smoke PASS with workspace_mirror_ready=False; MakePri/MakeAppx build and unpack PASS; stage and unpack payload digest equal (e4364bab9d710a57ecff4da35c1e6bf7d99b6109bfaeb404876d450b4977d625). SignTool produced a short-lived self-signed test MSIX, but SignTool trust verification and Windows Add-AppxPackage were rejected: HRESULT 0x800B0109 untrusted root. Package not installed; no clean-machine startup.",
+    "Final-source MSIX iteration in TEMP: package BAGO-Bootstrap-4.11.1.msix SHA-256 485c568cba0b14104f8467a63605ee538a6115d828105c7b27a7fffd5e0f8b10; MakeAppx pack/unpack succeeded and stage/unpacked payload digest both 1f0dd69a007b61cfc4a6ceff189a0fea4a8d5d21ae6d23af693d6d76f51aba10. SignTool sign exit 0 using short-lived cert thumbprint 0A0A5E097D6EC1E82EA691C432591891909B2F34; SignTool verify /pa exit 1 untrusted root; WinPS 5.1 Add-AppxPackage rejected 0x800B0109. Certificate removed; Get-AppxPackage count 0. Host package launch NOT_RUN."
+  ],
+  "notes": [
+    "The scoped database.write owner and canonical JSON session persistence are implemented and verified on dirty candidate fingerprint 5310bffb140285694d7f7c7688b1e53f4c4c4e899b85b93c86b83ab7a22d5d34. This does not close global strict-runtime; 296 runtime-unbound sinks remain.",
+    "P0 remains OPEN: no MSIX implementation/package identity, official NSIS route replacement, trusted package signing, clean-machine evidence, helper IPC authentication across elevation, full backend gate, or independent final review has been completed. Current work closes bounded code subparts and records exact dirty candidate evidence.",
+    "The published v4.11.1 signer identity is verified; Azure Artifact Signing currently returns HTTP 403, while direct local signing with the matching installed certificate succeeded. MSIX signing and clean-machine Windows evidence remain open; P0 closure must remain BLOCKED until the remaining criteria pass.",
+    "No pre-existing user changes were reset, restored, or overwritten.",
+    "The host is an implementation spike only. It does not close package-bound native approval, authenticated helper IPC, official NSIS replacement, seed lifecycle, post-install launch ownership, signed publisher trust, or P0. The test certificate was temporary and no package remains installed.",
+    "Authorized Windows test publisher trust/import and AppX deployment succeeded for package identity BAGO.Bootstrap.Test_4.11.1.0_x64__n45qsze3n717y. Package activation produced a WindowsApps process but .NET Runtime event 1023 reported hostpolicy.dll missing from the package launch context; no new session or changed active-session.json was observed. AppX package was removed and test certificate was removed from CurrentUser My, CurrentUser TrustedPeople, CurrentUser Root, and LocalMachine TrustedPeople."
+  ]
+}

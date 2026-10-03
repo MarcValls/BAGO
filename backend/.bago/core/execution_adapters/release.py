@@ -34,6 +34,7 @@ class ReleaseDownloadEffectAdapter:
 
     @classmethod
     def revalidate_world_state(cls, request: ExecutionRequest, _context: ExecutionContext) -> None:
+        """Bind non-job update downloads to the canonical live update cache."""
         target = request.target if isinstance(request.target, dict) else {}
         if target.get("job_id"):
             return
@@ -117,6 +118,12 @@ class ReleaseDownloadEffectAdapter:
                 code="release_download_size_invalid",
             )
         root, destination = self._target(filename, job_id)
+        if not job_id and str(root.resolve()) != str(Path(str(request.target.get("download_root") or "")).expanduser().resolve()):
+            raise ExecutionGatewayError(
+                "Release download cache changed after request construction",
+                code="release_download_world_state_stale",
+                pre_dispatch=True,
+            )
         partial = destination.with_suffix(destination.suffix + ".part")
 
         if not job_id:

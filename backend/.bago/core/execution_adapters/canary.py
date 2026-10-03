@@ -182,10 +182,8 @@ class SecurityCanaryEffectAdapter:
             or request.source_surface != f"cli.security.canary.{operation}"
         ):
             raise ExecutionGatewayError("Canary request identity does not match its project and operation", code="canary_identity_mismatch")
+        self.revalidate_world_state(request, context)
         state_bytes = self._state_bytes(state_path)
-        current_digest = hashlib.sha256(state_bytes).hexdigest() if state_bytes else "missing"
-        if current_digest != str(target.get("state_sha256") or ""):
-            raise ExecutionGatewayError("Canary state changed after approval", code="canary_state_drift")
 
         with self._resource_lock(root):
             locked_root, locked_state_path, locked_canary_dir = self._paths(str(root))
