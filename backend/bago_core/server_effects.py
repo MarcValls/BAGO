@@ -372,6 +372,13 @@ def download_release_bundle(
     filename: str,
 ) -> dict[str, Any]:
     """Download one verified release payload through its registered adapter."""
+    from update_manager import _update_root
+
+    download_root = Path(_update_root()).expanduser().resolve()
+
+    from update_manager import _update_root
+
+    download_root = Path(_update_root()).expanduser().resolve()
 
     from update_manager import _update_root
 

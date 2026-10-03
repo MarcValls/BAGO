@@ -406,10 +406,11 @@ function statusClass(s){
   if(x.includes('IMPLEMENTADO')||x.includes('CERRADO')||x.includes('PROBADO')||x.includes('CONECTADO')||x.includes('EJECUTADO')||x.includes('VERIFICADO')) return 'ok';
   return 'base';
 }
-function chip(s){ return `<span class="chip ${statusClass(s)}">${s}</span>`; }
-
-function el(tag, cls, html){
-  const e=document.createElement(tag); e.className=cls; if(html!==undefined)e.innerHTML=html; return e;
+function chip(s){
+  const status=document.createElement('span');
+  status.className='chip '+statusClass(s);
+  status.textContent=s;
+  return status;
 }
 function addLine(x1,y1,x2,y2,active=false,branchId=null){
   const p=document.createElementNS('http://www.w3.org/2000/svg','path');
@@ -474,7 +475,7 @@ function renderCoordination(node){
 }
 function showDetail(title,status,body,node=null){
   detailTitle.textContent=title;
-  detailStatus.innerHTML=chip(status||'INFO');
+  detailStatus.replaceChildren(chip(status||'INFO'));
   detailBody.textContent=body||'';
   selectedNode=node;
   selectedNodeRef=node?.ref||'';
@@ -560,6 +561,13 @@ function makeNode(opts){
 function matches(text){
   return !query || text.toLocaleLowerCase('es').includes(query.toLocaleLowerCase('es'));
 }
+function subtreeMatches(node){
+  const ownText=[node.title,node.summary,node.subtitle,node.detail,node.status,
+    ...(node.comments||[]).map(comment=>comment.text),
+    ...(node.coordination||[]).flatMap(entry=>[entry.type,entry.paths,entry.text])
+  ].filter(value=>typeof value==='string').join(' ');
+  return matches(ownText)||(node.children||[]).some(subtreeMatches);
+}
 
 function render(){
   nodesLayer.innerHTML=''; lines.innerHTML=''; empty.style.display='none';
@@ -604,7 +612,7 @@ function render(){
     if(reveal){
       const pts=childPositions(branch);
       branch.children.forEach((c,i)=>{
-        if(query && !matches([c.title,c.detail,c.status].join(' '))) return;
+        if(query && !subtreeMatches(c)) return;
         const cp=pts[i];
         addLine(pos.x,pos.y,cp.x,cp.y,selectedBranch===branch.id,branch.id);
         const childKey=branch.id+'/'+i;
@@ -655,6 +663,7 @@ document.getElementById('btnAll').onclick=()=>{
   document.getElementById('btnAll').setAttribute('aria-pressed',String(allBranchesOpen));
   document.getElementById('btnAll').textContent=allBranchesOpen?'Cerrar todas las ramas':'Abrir todas las ramas';
   closeDetail();
+  refreshPositions();
   render();
   centerMap();
 };

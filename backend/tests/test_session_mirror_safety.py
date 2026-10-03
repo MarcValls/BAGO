@@ -81,6 +81,7 @@ def test_prepare_session_mirror_stops_at_size_limit(tmp_path, monkeypatch):
 
     manager = object.__new__(session_manager.SessionManager)
     manager.session_id = "mirror-limit-test"
+    manager.base_path = project.resolve()
     manager.project_root = project.resolve()
     session_root = tmp_path / "BAGO" / "sessions" / manager.session_id
 
@@ -107,6 +108,7 @@ def test_prepare_session_mirror_materializes_via_gateway_adapter(tmp_path, monke
     (project / "main.py").write_text("print('mirror')", encoding="utf-8")
     manager = object.__new__(session_manager.SessionManager)
     manager.session_id = "mirror-gateway-test"
+    manager.base_path = project.resolve()
     manager.project_root = project.resolve()
     session_root = tmp_path / "BAGO" / "sessions" / manager.session_id
 
@@ -134,6 +136,7 @@ def test_prepare_session_mirror_blocks_changed_project_before_copy(tmp_path, mon
     active_project.mkdir()
     manager = object.__new__(session_manager.SessionManager)
     manager.session_id = "mirror-mismatch-test"
+    manager.base_path = active_project.resolve()
     manager.project_root = active_project.resolve()
     session_root = tmp_path / "BAGO" / "sessions" / manager.session_id
     calls: list[str] = []
@@ -164,6 +167,7 @@ def test_prepare_session_mirror_blocks_noncanonical_destination_before_delete(tm
     project.mkdir()
     manager = object.__new__(session_manager.SessionManager)
     manager.session_id = "mirror-target-test"
+    manager.base_path = project.resolve()
     manager.project_root = project.resolve()
     outside_root = tmp_path / "BAGO" / "outside" / manager.session_id
     calls: list[str] = []

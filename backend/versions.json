@@ -1,5 +1,5 @@
 {
-  "current": "4.11.3",
+  "current": "4.11.10",
   "history": [
     {
       "version": "4.0.0",
@@ -158,10 +158,17 @@
       "released": null
     },
     {
-      "version": "4.11.3",
-      "released": null,
+      "ended": "2026-10-03T00:00:00Z",
+      "version": "4.11.9",
+      "notes": "Release candidate: MSIX bootstrap pipeline and gateway-owned signing workflow.",
+      "released": null
+    },
+    {
+      "version": "4.11.10",
+      "started": "2026-10-03T00:00:00Z",
       "ended": null,
-      "notes": "MSIX bootstrap release candidate with valid reusable-workflow secret wiring; certificate pending."
+      "notes": "Release candidate: MSIX bootstrap pipeline and gateway-owned signing workflow; PENDING_CERTIFICATE_IV.",
+      "released": null
     }
   ]
 }

@@ -16,7 +16,7 @@ if ($Version -ne (Get-Content (Join-Path $repo 'release_version.txt') -Raw).Trim
 if ($Publisher -notmatch '^CN=') { throw 'Production publisher must be an exact CN= subject.' }
 
 $build = Join-Path $repo 'releases/build-installer.ps1'
-$payloadOutput = @(& $build -RuntimeOnly -Version $Version)
+$payloadOutput = @(& $build -RuntimeOnly -SkipBuild -Version $Version)
 $payloadJson = $payloadOutput | Where-Object { $_ -is [string] -and $_.TrimStart().StartsWith('{') } | Select-Object -Last 1
 $payloadResult = $payloadJson | ConvertFrom-Json
 if (-not $payloadResult.ok -or -not (Test-Path -LiteralPath $payloadResult.runtime)) {

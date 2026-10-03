@@ -365,11 +365,11 @@ def test_process_child_uses_gateway_adapter_under_parent_claim(tmp_path, monkeyp
 
 def test_nested_dispatch_cannot_be_called_without_gateway_owned_context(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
-    _, plan, _ = _registered_plan(
+    _, plan, manager = _registered_plan(
         tmp_path,
         "1. Crear archivo notes/no-bypass.txt con contenido: no",
     )
-    request = _request(plan)
+    request = _request(plan, world_state_authority=manager)
     gateway = ExecutionGateway(AuthorizationBoundary())
     caller_supplied_authorization = {
         "state": "consumed",

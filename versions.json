@@ -1,5 +1,5 @@
 {
-  "current": "4.11.3",
+  "current": "4.11.10",
   "history": [
     {
       "version": "4.9.1",
@@ -40,8 +40,50 @@
     {
       "version": "4.11.3",
       "started": "2026-10-02T00:00:00Z",
-      "ended": null,
+      "ended": "2026-10-02T00:00:00Z",
       "notes": "MSIX bootstrap release candidate with valid reusable-workflow secret wiring."
+    },
+    {
+      "version": "4.11.4",
+      "started": "2026-10-02T00:00:00Z",
+      "ended": "2026-10-02T00:00:00Z",
+      "notes": "MSIX bootstrap production signing candidate on main-descendant merge."
+    },
+    {
+      "version": "4.11.5",
+      "started": "2026-10-02T00:00:00Z",
+      "ended": "2026-10-02T00:00:00Z",
+      "notes": "MSIX bootstrap candidate with corrected main ancestry gate."
+    },
+    {
+      "version": "4.11.6",
+      "started": "2026-10-02T00:00:00Z",
+      "ended": "2026-10-02T00:00:00Z",
+      "notes": "MSIX candidate reuses workflow-built UI and Electron artifacts during payload construction."
+    },
+    {
+      "version": "4.11.7",
+      "started": "2026-10-02T00:00:00Z",
+      "ended": "2026-10-02T00:00:00Z",
+      "notes": "MSIX payload digest capture is fail-closed and diagnostic."
+    },
+    {
+      "version": "4.11.8",
+      "started": "2026-10-02T00:00:00Z",
+      "ended": "2026-10-02T00:00:00Z",
+      "notes": "MSIX release manifest records detached tag identity during tag-locked builds."
+    },
+    {
+      "version": "4.11.9",
+      "started": "2026-10-02T00:00:00Z",
+      "ended": "2026-10-03T00:00:00Z",
+      "notes": "MSIX detached tag manifest uses null-safe PowerShell identity capture."
+    },
+    {
+      "version": "4.11.10",
+      "started": "2026-10-03T00:00:00Z",
+      "ended": null,
+      "notes": "MSIX bootstrap candidate; PENDING_CERTIFICATE_IV: public individual-validation certificate and signing evidence are still required."
     }
   ]
 }

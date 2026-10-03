@@ -30,8 +30,6 @@ def test_msix_release_builder_requires_canonical_version_and_exact_publisher() -
     assert "-RuntimeOnly" in script
     assert "build-msix-bootstrap.ps1" in script
     assert "NOT_SIGNED" in script
-
-
 def test_installer_wrapper_signing_input_is_declared_and_fails_closed() -> None:
     wrapper = (ROOT / ".github" / "workflows" / "build-release-installer.yml").read_text(encoding="utf-8")
     workflow = WORKFLOW.read_text(encoding="utf-8")

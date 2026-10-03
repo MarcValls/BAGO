@@ -66,9 +66,9 @@ Process termination: `cleanup_zombies` binds PID, executable, command line, and 
 | backend/bago_core/server_effects.py | 277 | stage_validation_workspace | workspace.validation.stage | True | E2 | root |
 | backend/bago_core/server_effects.py | 300 | cleanup_validation_workspace | workspace.validation.stage | True | E2 | root |
 | backend/bago_core/server_effects.py | 341 | gateway_urlopen | network.read | False | E1 | Path.cwd() |
-| backend/bago_core/server_effects.py | 380 | download_release_bundle | release.download | True | E2 | download_root |
-| backend/bago_core/server_effects.py | 421 | inspect_process | process.inspect | False | E1 | manager |
-| backend/bago_core/server_effects.py | 450 | inspect_process_identities | process.inspect | False | E1 | manager |
+| backend/bago_core/server_effects.py | 387 | download_release_bundle | release.download | True | E2 | download_root |
+| backend/bago_core/server_effects.py | 428 | inspect_process | process.inspect | False | E1 | manager |
+| backend/bago_core/server_effects.py | 457 | inspect_process_identities | process.inspect | False | E1 | manager |
 
 Unbound callsites:
 - None.

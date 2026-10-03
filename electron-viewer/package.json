@@ -1,6 +1,6 @@
 {
   "name": "bago-ui-viewer",
-  "version": "4.11.3",
+  "version": "4.11.10",
   "license": "MIT",
   "description": "Visor Electron minimo de la BAGO UI contra el bridge local",
   "main": "main.cjs",

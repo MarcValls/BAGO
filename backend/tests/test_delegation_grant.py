@@ -28,6 +28,11 @@ def _bind_dynamic_p4_modules(monkeypatch):
     monkeypatch.setitem(sys.modules, "execution_gateway", eg)
 
 
+@pytest.fixture(autouse=True)
+def _confirm_headless_strong_challenges(monkeypatch):
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
+
+
 class _RecordingAdapter:
     effect_ids = frozenset({"filesystem.write"})
 
@@ -133,6 +138,7 @@ def _issue_grant(tmp_path, monkeypatch, *, max_runs: int = 2, allowed_effect: st
         "schedule_id": schedule_id,
         "schedule_digest": schedule_digest,
         "state_dir": tmp_path / "state",
+        "world_state_authority": tmp_path,
         "parent_consumed": consumed,
     }
 

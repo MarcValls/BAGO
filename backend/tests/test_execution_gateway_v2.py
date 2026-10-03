@@ -4,6 +4,7 @@ import inspect
 import hashlib
 import subprocess
 import sys
+from types import SimpleNamespace
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -141,7 +142,7 @@ def test_missing_adapter_does_not_consume_valid_permit(tmp_path, monkeypatch) ->
     empty = EffectAdapterRegistry()
     gateway = ExecutionGateway(boundary=boundary, adapters=empty)
     with pytest.raises(ExecutionGatewayError) as missing:
-        gateway.execute(permit_token=permit["token"], request=request)
+        gateway.execute(permit_token=permit["token"], request=request, context=ExecutionContext(manager=manager))
     assert missing.value.code == "execution_adapter_missing"
 
     adapter = _RecordingAdapter()
