@@ -1,0 +1,18 @@
+{
+  "goal_id": "CRIT-LAE-01-MVP-20261002",
+  "status": "EXECUTED",
+  "contract_parent": "LAYERED_ARTIFACT_ENGINE_CONTRACT_v0.9-FIX8",
+  "contract_sha256": "d15ecd534f6f6ee34daff78107886c6d695b84d4790c04fbb4a0c35c2bf6c65e",
+  "runtime_integration": "NOT_IMPLEMENTED",
+  "candidate_scope": ["engine.py", "test_engine.py"],
+  "vectors": ["LAE-01", "LAE-02", "LAE-03", "LAE-04", "LAE-05", "LAE-06", "LAE-07"],
+  "verification": {
+    "command": "python -m unittest -v",
+    "result": "8 passed",
+    "scope": "isolated candidate directory",
+    "candidate_files": ["engine.py", "test_engine.py"],
+    "bago_wrapper": "python .bago/bin/bago.py verify -- python -m unittest discover -s .goals/CRIT-LAE-01-MVP-20261002 -t .goals/CRIT-LAE-01-MVP-20261002 -v",
+    "bago_wrapper_result": "PASS"
+  },
+  "review": "review.md"
+}

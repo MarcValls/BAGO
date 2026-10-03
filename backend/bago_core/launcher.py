@@ -57,6 +57,7 @@ from bago_core.commands.cmd_system import (  # noqa: E402
 )
 from bago_core.commands.cmd_doctor import cmd_doctor  # noqa: E402
 from bago_core.commands.cmd_release_check import cmd_release_check  # noqa: E402
+from bago_core.commands.cmd_layer import cmd_layer  # noqa: E402
 from bago_core.commands.cmd_tools import (  # noqa: E402
     cmd_agent,
     cmd_backup,
@@ -426,6 +427,7 @@ _DISPATCH_TABLE: dict[str, str] = {
     "node":        "cmd_node",
     "doctor":      "cmd_doctor",
     "release-check": "cmd_release_check",
+    "layer":       "cmd_layer",
 }
 
 
