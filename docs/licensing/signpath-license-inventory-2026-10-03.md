@@ -62,27 +62,27 @@ clasificarse como propietario a simple vista.
 
 ## Imports Python observados
 
-El análisis AST del backend detectó imports de terceros además de la biblioteca
-estándar. Como el repositorio no tiene un manifiesto Python reproducible, se
-contrastaron los paquetes disponibles en el intérprete de revisión:
+Se hizo un analisis AST sobre el codigo Python activo (`backend/bago_core` y
+`backend/.bago`), excluyendo `tests`, `dist`, `release`, `node_modules` y
+artefactos temporales. Se distinguieron los imports de produccion de modulos
+propios y de dependencias opcionales. `anthropic` es un modulo propio de
+`backend/.bago/providers/anthropic.py`; no se cuenta como dependencia PyPI.
 
-| Import | Distribución/versión observada | Licencia observada | Estado |
+| Import | Distribucion/version observada | Licencia observada | Estado |
 |---|---|---|---|
-| `jsonschema` | `jsonschema 4.23.0` | MIT (`COPYING`) | Identificada |
-| `numpy` | `numpy 2.4.4` | BSD-3-Clause y avisos de componentes incluidos | Identificada; revisar notices transitivos |
-| `packaging` | `packaging 26.2` | Apache-2.0/BSD | Identificada |
-| `prompt_toolkit` | `prompt_toolkit 3.0.52` | BSD-3-Clause | Identificada |
+| `jsonschema` | `jsonschema 4.23.0` | MIT (`COPYING`) | Produccion; validacion de catalogos |
+| `numpy` | `numpy 2.4.4` | BSD-3-Clause y avisos de componentes incluidos | Opcional; capa RL desactivable |
+| `prompt_toolkit` | `prompt_toolkit 3.0.52` | BSD-3-Clause | Opcional; REPL interactivo |
+| `psycopg` | `psycopg 3.3.6` | LGPL-3.0 con permisos adicionales de Psycopg | Opcional; claims PostgreSQL |
+| `tzdata` | `tzdata 2026.2` | Apache-2.0 | Opcional; fallback de zonas horarias |
+| `yaml` / `PyYAML` | `PyYAML 6.0.3` | MIT | Opcional; catalogos YAML |
+| `tomli` | `tomli 2.4.1` | MIT | Fallback solo para Python sin `tomllib` |
 | `pytest` | `pytest 9.0.3` | MIT | Solo herramienta de desarrollo/test |
-| `requests` | `requests 2.33.1` | Apache-2.0 | Identificada |
-| `tzdata` | `tzdata 2026.2` | Apache-2.0 | Identificada |
-| `yaml` | `PyYAML 6.0.3` | MIT | Identificada |
-| `anthropic` | PyPI `1.11.0` (wheel descargado para revisión) | MIT | Identificada; no declarada en un manifiesto del repositorio |
-| `psycopg` | PyPI `3.3.6` (wheel descargado para revisión) | LGPL-3.0 con permisos adicionales de Psycopg | Identificada; conservar el texto LGPL y sus avisos |
-| `tomli` | PyPI `2.4.1` (wheel descargado para revisión) | MIT | Identificada; no declarada en un manifiesto del repositorio |
+| pytest-subtests | pytest-subtests 0.15.0 | MIT | Solo herramienta de desarrollo/test; instalada en workflow de validacion |
 
-Esta tabla no debe interpretarse como un lockfile: el resultado confirma que el
-backend todavía necesita declarar sus dependencias Python y sus versiones para
-que la revisión sea reproducible y completa.
+El workflow de CI declara actualmente estas versiones de validacion: `pytest==9.0.3`, `pytest-subtests==0.15.0`, `numpy==2.4.4`, `prompt_toolkit==3.0.52` y `tzdata` sin pin. Se ha incluido `pytest-subtests` en esta revision porque forma parte del entorno de validacion aunque no sea una dependencia de produccion.`r`n`r`nEsta tabla es un inventario de procedencia, no un lockfile. Las versiones
+observadas se conservaron como evidencia de la revision, pero el backend sigue
+sin declarar un conjunto instalable y congelado.
 
 ## Hallazgos y límites
 
