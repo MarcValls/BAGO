@@ -1968,3 +1968,10 @@ Record architectural or product decisions that affect canon here.
   Inventario: 2317 total / 69 runtime-unbound / 0 sin clasificar;
   strict-runtime FAIL/OPEN. Duración de cambio reconstruida ~7m, excluyendo
   pruebas y gates.
+
+## 2026-10-02 — Runtime lifecycle owner and bootstrap boundary decision
+
+- Se decide para diseño que `RuntimeLifecycleEffectAdapter` será el owner semántico de `start/stop/status/restart` del servicio BAGO, porque sus invariantes incluyen PID, puerto, health, root, locks y transiciones de estado. `ProcessExecutionEffectAdapter` conserva los efectos hijos de proceso.
+- `bago_supervisor.py` no recibirá un permiso genérico: inspección, ejecución, terminación, state, logging y database se separan en sus owners canónicos; las decisiones de heartbeat/RAM/recovery pertenecen al lifecycle.
+- Se mantiene el handoff MSIX seed-only como dirección de bootstrap. `system.install.apply`, `system.install.uninstall` y `system.install.rollback` siguen separados. NSIS continúa `P0 OPEN` hasta que se reemplacen todas sus rutas oficiales y exista evidencia clean-machine, publisher, helper autenticado y post-install gobernado.
+- Estado: decisión de diseño `PROPOSED / IMPLEMENTATION OPEN`; no se añadieron efectos, adapters ni reparaciones en este paso. Evidencia detallada: `.bago/runtime/RUNTIME_LIFECYCLE_AND_BOOTSTRAP_DECISION_20261002.md`.
