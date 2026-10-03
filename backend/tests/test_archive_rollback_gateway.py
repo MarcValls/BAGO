@@ -36,6 +36,7 @@ def test_cli_archive_rollback_restores_runtime_and_applies_explicit_state_choice
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(builtins, "input", lambda _prompt="": "si")
     monkeypatch.setattr(authorization_boundary, "state_root", lambda: tmp_path / "authorization-state")
+    monkeypatch.setattr(authorization_boundary, "confirm_strong_challenge", lambda _challenge: True)
 
     result = cmd_rollback_archive(Namespace(
         install_dir=str(install), backup_root=str(backup_root), backup_zip=str(archive),
