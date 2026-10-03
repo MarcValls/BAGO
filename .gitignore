@@ -106,3 +106,6 @@ accounts.json
 /.bago/tmp/
 /.bago/audits/electron-closure/
 /backend/.bago/node_control/
+# Generated build outputs
+/bootstrap/msix-host/HashTool/bin/
+/bootstrap/msix-host/HashTool/obj/
