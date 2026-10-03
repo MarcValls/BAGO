@@ -19,6 +19,7 @@ class ExecutionContext:
     """Trusted runtime dependencies, never part of user authority."""
     manager: Any = None
     services: Mapping[str, Any] = field(default_factory=dict)
+    world_state_authority_root: str = ""
 class EffectAdapter(Protocol):
     effect_ids: frozenset[str]
     def execute(self, request: ExecutionRequest, context: ExecutionContext) -> Any:

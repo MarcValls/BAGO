@@ -30,6 +30,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from types import SimpleNamespace
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
@@ -314,6 +315,16 @@ class SessionManager(
             from execution_gateway import ExecutionContext, ExecutionGateway
             from execution_request import build_execution_request
 
+            manager_for_gateway = self
+            if not hasattr(self, "base_path"):
+                manager_for_gateway = SimpleNamespace(
+                    base_path=str(Path(project_root).expanduser().resolve()),
+                    project_root=Path(getattr(self, "project_root", project_root)).expanduser().resolve(),
+                    session_id=self.session_id,
+                    _mirror_ignore=self._mirror_ignore,
+                    _workspace_stats=self._workspace_stats,
+                )
+
             request = build_execution_request(
                 effect_id="workspace.mirror.prepare",
                 actor_kind="server",
@@ -326,11 +337,11 @@ class SessionManager(
                 },
                 arguments={},
                 scope="session",
-        world_state_authority=self,
+                world_state_authority=manager_for_gateway,
             )
             result, _authorization = ExecutionGateway().execute_server_owned(
                 request=request,
-                context=ExecutionContext(manager=self),
+                context=ExecutionContext(manager=manager_for_gateway),
             )
             payload = dict(result) if isinstance(result, dict) else {}
             if payload.get("ok"):
@@ -435,6 +446,7 @@ class SessionManager(
         self.script_registry = ScriptRegistry(repo_root=self.base_path, event_sink=self.store)
         self.dev_mode = os.environ.get("BAGO_DEV_MODE", "").strip() in ("1", "true", "TRUE", "yes", "YES")
         self.tool_registry = ToolRegistry(script_registry=self.script_registry, workspace_root=self.base_path, dev_mode=self.dev_mode)
+        self.tool_registry.manager = self
         self.plan_engine = PlanEngine()
         self.agent_gateway = AgentGateway()
         self.agent_gateway.activate(active_agent)
@@ -523,6 +535,7 @@ class SessionManager(
         self.script_registry = ScriptRegistry(repo_root=self.base_path, event_sink=self.store)
         self.dev_mode = os.environ.get("BAGO_DEV_MODE", "").strip() in ("1", "true", "TRUE", "yes", "YES")
         self.tool_registry = ToolRegistry(script_registry=self.script_registry, workspace_root=self.base_path, dev_mode=self.dev_mode)
+        self.tool_registry.manager = self
         self.knowledge = KnowledgeBase(base_path=str(self.base_path), state_root=str(self.state_root))
         self.embedding_store = EmbeddingStore(base_path=str(self.base_path), state_root=str(self.state_root))
         self.context_classifier = ContextClassifier()

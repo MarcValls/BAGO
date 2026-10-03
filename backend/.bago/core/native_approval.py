@@ -57,6 +57,37 @@ def _interactive_desktop_available(user32: Any, kernel32: Any) -> bool:
     ) and receiving_input.value)
 
 
+def _format_target_preview(target: Any) -> str:
+    """Render a bounded human summary; keep the canonical target in the receipt."""
+    if not isinstance(target, dict):
+        return "Recurso no especificado"
+    preferred = (
+        ("Recurso", "resource"),
+        ("Acci\u00f3n", "action"),
+        ("Servicio", "service"),
+        ("Ruta", "path"),
+        ("Proyecto", "project_root"),
+        ("Destino", "destination"),
+        ("Puerto", "port"),
+        ("Host", "host"),
+    )
+    lines: list[str] = []
+    seen: set[str] = set()
+    for label, key in preferred:
+        value = target.get(key)
+        if value in (None, "", [], {}):
+            continue
+        text = str(value)
+        if len(text) > 180:
+            text = text[:177] + "..."
+        lines.append(f"{label}: {text}")
+        seen.add(key)
+    remaining = [key for key in sorted(target) if key not in seen and key not in {"digest", "sha256", "authorization_ledger_path"}]
+    if remaining:
+        lines.append("Detalles: " + ", ".join(remaining[:8]))
+    return "\n".join(lines) or "Recurso no especificado"
+
+
 def confirm_strong_challenge(challenge: dict[str, Any]) -> bool:
     """Ask on the backend's input desktop; fail closed without one."""
     if (
@@ -68,7 +99,7 @@ def confirm_strong_challenge(challenge: dict[str, Any]) -> bool:
     descriptor = challenge.get("request_descriptor")
     if not isinstance(descriptor, dict):
         return False
-    target = json.dumps(descriptor.get("target"), ensure_ascii=False, indent=2, sort_keys=True)
+    target = _format_target_preview(descriptor.get("target"))
     preview = (
         "BAGO solicita una autorización fuerte.\n"
         "Aprueba solo si acabas de iniciar esta operación.\n\n"

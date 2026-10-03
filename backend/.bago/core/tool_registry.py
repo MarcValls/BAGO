@@ -45,6 +45,9 @@ load_registry = _TOOLS.load_registry
 
 
 MODEL_TOOL_EFFECTS: dict[str, str] = {
+    # Fixed, allowlisted local service control. The backing tool accepts only
+    # BAGO's declared start/status/stop actions, never arbitrary shell text.
+    "runtime-control": "runtime.control",
     "code-metrics": "filesystem.read",
     "commit-readiness": "filesystem.read",
     "dead-code": "filesystem.read",
@@ -98,6 +101,7 @@ class ToolRegistry:
 
     def __init__(self, script_registry: Any | None = None, workspace_root: Path | str | None = None, dev_mode: bool = False) -> None:
         self.script_registry = script_registry
+        self.manager: Any | None = None
         self._commands = get_commands()
         self.workspace_root = Path(workspace_root).resolve() if workspace_root else None
         self.dev_mode = dev_mode
@@ -253,6 +257,12 @@ class ToolRegistry:
         a corresponding gateway-owned EffectAdapter exists. A persisted
         ``always`` approval is not execution authority for such a tool.
         """
+        if call.name == "runtime-control" and self.manager is not None:
+            try:
+                content = self.manager.execute_runtime_control(call.arguments)
+                return ToolResult(call_id=call.call_id, name=call.name, content=str(content), ok=True)
+            except Exception as exc:
+                return ToolResult(call_id=call.call_id, name=call.name, content=f"BLOQUEADO: runtime-control no autorizado: {exc}", ok=False, returncode=1, blocked=True, block_reason="runtime_control_gateway_rejected")
         effect_id = self.model_effect_id(call.name)
         if effect_id is None:
             return ToolResult(

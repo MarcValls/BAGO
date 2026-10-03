@@ -18,11 +18,12 @@ def _authorize_cli(monkeypatch) -> None:
     monkeypatch.setattr(
         debt_guard,
         "execute_cli_effect",
-        lambda request, *, confirmation_text: execute_cli_effect(
+        lambda request, *, confirmation_text, manager=None: execute_cli_effect(
             request,
             confirmation_text=confirmation_text,
             input_fn=lambda _prompt: "s",
             output_fn=lambda _message: None,
+            manager=manager,
         ),
     )
 

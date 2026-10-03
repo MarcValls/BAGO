@@ -119,7 +119,7 @@ def test_patch_target_change_after_approval_blocks_before_snapshot_or_write(monk
     })
 
     assert responses[-1][0] == 409
-    assert responses[-1][1]["code"] == "authorization_operation_mismatch"
+    assert responses[-1][1]["code"] == "authorization_world_state_stale"
     assert target.read_text(encoding="utf-8") == "value = 1\nother = 9\n"
     assert not (manager.project_root / ".bago" / "snapshots").exists()
 

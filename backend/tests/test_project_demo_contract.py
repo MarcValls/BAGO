@@ -89,7 +89,7 @@ def test_demo_project_rejects_target_tamper_before_first_gateway_write(monkeypat
     })
 
     assert responses[-1][0] == 409
-    assert responses[-1][1]["code"] == "authorization_operation_mismatch"
+    assert responses[-1][1]["code"] == "authorization_world_state_stale"
     assert keep.read_text(encoding="utf-8") == "user data"
     assert not (root / "package.json").exists()
 

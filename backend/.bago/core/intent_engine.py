@@ -102,6 +102,8 @@ _KEYWORDS: Dict[str, List[str]] = {
         "ejecuta", "corre", "lanza", "dispara", "run", "execute",
         "corre el comando", "ejecuta el script", "corre el script",
         "instala", "arranca", "levanta", "inicia",
+        "utiliza el script", "usa el script", "utiliza los scripts", "usa los scripts",
+        "arrancar el backend", "iniciar el backend", "abre el navegador", "abrir el navegador",
         "abre la app", "abre electron", "arranca electron", "levanta electron",
         "inicia electron", "abre el servidor", "levanta el servidor",
     ],

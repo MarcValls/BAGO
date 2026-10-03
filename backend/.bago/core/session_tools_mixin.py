@@ -7,6 +7,7 @@ Contains tool call approval/denial, feedback recording, and hybrid memory operat
 from __future__ import annotations
 
 import sys
+import json
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,52 @@ from context_store import ContextMessage
 
 class SessionToolsMixin:
     """Mixin: tool approval, feedback, hybrid memory operations."""
+
+    def execute_runtime_control(self, arguments: dict[str, Any] | None = None) -> str:
+        """Execute the fixed backend launch through the real Gateway path."""
+        import hashlib
+        import uuid
+        import webbrowser
+        from authorization_boundary import AuthorizationBoundary
+        from execution_adapter_contract import ExecutionContext
+        from execution_gateway import ExecutionGateway
+        from execution_request import build_execution_request
+
+        args = arguments if isinstance(arguments, dict) else {}
+        action = str(args.get("action") or "start_and_open").strip().lower()
+        if action not in {"start", "start_and_open"}:
+            raise ValueError("runtime-control solo autoriza start o start_and_open")
+        root = Path(str(getattr(self, "framework_root", "") or "")).resolve(strict=True)
+        ui_dist = (root / "ui-react" / "dist").resolve(strict=True)
+        launcher = (root / "bago_core" / "launcher.py").resolve(strict=True)
+        host, port = "127.0.0.1", 8080
+        argv = ["--base-path", str(root), "serve", "--host", host, "--port", str(port), "--ui-dist", str(ui_dist)]
+        request = build_execution_request(
+            effect_id="process.execute", actor_kind="user", principal_id="interactive-local-user",
+            session_id=str(self.session_id), source_surface="cli.manager.launch",
+            target={"operation": "launch_manager_server", "cwd": str(root), "python_root": str(root),
+                    "python_module_sha256": hashlib.sha256(launcher.read_bytes()).hexdigest(),
+                    "host": host, "port": port, "ui_dist": str(ui_dist)},
+            arguments={"argv": argv}, scope="workspace", world_state_authority=self,
+        )
+        boundary = AuthorizationBoundary()
+        interaction_id = f"chat-runtime-{uuid.uuid4().hex}"
+        challenge = boundary.create_challenge(request, interaction_id=interaction_id)
+        approval = boundary.approve_cli_native_challenge(
+            challenge_id=str(challenge["challenge_id"]), interaction_id=interaction_id,
+            session_id=request.session_id,
+        )
+        permit = str(approval.get("permit", {}).get("token") or "")
+        if not permit:
+            raise RuntimeError("no se emitió Permit para runtime-control")
+        result, _authorization = ExecutionGateway(boundary).execute(
+            permit_token=permit, request=request, context=ExecutionContext(manager=self),
+        )
+        opened = bool(webbrowser.open(f"http://{host}:{port}")) if action == "start_and_open" else False
+        return json.dumps({"ok": bool(result.get("executed")), "action": action,
+                           "gateway_owned": True, "effect_id": request.effect_id,
+                           "receipt_id": result.get("receipt_id"),
+                           "process_id": result.get("process_id"), "browser_opened": opened}, ensure_ascii=False)
 
     def _normalize_tool_approval_policy(self, policy: str | None) -> str:
         raw = " ".join(str(policy or "").strip().split()).lower().replace("-", "_")

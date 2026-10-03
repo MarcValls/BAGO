@@ -349,6 +349,22 @@ class AuthorizationBoundary:
                 "La autorización no procede de una superficie interactiva admitida",
                 code="authorization_user_origin_unverified",
             )
+        return self._approve_interactive_challenge(
+            challenge_id=challenge_id,
+            interaction_id=interaction_id,
+            session_id=session_id,
+            channel=clean_channel,
+        )
+
+    def _approve_interactive_challenge(
+        self,
+        *,
+        challenge_id: str,
+        interaction_id: str,
+        session_id: str,
+        channel: str,
+        require_native_confirmation: bool = False,
+    ) -> dict[str, Any]:
         confirmation_nonce = ""
         fingerprint = ""
         prompt_lock_acquired = False
@@ -359,7 +375,7 @@ class AuthorizationBoundary:
                     ledger, challenge_id=challenge_id, interaction_id=interaction_id,
                     session_id=session_id, expected_state="pending", now=_now(),
                 )
-                if _requires_native_confirmation(
+                if require_native_confirmation or _requires_native_confirmation(
                     str(challenge.get("effect_id") or ""),
                     challenge.get("target") if isinstance(challenge.get("target"), dict) else {},
                 ):
@@ -394,11 +410,15 @@ class AuthorizationBoundary:
                     )
             return self._approve_challenge_record(
                 challenge_id=challenge_id, interaction_id=interaction_id,
-                session_id=session_id, channel=clean_channel,
+                session_id=session_id, channel=channel,
                 expected_state="confirming" if confirmation_nonce else "pending",
                 confirmation_nonce=confirmation_nonce,
                 expected_fingerprint=fingerprint,
-                verified_by="server_native_dialog" if confirmation_nonce else "channel_declaration",
+                verified_by=(
+                    "server_native_dialog" if confirmation_nonce
+                    else "interactive_tty" if channel == "cli"
+                    else "channel_declaration"
+                ),
             )
         finally:
             if prompt_lock_acquired:
@@ -411,18 +431,41 @@ class AuthorizationBoundary:
         interaction_id: str,
         session_id: str,
         terminal_confirmed: bool,
+        require_native_confirmation: bool = False,
     ) -> dict[str, Any]:
-        """Approve only from a confirmed interactive local terminal."""
+        """Approve from a local TTY; selected operations can require native approval."""
         import sys
 
         if terminal_confirmed is not True or not sys.stdin.isatty():
             raise AuthorizationError(
-                "La aprobación CLI requiere confirmación humana en un TTY",
+                "La aprobación CLI requiere un TTY interactivo",
                 code="authorization_cli_terminal_required",
             )
-        return self._approve_challenge_record(
+        return self._approve_interactive_challenge(
             challenge_id=challenge_id, interaction_id=interaction_id,
-            session_id=session_id, channel="cli", verified_by="interactive_tty",
+            session_id=session_id, channel="cli",
+            require_native_confirmation=require_native_confirmation,
+        )
+
+    def approve_cli_native_challenge(
+        self,
+        *,
+        challenge_id: str,
+        interaction_id: str,
+        session_id: str,
+    ) -> dict[str, Any]:
+        """Approve from a local TTY only after native operation confirmation."""
+        import sys
+
+        if not sys.stdin.isatty():
+            raise AuthorizationError(
+                "La aprobación CLI requiere un TTY interactivo",
+                code="authorization_cli_terminal_required",
+            )
+        return self._approve_interactive_challenge(
+            challenge_id=challenge_id, interaction_id=interaction_id,
+            session_id=session_id, channel="cli",
+            require_native_confirmation=True,
         )
 
     @staticmethod
