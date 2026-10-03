@@ -17,6 +17,21 @@ from typing import Any
 
 os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
+
+def _configure_windows_utf8_console() -> None:
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetConsoleCP(65001)
+        ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+    except Exception:
+        # Some redirected/embedded hosts do not expose a Windows console.
+        pass
+
+
+_configure_windows_utf8_console()
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8", errors="replace")
@@ -53,6 +68,18 @@ def _supports_color() -> bool:
 _SUPPORT = _supports_color()
 _COLOR_ENABLED = _SUPPORT
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+
+
+def _unicode_ui() -> bool:
+    if os.environ.get("BAGO_ASCII_UI", "").lower() in {"1", "true", "yes", "on"}:
+        return False
+    if os.name != "nt":
+        return True
+    return os.environ.get("BAGO_UNICODE_UI", "").lower() in {"1", "true", "yes", "on"}
+
+
+def _glyph(unicode_value: str, ascii_value: str) -> str:
+    return unicode_value if _unicode_ui() else ascii_value
 
 
 class Color:
@@ -167,14 +194,15 @@ def box(title: str, lines: list[str], width: int = 60) -> str:
         return text + (" " * max(0, inner_width - _visible_width(text)))
 
     inner_width = width - 3
-    top = "┌" + "─" * (width - 2) + "┐"
-    title_line = f"│ {pad(bold(title), inner_width)}│"
-    sep = "├" + "─" * (width - 2) + "┤"
+    top = _glyph("┌" + "─" * (width - 2) + "┐", "+" + "-" * (width - 2) + "+")
+    left = _glyph("│", "|")
+    title_line = f"{left} {pad(bold(title), inner_width)}{left}"
+    sep = _glyph("├" + "─" * (width - 2) + "┤", "+" + "-" * (width - 2) + "+")
     body = []
     for line in lines:
         # Truncate or wrap if needed; keep simple for now
-        body.append(f"│ {pad(line, inner_width)}│")
-    bottom = "└" + "─" * (width - 2) + "┘"
+        body.append(f"{left} {pad(line, inner_width)}{left}")
+    bottom = _glyph("└" + "─" * (width - 2) + "┘", "+" + "-" * (width - 2) + "+")
     return "\n".join([top, title_line, sep] + body + [bottom])
 
 
@@ -188,13 +216,13 @@ def banner() -> str:
 
 def status_line(provider: str, model: str, tokens: int, health_ok: bool) -> str:
     """Línea compacta de estado."""
-    h = ok("●") if health_ok else error("●")
-    return f"{h} {accent(provider)}/{bold(model)} · {dim(str(tokens) + ' tok')}"
+    h = ok(_glyph("●", "OK")) if health_ok else error(_glyph("●", "ERR"))
+    return f"{h} {accent(provider)}/{bold(model)} {_glyph('·', '-')} {dim(str(tokens) + ' tok')}"
 
 
 def response_contract_line() -> str:
     """Regla visible de salida del REPL para mantener el canon mutable en foco."""
-    return dim("RC4 · técnico · archivos/contratos · canon mutable · estado/evidencia/cambio/validación/siguiente paso")
+    return dim(_glyph("RC4 · técnico · archivos/contratos · canon mutable · estado/evidencia/cambio/validación/siguiente paso", "RC4 - técnico - archivos/contratos - canon mutable - estado/evidencia/cambio/validación/siguiente paso"))
 
 
 def print_message(role: str, content: str) -> None:

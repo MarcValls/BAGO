@@ -22,8 +22,10 @@ R0-R10:
 """
 from __future__ import annotations
 
+import os
 import sys
 from typing import Any
+from .node_control_tui_keys import read_key
 
 
 def _read_input(prompt: str) -> str | None:
@@ -43,26 +45,33 @@ def _prompt_text(prompt: str, default: str = "") -> str:
 
 
 def _prompt_choice(prompt: str, options: list[str], default_index: int = 0) -> int:
+    """Choose an option with arrows/Enter; Esc or q returns -1."""
     if not options:
         raise ValueError("options cannot be empty")
     default_index = max(0, min(default_index, len(options) - 1))
-    for idx, option in enumerate(options, start=1):
-        print(f"  {idx}. {option}")
-    print("  0. Volver")
+    selected = default_index
     while True:
-        raw_value = _read_input(f"{prompt} [{default_index + 1}]: ")
-        if raw_value is None:
+        if getattr(sys.stdout, "isatty", lambda: False)():
+            if os.name == "nt":
+                os.system("cls")
+            else:
+                print("\033[2J\033[H", end="")
+        print(f"{prompt}  -  UP/DOWN mover - Enter seleccionar - Esc volver")
+        for idx, option in enumerate(options):
+            print(f"  {'>' if idx == selected else ' '} {option}")
+        try:
+            key = read_key()
+        except (EOFError, KeyboardInterrupt):
+            print()
             return -1
-        raw = raw_value.strip().lower()
-        if raw == "":
-            return default_index
-        if raw in {"0", "q", "quit", "salir", "esc"}:
+        if key == "UP":
+            selected = (selected - 1) % len(options)
+        elif key in {"DOWN", "TAB"}:
+            selected = (selected + 1) % len(options)
+        elif key in {"ENTER", "SPACE"}:
+            return selected
+        elif key in {"ESC", "q", "Q"}:
             return -1
-        if raw.isdigit():
-            selected = int(raw) - 1
-            if 0 <= selected < len(options):
-                return selected
-        print("Selecciona un numero valido.")
 
 
 def _pause() -> None:
@@ -73,7 +82,7 @@ def _pause() -> None:
 
 
 def _print_tui_header(summary: dict[str, Any]) -> None:
-    print("\nBAGO NODE CONTROL · TERMINAL")
+    print("\nBAGO NODE CONTROL - TERMINAL")
     print("=" * 72)
     print(f"Base path   : {summary['base_path']}")
     print(f"Store root  : {summary['store_root']}")

@@ -96,6 +96,23 @@ _DEFAULT_KEYBINDS: dict = {
 }
 
 
+def terminal_supports_unicode() -> bool:
+    """Return whether the current Windows host is a known UTF-8 terminal."""
+    if os.environ.get("BAGO_ASCII_UI", "").lower() in {"1", "true", "yes", "on"}:
+        return False
+    if os.name != "nt":
+        return True
+    return os.environ.get("BAGO_UNICODE_UI", "").lower() in {"1", "true", "yes", "on"}
+
+
+def navigation_hint() -> str:
+    return "↑↓ navegar   Enter seleccionar   Esc/q cancelar" if terminal_supports_unicode() else "UP/DOWN mover   Enter seleccionar   Esc/q cancelar"
+
+
+def ui_glyph(unicode_value: str, ascii_value: str) -> str:
+    return unicode_value if terminal_supports_unicode() else ascii_value
+
+
 def load_keybinds() -> dict:
     try:
         return json.loads(_KEYBINDS_PATH.read_text(encoding="utf-8"))
@@ -178,6 +195,18 @@ def enable_vt() -> bool:
         return False
 
 
+def clear_terminal(vt_ok: bool = True) -> None:
+    """Clear the current menu surface before a non-VT redraw."""
+    if vt_ok:
+        sys.stdout.write("\033[2J\033[H")
+        sys.stdout.flush()
+        return
+    if os.name == "nt":
+        os.system("cls")
+    else:
+        os.system("clear")
+
+
 def restore_windows_console() -> None:
     """Fuerza Quick Edit ON en Windows tras la navegación."""
     if sys.platform != "win32":
@@ -216,17 +245,33 @@ def draw_navigate(
     redraw_lines: int = 0,
 ) -> int:
     """Dibuja el menú navegable. Retorna el número de líneas impresas."""
-    cols = shutil.get_terminal_size((80, 24)).columns
+    terminal = shutil.get_terminal_size((80, 24))
+    cols = terminal.columns
+    rows_available = terminal.lines
     avail = max(10, cols - 5)
+
+    # A large directory must never push the first options above the viewport.
+    # Keep a fixed-size window and move it only when the selected item reaches
+    # an edge of that window.
+    window_size = max(3, rows_available - 8)
+    if len(options) > window_size:
+        start = min(max(0, selected - window_size // 2), len(options) - window_size)
+        visible_options = options[start:start + window_size]
+    else:
+        start = 0
+        visible_options = options
 
     rows = []
     rows.append(f"  {R.bold(fit(title, avail))}")
-    rows.append(R.dim("  " + "─" * min(52, avail)))
-    for i, opt in enumerate(options):
-        cursor = R.accent("❯") if i == selected else " "
+    rows.append(R.dim("  " + ui_glyph("─", "-") * min(52, avail)))
+    rows.append(R.dim("  ^ more above" if start else ""))
+    for offset, opt in enumerate(visible_options):
+        i = start + offset
+        cursor = R.accent(ui_glyph("❯", ">")) if i == selected else " "
         body = fit(opt, avail)
         text = R.bold(body) if i == selected else R.dim(body)
         rows.append(f"  {cursor} {text}")
+    rows.append(R.dim("  v more below" if start + len(visible_options) < len(options) else ""))
     rows.append("")
     rows.append(R.dim(f"  {fit(hint, avail)}"))
 
@@ -274,4 +319,3 @@ def looks_like_directory_path(text: str) -> Path | None:
     if resolved.exists() and resolved.is_dir():
         return resolved
     return None
-
