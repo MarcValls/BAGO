@@ -1,7 +1,6 @@
 {
   "name": "bago-installation-manager",
-  "version": "4.11.1",
-  "private": true,
+  "version": "4.11.3",
   "description": "Electron packaged installation manager for BAGO.",
   "main": "electron/main.cjs",
   "author": "BAGO",
