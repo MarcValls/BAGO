@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "generated_from": "AST scan: executable sys.path.insert/append calls and add_piece_paths usage over versioned backend sources (tests, __pycache__ and git-ignored build/output trees excluded)",
   "total_files": 78,
-  "total_mutations": 119,
+  "total_mutations": 121,
   "files": [
     {
       "path": "backend/.bago/agents/agent_gateway.py",
@@ -131,15 +131,15 @@
       "path": "backend/.bago/chat/repl_inventory.py",
       "mutations": [
         {
-          "line": 43,
+          "line": 44,
           "call": "sys.path.insert"
         },
         {
-          "line": 62,
+          "line": 63,
           "call": "sys.path.insert"
         },
         {
-          "line": 77,
+          "line": 78,
           "call": "sys.path.insert"
         }
       ]
@@ -197,8 +197,16 @@
       "path": "backend/.bago/core/session_adapters_mixin.py",
       "mutations": [
         {
-          "line": 15,
+          "line": 20,
+          "call": "import add_piece_paths"
+        },
+        {
+          "line": 17,
           "call": "sys.path.insert"
+        },
+        {
+          "line": 21,
+          "call": "add_piece_paths"
         }
       ]
     },
@@ -241,7 +249,7 @@
       "path": "backend/.bago/core/session_manager.py",
       "mutations": [
         {
-          "line": 42,
+          "line": 43,
           "call": "sys.path.insert"
         }
       ]
@@ -259,7 +267,7 @@
       "path": "backend/.bago/core/session_tools_mixin.py",
       "mutations": [
         {
-          "line": 13,
+          "line": 14,
           "call": "sys.path.insert"
         }
       ]
@@ -448,7 +456,7 @@
       "path": "backend/.bago/tools/debt_guard.py",
       "mutations": [
         {
-          "line": 55,
+          "line": 56,
           "call": "sys.path.insert"
         }
       ]
@@ -506,11 +514,11 @@
           "call": "import add_piece_paths"
         },
         {
-          "line": 20,
+          "line": 21,
           "call": "add_piece_paths"
         },
         {
-          "line": 148,
+          "line": 149,
           "call": "add_piece_paths"
         }
       ]
@@ -662,7 +670,7 @@
           "call": "sys.path.insert"
         },
         {
-          "line": 358,
+          "line": 359,
           "call": "add_piece_paths"
         }
       ]

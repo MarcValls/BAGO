@@ -2,7 +2,7 @@
 
 Effect registry: `bago.effect-registry.v1` `1.24.0` SHA-256 `309702e4871ff90ca527e9d2ae7f8bcfa669a91a8a79c0dcd2cfbbe49f8ff119`.
 Scope: direct `build_execution_request` calls in `backend/.bago/` and `backend/bago_core/`.
-Callsites: 57; mutating or dynamic-effect calls without a usable `world_state_authority` input: 0.
+Callsites: 60; mutating or dynamic-effect calls without a usable `world_state_authority` input: 0.
 Gateway: mutating requests reject unspecified state and revalidate their authority-bound snapshot before Permit consumption and immediately before adapter dispatch.
 Strong effects: every registered mutating E5/E6 adapter must expose `revalidate_world_state`; missing hooks fail Gateway registry construction and unadapted effects remain denied.
 Process termination: `cleanup_zombies` binds PID, executable, command line, and creation time into the Permit target; the Gateway re-enumerates candidates before consumption/dispatch and the Windows terminator rechecks exact identities before acting.
@@ -24,7 +24,7 @@ Process termination: `cleanup_zombies` binds PID, executable, command line, and 
 | backend/.bago/api/handlers_process.py | 129 | handle_execute | <dynamic> | dynamic | dynamic | manager |
 | backend/.bago/api/handlers_project.py | 223 | handle_project_sync | workspace.mirror.sync | True | E3 | mgr |
 | backend/.bago/api/handlers_project.py | 317 | _handle_project_write | project.write | True | E3 | mgr |
-| backend/.bago/api/handlers_providers.py | 220 | handle_configure | credential.write | True | E5 | mgr |
+| backend/.bago/api/handlers_providers.py | 234 | handle_configure | credential.write | True | E5 | mgr |
 | backend/.bago/api/handlers_release.py | 45 | handle_apply | system.update.apply | True | E5 | mgr |
 | backend/.bago/api/handlers_release_jobs.py | 14 | _dispatch | <dynamic> | dynamic | dynamic | manager |
 | backend/.bago/api/handlers_release_jobs.py | 220 | handle_archive_job | release.job.archive | True | E3 | manager |
@@ -40,20 +40,23 @@ Process termination: `cleanup_zombies` binds PID, executable, command line, and 
 | backend/.bago/core/credential_manager.py | 223 | _execute_secret_write | credential.write | True | E5 | manager |
 | backend/.bago/core/database_write_request.py | 56 | build_memory_database_request | database.write | True | E3 | manager |
 | backend/.bago/core/governed_work_pipeline.py | 774 | _executor | <dynamic> | dynamic | dynamic | context.manager |
+| backend/.bago/core/msix_bootstrap.py | 81 | install_from_package | system.install.apply | True | E5 | _SESSION_MANAGER |
 | backend/.bago/core/project_patch_operations.py | 39 | build_apply_request | project.write | True | E3 | manager |
 | backend/.bago/core/project_patch_operations.py | 55 | build_rollback_request | project.write | True | E3 | manager |
-| backend/.bago/core/session_manager.py | 317 | _prepare_session_mirror | workspace.mirror.prepare | True | E2 | self |
+| backend/.bago/core/session_manager.py | 328 | _prepare_session_mirror | workspace.mirror.prepare | True | E2 | manager_for_gateway |
+| backend/.bago/core/session_tools_mixin.py | 40 | execute_runtime_control | process.execute | True | E4 | self |
 | backend/.bago/integrations/pi/process_boundary.py | 179 | run_sidecar | process.sidecar.execute | False | E4 | Path(spec.cwd) |
 | backend/.bago/roles/role_factory.py | 201 | create_role | role.definition.create | True | E3 | root |
 | backend/.bago/tools/bago_canary.py | 117 | deploy | security.canary.manage | True | E5 | root |
 | backend/.bago/tools/bago_canary.py | 171 | purge | security.canary.manage | True | E5 | root |
 | backend/.bago/tools/bago_utils.py | 80 | save_json | state.write | True | E2 | root |
 | backend/.bago/tools/commit_readiness.py | 70 | git | repository.inspect | False | E1 | cwd |
-| backend/.bago/tools/debt_guard.py | 83 | _execute_repository_mutation | repository.guard.manage | True | E4 | root |
-| backend/.bago/tools/debt_guard.py | 178 | _staged_python_files | repository.inspect | False | E1 | canonical |
+| backend/.bago/tools/debt_guard.py | 95 | _execute_repository_mutation | repository.guard.manage | True | E4 | root |
+| backend/.bago/tools/debt_guard.py | 190 | _staged_python_files | repository.inspect | False | E1 | canonical |
 | backend/.bago/tools/process_monitor.py | 523 | main | monitor.generate | True | E3 | root |
 | backend/.bago/tools/project_memory.py | 694 | _execute_cli_project_write | project.write | True | E3 | manager |
 | backend/bago_core/commands/cmd_content.py | 250 | cmd_manager | process.execute | True | E4 | root |
+| backend/bago_core/commands/cmd_layer.py | 47 | writer | state.write | True | E2 | Path(args.root or Path.cwd()) |
 | backend/bago_core/commands/cmd_lifecycle.py | 170 | cmd_rollback_archive | system.install.archive.rollback | True | E5 | Path(install_dir) |
 | backend/bago_core/evidence_authorized.py | 26 | generate_bundle | evidence.bundle.generate | True | E5 | base_path |
 | backend/bago_core/server_effects.py | 45 | _execute_text | <dynamic> | dynamic | dynamic | root |
