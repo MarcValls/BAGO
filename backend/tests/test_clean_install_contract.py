@@ -61,6 +61,8 @@ def test_clean_install_smoke_is_part_of_canonical_ci() -> None:
     assert "scripts/test_clean_install.ps1" in workflow
     assert 'if ($LASTEXITCODE -ne 0) { throw "Clean-install gate failed." }' in workflow
     assert "run_clean_install_gateway.py" in smoke_text
+    assert "world_state_authority=manager" in harness_text
+    assert "context=ExecutionContext(manager=manager)" in harness_text
     assert "-File $installer" not in smoke_text
     assert "ExecutionGateway(boundary).execute" in harness_text
     assert 'os.environ.get("GITHUB_ACTIONS", "").lower() != "true"' in harness_text

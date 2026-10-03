@@ -121,6 +121,7 @@ def main() -> int:
 
     session_id = "ci-clean-install-" + uuid.uuid4().hex
     interaction_id = "ci-clean-install-interaction-" + uuid.uuid4().hex
+    manager = SimpleNamespace(session_id=session_id, base_path=str(source_root))
     request = build_execution_request(
         effect_id="system.install.apply",
         actor_kind="user",
@@ -130,6 +131,7 @@ def main() -> int:
         target=target,
         arguments={"configuration": configuration},
         scope="system",
+        world_state_authority=manager,
     )
     boundary = AuthorizationBoundary()
     challenge = boundary.create_challenge(request, interaction_id=interaction_id)
@@ -147,7 +149,7 @@ def main() -> int:
     result, authorization = ExecutionGateway(boundary).execute(
         permit_token=str(approval["permit"]["token"]),
         request=request,
-        context=ExecutionContext(manager=SimpleNamespace(session_id=session_id)),
+        context=ExecutionContext(manager=manager),
     )
     if not result.get("ok") or result.get("status") != "completed":
         raise SystemExit("governed clean-install execution did not complete")
