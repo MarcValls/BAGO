@@ -98,7 +98,6 @@ def test_release_job_storage_http_routes_dispatch_to_canonical_adapters(tmp_path
     monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path))
     class StorageManager:
         session_id = "release-job-manager"
-        base_path = tmp_path
 
     monkeypatch.setattr(api_state, "get_mgr", lambda handler: StorageManager())
 
@@ -287,7 +286,6 @@ def test_release_job_archive_api_uses_boundary_challenge_approve_and_gateway(tmp
 
     class Manager:
         session_id = "release-archive-api-session"
-        base_path = tmp_path
 
     monkeypatch.setattr(api_state, "get_mgr", lambda handler: Manager())
 
