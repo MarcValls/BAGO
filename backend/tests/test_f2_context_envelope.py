@@ -145,7 +145,7 @@ def test_set_goal():
     """set_goal must update persistent_goal and return previous."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f2-goal",
             provider="ollama-local",
@@ -172,7 +172,7 @@ def test_clear_goal():
     """clear_goal must reset persistent_goal to empty."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f2-clear",
             provider="ollama-local",
@@ -193,7 +193,7 @@ def test_goal_in_system_prompt_when_set():
     """effective_system_prompt must include goal block when goal is set."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f2-prompt",
             provider="ollama-local",
@@ -217,7 +217,7 @@ def test_workspace_authority_block_is_explicit():
     """effective_system_prompt must expose the workspace roots and answer rule."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f2-workspace-prompt",
             provider="ollama-local",
@@ -240,7 +240,7 @@ def test_canonical_behavior_policy_is_active_in_system_prompt():
     """effective_system_prompt must surface the canonical behavior policy."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f2-canonical-policy",
             provider="ollama-local",
@@ -262,7 +262,7 @@ def test_goal_persisted_in_save_load():
     """save/load must round-trip persistent_goal."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f2-persist",
             provider="ollama-local",
@@ -287,7 +287,7 @@ def test_goal_empty_after_load_when_never_set():
     """load must default persistent_goal to empty when never set."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f2-nogoal",
             provider="ollama-local",

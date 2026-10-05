@@ -31,7 +31,7 @@ def _request(effect_id: str, job_id: str, arguments: dict):
         target={"job_id": job_id},
         arguments=arguments,
         scope="system",
-        world_state_authority=Path(os.environ.get("BAGO_USER_ROOT", Path.cwd())),
+        world_state_authority=Path(os.environ["BAGO_USER_ROOT"]),
     )
 
 
@@ -129,7 +129,8 @@ def test_release_job_storage_http_routes_dispatch_to_canonical_adapters(tmp_path
     (ReleaseJobStateEffectAdapter(), "release.job.persist", {"state": {"id": "release-1"}}),
     (ReleaseJobLogEffectAdapter(), "release.job.log.append", {"record": {"level": "invalid"}}),
 ])
-def test_job_storage_adapters_reject_direct_non_gateway_calls(adapter, effect_id, arguments):
+def test_job_storage_adapters_reject_direct_non_gateway_calls(adapter, effect_id, arguments, tmp_path, monkeypatch):
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path))
     request = _request(effect_id, "release-1", arguments)
     with pytest.raises(ExecutionGatewayError):
         adapter.execute(request, ExecutionContext())

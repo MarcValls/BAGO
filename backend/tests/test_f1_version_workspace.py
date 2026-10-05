@@ -45,7 +45,7 @@ def test_session_manager_save_persists_workspace_state_root():
     """SessionManager.save() must include workspace_state_root in session JSON."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f1-save",
             provider="ollama-local",
@@ -71,7 +71,7 @@ def test_session_manager_load_restores_workspace_state_root():
     """SessionManager.load() must restore workspace_state_root when the path exists."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f1-load",
             provider="ollama-local",
@@ -85,7 +85,8 @@ def test_session_manager_load_restores_workspace_state_root():
             mgr.close()
 
         # Load from a different CWD — should restore workspace_state_root, not use cwd
-        other_cwd = tempfile.mkdtemp()
+        other_cwd = tempfile.mkdtemp(dir=td)
+        original_cwd = os.getcwd()
         os.chdir(other_cwd)
         try:
             loaded = SessionManager.load("test-f1-load", state_root=td)
@@ -96,7 +97,7 @@ def test_session_manager_load_restores_workspace_state_root():
             finally:
                 loaded.close()
         finally:
-            os.chdir(ws)  # restore
+            os.chdir(original_cwd)  # restore before TemporaryDirectory cleanup
 
 
 def test_session_manager_load_keeps_explicit_workspace_over_saved_session_root():
@@ -104,8 +105,8 @@ def test_session_manager_load_keeps_explicit_workspace_over_saved_session_root()
     from session_manager import SessionManager
 
     with tempfile.TemporaryDirectory() as td:
-        saved_workspace = tempfile.mkdtemp()
-        launch_workspace = tempfile.mkdtemp()
+        saved_workspace = tempfile.mkdtemp(dir=td)
+        launch_workspace = tempfile.mkdtemp(dir=td)
         subprocess.run(["git", "-C", saved_workspace, "init", "-b", "main"], check=True, capture_output=True, text=True)
         subprocess.run(["git", "-C", launch_workspace, "init", "-b", "release-target"], check=True, capture_output=True, text=True)
         for workspace in (saved_workspace, launch_workspace):
@@ -155,7 +156,7 @@ def test_session_manager_load_uses_current_runtime_framework_root():
     from workspace_binding import resolve_framework_root
 
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f1-runtime-root",
             provider="ollama-local",
@@ -236,7 +237,7 @@ def test_session_manager_status_exposes_workspace_binding():
     ADAPTER_REGISTRY["workspace-mock"] = MockAdapter
     try:
         with tempfile.TemporaryDirectory() as td:
-            ws = tempfile.mkdtemp()
+            ws = tempfile.mkdtemp(dir=td)
             subprocess.run(["git", "-C", ws, "init", "-b", "main"], check=True, capture_output=True, text=True)
             subprocess.run(
                 ["git", "-C", ws, "-c", "user.name=Codex", "-c", "user.email=codex@example.com", "commit", "--allow-empty", "-m", "init"],
@@ -353,7 +354,7 @@ def test_session_manager_global_review_activates_from_context_plan():
     ADAPTER_REGISTRY["workspace-mock-review"] = MockAdapter
     try:
         with tempfile.TemporaryDirectory() as td:
-            ws = tempfile.mkdtemp()
+            ws = tempfile.mkdtemp(dir=td)
             subprocess.run(["git", "-C", ws, "init", "-b", "main"], check=True, capture_output=True, text=True)
             subprocess.run(
                 ["git", "-C", ws, "-c", "user.name=Codex", "-c", "user.email=codex@example.com", "commit", "--allow-empty", "-m", "init"],
@@ -827,7 +828,7 @@ def test_session_manager_send_short_circuits_workspace_questions():
     ADAPTER_REGISTRY["workspace-mock"] = MockAdapter
     try:
         with tempfile.TemporaryDirectory() as td:
-            ws = tempfile.mkdtemp()
+            ws = tempfile.mkdtemp(dir=td)
             canonical = f"El proyecto activo es {Path(ws)}."
             direct = "Trabajo sobre project_root="
             mgr = SessionManager(
@@ -922,7 +923,7 @@ def test_session_manager_certify_fails_when_benchmark_missing():
     ADAPTER_REGISTRY["workspace-mock"] = MockAdapter
     try:
         with tempfile.TemporaryDirectory() as td:
-            ws = tempfile.mkdtemp()
+            ws = tempfile.mkdtemp(dir=td)
             subprocess.run(["git", "-C", ws, "init", "-b", "main"], check=True, capture_output=True, text=True)
             subprocess.run(
                 ["git", "-C", ws, "-c", "user.name=Codex", "-c", "user.email=codex@example.com", "commit", "--allow-empty", "-m", "init"],
@@ -987,7 +988,7 @@ def test_session_manager_certify_fails_on_mutated_benchmark():
     ADAPTER_REGISTRY["workspace-mock"] = MockAdapter
     try:
         with tempfile.TemporaryDirectory() as td:
-            ws = tempfile.mkdtemp()
+            ws = tempfile.mkdtemp(dir=td)
             subprocess.run(["git", "-C", ws, "init", "-b", "main"], check=True, capture_output=True, text=True)
             subprocess.run(
                 ["git", "-C", ws, "-c", "user.name=Codex", "-c", "user.email=codex@example.com", "commit", "--allow-empty", "-m", "init"],
@@ -1021,7 +1022,7 @@ def test_session_manager_binding_breaks_on_workspace_mutation():
     """A persisted workspace_state_root mutation must break binding confirmation."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         subprocess.run(["git", "-C", ws, "init", "-b", "main"], check=True, capture_output=True, text=True)
         mgr = SessionManager(
             session_id="test-f1-binding",
@@ -1037,7 +1038,7 @@ def test_session_manager_binding_breaks_on_workspace_mutation():
 
         session_path = Path(td) / "sessions" / "test-f1-binding.json"
         data = json.loads(session_path.read_text(encoding="utf-8"))
-        mutated_ws = tempfile.mkdtemp()
+        mutated_ws = tempfile.mkdtemp(dir=td)
         subprocess.run(["git", "-C", mutated_ws, "init", "-b", "main"], check=True, capture_output=True, text=True)
         data["project_root"] = mutated_ws
         data["workspace_state_root"] = str(Path(mutated_ws) / ".gabo")
@@ -1060,7 +1061,7 @@ def test_session_manager_binding_breaks_on_repo_branch_mutation():
     """A persisted repo_branch mutation must break binding confirmation."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         subprocess.run(["git", "-C", ws, "init", "-b", "main"], check=True, capture_output=True, text=True)
         mgr = SessionManager(
             session_id="test-f1-branch",

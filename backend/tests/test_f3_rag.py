@@ -49,7 +49,7 @@ def test_rag_retrieve_returns_keyword_matches():
     """_rag_retrieve must find content from KnowledgeBase via keyword search."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f3-kw",
             provider="ollama-local",
@@ -73,7 +73,7 @@ def test_rag_retrieve_empty_when_no_knowledge():
     """_rag_retrieve must return empty list when no knowledge is stored."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f3-empty",
             provider="ollama-local",
@@ -113,7 +113,7 @@ def test_rag_retrieve_deduplicates():
     """_rag_retrieve must deduplicate fragments with same content prefix."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f3-dedup",
             provider="ollama-local",
@@ -138,7 +138,7 @@ def test_rag_retrieve_respects_limit():
     """_rag_retrieve must return at most `limit` fragments."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f3-limit",
             provider="ollama-local",
@@ -160,7 +160,7 @@ def test_rag_non_blocking_on_error():
     """_rag_retrieve must not raise even if KnowledgeBase has issues."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f3-err",
             provider="ollama-local",
