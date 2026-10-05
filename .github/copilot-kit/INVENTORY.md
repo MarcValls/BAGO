@@ -1,6 +1,6 @@
 # Inventario granular BAGO Copilot CLI
 
-HEAD: `13c34397f4d197bdc4803052e6157ccc372dcd03`. Fuentes del worktree actual; integracion runtime: NOT_RUN.
+HEAD: `f75b0e69d19bd2b23bc1351a5ad16c96b2346e6d`. Fuentes del worktree actual; integracion runtime: NOT_RUN.
 
 Archivos fuente: 611. Herramientas: 33 declaradas / 54 fuentes Python.
 

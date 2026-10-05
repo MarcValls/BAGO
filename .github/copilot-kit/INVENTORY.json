@@ -1,7 +1,7 @@
 {
   "contract": "bago.copilot-kit.snapshot.v1",
-  "created_utc": "2026-10-05T06:26:26.629577+00:00",
-  "head": "13c34397f4d197bdc4803052e6157ccc372dcd03",
+  "created_utc": "2026-10-05T06:29:14.726226+00:00",
+  "head": "f75b0e69d19bd2b23bc1351a5ad16c96b2346e6d",
   "branch": "codex/reconcile-20261005",
   "source": "current worktree, not HEAD-only",
   "pack_status": "PREPARED",
