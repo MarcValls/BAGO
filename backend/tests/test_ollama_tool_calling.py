@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -72,8 +74,10 @@ class _DummyAgentGateway:
 
 
 class _ToolRegistry:
-    def __init__(self, workspace_root=None, **kwargs):
-        self.workspace_root = Path(workspace_root).resolve() if workspace_root else None
+    def __init__(self, workspace_root, **kwargs):
+        if workspace_root is None:
+            raise ValueError("test ToolRegistry requires an explicit workspace_root")
+        self.workspace_root = Path(workspace_root).resolve()
 
     def __len__(self) -> int:
         return 2
@@ -119,8 +123,7 @@ class _ToolRegistry:
         return calls
 
     def execute_call(self, call):
-        root = self.workspace_root or Path.cwd()
-        path = root / str(call.arguments.get("path", ""))
+        path = self.workspace_root / str(call.arguments.get("path", ""))
         if call.name == "file-read":
             content = path.read_text(encoding="utf-8")
             return SimpleNamespace(call_id=call.call_id, name=call.name, ok=True, returncode=0, content=content)
@@ -154,6 +157,11 @@ class _ToolRegistry:
         result.blocked = False
         result.block_reason = ""
         return result
+
+
+def test_fake_tool_registry_requires_an_explicit_workspace_root():
+    with pytest.raises(ValueError, match="explicit workspace_root"):
+        _ToolRegistry(None)
 
 
 class _CaptureOllamaAdapter:

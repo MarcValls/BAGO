@@ -55,7 +55,8 @@ def test_receipt_validator_certifies_and_detects_mutation():
     from context_receipt_validator import ContextReceiptValidator
 
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         mgr, sm = _make_manager(td, workspace)
         try:
             mgr.set_goal("Validar receipts")
