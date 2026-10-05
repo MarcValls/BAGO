@@ -46,6 +46,8 @@ __pycache__/
 *.so
 .Python
 .pytest_cache/
+/.pytest-bago-*/
+/backend/.pytest-tmp-audit/
 backend/.pytest-tmp-*/
 .mypy_cache/
 .venv/
@@ -64,6 +66,7 @@ desktop.ini
 !.vscode/
 !.vscode/extensions.json
 !.vscode/settings.json
+/.vs/
 .idea/
 *.swp
 *.swo

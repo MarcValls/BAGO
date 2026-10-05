@@ -384,7 +384,9 @@ def test_default_inventory_roots_include_runtime_entrypoints_and_release_scripts
     assert inventory._scope_for(inventory.REPO_ROOT / "backend/scripts/runtime-service.ps1") == inventory.SCOPE_RUNTIME_AUTHORITY
     assert inventory._scope_for(inventory.REPO_ROOT / "scripts/dev.ps1") == inventory.SCOPE_RUNTIME_AUTHORITY
     assert inventory._scope_for(inventory.REPO_ROOT / "ARRANCAR_BAGO.bat") == inventory.SCOPE_RUNTIME_AUTHORITY
-    assert inventory._scope_for(inventory.REPO_ROOT / "update-release-v4.8.4.sh") == inventory.SCOPE_BUILD_RELEASE_ADMIN
+    assert inventory._scope_for(
+        inventory.REPO_ROOT / "releases" / "archive" / "v4.8.4" / "update-release-v4.8.4.sh"
+    ) == inventory.SCOPE_BUILD_RELEASE_ADMIN
     assert inventory._scope_for(inventory.REPO_ROOT / "releases" / "compiled" / "backend" / "main.py") == inventory.SCOPE_DERIVED_RELEASE_SNAPSHOT
     assert inventory._scope_for(inventory.REPO_ROOT / "releases" / "install-embedded-payload.ps1") == inventory.SCOPE_RUNTIME_AUTHORITY
     assert inventory._scope_for(inventory.REPO_ROOT / "releases" / "bago-installer.nsi") == inventory.SCOPE_RUNTIME_AUTHORITY

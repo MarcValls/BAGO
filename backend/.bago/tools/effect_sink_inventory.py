@@ -46,8 +46,6 @@ DEFAULT_ROOTS = (
     REPO_ROOT / "ARRANCAR_BAGO.bat",
     REPO_ROOT / "DETENER_BAGO.bat",
     REPO_ROOT / "install-remote.ps1",
-    REPO_ROOT / "update-release-v4.8.4.ps1",
-    REPO_ROOT / "update-release-v4.8.4.sh",
 )
 EXCLUDED_DIRS = {
     ".git",
@@ -318,7 +316,10 @@ def _scope_for(path: Path) -> str:
         "scripts/dev.ps1",
     }:
         return SCOPE_RUNTIME_AUTHORITY
-    if rel in {"update-release-v4.8.4.ps1", "update-release-v4.8.4.sh"}:
+    if rel in {
+        "releases/archive/v4.8.4/update-release-v4.8.4.ps1",
+        "releases/archive/v4.8.4/update-release-v4.8.4.sh",
+    }:
         return SCOPE_BUILD_RELEASE_ADMIN
     if rel.startswith(".github/workflows/"):
         return SCOPE_BUILD_RELEASE_ADMIN
