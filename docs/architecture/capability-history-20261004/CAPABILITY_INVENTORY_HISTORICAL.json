@@ -1,0 +1,625 @@
+{
+  "schema": "bago.capability-inventory-historical.v1",
+  "candidate_head": "b9b2eda8f21be16f5ade510b5f069abe09ae5387",
+  "source": "local tags/contracts/tests/commits",
+  "tags_inspected": 55,
+  "capabilities": [
+    {
+      "capability_id": "C01",
+      "name": "Estado de sesión",
+      "introduced_version": "v4.0.0-mvp",
+      "last_known_full_version": "v4.8.0",
+      "historical_owner": "SessionManager",
+      "historical_routes": "GET /session; /status; /session",
+      "historical_tests": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.0.0-mvp:.bago/core/session.py:12",
+        "v4.5.0:.bago/api/bridge.py:253",
+        "v4.8.0:backend/.bago/core/session_manager.py:102"
+      ],
+      "behavior": "La consulta conserva identidad/provider/model y añade binding de workspace, conversaciones y contrato. No se ha probado migración del active.json del MVP.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C02",
+      "name": "Guardar, cargar y recuperar sesión",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "SessionManager + ContextStore",
+      "historical_routes": "/save; /load; sesiones API",
+      "historical_tests": [
+        "backend/tests/test_chat_command_load_workspace.py",
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.5.0:.bago/chat/commands.py::cmd_save/cmd_load"
+      ],
+      "behavior": "La restauración usa project_root duradero; el backend conserva autoridad sobre la activación.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C03",
+      "name": "Chat y streaming",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "SessionManager.send + chat_turns",
+      "historical_routes": "POST /chat; POST /chat/stream",
+      "historical_tests": [
+        "backend/tests/test_chat_turn_idempotency.py"
+      ],
+      "historical_evidence": [
+        "v4.5.0:.bago/api/bridge.py:368"
+      ],
+      "behavior": "Se conserva chat y se añaden streaming e identidad/reintentos del turno. Test actual no presente en v4.11.10.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C04",
+      "name": "Cambiar proveedor/modelo",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "SwitchEngine",
+      "historical_routes": "POST /switch; /switch; /models",
+      "historical_tests": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.5.0:.bago/api/bridge.py:450"
+      ],
+      "behavior": "La ruta mantiene el cambio mediante SwitchEngine; equivalencia total de validaciones no ejecutada.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C05",
+      "name": "Comandos por HTTP",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.8.0",
+      "historical_owner": "chat.commands.execute",
+      "historical_routes": "POST /command → /api/v1/commands",
+      "historical_tests": [
+        "backend/tests/test_sprint_4_surfaces.py"
+      ],
+      "historical_evidence": [
+        "v4.5.0:.bago/api/bridge.py:413",
+        "v4.8.0:backend/contracts/api_routes.generated.json"
+      ],
+      "behavior": "Alias explícito conserva el acceso. La carga del módulo distingue chat.commands de bago_core.commands.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C06",
+      "name": "Workspace y operaciones de proyecto",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.8.0",
+      "historical_owner": "handlers_workspace / ProjectWriteEffectAdapter",
+      "historical_routes": "/workspaces → /workspace/list; /workspace/{init,link,seed,sync} → /project/*",
+      "historical_tests": [
+        "backend/tests/test_workspace_seed_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.8.0:backend/contracts/api_routes.generated.json"
+      ],
+      "behavior": "Las rutas antiguas tienen alias. Las mutaciones actuales añaden autorización; no es una pérdida por renombrado.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C07",
+      "name": "Historial y conversaciones",
+      "introduced_version": "v4.9.0",
+      "last_known_full_version": "v4.9.0",
+      "historical_owner": "ContextStore",
+      "historical_routes": "GET /history; /conversations; /workspace/conversation",
+      "historical_tests": [
+        "backend/tests/test_conversation_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.5.0:.bago/api/bridge.py:268",
+        "v4.9.0:backend/tests/test_conversation_contract.py"
+      ],
+      "behavior": "El historial se amplía con conversaciones, archivo y scope de workspace; el test conserva migración legacy→main.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C08",
+      "name": "Escribir archivos desde API",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.11.0",
+      "historical_owner": "ExecutionGateway / owner de archivos",
+      "historical_routes": "POST /files/write",
+      "historical_tests": [
+        "backend/tests/test_files_write_workspace_scope.py"
+      ],
+      "historical_evidence": [
+        "v4.8.0:backend/.bago/api/handlers_files.py:375",
+        "v4.11.0:backend/.bago/api/handlers_files.py:400"
+      ],
+      "behavior": "La escritura directa se sustituye por efecto gobernado y fallo cerrado sin Permit.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C09",
+      "name": "Ejecutar planes materiales",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.9.0",
+      "historical_owner": "PlanEngine + ExecutionGateway",
+      "historical_routes": "POST /plans/<id>/execute",
+      "historical_tests": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.8.0:backend/.bago/core/plan_engine.py::execute_plan",
+        "v4.9.0:backend/.bago/api/handlers_jobs.py:306"
+      ],
+      "behavior": "Antes podían completarse pasos informativos o conversación run_command. Ahora el executor requiere executed, evidencia y receipt_id.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C10",
+      "name": "Autopilot: texto considerado evidencia",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "chat.commands.cmd_autopilot",
+      "historical_routes": "/autopilot",
+      "historical_tests": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.5.0:.bago/chat/commands.py::cmd_autopilot"
+      ],
+      "behavior": "El handler sigue tratando texto del modelo como ejecución. Probe con PlanEngine real: done y receipt_id vacío; respuesta vacía deja blocked con ok=true. El test citado cubre el motor, no directamente este handler.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C11",
+      "name": "Límite de 20 pasos de autopilot",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "chat.commands.cmd_autopilot",
+      "historical_routes": "/autopilot",
+      "historical_tests": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.5.0:.bago/chat/commands.py::cmd_autopilot (max_steps=20)"
+      ],
+      "behavior": "Con 25 pasos, el handler antiguo hace 21 llamadas al stub (plan+20); el actual hace 26 (plan+25). No se atribuye a un commit de retirada ni se confunde rama histórica con ancestro.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C12",
+      "name": "Ciclo spawn/list/run/kill de agentes",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "spiral_agent + agent_kit_cli",
+      "historical_routes": "bago agent spawn/list/run/kill",
+      "historical_tests": [
+        "backend/tests/test_orchestration_tools.py"
+      ],
+      "historical_evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_agent",
+        "4aa0eb66:backend/bago_core/commands/cmd_tools.py"
+      ],
+      "behavior": "4aa0eb66 redirige list/run/describe/plan al kit, mientras spawn/kill/status siguen en spiral_agent. Requiere probar continuidad de identidad entre registros.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C13",
+      "name": "Navegador persistente y snapshot DOM",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "Owner actual equivalente no localizado",
+      "historical_routes": "Histórico /browser open/snapshot/click/fill/eval; sin registro actual",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.5.0:.bago/chat/commands.py::cmd_browser",
+        "45e0b4d9 (introducción de Playwright persistente)"
+      ],
+      "behavior": "La fuente histórica despacha un controller Playwright. El registro actual carece de /browser. Los smokes DOM y browse de directorios no prueban sustitución equivalente. No se ha demostrado funcionamiento histórico en vivo.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C14",
+      "name": "Node Control",
+      "introduced_version": "v4.0.0-mvp",
+      "last_known_full_version": "v4.8.0",
+      "historical_owner": "Node Control",
+      "historical_routes": "bago node status/validate/pieces/connect/disconnect/set-mode",
+      "historical_tests": [
+        "backend/tests/test_node_control_split.py"
+      ],
+      "historical_evidence": [
+        "v4.0.0-mvp:.bago/core/cli.py::cmd_nodes",
+        "v4.8.0:backend/bago_core/node_control_cli.py"
+      ],
+      "behavior": "Las operaciones actuales añaden identidad instalación/pieza y modos. No hay prueba de que el catálogo de capabilities haya reemplazado Node Control.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C15",
+      "name": "Evidencia de trabajo",
+      "introduced_version": "v4.0.0-mvp",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "Evidence bundles / claim ledger / receipts",
+      "historical_routes": "bago evidence; bago claim; node evidence",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.0.0-mvp:.bago/core/cli.py::cmd_evidence",
+        "v4.5.0:bago_core/launcher.py"
+      ],
+      "behavior": "La palabra evidence abarca owners y contratos distintos del índice MVP. Una cadena textual histórica no equivale a un receipt material actual.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C16",
+      "name": "RL shadow, entrenamiento y evaluación",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.9.0",
+      "historical_owner": "RLBridge + rl_policies",
+      "historical_routes": "/rl/status; /rl/shadow; train/eval",
+      "historical_tests": [
+        "backend/tests/test_rl_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.5.0:.bago/api/bridge.py:518",
+        "v4.9.0:backend/tests/test_rl_contract.py"
+      ],
+      "behavior": "Se conserva can_execute=False. Entrenamiento y evaluación amplían observación; no conceden ejecución autónoma.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C17",
+      "name": "Memoria y KB",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.10.0",
+      "historical_owner": "handlers_memory + handlers_kv",
+      "historical_routes": "/memory/*; /api/v1/kb",
+      "historical_tests": [
+        "backend/tests/test_kv_integration_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.8.0:backend/contracts/api_routes.generated.json",
+        "v4.10.0:backend/contracts/api_routes.generated.json"
+      ],
+      "behavior": "Memoria añade búsqueda/embeddings; KB mantiene identidad propia. Mutaciones actuales usan autorización. No es el catálogo de capabilities.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C18",
+      "name": "Capability packages y pipelines ejecutables",
+      "introduced_version": "v4.8.2",
+      "last_known_full_version": "v4.8.2",
+      "historical_owner": "CapabilityPackageImportEffectAdapter + ExecutionGateway",
+      "historical_routes": "/api/v1/capability-packages/*",
+      "historical_tests": [
+        "backend/tests/test_capability_packages.py",
+        "backend/tests/test_capability_import_gateway.py"
+      ],
+      "historical_evidence": [
+        "v4.8.2:backend/.bago/core/capability_packages.py:1"
+      ],
+      "behavior": "Primera presencia entre tags locales seleccionados: v4.8.2, ausente en v4.8.0/.1. Ya exigía confirmación y receipt. Gobierno posterior amplía/restringe ejecución. Precede al inventario read_only observado en v4.9.0.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C19",
+      "name": "Capability de inventario read_only",
+      "introduced_version": "v4.9.0",
+      "last_known_full_version": "v4.9.0",
+      "historical_owner": "capability_contract",
+      "historical_routes": "GET /api/v1/capabilities",
+      "historical_tests": [
+        "backend/tests/test_capability_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.9.0:backend/.bago/api/capability_contract.py:20"
+      ],
+      "behavior": "Sin diff en capability_contract.py entre v4.9.0 y HEAD. Una capability de inventario no enumera toda la capacidad histórica del Framework.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C20",
+      "name": "Schedules y delegación",
+      "introduced_version": "v4.9.0",
+      "last_known_full_version": "v4.9.0",
+      "historical_owner": "schedule_registry + ExecutionGateway",
+      "historical_routes": "/schedule/*",
+      "historical_tests": [
+        "backend/tests/test_schedule_registry.py",
+        "backend/tests/test_schedule_delegation.py"
+      ],
+      "historical_evidence": [
+        "v4.9.0:backend/tests/test_schedule_registry.py"
+      ],
+      "behavior": "La programación persiste; la ejecución requiere delegación/permiso actuales. Confirmación guardada no equivale a autoridad vigente.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C21",
+      "name": "Copilot como proveedor CLI",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.8.0",
+      "historical_owner": "CopilotAdapter + cli_bridge",
+      "historical_routes": "Provider chat mediante CLI",
+      "historical_tests": [
+        "backend/tests/test_cli_bridge_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.8.0:backend/.bago/providers/copilot.py:37"
+      ],
+      "behavior": "El transporte existe; el test exige plan mode, denegar shell/write y desactivar MCP. No prueba integración BAGO como host Copilot.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C22",
+      "name": "Pi provider",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.8.0",
+      "historical_owner": "BagoPiProviderAdapter",
+      "historical_routes": "Provider adapter (habilitación no probada)",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.8.0:backend/.bago/integrations/pi/provider_adapter.py:224"
+      ],
+      "behavior": "El adapter se conserva sin diff; disponibilidad de Pi en esta máquina no comprobada.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C23",
+      "name": "Pi ejecutor delegado",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.8.0",
+      "historical_owner": "Pi AgentRunner",
+      "historical_routes": "Agent runner Fase 3",
+      "historical_tests": [
+        "backend/tests/integrations/pi/test_agent_runner.py"
+      ],
+      "historical_evidence": [
+        "v4.8.0:backend/.bago/integrations/pi/agent_runner.py"
+      ],
+      "behavior": "Provider y runner ya coexistían. Digest, revisión y pi_finished forman parte del contrato; IO/proceso han evolucionado.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C24",
+      "name": "Taxonomía rol/workflow/sesión",
+      "introduced_version": "v3.5.0",
+      "last_known_full_version": "v3.5.0",
+      "historical_owner": "Canon + role_factory",
+      "historical_routes": "Contratos de rol y workflow",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v3.5.0:.bago/core/canon/TAXONOMIA.md"
+      ],
+      "behavior": "El vocabulario continúa; estados de pipeline se añaden de forma separada. Capability package no ha borrado la taxonomía.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C25",
+      "name": "Control headless de sesiones",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "bago_core.session_control",
+      "historical_routes": "Antes bago session; ahora módulo session_control",
+      "historical_tests": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_session"
+      ],
+      "behavior": "El alias top-level desaparece; módulo list/create/etc permanece. Compatibilidad de invocación CLI requiere decisión explícita.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C26",
+      "name": "Workflow/orquestación",
+      "introduced_version": "v3.2-kernel",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "orchestrator_v4",
+      "historical_routes": "bago orchestrate; /orchestrate",
+      "historical_tests": [
+        "backend/tests/test_orchestration_tools.py"
+      ],
+      "historical_evidence": [
+        "v3.2-kernel:.bago/tools/tool_registry.py",
+        "v4.5.0:bago_core/launcher.py"
+      ],
+      "behavior": "El workflow selector v3 y los task briefs actuales representan modelos distintos. No se da por preservado todo el contrato v3.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C27",
+      "name": "issues-gh anunciado por el parser",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "Sin handler en dispatcher",
+      "historical_routes": "bago issues-gh take",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.5.0:bago_core/parsers_sections.py (issues-gh)",
+        "v4.5.0:bago_core/launcher.py (sin dispatch)"
+      ],
+      "behavior": "El parser lo acepta, _DISPATCH_TABLE lo omite y _dispatch imprime ayuda y devuelve 0. Probe reproduce el retorno. No se clasifica LOST porque el defecto ya existía.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C28",
+      "name": "Mutaciones GitHub por HTTP",
+      "introduced_version": "v4.8.7",
+      "last_known_full_version": "v4.8.7",
+      "historical_owner": "Desktop/process authorization; owner process",
+      "historical_routes": "POST /github/setup-git → /github/setup",
+      "historical_tests": [
+        "backend/tests/test_github_api_contract.py"
+      ],
+      "historical_evidence": [
+        "v4.8.7:backend/.bago/api/handlers_github.py:506"
+      ],
+      "behavior": "El alias sigue, pero setup devuelve 410 intencionalmente. process admite git_identity; flujo completo UI alternativo no ejecutado. v4.8.7 es rama no ancestral.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C29",
+      "name": "Cancelación de interpretación histórica",
+      "introduced_version": "v4.9.0",
+      "last_known_full_version": "v4.10.0",
+      "historical_owner": "handlers_interpret",
+      "historical_routes": "Antes POST /interpretations/{id}/cancel → /interpret; alias retirado",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.9.0:backend/.bago/api/legacy_aliases.py:70",
+        "v4.10.0:backend/.bago/api/legacy_aliases.py:70",
+        "fa3f2d3c (corrige el alias)"
+      ],
+      "behavior": "Cancelar invocaba interpretar de nuevo. Corregido antes de v4.11.0. No demuestra que hubiese una cancelación funcional perdida.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C30",
+      "name": "Detalle de interpretación por ID",
+      "introduced_version": "v4.9.0",
+      "last_known_full_version": "v4.9.0",
+      "historical_owner": "handlers_interpret + API client",
+      "historical_routes": "GET /interpretations/{id} → /interpret/history",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.9.0:backend/.bago/api/legacy_aliases.py"
+      ],
+      "behavior": "El handler devuelve colección y no consulta ID; client.ts:721 espera objeto individual. Sin callsites UI encontrados: impacto visible no demostrado.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C31",
+      "name": "Prompt del rol crece por ciclo",
+      "introduced_version": "v3.5.0",
+      "last_known_full_version": "v3.5.0",
+      "historical_owner": "No equivalente demostrado; SpiralAgent actual rota pasos",
+      "historical_routes": "Histórico RoleSpiralBuilder",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v3.5.0:.bago/tools/role_embedded.py:53",
+        "v3.5.0:tests/test_v35_features.py:62"
+      ],
+      "behavior": "No hay símbolos spiral_index/RoleSpiralBuilder en backend rastreado. No hay ancestro común local entre v3.5.0 y HEAD: no se atribuye una eliminación accidental.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C32",
+      "name": "Selección adaptativa band/channel/hz",
+      "introduced_version": "v3.5.0",
+      "last_known_full_version": "v3.5.0",
+      "historical_owner": "No equivalente demostrado",
+      "historical_routes": "Histórico SignalMetrics.band/channel/hz",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v3.5.0:.bago/core/prompt_router.py:21",
+        "v3.5.0:tests/test_v35_features.py:17"
+      ],
+      "behavior": "El router actual de modelos no demuestra selección por deriva/presión/coherencia del prompt. La rama v3.5.0 está desconectada del HEAD local.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C33",
+      "name": "ModelGate direct/fallback/degrade",
+      "introduced_version": "v3.5.0",
+      "last_known_full_version": "v3.5.0",
+      "historical_owner": "session_adapters_mixin + repl_model_router",
+      "historical_routes": "Selección/fallback de modelo",
+      "historical_tests": [
+        "backend/tests/test_router_session_model.py"
+      ],
+      "historical_evidence": [
+        "v3.5.0:.bago/tools/model_gate.py",
+        "v3.5.0:tests/test_v35_features.py:108"
+      ],
+      "behavior": "Existe fallback dentro del proveedor y auto-switch. Falta equivalencia demostrada de FALLBACK_CHAIN entre providers y los resultados direct/fallback/degrade.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C34",
+      "name": "Familia CLI autonomous",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "autonomous_loop / repl_startup / comandos de sesión",
+      "historical_routes": "Histórico bago autonomous; actuales /evolve, /autopilot y módulo autonomous_loop",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_autonomous"
+      ],
+      "behavior": "Desaparece la familia CLI. Startup evolution y loop sobreviven, con autorización para herramientas mutantes. /autopilot no equivale a todas las operaciones anteriores.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C35",
+      "name": "Registro de workspaces con nombre por CLI",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "Project/workspace binding actual",
+      "historical_routes": "Histórico bago workspace; actuales /workspace/* y picker",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_workspace"
+      ],
+      "behavior": "workspace_registry.py histórico no localizado actualmente. Picker y binding existen; equivalencia con registro multi-workspace con nombre no demostrada.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C36",
+      "name": "Federación de conocimiento por CLI",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "Sin owner actual de federación identificado",
+      "historical_routes": "Histórico bago knowledge",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_knowledge"
+      ],
+      "behavior": "knowledge_federation.py no localizado en backend actual. La memoria local no demuestra federación de fuentes remotas.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C37",
+      "name": "Arrancar host C++ de referencia",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "CppLocalAdapter cliente HTTP",
+      "historical_routes": "Histórico bago cpp-runtime; provider cpp-local conservado",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.5.0:bago_core/commands/cmd_system.py::cmd_cpp_runtime",
+        "fa949059 (parser retira cpp-runtime frente al padre)"
+      ],
+      "behavior": "cpp_runtime_host no localizado. cpp-local sigue como cliente configurable; no se declara perdido todo el provider.",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C38",
+      "name": "Administrar chains desde terminal",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "Electron manager settings / chain_registry",
+      "historical_routes": "Histórico bago chain; bridge read/write chains.json",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_chain"
+      ],
+      "behavior": "Electron mantiene registry de chains y escritura gobernada. No se demostró paridad de todos los subcomandos list/show/import/export/validate/stage/step.",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C39",
+      "name": "Release jobs headless por CLI",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "historical_owner": "Electron release service + gateway",
+      "historical_routes": "Histórico bago release-job; IPC list/preflight/start/cancel/resume/install/rollback",
+      "historical_tests": [],
+      "historical_evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_release_job"
+      ],
+      "behavior": "El script release-job-cli.cjs desaparece. Manager/IPC y rutas backend mantienen operaciones; no se declara perdido el subsistema de release.",
+      "confidence": "MEDIUM"
+    }
+  ]
+}

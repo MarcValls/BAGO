@@ -1,0 +1,217 @@
+{
+  "schema": "bago.capability-semantic-probes.v1",
+  "scope": "Functions compiled from source AST; real PlanEngine class, stub provider returns text. No real provider, shell, filesystem effect or UI exercised.",
+  "source_sha256": {
+    "backend/.bago/chat/commands.py": "01ad2a64eb4bf5902996e29cab8ca5065fc2eafbcfabdc79f117cdf74f6b498d",
+    "backend/.bago/core/plan_engine.py": "7fc21a032b6732597c497126957be0dafcd517bd00c9966907a0e77da6724a94",
+    "backend/bago_core/launcher.py": "a8216598cd6acad8467c2c32340d42abf7ad9b4227faafc8874511c223acec73"
+  },
+  "current_text_only": {
+    "ok": true,
+    "plan_status": "done",
+    "provider_stub_calls": 2,
+    "steps": 1,
+    "done_steps": 1,
+    "evidence": [
+      [
+        "Una respuesta textual, sin ejecutar ninguna herramienta."
+      ]
+    ],
+    "receipt_ids": [
+      ""
+    ]
+  },
+  "current_blank_reply": {
+    "ok": true,
+    "plan_status": "blocked",
+    "provider_stub_calls": 2,
+    "steps": 1,
+    "done_steps": 0,
+    "evidence": [
+      []
+    ],
+    "receipt_ids": [
+      ""
+    ]
+  },
+  "current_25_steps": {
+    "ok": true,
+    "plan_status": "done",
+    "provider_stub_calls": 26,
+    "steps": 25,
+    "done_steps": 25,
+    "evidence": [
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ],
+      [
+        "Texto sin recibo material."
+      ]
+    ],
+    "receipt_ids": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  },
+  "historical_v450_25_steps": {
+    "ok": true,
+    "plan_status": "done",
+    "provider_stub_calls": 21,
+    "steps": 25,
+    "done_steps": 20,
+    "evidence": [
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      []
+    ],
+    "receipt_ids": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]
+  },
+  "issues_gh": {
+    "declared_in_parser": true,
+    "has_dispatch": false,
+    "exit_code": 0,
+    "help_calls": 1
+  },
+  "empty_plan_limit": "No empty-plan success claim: current create_plan always creates a fallback step. Removed empty guard alone does not prove reachable empty plan.",
+  "reproduction_result": "OBSERVED_INCONSISTENCIES_REPRODUCED_NOT_ACCEPTANCE_PASS"
+}

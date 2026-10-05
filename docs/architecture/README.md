@@ -1,5 +1,10 @@
 # Arquitectura visual
 
+## Plan de separación Framework / CLI / App
+
+El [plan interactivo y su timeline](framework-cli-app-separation-plan.html) describe la separación propuesta entre el Framework BAGO, BAGO CLI, BAGO App y los adaptadores para herramientas anfitrionas. Está enlazado también desde el mapa mental; sus fases son `PROPOSED`, no un registro de implementación.
+
+
 ## Mapa mental interactivo
 
 Abre [`bago_mind_map.html`](bago_mind_map.html) en un navegador moderno. Es un

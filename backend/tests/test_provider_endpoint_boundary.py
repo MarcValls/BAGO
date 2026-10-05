@@ -62,8 +62,8 @@ class LegacyCredentials(FakeCredentials):
 
 
 class FakeSecretStore:
-    def __init__(self, root: Path | None = None, secrets: dict[str, str] | None = None):
-        self.root = Path(root or Path("/dev/null"))
+    def __init__(self, root: Path, secrets: dict[str, str] | None = None):
+        self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         for key, value in (secrets or {}).items():
             self.path_for_key(key).write_bytes(self.protect_secret(value))
@@ -80,6 +80,11 @@ class FakeSecretStore:
     def path_for_key(self, key: str) -> Path:
         safe = key.lower().replace("_", "-").replace("/", "-")
         return self.root / f"{safe}.bin"
+
+
+def test_fake_secret_store_requires_an_explicit_write_root():
+    with pytest.raises(TypeError):
+        FakeSecretStore()  # type: ignore[call-arg]
 
 
 class _InterceptedResponse:

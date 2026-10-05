@@ -24,7 +24,7 @@ class Step:
     """Un paso de un plan."""
     number: int
     description: str
-    status: str = "pending"  # pending | running | done | failed | blocked
+    status: str = "pending"  # pending | running | done | failed | blocked | stopped
     result: str = ""
     required_evidence: tuple[str, ...] = ()
     evidence: tuple[str, ...] = ()
@@ -68,6 +68,7 @@ class Plan:
                 "done": "✓",
                 "failed": "✗",
                 "blocked": "⧖",
+                "stopped": "⏸",
             }.get(step.status, "○")
             extra = []
             if step.required_evidence:
