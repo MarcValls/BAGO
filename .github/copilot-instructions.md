@@ -3,6 +3,8 @@
 
 This repository is BAGO. For non-trivial engineering work, use the BAGO context/evidence discipline and the `bago-core` skill. For repository change governance, use `repository-engineering`; for full audits, use `bago-audit`.
 
+- See `.github/copilot-kit/README.md` for the curated map of BAGO Copilot-targeted assets and their runtime/adaptation status.
+
 - Resolve current repository root, branch, HEAD and worktree before current-state claims.
 - Project-local Copilot continuity is isolated under `.gabo/copilot/`; never use it as a replacement for BAGO framework sources under `backend/.bago/`.
 - Current explicit user instructions outrank this adapter. Do not import unrelated project canon or memory automatically.
