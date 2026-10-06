@@ -88,7 +88,7 @@ El contrato de resolver está en `backend/docs/contracts/resolver_contract.json`
 | `releases/archive/v4.8.4/update-release-v4.8.4.ps1` y `.sh` | Actualizadores antiguos archivados | Se sacaron de raíz para evitar confundirlos con el actualizador vigente; no ejecutar desde su carpeta histórica. |
 | `examples/**` | Ejemplos y paquetes de muestra | Material de demostración/desarrollo, no requisito para abrir la UI. Puede tener consumidores de pruebas/documentación. |
 | `plugins/**`, `.agents/**`, `.codex/**`, `.pi/**`, `manager/android/**` | Extensiones y herramientas de agentes/consumidores | Integraciones o superficies auxiliares; fuera del arranque raíz. Mantener clasificados, no mezclar con los módulos de runtime. |
-| `.goals/**`, `.impeccable/**`, `.qwen/**`, `QWEN.md`, `CODEX_SESSION_RESUME.md` | Contexto local, planificación o configuración de herramientas | No código de la aplicación. Conservar separado del runtime; los directorios ignorados pueden contener estado de usuario. |
+| `.goals/**`, `.impeccable/**`, `QWEN.md`, `CODEX_SESSION_RESUME.md` | Contexto local, planificación o configuración de herramientas | No código de la aplicación. Conservar separado del runtime; los directorios ignorados pueden contener estado de usuario. |
 | `third_party_notices/**`, `LICENSE`, `backend`/root manifests | Avisos y metadata legal/build | Acompañan la distribución o el desarrollo; no son módulos cargados al arrancar. |
 | `.gitattributes`, `.gitignore`, `.git/**`, `.worktrees/**`, `vercel.json` | Control de versiones y despliegue externo | Configuración Git/worktree o hosting; no la app local. No mezclar con el código usado al abrir el viewer. |
 | `.run/debug.log`, `debug.log`, `nul` (si existe localmente) | Log generado y entrada anómala local | El nombre `nul` produjo un error de lectura en `rg`; contenido/uso `UNRESOLVED`, no clasificarlo como fuente. |
@@ -97,6 +97,22 @@ El contrato de resolver está en `backend/docs/contracts/resolver_contract.json`
 | `.run/**`, `.pytest-*`, `.pytest_cache/**`, `output/**`, `artifacts/**`, `.vs/**`, `.playwright-cli/**`, `node_modules/**` | Estado temporal, evidencia local, dependencias o herramientas | No forman parte del código fuente canónico. Algunas salidas alimentan diagnóstico/evidencia; no asumir que son basura. |
 | `.worktrees/**` | Checkouts de trabajo Git | No son parte del árbol de producto que abre BAGO; sus cambios/ramas son trabajo aparte y deben conservarse según su estado. |
 | `.bago/**` en la raíz del repo y `.gabo/**` local | Contexto/estado de repositorio y workspace | No confundir con `backend/.bago/**`, que contiene paquetes ejecutables del producto. No mover el contexto de la raíz como si fuera código sobrante. |
+
+## Agrupación práctica de carpetas raíz
+
+Estas carpetas se pueden agrupar por función en este catálogo. No conviene moverlas todas a un padre común: varias son rutas de descubrimiento de herramientas y otras contienen checkouts o estado local activo.
+
+| Grupo | Carpetas observadas | Tratamiento |
+|---|---|---|
+| Descubrimiento de herramientas y automatización | `.agents`, `.githooks`, `.github`, `.pi`, `.vscode` | Mantener en raíz. `.githooks` es la ruta configurada por Git; `.agents/skills` y `.pi` son superficies activas de agentes; GitHub y VS Code esperan sus carpetas convencionales. |
+| Estado y continuidad separados | `.bago`, `.gabo`, `.goals` | Mantener separados: son dominios distintos de estado, contexto y tareas. No fusionar `.gabo` con `.bago` ni trasladar `.goals` sin revisar sus consumidores. |
+| Configuración de consumidores | `.codex`, `.impeccable` | Mantener bajo su consumidor. `.codex/agents` contiene definiciones heredadas de Codex; `.impeccable` contiene caché local. No son módulos de arranque de BAGO. |
+| Cachés y salidas de ejecución | `.playwright-cli`, `.pytest_cache`, `.pytest-bago-*`, `.run`, `.vs` | Agrupar conceptualmente y excluir del control de cambios según sus reglas actuales; conservar sus rutas mientras puedan contener resultados útiles o procesos activos. |
+| Checkouts y payload local | `.worktrees`, `.l003_payload` | No mover manualmente. `git worktree list` registra 24 worktrees activos; `.l003_payload/effective` contiene siete partes `.b64` recientes cuyo productor/consumidor aún no se ha trazado. |
+
+### Limpieza de Qwen
+
+`.qwen` contenía únicamente `settings.json` con una lista de permisos propia de Qwen (`find`, `gh` y `eof`). No incluía skills ni contenido BAGO reutilizable. Se eliminó la carpeta el 2026-10-05 sin trasladar esos permisos a otro agente.
 
 ## Inventario local observado y límites
 
