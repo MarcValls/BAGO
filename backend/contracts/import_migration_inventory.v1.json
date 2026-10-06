@@ -79,11 +79,11 @@
       "path": "backend/.bago/chat/commands.py",
       "mutations": [
         {
-          "line": 54,
+          "line": 56,
           "call": "sys.path.insert"
         },
         {
-          "line": 52,
+          "line": 54,
           "call": "sys.path.insert"
         }
       ]
@@ -598,19 +598,19 @@
           "call": "add_piece_paths"
         },
         {
-          "line": 246,
+          "line": 254,
           "call": "add_piece_paths"
         },
         {
-          "line": 439,
+          "line": 447,
           "call": "add_piece_paths"
         },
         {
-          "line": 453,
+          "line": 461,
           "call": "add_piece_paths"
         },
         {
-          "line": 469,
+          "line": 477,
           "call": "add_piece_paths"
         }
       ]
