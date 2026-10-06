@@ -33,16 +33,23 @@ class ClaimLedgerSplitTests(unittest.TestCase):
         self.assertEqual(c.claim, "hello")
         self.assertEqual(c.basis, "command")
         self.assertEqual(c.status, STATUS_OPEN)
+        self.assertEqual(c.verification_boundary, "COMMAND_EXECUTION")
         d = c.to_dict()
         c2 = Claim.from_dict(d)
         self.assertEqual(c2.claim_id, c.claim_id)
+        self.assertEqual(c2.verification_boundary, "COMMAND_EXECUTION")
+        rendered = Claim("map appears", "observation", verification_boundary="VISIBLE_RENDER")
+        self.assertEqual(Claim.from_dict(rendered.to_dict()).verification_boundary, "VISIBLE_RENDER")
+        self.assertEqual(Claim.from_dict({"claim": "legacy", "basis": "observation"}).verification_boundary, "COMMAND_EXECUTION")
 
     def test_storage_module(self) -> None:
         from bago_core.claim_storage import ClaimLedger
         with tempfile.TemporaryDirectory() as td:
             ledger = ClaimLedger(base_path=td)
             self.assertEqual(ledger.report()["total_claims"], 0)
-            cid = ledger.add(claim="x", basis="observation", limits="test")
+            with self.assertRaisesRegex(ValueError, "verification_boundary is required"):
+                ledger.add(claim="scope required", basis="observation")
+            cid = ledger.add(claim="x", basis="observation", limits="test", verification_boundary="COMMAND_EXECUTION")
             self.assertIsNotNone(ledger.get(cid))
             ok = ledger.verify(cid)
             self.assertFalse(ok)
@@ -65,7 +72,7 @@ class ClaimLedgerSplitTests(unittest.TestCase):
             with patch.object(atomic_json, "append_text_durable", capture):
                 ledger = ClaimLedger(base_path=root)
                 self.assertFalse(root.exists())
-                claim_id = ledger.add(claim="state writer", basis="observation")
+                claim_id = ledger.add(claim="state writer", basis="observation", verification_boundary="COMMAND_EXECUTION")
 
             self.assertEqual(calls, [ledger.claims_file])
             self.assertTrue(ledger.claims_file.is_file())
@@ -78,7 +85,7 @@ class ClaimLedgerSplitTests(unittest.TestCase):
             artifact = Path(td) / "evidence.txt"
             artifact.write_text("evidence", encoding="utf-8")
             ledger = ClaimLedger(base_path=td)
-            cid = ledger.add(claim="x", basis="test_result", command="pytest", artifacts=[str(artifact)])
+            cid = ledger.add(claim="x", basis="test_result", command="pytest", artifacts=[str(artifact)], verification_boundary="COMMAND_EXECUTION")
             candidate = CandidateIdentity("a" * 40, "main", "https://example.invalid/BAGO.git", "origin/main")
             digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
             evidence = EvidenceRecord(
@@ -89,13 +96,40 @@ class ClaimLedgerSplitTests(unittest.TestCase):
             self.assertFalse(ledger.verify(cid, evidence=evidence))
             self.assertEqual(ledger.get(cid).status, "failed")
 
+    def test_execution_gate_cannot_verify_a_visible_render_claim(self) -> None:
+        from bago_core.claim_storage import ClaimLedger
+        from bago_core.operational_integrity import CandidateIdentity, EvidenceRecord
+        with tempfile.TemporaryDirectory() as td:
+            artifact = Path(td) / "gate.log"
+            artifact.write_text("PASS", encoding="utf-8")
+            ledger = ClaimLedger(base_path=td)
+            cid = ledger.add(
+                claim="The browser visibly renders the nodes",
+                basis="observation",
+                command="python render.py",
+                artifacts=[str(artifact)],
+                verification_boundary="VISIBLE_RENDER",
+            )
+            evidence = EvidenceRecord(
+                "The browser visibly renders the nodes", "python render.py", (str(artifact),),
+                command=("python", "render.py"), exit_code=0,
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                candidate=CandidateIdentity("a" * 40, "main", "local-only:C:/BAGO"),
+                artifact_sha256=(hashlib.sha256(artifact.read_bytes()).hexdigest(),),
+                receipt_id="gate", gate_receipt=".bago/evidence/remediation-gates/gate.json",
+                observed_boundary="COMMAND_EXECUTION",
+            )
+            self.assertFalse(ledger.verify(cid, evidence=evidence))
+            self.assertEqual(ledger.get(cid).status, "failed")
+            self.assertIn("required_boundary=VISIBLE_RENDER", ledger.get(cid).notes)
+
     def test_arbitrary_existing_file_cannot_verify_without_executed_evidence(self) -> None:
         from bago_core.claim_storage import ClaimLedger
         with tempfile.TemporaryDirectory() as td:
             artifact = Path(td) / "anything.txt"
             artifact.write_text("exists", encoding="utf-8")
             ledger = ClaimLedger(base_path=td)
-            cid = ledger.add(claim="arbitrary", basis="artifact", artifacts=[str(artifact)])
+            cid = ledger.add(claim="arbitrary", basis="artifact", artifacts=[str(artifact)], verification_boundary="COMMAND_EXECUTION")
             self.assertFalse(ledger.verify(cid))
             self.assertEqual(ledger.get(cid).status, "failed")
 
@@ -112,7 +146,7 @@ class ClaimLedgerSplitTests(unittest.TestCase):
             ledger = ClaimLedger(base_path=td)
             artifact = Path(td) / "gate.log"
             artifact.write_text("PASS", encoding="utf-8")
-            cid = ledger.add(claim="x", basis="test_result", command="pytest", artifacts=[str(artifact)])
+            cid = ledger.add(claim="x", basis="test_result", command="pytest", artifacts=[str(artifact)], verification_boundary="COMMAND_EXECUTION")
             digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
             evidence = EvidenceRecord(
                 "x", "pytest", (str(artifact),), command=("pytest",), exit_code=0,
@@ -120,31 +154,56 @@ class ClaimLedgerSplitTests(unittest.TestCase):
                 candidate=CandidateIdentity("a" * 40, "main", "local-only:C:/BAGO"),
                 artifact_sha256=(digest,), receipt_id="test-gate",
             )
-            ledger._append_evidence(cid, evidence)
-            ledger.update_status(cid, "verified", _evidence_verified=True)
+            from bago_core.claim_model import Claim
+            ledger.claims_file.write_text(json.dumps(Claim(
+                claim="x", basis="test_result", command="pytest", artifacts=[str(artifact)],
+                status="verified", claim_id=cid,
+            ).to_dict()) + "\n", encoding="utf-8")
             ledger.receipts_file.write_text("{broken\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "claim_receipts.jsonl corrupt"):
                 ledger.report()
 
     def test_direct_verified_status_is_rejected(self) -> None:
         from bago_core.claim_storage import ClaimLedger
+        from bago_core.claim_model import Claim
         with tempfile.TemporaryDirectory() as td:
             ledger = ClaimLedger(base_path=td)
-            cid = ledger.add(claim="x", basis="observation")
-            with self.assertRaisesRegex(ValueError, "material evidence"):
+            cid = ledger.add(claim="x", basis="observation", verification_boundary="COMMAND_EXECUTION")
+            with self.assertRaisesRegex(ValueError, "declared verification boundary"):
                 ledger.update_status(cid, "verified")
+            with self.assertRaises(TypeError):
+                ledger.update_status(cid, "verified", _evidence_verified=True)
+            with self.assertRaisesRegex(ValueError, "cannot append VERIFIED"):
+                ledger._append(Claim(
+                    claim="x", basis="observation", command="check", status="verified",
+                    claim_id=cid, verification_boundary="COMMAND_EXECUTION",
+                ))
 
     def test_claim_cannot_be_created_as_verified(self) -> None:
         from bago_core.claim_storage import ClaimLedger
         with tempfile.TemporaryDirectory() as td:
             ledger = ClaimLedger(base_path=td)
             with self.assertRaises(ValueError):
-                ledger.add(claim="x", basis="observation", status="verified")
+                ledger.add(claim="x", basis="observation", status="verified", verification_boundary="COMMAND_EXECUTION")
 
     def test_cli_module(self) -> None:
         from bago_core import claim_cli
         self.assertTrue(callable(claim_cli.main))
         self.assertTrue(callable(claim_cli._run_tests))
+
+    def test_cli_persists_requested_verification_boundary(self) -> None:
+        from bago_core import claim_cli
+        from bago_core.claim_storage import ClaimLedger
+        from contextlib import redirect_stdout
+        import io
+        with tempfile.TemporaryDirectory() as td, redirect_stdout(io.StringIO()):
+            result = claim_cli._cli([
+                "--base-path", td, "add", "--claim", "UI nodes are visible",
+                "--basis", "observation", "--verification-boundary", "VISIBLE_RENDER",
+            ])
+            self.assertEqual(result, 0)
+            claim = next(iter(ClaimLedger(base_path=td).latest().values()))
+            self.assertEqual(claim.verification_boundary, "VISIBLE_RENDER")
 
     def test_cli_candidate_identity_is_derived_and_expected_values_must_match(self) -> None:
         from argparse import Namespace
@@ -205,6 +264,7 @@ class ClaimLedgerSplitTests(unittest.TestCase):
             ledger = ClaimLedger(repo)
             cid = ledger.add(
                 claim="real gate passed", basis="test_result", command=shlex.join(payload["command"]), artifacts=artifacts,
+                verification_boundary="COMMAND_EXECUTION",
             )
             self.assertEqual(claim_cli._cli(["--base-path", str(repo), "verify", cid, "--gate-receipt", str(receipt)]), 0)
             self.assertEqual(ledger.get(cid).status, "verified")
@@ -218,6 +278,7 @@ class ClaimLedgerSplitTests(unittest.TestCase):
             self.assertEqual(ledger.get(cid).status, "failed")
             cid2 = ledger.add(
                 claim="stale extra repo gate", basis="test_result", command=shlex.join(payload["command"]), artifacts=artifacts,
+                verification_boundary="COMMAND_EXECUTION",
             )
             self.assertEqual(claim_cli._cli(["--base-path", str(repo), "verify", cid2, "--gate-receipt", str(receipt)]), 1)
             extra_repo.joinpath("tracked.txt").write_text("extra baseline", encoding="utf-8")

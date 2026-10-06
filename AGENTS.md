@@ -82,6 +82,38 @@ repository-local authority, or verified BAGO state.
   candidate is stale unless applicability is explicitly proved.
 - Do not claim complete test success when relevant suites were skipped or
   omitted.
+- For every material assertion, distinguish the proposition, its authoritative
+  source, the evidence actually observed, the scope that evidence covers, and
+  remaining uncertainty. Use `UNKNOWN` when a required fact is unavailable;
+  do not fill the gap with a plausible explanation.
+- Conversation order is not event chronology. A message adjacent to a command
+  does not prove when its attachment was captured, which version a target had
+  loaded, or whether the command changed what the target displayed. Establish
+  time/order from explicit timestamps or provenance; otherwise label it
+  `UNKNOWN`.
+- Keep each boundary in a claim chain distinct: intended action, command/tool
+  execution, produced artifact or response, target acceptance/loading, and
+  observed final state. Evidence at one boundary proves only that boundary
+  unless a separate observation demonstrates propagation to the next one.
+- Before crossing a material-effect or trust boundary, bind authorization to
+  the specific operation, actor/session, target resource, and current relevant
+  state. Revalidate those bindings immediately before dispatch when they may
+  have changed; never treat visibility, successful transport, a prior permit,
+  or an agent/tool self-report as authorization or enforcement evidence.
+- Verification must observe the system at the boundary named by the claim.
+  Source/structure checks do not establish runtime behavior; command success
+  does not establish target state; target state does not establish downstream
+  acceptance. Bind checks to the exact target and relevant candidate identity
+  (path/hash/version/session/resource as applicable), and revalidate after
+  changes that could make evidence stale.
+- Do not report a task `VERIFIED` or `VALIDATED` from an indirect proxy when
+  the required target observation was not made. If a required observation or
+  capability is unavailable, mark that scope `NOT_RUN` or `UNKNOWN`, report
+  the blocker, and continue with independent checks that remain possible.
+- For visual evidence, compare the screenshot's visible URL/state and content
+  with the current artifact, reload the identified artifact after regeneration,
+  reproduce the affected state, and inspect the rendered result. Structural,
+  geometry, or minimal-DOM checks alone do not verify browser rendering.
 
 ## Global runtime sink closure
 

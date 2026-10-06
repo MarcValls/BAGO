@@ -8,6 +8,7 @@ from bago_core.operational_integrity import (
     CandidateIdentity,
     ClosureContract,
     ConflictDetector,
+    EvidenceBoundaryPolicy,
     EvidenceRecord,
     GateRegistry,
     StateTransitionPolicy,
@@ -19,6 +20,35 @@ def test_claim_cannot_be_verified_without_material_evidence():
     record = EvidenceRecord(claim="done", action="observe", artifacts=())
     assert TruthPolicy.can_claim_verified(record) is False
     assert StateTransitionPolicy.permits("EXECUTED", "VERIFIED", evidence=record) is False
+
+
+def test_command_receipt_cannot_verify_downstream_target_or_visual_state():
+    command_receipt = EvidenceRecord(
+        claim="page is visible", action="render", artifacts=(),
+        observed_boundary="COMMAND_EXECUTION",
+    )
+    assert EvidenceBoundaryPolicy.observes(command_receipt, "COMMAND_EXECUTION") is True
+    assert EvidenceBoundaryPolicy.observes(command_receipt, "TARGET_STATE") is False
+    assert EvidenceBoundaryPolicy.observes(command_receipt, "VISIBLE_RENDER") is False
+    assert EvidenceBoundaryPolicy.observes(command_receipt, "EXTERNAL_ACCEPTANCE") is False
+    assert EvidenceBoundaryPolicy.observes(command_receipt, "UNRECOGNIZED") is False
+    assert StateTransitionPolicy.permits(
+        "EXECUTED", "VERIFIED", evidence=command_receipt,
+        required_boundary="VISIBLE_RENDER",
+    ) is False
+
+
+def test_claim_boundary_must_be_a_known_contract_value():
+    from bago_core.claim_model import Claim
+
+    assert Claim("executed command", "command").verification_boundary == "COMMAND_EXECUTION"
+    assert Claim("visible page", "observation", verification_boundary="VISIBLE_RENDER").verification_boundary == "VISIBLE_RENDER"
+    try:
+        Claim("anything", "observation", verification_boundary="AGENT_ASSERTED")
+    except ValueError as exc:
+        assert "verification_boundary" in str(exc)
+    else:
+        raise AssertionError("unknown verification boundary was accepted")
 
 
 def test_validation_requires_clean_candidate_closure_and_review(tmp_path):

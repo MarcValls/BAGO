@@ -26,7 +26,10 @@ def test_evidence_claims_uses_same_durable_ledger_as_cli(tmp_path, monkeypatch):
     from handlers_evidence import handle_claim, handle_claims
 
     ledger = ClaimLedger(tmp_path)
-    claim_id = ledger.add("gate passed", "test_result", command="pytest", artifacts=["gate.log"])
+    claim_id = ledger.add(
+        "gate passed", "test_result", command="pytest", artifacts=["gate.log"],
+        verification_boundary="COMMAND_EXECUTION",
+    )
 
     class Manager:
         base_path = tmp_path

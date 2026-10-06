@@ -39,6 +39,7 @@ class ClaimReceiptStore:
                     timestamp=raw.get("timestamp", ""), candidate=candidate,
                     artifact_sha256=tuple(raw.get("artifact_sha256", ())), receipt_id=raw.get("receipt_id", ""),
                     gate_receipt=raw.get("gate_receipt", ""),
+                    observed_boundary=raw.get("observed_boundary", "COMMAND_EXECUTION"),
                 )
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 raise ValueError(f"claim_receipts.jsonl corrupt at line {line_number}: {exc}") from exc

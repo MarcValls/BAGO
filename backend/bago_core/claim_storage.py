@@ -74,6 +74,9 @@ class ClaimLedger:
                 current = None
             if (
                 evidence is None or current is None or current.receipt_id != evidence.receipt_id
+                or evidence.claim != found.claim
+                or tuple(evidence.artifacts) != tuple(found.artifacts)
+                or evidence.observed_boundary != found.verification_boundary
                 or not EvidencePolicy.material(evidence)
             ):
                 found.status = STATUS_FAILED
@@ -102,8 +105,21 @@ class ClaimLedger:
 
     # -- Escritura -------------------------------------------------------------
 
-    def _append(self, claim: Claim) -> None:
+    def _append(self, claim: Claim, *, evidence: EvidenceRecord | None = None) -> None:
         """Anade una linea al ledger (append-only)."""
+        if claim.status == STATUS_VERIFIED:
+            evidence_matches = bool(
+                evidence
+                and evidence.claim == claim.claim
+                and tuple(evidence.artifacts) == tuple(claim.artifacts)
+                and claim.command
+                and evidence.action == claim.command
+                and evidence.gate_receipt
+                and evidence.observed_boundary == claim.verification_boundary
+                and EvidencePolicy.material(evidence)
+            )
+            if not evidence_matches:
+                raise ValueError("cannot append VERIFIED claim without evidence for its declared boundary")
         from bago_core.atomic_json import append_text_durable
 
         append_text_durable(self.claims_file, json.dumps(claim.to_dict(), ensure_ascii=False) + "\n")
@@ -121,8 +137,11 @@ class ClaimLedger:
         model: str = "",
         stdout: str = "",
         notes: str = "",
+        verification_boundary: str | None = None,
     ) -> str:
         """Anade un claim y devuelve su claim_id."""
+        if verification_boundary is None:
+            raise ValueError("verification_boundary is required for every new claim")
         if status == STATUS_VERIFIED:
             raise ValueError("un claim debe verificarse mediante verify(); no puede crearse como verified")
         c = Claim(
@@ -137,11 +156,19 @@ class ClaimLedger:
             model      = model,
             stdout     = stdout,
             notes      = notes,
+            verification_boundary = verification_boundary,
         )
         self._append(c)
         return c.claim_id
 
-    def update_status(self, claim_id: str, new_status: str, notes: str = "", *, _evidence_verified: bool = False) -> bool:
+    def update_status(
+        self,
+        claim_id: str,
+        new_status: str,
+        notes: str = "",
+        *,
+        evidence: EvidenceRecord | None = None,
+    ) -> bool:
         """
         Registra un nuevo estado para un claim existente.
         El ledger es append-only: el estado nuevo va como nueva entrada con mismo claim_id.
@@ -149,11 +176,24 @@ class ClaimLedger:
         allowed = {STATUS_OPEN, STATUS_FAILED, STATUS_SIMULATED, STATUS_SUPERSEDED, STATUS_VERIFIED}
         if new_status not in allowed:
             raise ValueError(f"invalid claim status: {new_status}")
-        if new_status == STATUS_VERIFIED and not _evidence_verified:
-            raise ValueError("verified requires ClaimLedger.verify with material evidence")
         original = self.get(claim_id)
         if original is None:
             return False
+        if new_status == STATUS_VERIFIED:
+            evidence_matches = bool(
+                evidence
+                and evidence.claim == original.claim
+                and tuple(evidence.artifacts) == tuple(original.artifacts)
+                and original.command
+                and evidence.action == original.command
+                and evidence.gate_receipt
+                and evidence.observed_boundary == original.verification_boundary
+                and EvidencePolicy.material(evidence)
+            )
+            if not evidence_matches:
+                raise ValueError(
+                    "verified requires material evidence at the claim's declared verification boundary"
+                )
         updated = Claim(
             claim       = original.claim,
             basis       = original.basis,
@@ -169,8 +209,9 @@ class ClaimLedger:
             model       = original.model,
             stdout      = original.stdout,
             notes       = notes or original.notes,
+            verification_boundary = original.verification_boundary,
         )
-        self._append(updated)
+        self._append(updated, evidence=evidence if new_status == STATUS_VERIFIED else None)
         return True
 
     def verify(self, claim_id: str, artifacts_exist: bool = True, *, evidence: EvidenceRecord | None = None) -> bool:
@@ -192,17 +233,26 @@ class ClaimLedger:
             and claim.command
             and evidence.action == claim.command
             and evidence.gate_receipt
+            and evidence.observed_boundary == claim.verification_boundary
         )
-        ok = artifacts_exist and record_matches and EvidencePolicy.material(evidence)  # type: ignore[arg-type]
+        ok = (
+            artifacts_exist
+            and record_matches
+            and EvidencePolicy.material(evidence)  # type: ignore[arg-type]
+        )
         new_status = STATUS_VERIFIED if ok else STATUS_FAILED
         note = (
             f"verified receipt={evidence.receipt_id} candidate={evidence.candidate.sha}"
             if ok and evidence and evidence.candidate
-            else "verification failed: executed, hashed, candidate-bound evidence required"
+            else (
+                "verification failed: executed, hashed, candidate-bound evidence required; "
+                f"required_boundary={claim.verification_boundary}; "
+                f"observed_boundary={getattr(evidence, 'observed_boundary', 'MISSING')}"
+            )
         )
         if ok and evidence is not None:
             self._append_evidence(claim_id, evidence)
-        self.update_status(claim_id, new_status, notes=note, _evidence_verified=ok)
+        self.update_status(claim_id, new_status, notes=note, evidence=evidence if ok else None)
         return ok
 
     # -- Reporte ---------------------------------------------------------------

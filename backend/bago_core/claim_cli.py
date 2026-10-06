@@ -19,6 +19,7 @@ from bago_core.claim_model import (
     STATUS_SIMULATED,
     STATUS_VERIFIED,
 )
+from bago_core.operational_integrity import EVIDENCE_BOUNDARIES
 from bago_core.claim_storage import ClaimLedger
 from bago_core.claim_evidence import derive_candidate as _derive_candidate
 from bago_core.claim_evidence import evidence_from_gate as _evidence_from_gate
@@ -36,6 +37,11 @@ def _cli(argv: list[str] | None = None) -> int:
     add_p.add_argument("--command",   default="", help="Comando que genero la evidencia")
     add_p.add_argument("--artifacts", default="", help="Rutas de artefactos separadas por coma")
     add_p.add_argument("--limits",    default="", help="Limites de lo que prueba esta evidencia")
+    add_p.add_argument(
+        "--verification-boundary", required=True,
+        choices=sorted(EVIDENCE_BOUNDARIES),
+        help="Frontera que la evidencia debe demostrar; un gate de comando no prueba estado visible/externo",
+    )
     add_p.add_argument("--status",    default=STATUS_OPEN, choices=[STATUS_OPEN, STATUS_SIMULATED])
     add_p.add_argument("--stdout",    default="", help="Salida capturada del comando")
     add_p.add_argument("--notes",     default="")
@@ -63,6 +69,7 @@ def _cli(argv: list[str] | None = None) -> int:
             status    = args.status,
             stdout    = args.stdout,
             notes     = args.notes,
+            verification_boundary = args.verification_boundary,
         )
         print(f"\u2713 Claim registrado: {cid}")
         return 0
@@ -79,6 +86,7 @@ def _cli(argv: list[str] | None = None) -> int:
                 print(f"             cmd: {c.command}")
             if c.limits:
                 print(f"          limite: {c.limits}")
+            print(f"        frontera: {c.verification_boundary}")
         return 0
 
     if args.action == "verify":
@@ -95,7 +103,11 @@ def _cli(argv: list[str] | None = None) -> int:
         if ok:
             print(f"\u2713 Claim {args.claim_id} verificado (artefactos presentes)")
         else:
-            print(f"\u2717 Claim {args.claim_id} FAILED (artefactos ausentes o claim no encontrado)")
+            boundary = claim.verification_boundary
+            print(
+                f"\u2717 Claim {args.claim_id} FAILED "
+                f"(evidencia ausente, no ligada o insuficiente para {boundary})"
+            )
         return 0 if ok else 1
 
     if args.action == "report":
@@ -124,6 +136,7 @@ def _run_tests() -> int:
         cid = ledger.add(
             claim="Test claim",
             basis="command",
+            verification_boundary="COMMAND_EXECUTION",
             command="/test",
             artifacts=[],
             limits="Solo prueba unitaria",
@@ -141,6 +154,7 @@ def _run_tests() -> int:
             claim="Claim simulado",
             basis="test_result",
             status=STATUS_SIMULATED,
+            verification_boundary="COMMAND_EXECUTION",
         )
         assert ledger.simulated_claims()  # debe haber al menos uno
 
@@ -149,6 +163,7 @@ def _run_tests() -> int:
             claim="Claim con artefacto inexistente",
             basis="artifact",
             artifacts=["/nonexistent/path/file.json"],
+            verification_boundary="COMMAND_EXECUTION",
         )
         ok3 = ledger.verify(cid3)
         assert not ok3, "verify con artefacto inexistente debe ser False"
