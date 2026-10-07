@@ -1,0 +1,102 @@
+{
+  "schema": "bago.capability-evidence-index.v1",
+  "candidate_head": "b9b2eda8f21be16f5ade510b5f069abe09ae5387",
+  "surface_sha256": "e5558324b436c03cb6f8470522951b05ff468fd673cfdbdde433c6f557fcf908",
+  "commands": [
+    "collect.py freeze",
+    "collect.py collect",
+    "probe_semantics.py",
+    "collect.py check",
+    "finalize.py"
+  ],
+  "executed": {
+    "freeze": "PASS",
+    "collection": "EXECUTED static local tags",
+    "semantic_probes": "EXECUTED controlled boundary",
+    "freeze_check": "PASS",
+    "test_suites": "NOT_RUN",
+    "live_routes": "NOT_RUN",
+    "remote_fetch": "NOT_RUN"
+  },
+  "chain": "claim -> historical source -> current source -> inspection -> evidence -> comparison -> classification -> conclusion",
+  "findings": [
+    {
+      "id": "CAP-LOSS-P1-001",
+      "capability_id": "C11",
+      "title": "Autopilot perdió límite histórico de 20 pasos",
+      "severity": "P1",
+      "classification": "ACCIDENTALLY_LOST",
+      "evidence": [
+        "v4.5.0 max_steps=20",
+        "semantic-probes current_25_steps=26 calls vs historical=21"
+      ],
+      "impact": "El handler actual procesa todos los pasos; no hay decisión de retirada localizada.",
+      "verification": "Boundary probe reproducido; provider/runtime real NOT_RUN."
+    },
+    {
+      "id": "CAP-LOSS-P1-002",
+      "capability_id": "C12",
+      "title": "Agent spawn/list/run/kill cruza dos registros",
+      "severity": "P1",
+      "classification": "REPLACED_NON_EQUIVALENTLY",
+      "evidence": [
+        "4aa0eb66 añade agent_kit list/run/describe/plan antes de spiral_agent spawn/kill/status",
+        "cmd_tools.py ramas actuales"
+      ],
+      "impact": "La continuidad de identidad entre comandos no está demostrada.",
+      "verification": "Trace estático; flujo live NOT_RUN."
+    },
+    {
+      "id": "CAP-LOSS-P2-001",
+      "capability_id": "C30",
+      "title": "Interpretation detail por ID devuelve colección",
+      "severity": "P2",
+      "classification": "REPLACED_NON_EQUIVALENTLY",
+      "evidence": [
+        "legacy_aliases.py redirige detail a history",
+        "handlers_interpret ignora ID; client espera InterpretationResult"
+      ],
+      "impact": "Contrato cliente/API incoherente; callsite UI no encontrado.",
+      "verification": "Trace estático; HTTP/UI NOT_RUN."
+    },
+    {
+      "id": "CAP-LOSS-P2-002",
+      "capability_id": "C27",
+      "title": "issues-gh parser sin dispatcher",
+      "severity": "P2",
+      "classification": "UNKNOWN",
+      "evidence": [
+        "parser lo declara; dispatcher lo omite; probe devuelve 0 y help",
+        "mismo defecto en v4.5"
+      ],
+      "impact": "Defecto conservado, no pérdida nueva demostrada.",
+      "verification": "Boundary probe reproducido."
+    },
+    {
+      "id": "CAP-LOSS-P2-003",
+      "capability_id": "C31",
+      "title": "RoleSpiralBuilder ausente del backend actual",
+      "severity": "P2",
+      "classification": "UNKNOWN",
+      "evidence": [
+        "v3.5 role_embedded + test_v35_features",
+        "símbolo ausente en backend rastreado; tags desconectados"
+      ],
+      "impact": "Implementación exacta ausente; reemplazo conceptual sin resolver.",
+      "verification": "Source trace; equivalencia NOT_RUN."
+    },
+    {
+      "id": "CAP-LOSS-P2-004",
+      "capability_id": "C32",
+      "title": "SignalMetrics band/channel/hz ausente",
+      "severity": "P2",
+      "classification": "UNKNOWN",
+      "evidence": [
+        "v3.5 prompt_router + tests",
+        "routing actual no demuestra equivalente"
+      ],
+      "impact": "Preservación no certificable; no se prueba eliminación lineal.",
+      "verification": "Source trace; equivalencia NOT_RUN."
+    }
+  ]
+}

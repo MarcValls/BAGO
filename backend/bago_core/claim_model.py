@@ -21,6 +21,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from bago_core.operational_integrity import EVIDENCE_BOUNDARIES
+
 
 # -- Tipos de base validos ------------------------------------------------------
 BASIS_TYPES = ("command", "artifact", "observation", "provider_response", "test_result")
@@ -52,9 +54,12 @@ class Claim:
         model: str = "",
         stdout: str = "",
         notes: str = "",
+        verification_boundary: str = "COMMAND_EXECUTION",
     ):
         if basis not in BASIS_TYPES:
             raise ValueError(f"basis debe ser uno de: {BASIS_TYPES}")
+        if verification_boundary not in EVIDENCE_BOUNDARIES:
+            raise ValueError(f"verification_boundary debe ser uno de: {sorted(EVIDENCE_BOUNDARIES)}")
         self.claim_id    = claim_id or str(uuid.uuid4())[:12]
         self.claim       = claim
         self.basis       = basis
@@ -69,6 +74,7 @@ class Claim:
         self.model       = model
         self.stdout      = stdout
         self.notes       = notes
+        self.verification_boundary = verification_boundary
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -86,6 +92,7 @@ class Claim:
             "model":       self.model,
             "stdout":      self.stdout,
             "notes":       self.notes,
+            "verification_boundary": self.verification_boundary,
         }
 
     @classmethod
@@ -105,6 +112,7 @@ class Claim:
             model       = data.get("model", ""),
             stdout      = data.get("stdout", ""),
             notes       = data.get("notes", ""),
+            verification_boundary = data.get("verification_boundary", "COMMAND_EXECUTION"),
         )
 
     def __repr__(self) -> str:

@@ -5,7 +5,7 @@
   "description": "Electron packaged installation manager for BAGO.",
   "main": "electron/main.cjs",
   "author": "BAGO",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "manager:build-ui": "python scripts/build_ui_dist.py",
     "premanager:pack": "npm run manager:build-ui",

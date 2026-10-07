@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       signing_backend:
-        description: Signing backend (azure or ssl-esigner-cka)
+        description: Signing backend (azure; unsupported backends fail closed)
         required: false
         default: azure
         type: string

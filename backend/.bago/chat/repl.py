@@ -74,6 +74,7 @@ class BagoREPL(BagoReplStartupMixin, BagoReplMenuMixin):
         state_root: str | None = None,
         active_bridges: list[str] | None = None,
         startup_prompt: bool = True,
+        require_project_identity: bool = True,
     ):
         self.base_path = Path(base_path or os.getcwd())
         self.state_root = resolve_state_root(state_root)
@@ -84,7 +85,7 @@ class BagoREPL(BagoReplStartupMixin, BagoReplMenuMixin):
             state_root=str(self.state_root),
             system_prompt=system_prompt,
             active_bridges=active_bridges,
-            require_project_identity=True,
+            require_project_identity=require_project_identity,
         )
         R.set_color_enabled(bool(self.mgr.config.get("ui.color", True)))
         self.engine = SwitchEngine(self.mgr.adapters)
@@ -185,7 +186,12 @@ class BagoREPL(BagoReplStartupMixin, BagoReplMenuMixin):
                 budget = self.mgr.last_budget_report
                 if budget and budget.alert_level != AlertLevel.GREEN:
                     print(budget.banner(color=bool(self.mgr.config.get("ui.color", True))), end="")
-                R.print_message("assistant", response)
+                # ``send`` returns an internal approval handoff while the
+                # wizard is pending. Do not leak its protocol marker
+                # (``[tool_calls]``) into the chat transcript; the wizard and
+                # its final natural-language result are the user-facing UI.
+                if not getattr(self.mgr, "_pending_tools", None):
+                    R.print_message("assistant", response)
             if hasattr(self, "_pending_tool_approval_wizard"):
                 self._pending_tool_approval_wizard()
         except KeyboardInterrupt:

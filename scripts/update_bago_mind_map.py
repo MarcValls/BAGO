@@ -47,6 +47,17 @@ def _validate_document(html: str) -> None:
     required = (
         "const lines = document.getElementById('lines');",
         "const nodesLayer = document.getElementById('nodes');",
+        "function el(tag,className='')",
+        "#lines{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;overflow:visible}",
+        "#nodes{position:absolute;inset:0;z-index:2;pointer-events:none}",
+        "function routeConnectors(){",
+        "const obstacles=nodeRects.filter(r=>r!==source&&r!==target);",
+        "const outerX=[Math.min(...nodeRects.map(r=>r.left))-pad*2,Math.max(...nodeRects.map(r=>r.right))+pad*2];",
+        "path.dataset.routeError='NO_CLEAR_ROUTE';",
+        "routeConnectors();\n  if(query && visibleCount===0)",
+        "const spans=DATA.branches.map(branch=>branchWidth(branch));",
+        ".node{position:absolute;transform:translate(-50%,-50%);border:1px solid #bfc5cc;background:#fff;border-radius:4px;box-shadow:0 1px 3px rgba(16,24,40,.05);padding:8px 9px;text-align:left;cursor:pointer;pointer-events:auto;touch-action:manipulation;transition:background-color .12s ease,border-color .12s ease,box-shadow .12s ease;user-select:none}",
+        "if(!event.altKey)return;",
         "let DATA = /* BAGO_MAP_DATA_START */",
         "viewport.addEventListener('pointerdown'",
         "window.addEventListener('pointermove'",
@@ -58,9 +69,9 @@ def _validate_document(html: str) -> None:
         "id=\"coordinationPanel\"",
         "document.getElementById('coordinationForm').addEventListener('submit'",
         "document.getElementById('exportCoordination').onclick",
-        ".node.branch.selected,.node.branch.selected-node{z-index:110!important",
-        ".node.child.in-selected-branch{z-index:105!important",
-        "#nodes .node.selected-node{\n  z-index:120!important",
+        ".node.branch.selected,.node.branch.selected-node{z-index:5!important",
+        ".node.child.in-selected-branch{z-index:3!important",
+        "#nodes .node.selected-node{\n  z-index:7!important",
     )
     missing = [fragment for fragment in required if fragment not in html]
     if missing:

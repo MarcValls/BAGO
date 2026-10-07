@@ -1,0 +1,16 @@
+# Copiar en %USERPROFILE%\.codex\config.toml
+# Sustituir las rutas por la ubicación real.
+
+[mcp_servers.ia_memoria]
+command = "D:\\IA_MEMORIA_MCP_LOCAL\\.venv\\Scripts\\python.exe"
+args = ["-m", "ia_memoria.server"]
+cwd = "D:\\IA_MEMORIA_MCP_LOCAL"
+enabled = true
+required = false
+startup_timeout_sec = 20
+tool_timeout_sec = 60
+default_tools_approval_mode = "writes"
+
+[mcp_servers.ia_memoria.env]
+IA_MEMORY_ROOT = "D:\\IA_MEMORIA_MCP_LOCAL\\memory_root"
+IA_MEMORY_TRANSPORT = "stdio"

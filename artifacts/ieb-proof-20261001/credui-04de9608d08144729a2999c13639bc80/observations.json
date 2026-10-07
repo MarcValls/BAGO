@@ -1,0 +1,20 @@
+{
+  "started_utc": "2026-10-01T15:11:53.7285062Z",
+  "os": "Microsoft Windows NT 10.0.19045.0",
+  "mutations_enabled": false,
+  "selected_provider_clsid_verified": false,
+  "rendering_verified": false,
+  "verifier_authenticated": false,
+  "credential_plaintext_unpacked": false,
+  "secure_prompt_flags": "0x1010",
+  "expected_sid_hash": "856ee9250c184495ebfdc662a39f558ea74876018ba3a682ca3f5cc3967bcfa6",
+  "binary_sha256": "07d0dd28bcd06cb6923ce7b9e1fe798ff9e410281c56c9623195f6a59c44300c",
+  "source_sha256": "613b617ea24321de4846922d1dc1148ec8baa32eff537b16fc4f34775182eb0f",
+  "descriptor": "BAGO IEB: SOLO PRUEBA; CERO MUTACIONES. Nonce 74e604097a534683bb9435202c2bc525",
+  "descriptor_sha256": "b34b01b85c2d44462a77d293da1b4c2afe444bcad8e8d314cf4c440cf8ace777",
+  "lsa_connect_status": 0,
+  "package_lookup_status": 0,
+  "requested_package": 0,
+  "verdict": "PREFLIGHT_ONLY",
+  "finished_utc": "2026-10-01T15:11:53.7377811Z"
+}

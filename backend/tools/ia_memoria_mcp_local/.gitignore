@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.env
+backups/
+memory_root/50_INDEX/*.sqlite-shm
+memory_root/50_INDEX/*.sqlite-wal
+
+memory_root/

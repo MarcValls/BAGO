@@ -28,6 +28,11 @@ releases/bago-*-distribution.zip
 releases/bago-*-distribution.zip.sha256
 releases/bago-*-setup.exe
 releases/bago-*-setup.exe.sha256
+# Locally archived historical release payloads are retained but not source files.
+releases/archive/v*/bago-*
+releases/archive/v*/BAGO-*
+releases/archive/v*/latest.yml
+releases/archive/v*/legacy-release-snapshot/
 bago-release-*/
 npm-debug.log*
 yarn-debug.log*
@@ -39,6 +44,16 @@ yarn-error.log*
 frontend/dist/
 backend/ui-react/dist/
 
+# Local MSIX and SignPath payload builds; receipts and manifests stay visible.
+/artifacts/msix-*/host-publish/
+/artifacts/msix-*/pri/
+/artifacts/msix-*/stage/
+/artifacts/msix-*/BAGO-Bootstrap-*.msix
+/artifacts/msix-*/python-*-embed-amd64.zip
+/artifacts/signpath-candidate-*/payload/
+/artifacts/ieb-proof-*/CredUiProbe/bin/
+/artifacts/ieb-proof-*/CredUiProbe/obj/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -46,6 +61,8 @@ __pycache__/
 *.so
 .Python
 .pytest_cache/
+/.pytest-bago-*/
+/backend/.pytest-tmp-audit/
 backend/.pytest-tmp-*/
 .mypy_cache/
 .venv/
@@ -61,6 +78,10 @@ desktop.ini
 
 # IDE
 .vscode/
+!.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+/.vs/
 .idea/
 *.swp
 *.swo
@@ -107,3 +128,6 @@ accounts.json
 /.bago/tmp/
 /.bago/audits/electron-closure/
 /backend/.bago/node_control/
+# Generated build outputs
+/bootstrap/msix-host/HashTool/bin/
+/bootstrap/msix-host/HashTool/obj/

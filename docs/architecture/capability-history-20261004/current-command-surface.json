@@ -1,0 +1,642 @@
+[
+  {
+    "version": "WORKTREE",
+    "command": "chat",
+    "owner_expression": "'cmd_chat'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 390,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "launch",
+    "owner_expression": "'cmd_chat'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 391,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "start",
+    "owner_expression": "'cmd_chat'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 392,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "context",
+    "owner_expression": "'cmd_context'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 393,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "exec",
+    "owner_expression": "'cmd_exec'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 394,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "validate",
+    "owner_expression": "'cmd_validate'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 395,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "install",
+    "owner_expression": "'cmd_install'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 396,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "rollback-archive",
+    "owner_expression": "'cmd_rollback_archive'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 397,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "uninstall",
+    "owner_expression": "'cmd_uninstall'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 398,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "profiles",
+    "owner_expression": "'cmd_profiles'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 399,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "claim",
+    "owner_expression": "'cmd_claim'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 400,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "config",
+    "owner_expression": "'cmd_config'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 401,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "llm",
+    "owner_expression": "'cmd_llm'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 402,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "android",
+    "owner_expression": "'cmd_android'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 403,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "engine",
+    "owner_expression": "'cmd_engine'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 404,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "appdata",
+    "owner_expression": "'cmd_appdata'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 405,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "cmd-rl",
+    "owner_expression": "'cmd_cmd_rl'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 406,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "rl",
+    "owner_expression": "'cmd_rl'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 407,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "manager",
+    "owner_expression": "'cmd_manager'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 408,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "serve",
+    "owner_expression": "'cmd_serve'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 409,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "api",
+    "owner_expression": "'cmd_api'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 410,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "evidence",
+    "owner_expression": "'cmd_evidence'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 411,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "scan",
+    "owner_expression": "'cmd_scan'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 412,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "guard",
+    "owner_expression": "'cmd_guard'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 413,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "canary",
+    "owner_expression": "'cmd_canary'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 414,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "backup",
+    "owner_expression": "'cmd_backup'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 415,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "project",
+    "owner_expression": "'cmd_project'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 416,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "preflight",
+    "owner_expression": "'cmd_preflight'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 417,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "toolsmith",
+    "owner_expression": "'cmd_toolsmith'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 418,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "issues",
+    "owner_expression": "'cmd_issues'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 419,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "agent",
+    "owner_expression": "'cmd_agent'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 420,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "route",
+    "owner_expression": "'cmd_route'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 421,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "inventory",
+    "owner_expression": "'cmd_inventory'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 422,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "monitor",
+    "owner_expression": "'cmd_monitor'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 423,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "orchestrate",
+    "owner_expression": "'cmd_orchestrate'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 424,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "list-installs",
+    "owner_expression": "'cmd_installs'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 425,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "install-role",
+    "owner_expression": "'cmd_install_role'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 426,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "node",
+    "owner_expression": "'cmd_node'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 427,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "doctor",
+    "owner_expression": "'cmd_doctor'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 428,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "release-check",
+    "owner_expression": "'cmd_release_check'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 429,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "layer",
+    "owner_expression": "'cmd_layer'",
+    "source": "backend/bago_core/launcher.py",
+    "line": 430,
+    "registry": "_DISPATCH_TABLE"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "menu",
+    "owner_expression": "cmd_menu",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1154,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "commands",
+    "owner_expression": "cmd_commands",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1155,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "doctor",
+    "owner_expression": "cmd_doctor",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1156,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "project",
+    "owner_expression": "cmd_project",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1157,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "switch",
+    "owner_expression": "cmd_switch",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1158,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "models",
+    "owner_expression": "cmd_models",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1159,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "status",
+    "owner_expression": "cmd_status",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1160,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "roadmap",
+    "owner_expression": "cmd_roadmap",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1161,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "session",
+    "owner_expression": "cmd_session",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1162,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "context",
+    "owner_expression": "cmd_context",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1163,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "mode",
+    "owner_expression": "cmd_mode",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1164,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "save",
+    "owner_expression": "cmd_save",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1165,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "load",
+    "owner_expression": "cmd_load",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1166,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "providers",
+    "owner_expression": "cmd_providers",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1167,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "bridges",
+    "owner_expression": "cmd_bridges",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1168,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "orchestrate",
+    "owner_expression": "cmd_orchestrate",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1169,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "turn.submit",
+    "owner_expression": "cmd_turn_submit",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1170,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "feedback",
+    "owner_expression": "cmd_feedback",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1171,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "suggest",
+    "owner_expression": "cmd_suggest",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1172,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "good",
+    "owner_expression": "cmd_good",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1173,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "config",
+    "owner_expression": "cmd_config",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1174,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "ui",
+    "owner_expression": "cmd_ui",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1175,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "credentials",
+    "owner_expression": "cmd_credentials",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1176,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "tools",
+    "owner_expression": "cmd_tools",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1177,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "scripts",
+    "owner_expression": "cmd_scripts",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1178,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "inventory",
+    "owner_expression": "cmd_inventory",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1179,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "allow",
+    "owner_expression": "cmd_allow",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1180,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "deny",
+    "owner_expression": "cmd_deny",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1181,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "interpret",
+    "owner_expression": "cmd_interpret",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1182,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "plan",
+    "owner_expression": "cmd_plan",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1183,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "autopilot",
+    "owner_expression": "cmd_autopilot",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1184,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "agents",
+    "owner_expression": "cmd_agents",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1185,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "agent",
+    "owner_expression": "cmd_agent",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1186,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "memory",
+    "owner_expression": "cmd_memory",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1187,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "evolve",
+    "owner_expression": "cmd_evolve",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1188,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "train",
+    "owner_expression": "cmd_train",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1189,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "update",
+    "owner_expression": "cmd_update",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1190,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "help",
+    "owner_expression": "cmd_help",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1191,
+    "registry": "COMMAND_REGISTRY"
+  },
+  {
+    "version": "WORKTREE",
+    "command": "quit",
+    "owner_expression": "cmd_quit",
+    "source": "backend/.bago/chat/commands.py",
+    "line": 1192,
+    "registry": "COMMAND_REGISTRY"
+  }
+]

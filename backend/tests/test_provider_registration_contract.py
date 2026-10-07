@@ -4,6 +4,8 @@ import importlib
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 
 class FakeConfig:
     def __init__(self, providers: dict | None = None):
@@ -94,6 +96,143 @@ def test_registered_secret_overrides_legacy_credential(monkeypatch, tmp_path):
     assert config["api_key"] == "canonical-secret"
     assert config["token"] == "canonical-secret"
     assert config["fallback_api_key"] == "legacy-secret"
+
+
+def test_missing_canonical_secret_keeps_supported_legacy_credential_fallback(monkeypatch, tmp_path):
+    session_module = importlib.import_module("session_adapters_mixin")
+    secrets_module = importlib.import_module("secret_store")
+    manager = session_module.SessionAdaptersMixin()
+    manager.provider = "openrouter"
+    manager.base_path = Path(tmp_path)
+    manager.config = FakeConfig({"openrouter": {"default_model": "openai/gpt-4.1-mini"}})
+    manager.credentials = SimpleNamespace(
+        required_keys=lambda _provider: ["OPENROUTER_API_KEY"],
+        get=lambda _provider, _key: "legacy-credential",
+    )
+    monkeypatch.setattr(
+        secrets_module,
+        "get_secret_store",
+        lambda: SimpleNamespace(get_secret=lambda _key: None),
+    )
+
+    config = manager._build_adapter_config("openrouter")
+
+    assert config["api_key"] == "legacy-credential"
+    assert config["model"] == "openai/gpt-4.1-mini"
+
+
+def test_secret_store_read_or_decryption_failure_blocks_legacy_provider_fallback(
+    monkeypatch, tmp_path,
+):
+    session_module = importlib.import_module("session_adapters_mixin")
+    secrets_module = importlib.import_module("secret_store")
+    from bago_core import secrets as canonical_secrets
+
+    manager = session_module.SessionAdaptersMixin()
+    manager.provider = "openrouter"
+    manager.base_path = Path(tmp_path)
+    manager.config = FakeConfig({"openrouter": {"enabled": True}})
+    manager.credentials = SimpleNamespace(
+        required_keys=lambda _provider: ["OPENROUTER_API_KEY"],
+        get=lambda _provider, _key: "older-legacy-credential",
+    )
+    adapter_constructions = []
+
+    class NoTransportAdapter:
+        def __init__(self, *, config):
+            adapter_constructions.append(config)
+
+    monkeypatch.setitem(session_module.ADAPTER_REGISTRY, "openrouter", NoTransportAdapter)
+
+    for error_type in (
+        canonical_secrets.SecretStoreReadError,
+        canonical_secrets.SecretDecryptionError,
+    ):
+        def fail(_key, error_type=error_type):
+            raise error_type("Canonical secret entry cannot be read.")
+
+        monkeypatch.setattr(
+            secrets_module,
+            "get_secret_store",
+            lambda fail=fail: SimpleNamespace(get_secret=fail),
+        )
+        with pytest.raises(error_type, match="Canonical secret entry cannot be read"):
+            manager._init_adapter()
+
+    assert adapter_constructions == []
+
+
+def test_credential_manager_propagates_canonical_store_error_before_legacy_value(
+    monkeypatch,
+):
+    credentials_module = importlib.import_module("credential_manager")
+    secrets_module = importlib.import_module("bago_core.secrets")
+    manager = credentials_module.CredentialManager.__new__(credentials_module.CredentialManager)
+    manager._data = {"openrouter": {"OPENROUTER_API_KEY": "older-legacy-credential"}}
+
+    def fail(_key):
+        raise secrets_module.SecretStoreReadError("Canonical secret entry cannot be read.")
+
+    monkeypatch.setattr(
+        secrets_module,
+        "get_secret_store",
+        lambda: SimpleNamespace(get_secret=fail),
+    )
+
+    with pytest.raises(secrets_module.SecretStoreReadError):
+        manager.get("openrouter", "OPENROUTER_API_KEY")
+
+
+def test_secret_store_does_not_skip_corrupt_canonical_value_for_legacy_candidate(
+    monkeypatch, tmp_path,
+):
+    from bago_core import secrets as canonical_secrets
+
+    canonical = tmp_path / "canonical.bin"
+    legacy = tmp_path / "legacy.bin"
+    canonical.write_bytes(b"not-encrypted-secret-data")
+    legacy.write_bytes(canonical_secrets._fallback_protect(b"older-secret"))
+    monkeypatch.setattr(
+        canonical_secrets,
+        "_key_read_candidates",
+        lambda _key: (canonical, legacy),
+    )
+    store = canonical_secrets.SecretStore()
+    monkeypatch.setattr(store, "_platform_is_windows", lambda: False)
+
+    with pytest.raises(canonical_secrets.SecretDecryptionError):
+        store.get_secret("providers/openrouter/api_key")
+
+
+def test_secret_store_read_error_does_not_try_older_candidate(monkeypatch, tmp_path):
+    from bago_core import secrets as canonical_secrets
+
+    canonical = tmp_path / "canonical.bin"
+    legacy = tmp_path / "legacy.bin"
+    canonical.write_bytes(b"canonical")
+    legacy.write_bytes(canonical_secrets._fallback_protect(b"older-secret"))
+    monkeypatch.setattr(
+        canonical_secrets,
+        "_key_read_candidates",
+        lambda _key: (canonical, legacy),
+    )
+    store = canonical_secrets.SecretStore()
+    monkeypatch.setattr(store, "_platform_is_windows", lambda: False)
+    original_read_bytes = Path.read_bytes
+    attempted = []
+
+    def read_bytes(path):
+        attempted.append(path)
+        if path == canonical:
+            raise PermissionError("read denied")
+        return original_read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+
+    with pytest.raises(canonical_secrets.SecretStoreReadError):
+        store.get_secret("providers/openrouter/api_key")
+
+    assert attempted == [canonical]
 
 
 def test_configure_requires_strong_gateway_authorization_without_disclosing_secret(monkeypatch, tmp_path):

@@ -29,29 +29,18 @@ from typing import Any, Callable
 
 from bago_core.node_control_render import render_text
 from bago_core.node_control_tui_info import _run_info_menus
-from bago_core.node_control_tui_io import _pause, _print_tui_header, _read_input
+from bago_core.node_control_tui_io import _pause, _print_tui_header, _prompt_choice
 from bago_core.node_control_tui_write import _run_write_menus
 
 
 def _print_menu() -> None:
-    print("1. Estado")
-    print("2. Piezas")
-    print("3. Conectores")
-    print("4. Matriz")
-    print("5. Validar")
-    print("6. Exportar")
-    print("7. Conectar")
-    print("8. Desconectar")
-    print("9. Cambiar modo")
-    print("0. Salir")
+    print("Menu de control de nodos: usa ↑↓, Enter y Esc")
 
 
 def _read_choice() -> str | None:
-    raw = _read_input("\nOpcion: ")
-    if raw is None:
-        print("\nEntrada cerrada. Saliendo del gestor de instalaciones.")
-        return None
-    return raw.strip().lower()
+    labels = ["Estado", "Piezas", "Conectores", "Matriz", "Validar", "Exportar", "Conectar", "Desconectar", "Cambiar modo"]
+    idx = _prompt_choice("Menu de control de nodos", labels)
+    return "q" if idx < 0 else str(idx + 1)
 
 
 def interactive_tui(
@@ -69,7 +58,6 @@ def interactive_tui(
     while True:
         summary = status_fn(base_path)
         _print_tui_header(summary)
-        _print_menu()
         choice = _read_choice()
         if choice is None:
             return 0

@@ -1,0 +1,104 @@
+{
+  "goal_id": "CRIT-HOST-HELPER-IPC-NOOP-20260930-SUCCESSOR",
+  "status": "BLOCKED",
+  "parent_goal": ".goals/CRIT-BOOTSTRAP-AUTHORITY-2026/goal.md",
+  "successor_of": ".goals/CRIT-HOST-HELPER-IPC-20260930/goal.md",
+  "authorization": {
+    "received": "User first authorized planning artifacts, then explicitly authorized implementation in a later turn.",
+    "current_scope": "The prior IPC implementation authorization does not extend to the newly selected authority-boundary redesign. Direction passed independent review for detailed design only; no protocol selected and no product implementation started.",
+    "not_authorized": [
+      "product-source edits or IPC implementation",
+      "build, signing, package deployment or MSIX activation",
+      "UAC prompt, helper/process launch or runtime IPC test",
+      "selected-target installation or any material system effect",
+      "clean-machine material installation test"
+    ],
+    "future_gates": {
+      "no_op_uac_test": "requires separate explicit user authorization before build/sign/activation",
+      "clean_machine_material_install": "requires separate explicit user authorization",
+      "implementation": "explicitly authorized, but blocked until the same-user host-integrity boundary is independently accepted and a protocol is selected"
+    }
+  },
+  "candidate": {
+    "baseline_before_artifacts": {
+      "head": "b10178bf8a13d0035079e989e46c36760dbd2a46",
+      "branch": "fix/spbe-runtime-fix1-20260927",
+      "worktree_fingerprint": "a7e9f4140a23f22cfe5009e17ddd8c88459e5e7c8cb33e3551d95239d25dfb0b",
+      "porcelain_entries": 7859
+    },
+    "prepared_artifact_candidate": {
+      "head": "b10178bf8a13d0035079e989e46c36760dbd2a46",
+      "branch": "fix/spbe-runtime-fix1-20260927",
+      "worktree_fingerprint": "f177e91d78981f819f160d88dcc57d4cc048275f14ea7325ac2e71fa7e87510a",
+      "porcelain_entries": 7862
+    }
+  },
+  "artifacts": {
+    "goal": ".goals/CRIT-HOST-HELPER-IPC-NOOP-20260930-SUCCESSOR/goal.md",
+    "acceptance_matrix": ".goals/CRIT-HOST-HELPER-IPC-NOOP-20260930-SUCCESSOR/acceptance-matrix.md",
+    "goal_sha256": "bc80cfbd30e428e98cb65a4c5fe3892a9f50bed96e0633006717418bfb1fef76",
+    "matrix_sha256": "95bc5dd3017c34ea8a834c89d92479d04c576b7f7b62a74e71fb3c3b121a98c8"
+  },
+  "gates": {
+    "goal_immutable_prepared": "PASS",
+    "acceptance_matrix_prepared": "PASS",
+    "json_parse": "PASS",
+    "markdown_utf8": "PASS",
+    "git_diff_check": "PASS",
+    "product_source_changes": "NONE",
+    "build_or_sign": "NOT_RUN",
+    "UAC_or_IPC_test": "NOT_RUN",
+    "MSIX_activation": "NOT_RUN",
+    "material_effects": "NONE"
+  },
+  "planning_review": {
+    "agent": "reviewer",
+    "verdict": "PASS",
+    "scope": "Fresh-context read-only review of successor goal, acceptance matrix, status and parent/predecessor contracts; no product verification or closure verdict.",
+    "critical_findings": 0,
+    "warnings": 0,
+    "candidate_lineage": "baseline_before_artifacts matches predecessor fingerprint a7e9f414...; prepared_artifact_candidate f177e91d... includes the three added planning artifacts. Parent P0 status resolves the current fingerprint through .bago/state/PROJECT_STATE.json; no parent status edit required."
+  },
+  "evidence_basis": "Planning-only snapshot from .bago/state/PROJECT_STATE.json, .bago/runtime/ACTIVE_HANDOFF.md, the parent P0 goal/status, the blocked IPC predecessor and its design/reviewer record. Historical counts and tests are not asserted as fresh evidence.",
+  "design_review": {
+    "agent": "reviewer",
+    "verdict": "BLOCKED",
+    "scope": "Read-only review of process DACL/OWNER RIGHTS, MSIX process creation, UIAccess, process mitigations and OS isolation; Microsoft Learn documentation consulted.",
+    "finding": "No supported proofable in-scope host-isolation implementation: self-DACL hardening occurs only after process creation and leaves a startup race; MSIX activation exposes no custom process descriptor or suspended start; UIAccess is not applicable; process mitigations are defense-in-depth; meaningful broker/AppContainer isolation changes the sole authority boundary.",
+    "candidate": {
+      "head": "b10178bf8a13d0035079e989e46c36760dbd2a46",
+      "branch": "fix/spbe-runtime-fix1-20260927",
+      "porcelain_entries": 7863,
+      "porcelain_sha256": "6b471e7d8be4a1b233aaf432eb35a0dac84b97d912893d0cc84b91a0be870c29"
+    }
+  },
+  "architecture_direction": {
+    "decision": "Select an OS-isolated broker authority redesign; reject narrowing the same-user threat guarantee.",
+    "independent_review": "PASS_FOR_DETAILED_DESIGN",
+    "scope_limit": "Direction-level approval only. Service model, UI/elevation, IPC protocol, owner placement, implementation, builds and tests remain unapproved/unresolved.",
+    "critical_design_findings": 9,
+    "implementation_authorization": "Prior IPC implementation authorization does not authorize this authority-boundary redesign; obtain explicit approval after detailed design and independent review."
+  },
+  "detailed_design": {
+    "artifact": ".goals/CRIT-HOST-HELPER-IPC-NOOP-20260930-SUCCESSOR/broker-detailed-design.md",
+    "work_performed": "Read-only source trace, Microsoft Learn documentation review, ordered seven-point design record.",
+    "points": {
+      "1_broker_model_identity_privileges": "OPEN: one-shot broker ranked ahead of persistent service for investigation only; no launch/token/DACL model proven.",
+      "2_spoof_resistant_direct_confirmation": "BLOCKED: no supported operation-bound resistant confirmation surface identified; do not infer unsupported solely from absence of documentation.",
+      "3_mutual_ipc_authentication": "OPEN, downstream of point 2.",
+      "4_unique_owner_placement": "OPEN: source chain traced; broker placement and per-resource user/admin identity unresolved.",
+      "5_uac_alternate_admin": "OPEN: fail-closed policy and binding not verified.",
+      "6_signed_deployment_recovery": "OPEN: lifecycle architecture not selected or tested.",
+      "7_independent_review_authorization": "BLOCKED: fresh reviewer reviewed the design artifact and returned BLOCKED due point 2; no protocol or redesign implementation approved."
+    },
+    "independent_review": {
+      "agent": "reviewer",
+      "verdict": "BLOCKED",
+      "scope": "Read-only review of the seven-point detailed design; no Windows runtime or product verification.",
+      "finding": "The document is coherent and correctly sequences work, but there is no identified supported Windows API/activation surface binding exact operation, target and options to broker-owned confirmation resistant to same-user medium-integrity spoofing/automation. The UI feasibility gate is a hard stop before IPC/protocol/implementation.",
+      "corrections_applied": ["Clarified Gateway consumes Permit before adapter dispatch; adapter revalidates request/plan.", "Separated adapter PowerShell spawn from PowerShell's later Start-Process -Verb RunAs self-elevation.", "Added exact apply/rollback/uninstall owner names and dependency diagram."]
+    }
+  },
+  "next_action": "Continue read-only investigation of supported operation-bound confirmation options, including what ShellExecute/UAC actually displays and whether any broker-owned confirmation can resist medium-integrity overlays and automation. If no supported proof emerges, document BLOCKED rather than implement IPC. Keep installation disabled and bootstrap P0 OPEN; build/sign/activation/UAC and clean-machine material installation remain separate authorization gates.",
+  "updated_at": "2026-09-30"
+}

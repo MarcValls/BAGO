@@ -17,7 +17,10 @@ from api_dispatch import resolve_post
 
 
 def _user_root() -> Path:
-    return Path(os.environ.get("BAGO_USER_ROOT") or Path.cwd()).resolve()
+    value = os.environ.get("BAGO_USER_ROOT")
+    if not value:
+        raise RuntimeError("BAGO_USER_ROOT must be set to an isolated test directory")
+    return Path(value).resolve()
 
 
 def _context() -> ExecutionContext:
@@ -95,7 +98,8 @@ def test_release_signature_invalid_paths_block_before_process(tmp_path, monkeypa
     assert calls == []
 
 
-def test_signature_adapter_rejects_direct_non_gateway_call():
+def test_signature_adapter_rejects_direct_non_gateway_call(tmp_path, monkeypatch):
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path))
     request = _request("C:/invalid.sig", "C:/invalid.zip")
     with pytest.raises(ExecutionGatewayError) as exc:
         ReleaseSignatureEffectAdapter().execute(request, ExecutionContext())
@@ -155,7 +159,8 @@ def test_release_bundle_preflight_blocks_unsafe_archive_before_staging(tmp_path,
     assert not staging.exists()
 
 
-def test_stage_adapter_rejects_direct_non_gateway_call(tmp_path):
+def test_stage_adapter_rejects_direct_non_gateway_call(tmp_path, monkeypatch):
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path))
     request = _stage_request(str(tmp_path / "anything.zip"))
     with pytest.raises(ExecutionGatewayError) as exc:
         ReleaseBundleStageEffectAdapter().execute(request, ExecutionContext())

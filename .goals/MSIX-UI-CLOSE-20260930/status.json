@@ -1,0 +1,71 @@
+{
+  "goal_id": "MSIX-UI-CLOSE-20260930",
+  "status": "BLOCKED",
+  "objective": "Determine why the packaged MSIX bootstrap WinForms UI closes, without asserting full bootstrap P0 validation.",
+  "candidate": {
+    "head": "b10178bf8a13d0035079e989e46c36760dbd2a46",
+    "branch": "fix/spbe-runtime-fix1-20260927",
+    "dirty": true,
+    "intentional_source_changes": [
+      "bootstrap/msix-host/Program.cs",
+      "bootstrap/msix-host/BootstrapForm.cs"
+    ],
+    "generated_tracked_hash_tool_outputs_restored": true
+  },
+  "authorization": {
+    "one_rebuild_reinstall_and_activation": "EXECUTED",
+    "one_additional_session_created": "09eed125-286",
+    "additional_user_confirmed_activation": {
+      "pid": 8900,
+      "process_start_local": "2026-09-30T16:53:50",
+      "session_id": "b5fc5154-75e",
+      "session_created_utc": "2026-09-30T14:53:53.408042+00:00",
+      "attribution": "USER CONFIRMED: the additional activation was initiated by the user",
+      "state": "process was alive/responding when checked at 16:58:02 local; left untouched"
+    },
+    "leave_test_package_and_certificate_installed": true,
+    "global_bootstrap_p0": "OUT_OF_SCOPE_AND_OPEN"
+  },
+  "acceptance": {
+    "host_build": "VERIFIED: dotnet build PASS, 0 warnings/errors",
+    "focused_contract_tests": "VERIFIED: 3 passed",
+    "signed_installed_artifact_bound_to_hash": "VERIFIED: signed-install-receipt.json binds final SHA-256 e09d2dd3e48979c44802ad896fdfd74cf54467cae4a2b34e1227ba3328a3eaeb; SignTool PASS; AppX status Ok",
+    "activation_and_new_session_evidence": "VERIFIED: PID 16112, AUMID, package path, log, session 09eed125-286 and matching creation time",
+    "passive_windows_event_review": "VERIFIED: bounded query 2026-09-30 16:19:27–16:47:41 local; no Application events, three AppModel-Runtime/Admin events only confirm process/container creation; no termination or close evidence; WER channel unavailable.",
+    "activation_scope_after_followup": "VERIFIED attribution: user confirmed the 16:53:50 local activation (PID 8900/session b5fc5154-75e) was theirs. It created an additional process/session beyond the originally recorded smoke; it does not identify the earlier UI-close cause. No process was terminated by the assistant.",
+    "close_reason_identified_or_explicitly_unresolved": "BLOCKED/UNRESOLVED: observed process remained responsive with BAGO Bootstrap window for 90 seconds; no FormClosing/FormClosed event occurred, so no reason was produced and the earlier exit cause cannot be inferred",
+    "host_source_close_path_scan": "VERIFIED: source scan found Application.Run and the diagnostic event handlers, but no explicit Application.Exit, Environment.Exit, Form.Close, or Timer close path in bootstrap/msix-host C# sources; this does not exclude external/user/OS termination or dependencies.",
+    "candidate_rechecked_and_generated_outputs_handled": "VERIFIED: HEAD unchanged; generated tracked HashTool bin/obj restored; git diff --check PASS",
+    "independent_read_only_review": "BLOCKED for root-cause closure: re-review passed bounded syntax/hash checks and observed PID 8900/session b5fc5154-75e; the user subsequently confirmed that activation was theirs. The UI-close cause remains unresolved; P0 not certified.",
+    "global_bootstrap_p0": "OUT_OF_SCOPE_AND_OPEN"
+  },
+  "artifacts": {
+    "goal_contract": ".goals/MSIX-UI-CLOSE-20260930/goal.md",
+    "build_receipt_unsigned": "artifacts/msix-ui-close-20260930/build-receipt.json",
+    "signed_install_receipt": "artifacts/msix-ui-close-20260930/signed-install-receipt.json",
+    "signed_msix_sha256": "e09d2dd3e48979c44802ad896fdfd74cf54467cae4a2b34e1227ba3328a3eaeb",
+    "runtime_log": "%LOCALAPPDATA%\\BAGO\\logs\\bootstrap-host.log"
+  },
+  "evidence": [
+    "dotnet build bootstrap/msix-host/Bago.Bootstrap.Host.csproj --configuration Release --no-restore: PASS, 0 warnings/errors",
+    "python -m pytest -q backend/tests/test_msix_bootstrap.py: 3 passed in 0.42s",
+    "90-second timed observation: PID 16112 alive/responding; MainWindowTitle BAGO Bootstrap; no form-closing or shutdown log event",
+    "2026-09-30 16:46:48 and 16:47:41 local passive checks: PID 16112 still alive/responding, package Status=Ok; bounded Application/AppModel/WER review found only process/container creation, no close/termination event (WER channel unavailable)",
+    "Later read-only check at 16:58:02 local confirmed PID 8900 started 16:53:50, AppModel-Runtime/Admin event 201 says LaunchProcess, bootstrap log records session b5fc5154-75e at 14:53:53Z, and session meta agrees; PID 16112 and 8900 both alive/responding. User later confirmed the additional activation was theirs; no shutdown/cleanup performed.",
+    "User clarification: 'ACTIVACIÓN ADICIONAL FUÍ YO'; attribution updated from unknown to user-confirmed. This does not establish why the earlier window closed.",
+    "session metadata created_at 2026-09-30T14:19:41.819302+00:00 matches logged session_create_done",
+    "SignTool verification and Add-AppxPackage succeeded; installed package Status=Ok",
+    "independent reviewer: BLOCKED for close-cause determination; FormClosing/FormClosed instrumentation correct; no inference of cause supported",
+    "post-syntax Inspector pass: status and receipts parse, hashes match; also observed PID 8900 / session b5fc5154-75e at 16:53:50 local, subsequently user-confirmed; no termination/cleanup",
+    "rg scan of bootstrap/msix-host C# found no explicit app/form close call or timer apart from Application.Run and diagnostic handlers",
+    "git diff --check PASS"
+  ],
+  "residual_risks": [
+    "Cause of the earlier clean form exit remains unknown because the new observed activation did not close.",
+    "A new captured close event or more specific time-bounded diagnostic evidence is required to identify the close trigger; this passive query only confirms launch and continued process presence.",
+    "A user-confirmed additional activation created session b5fc5154-75e; this corrects the prior unknown-source attribution. The original close cause remains unresolved; both host processes were left untouched. Do not perform further package actions without explicit authorization.",
+    "This local test signer is not a production publisher; the smoke does not establish clean-machine or overall P0 acceptance.",
+    ".bago/state/PROJECT_STATE.json still projects candidate a2185878, not this goal's HEAD; it was not rewritten in this bounded investigation and requires separate state reconciliation."
+  ],
+  "updated_at": "2026-09-30"
+}

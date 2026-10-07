@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ia-memoria-mcp"
+version = "0.1.0"
+description = "Memoria local estructurada y auditable para ChatGPT Desktop y Codex mediante MCP"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["mcp[cli]>=1.28.1,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+ia-memoria-mcp = "ia_memoria.server:main"
+ia-memoria-init = "ia_memoria.cli:init_main"
+ia-memoria-doctor = "ia_memoria.cli:doctor_main"
+ia-memoria-reindex = "ia_memoria.cli:reindex_main"
+ia-memoria-backup = "ia_memoria.cli:backup_main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

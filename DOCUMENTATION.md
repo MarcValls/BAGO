@@ -12,12 +12,13 @@ records do not override it.
 | Product, installation, commands, and current candidate status | [README.md](README.md) |
 | Technical documentation index | [backend/docs/README.md](backend/docs/README.md) |
 | Interactive architecture overview | [docs/architecture/README.md](docs/architecture/README.md) |
-| Historical release records | [docs/archive/releases/README.md](docs/archive/releases/README.md) |
+| Historical release records | [docs/archive/releases/README.md](docs/archive/releases/README.md) and [local archived payloads](releases/archive/README.md) |
 | Architecture | [backend/docs/ARCHITECTURE.md](backend/docs/ARCHITECTURE.md) |
 | Security posture | [backend/docs/SECURITY.md](backend/docs/SECURITY.md) |
 | Claims and executable evidence | [backend/docs/CLAIMS.md](backend/docs/CLAIMS.md) and [backend/docs/TESTING.md](backend/docs/TESTING.md) |
 | Module and MVP boundaries | [backend/docs/MODULES.md](backend/docs/MODULES.md) and [backend/docs/MVP.md](backend/docs/MVP.md) |
-| Historical release notes (4.10.0) | [releases/RELEASE_NOTES_4.10.0.md](releases/RELEASE_NOTES_4.10.0.md) |
+| Historical release notes (4.10.0) | [docs/archive/releases/RELEASE_NOTES_4.10.0.md](docs/archive/releases/RELEASE_NOTES_4.10.0.md) |
+| Historical UI reports | [docs/archive/frontend-ui/README.md](docs/archive/frontend-ui/README.md) |
 | Frontend product contract | [frontend/PRODUCT.md](frontend/PRODUCT.md) and [frontend/CONTEXT_PRODUCT_CONTRACT.md](frontend/CONTEXT_PRODUCT_CONTRACT.md) |
 | Repository engineering protocol (proposed) | [backend/docs/repository-engineering/README.md](backend/docs/repository-engineering/README.md) |
 
@@ -33,12 +34,12 @@ instructions:
 - `backend/MANUAL.md`, which documents the 4.9.0 release surface.
 - `backend/docs/audit/`, `backend/docs/TECH_DEBT_*.md`, and
   `backend/docs/migration-sprints-current.md`.
-- `frontend/README_REFACTOR_BAGO_UI_v2*.md`,
-  `frontend/VALIDACION_*.md`, `frontend/RELEASE_CANDIDATE_REPORT.md`, and
-  `frontend/DEPENDENCY_REBUILD_REPORT.md`.
-- Historical 4.9.0 material in `releases/`; start from
-  [releases/INDEX.md](releases/INDEX.md) to distinguish it from the current
-  candidate notes.
+- UI refactor and validation reports were moved to
+  `docs/archive/frontend-ui/`; they describe dated proposals and builds, not
+  the current frontend product contract.
+- Versioned payloads under `releases/archive/v*/` are local historical
+  artifacts; [releases/INDEX.md](releases/INDEX.md) is the current release
+  index and `docs/archive/releases/` holds historical records.
 - `.bago/audits/`, which is immutable candidate-bound evidence rather than
   operating documentation.
 

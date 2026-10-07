@@ -46,6 +46,7 @@ def _write_helper_ticket(
     from execution_request import build_execution_request
 
     monkeypatch.setenv("BAGO_STATE_ROOT", str(bundle.parent / "user-state"))
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     ledger_path = auth.authorization_ledger_path().resolve()
     target = {
         "bundle_path": str(bundle.resolve()),
@@ -135,6 +136,7 @@ class _FixtureOpener:
 
 @pytest.fixture
 def isolated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setitem(sys.modules, "update_manager", updater)
     install_root = tmp_path / "BAGO"
     (install_root / "backend").mkdir(parents=True)
     (install_root / "electron-viewer").mkdir()
@@ -326,6 +328,7 @@ def test_apply_launches_external_helper_only_through_authorized_gateway(isolated
         "ready": True, "root": str(isolated), "viewer": str(isolated / "electron-viewer" / "BAGO.exe"), "reason": "",
     })
     monkeypatch.setattr(auth, "state_root", lambda: Path(updater._update_root()) / "auth")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     descriptor = updater.update_apply_descriptor()
     class Manager:
         session_id = "release-session"

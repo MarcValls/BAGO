@@ -50,6 +50,7 @@ def _future(minutes: int = 30) -> str:
 
 def _issue_grant(tmp_path, monkeypatch, *, max_runs: int = 2, allowed_effect: str = "filesystem.write"):
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     boundary = auth.AuthorizationBoundary()
 
     child_target = {"path": "notes/example.txt"}
@@ -109,7 +110,10 @@ def _issue_grant(tmp_path, monkeypatch, *, max_runs: int = 2, allowed_effect: st
     result, consumed = ExecutionGateway(boundary).execute(
         permit_token=permit["token"],
         request=parent,
-        context=ExecutionContext(manager=tmp_path, services={"state_dir": tmp_path / "state"}),
+        context=ExecutionContext(
+            services={"state_dir": tmp_path / "state"},
+            world_state_authority_root=str(tmp_path),
+        ),
     )
     grant = result["delegation_grant"]
 
@@ -178,7 +182,7 @@ def test_each_delegated_run_gets_fresh_one_time_permit(tmp_path, monkeypatch):
     result, consumed = gateway.execute(
         permit_token=delegated["permit"]["token"],
         request=child,
-        context=ExecutionContext(manager=issued["world_state_authority"]),
+        context=ExecutionContext(world_state_authority_root=str(tmp_path)),
     )
     assert result["ok"] is True
     assert consumed["state"] == "consumed"
@@ -188,7 +192,7 @@ def test_each_delegated_run_gets_fresh_one_time_permit(tmp_path, monkeypatch):
         gateway.execute(
             permit_token=delegated["permit"]["token"],
             request=child,
-            context=ExecutionContext(manager=issued["world_state_authority"]),
+            context=ExecutionContext(world_state_authority_root=str(tmp_path)),
         )
     assert replay.value.code == "authorization_permit_replay"
 
@@ -303,6 +307,7 @@ def test_expired_grant_fails_closed(tmp_path, monkeypatch):
 
 def test_nondelegable_effect_cannot_be_granted(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "state_root", lambda: tmp_path / "auth")
+    monkeypatch.setattr(auth, "confirm_strong_challenge", lambda _challenge: True)
     boundary = auth.AuthorizationBoundary()
     schedule_id = "schedule-delete"
     schedule_descriptor = canonical_schedule_descriptor(
@@ -358,7 +363,10 @@ def test_nondelegable_effect_cannot_be_granted(tmp_path, monkeypatch):
         ExecutionGateway(boundary).execute(
             permit_token=permit["token"],
             request=parent,
-            context=ExecutionContext(manager=tmp_path, services={"state_dir": tmp_path / "state"}),
+            context=ExecutionContext(
+                services={"state_dir": tmp_path / "state"},
+                world_state_authority_root=str(tmp_path),
+            ),
         )
     assert denied.value.code == "delegation_effect_not_delegable"
 

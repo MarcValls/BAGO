@@ -101,14 +101,32 @@ class SessionTurnMixin:
             "This is an internal structured request. Return exactly the format requested by the prompt. "
             "Do not call tools and do not address the end user."
         )
-        response = adapter.chat(
-            [{"role": "user", "content": user_message}],
-            self.model,
-            system=system,
-            tools=None,
-            **self._provider_call_kwargs("chat", kwargs),
-        )
-        return response.content
+        import hashlib
+        from runtime_observability import set_attributes, traced_span
+
+        with traced_span("bago.agent.model_call", {
+            "bago.provider": str(getattr(self, "provider", "")),
+            "bago.model": str(getattr(self, "model", "")),
+            "bago.model.call.phase": "internal_structured_review",
+        }) as model_span:
+            response = adapter.chat(
+                [{"role": "user", "content": user_message}],
+                self.model,
+                system=system,
+                tools=None,
+                **self._provider_call_kwargs("chat", kwargs),
+            )
+            set_attributes(model_span, {
+                "bago.model.finish_reason": str(getattr(response, "finish_reason", "")),
+                "bago.model.tool_call_count": len(getattr(response, "tool_calls", []) or []),
+            })
+        output = str(response.content or "")
+        with traced_span("bago.artifact.final_response", {
+            "bago.artifact.kind": "internal_agent_response",
+            "bago.artifact.bytes": len(output.encode("utf-8", errors="replace")),
+            "bago.artifact.sha256": hashlib.sha256(output.encode("utf-8", errors="replace")).hexdigest(),
+        }):
+            return output
 
     def _default_max_tokens_for_intent(self, intent: str) -> int:
         """Keep local Ollama turns bounded unless the caller overrides it."""
@@ -176,14 +194,24 @@ class SessionTurnMixin:
                     "reason": "workspace_cli_router_disabled",
                     "source": "policy",
                 }
-            response = adapter.chat(
-                router_messages,
-                self.model,
-                system=self._route_system_prompt(),
-                tools=None,
-                temperature=0.0,
-                max_tokens=96,
-            )
+            from runtime_observability import set_attributes, traced_span
+            with traced_span("bago.agent.model_call", {
+                "bago.provider": str(getattr(self, "provider", "")),
+                "bago.model": str(getattr(self, "model", "")),
+                "bago.model.call.phase": "intent_routing",
+            }) as route_span:
+                response = adapter.chat(
+                    router_messages,
+                    self.model,
+                    system=self._route_system_prompt(),
+                    tools=None,
+                    temperature=0.0,
+                    max_tokens=96,
+                )
+                set_attributes(route_span, {
+                    "bago.model.finish_reason": str(getattr(response, "finish_reason", "")),
+                    "bago.model.tool_call_count": len(getattr(response, "tool_calls", []) or []),
+                })
         except Exception:
             return self._route_fallback(text)
 
@@ -595,7 +623,48 @@ class SessionTurnMixin:
         return False, fallback, repaired_report.to_dict()
 
     def send(self, user_message: str, **kwargs: Any) -> str:
-        """Send a user message to the active provider and persist the turn."""
+        """Keep history, messages and receipts on the conversation at turn entry."""
+        conversation_id = kwargs.pop("conversation_id", None) or self.store.active_conversation_id
+        with self.store.conversation_scope(conversation_id):
+            import hashlib
+            from runtime_observability import set_attributes, traced_span
+
+            with traced_span("bago.agent.execute", {
+                "bago.session_id": str(getattr(self, "session_id", "")),
+                "bago.conversation_id": str(conversation_id or ""),
+                "bago.provider": str(getattr(self, "provider", "")),
+                "bago.model": str(getattr(self, "model", "")),
+                "bago.request.digest": hashlib.sha256(
+                    str(user_message).encode("utf-8", errors="replace")
+                ).hexdigest(),
+            }) as span:
+                response = self._send_turn(user_message, **kwargs)
+                set_attributes(span, {
+                    "bago.response.digest": hashlib.sha256(
+                        str(response).encode("utf-8", errors="replace")
+                    ).hexdigest(),
+                    "bago.response.state": str(getattr(self, "last_response_state", "done") or "done"),
+                })
+                receipt = getattr(self, "last_receipt", None)
+                receipt_id = str(
+                    getattr(receipt, "receipt_id", "")
+                    or getattr(receipt, "envelope_id", "")
+                    or ""
+                )
+                with traced_span("bago.artifact.final_response", {
+                    "bago.artifact.kind": "agent_response",
+                    "bago.artifact.bytes": len(str(response).encode("utf-8", errors="replace")),
+                    "bago.artifact.sha256": hashlib.sha256(
+                        str(response).encode("utf-8", errors="replace")
+                    ).hexdigest(),
+                    "bago.response.state": str(getattr(self, "last_response_state", "done") or "done"),
+                    "bago.receipt_id": receipt_id,
+                }):
+                    pass
+                return response
+
+    def _send_turn(self, user_message: str, **kwargs: Any) -> str:
+        """Send a user message to the active provider and persist the bound turn."""
         self.last_clarification = None
         self.last_response_state = "running"
         route_info = kwargs.pop("route_info", None) or self.route_user_message(user_message)
@@ -786,13 +855,24 @@ class SessionTurnMixin:
         )
 
         call_kwargs = self._provider_call_kwargs(intent, kwargs)
-        resp = adapter.chat(
-            envelope.messages,
-            self.model,
-            system=envelope.system_prompt,
-            tools=envelope.tools,
-            **call_kwargs,
-        )
+        from runtime_observability import traced_span
+        with traced_span("bago.agent.model_call", {
+            "bago.provider": str(getattr(self, "provider", "")),
+            "bago.model": str(getattr(self, "model", "")),
+            "bago.model.call.phase": "initial",
+        }) as model_span:
+            resp = adapter.chat(
+                envelope.messages,
+                self.model,
+                system=envelope.system_prompt,
+                tools=envelope.tools,
+                **call_kwargs,
+            )
+            from runtime_observability import set_attributes
+            set_attributes(model_span, {
+                "bago.model.finish_reason": str(getattr(resp, "finish_reason", "")),
+                "bago.model.tool_call_count": len(getattr(resp, "tool_calls", []) or []),
+            })
         self.store.append_user(user_message, provider=self.provider, model=self.model)
 
         tool_rounds = 0
@@ -864,7 +944,18 @@ class SessionTurnMixin:
                     continue
 
                 tool_start = time.time()
-                result = self.tool_registry.execute_model_call(call)
+                from runtime_observability import set_attributes, traced_span
+                effect_id = self.tool_registry.model_effect_id(call.name) or "unknown"
+                with traced_span("bago.agent.tool_call", {
+                    "bago.tool.name": call.name,
+                    "bago.effect_id": effect_id,
+                    "bago.tool.call_id": call.call_id,
+                }) as tool_span:
+                    result = self.tool_registry.execute_model_call(call)
+                    set_attributes(tool_span, {
+                        "bago.tool.ok": bool(result.ok),
+                        "bago.tool.blocked": bool(result.blocked),
+                    })
                 tool_elapsed = (time.time() - tool_start) * 1000
 
                 tools_executed.append({
@@ -904,13 +995,23 @@ class SessionTurnMixin:
                     },
                 ))
 
-            resp = adapter.chat(
-                normalized,
-                self.model,
-                system=envelope.system_prompt,
-                tools=envelope.tools,
-                **call_kwargs,
-            )
+            with traced_span("bago.agent.model_call", {
+                "bago.provider": str(getattr(self, "provider", "")),
+                "bago.model": str(getattr(self, "model", "")),
+                "bago.model.call.phase": "tool_continuation",
+                "bago.model.tool_round": tool_rounds,
+            }) as model_span:
+                resp = adapter.chat(
+                    normalized,
+                    self.model,
+                    system=envelope.system_prompt,
+                    tools=envelope.tools,
+                    **call_kwargs,
+                )
+                set_attributes(model_span, {
+                    "bago.model.finish_reason": str(getattr(resp, "finish_reason", "")),
+                    "bago.model.tool_call_count": len(getattr(resp, "tool_calls", []) or []),
+                })
         if resp.tool_calls:
             resp = ProviderResponse(
                 content=f"BLOQUEADO: límite de rondas de herramientas alcanzado ({max_tool_rounds}).",
@@ -1265,7 +1366,42 @@ class SessionTurnMixin:
         return responses
 
     def send_stream(self, user_message: str, **kwargs: Any):
-        """Send a user message with streaming and persist the completed turn."""
+        """Capture conversation identity before the returned iterator is advanced."""
+        store = self.store
+        conversation_id = store.require_conversation(
+            kwargs.pop("conversation_id", None) or store.active_conversation_id
+        )
+        iterator = self._send_stream_turn(user_message, **kwargs)
+
+        class BoundStream:
+            # Enter only while executing the inner generator, never across a
+            # yield to its caller. Sequential resumes may use different threads.
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                return self.send(None)
+
+            def send(self, value):
+                with store.conversation_scope(conversation_id, allow_archived=True):
+                    return iterator.send(value)
+
+            def throw(self, *args):
+                with store.conversation_scope(conversation_id, allow_archived=True):
+                    return iterator.throw(*args)
+
+            def close(self):
+                with store.conversation_scope(conversation_id, allow_archived=True):
+                    return iterator.close()
+
+        def bound_stream():
+            # Keep normal generator send/throw/close and GC-finalization semantics.
+            yield from BoundStream()
+
+        return bound_stream()
+
+    def _send_stream_turn(self, user_message: str, **kwargs: Any):
+        """Stream and persist under the caller's bound conversation scope."""
         self.last_clarification = None
         self.last_response_state = "running"
         self.last_stream_interpretation = None

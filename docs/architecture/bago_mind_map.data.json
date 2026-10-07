@@ -43,6 +43,11 @@
           "title": "Proveedores intercambiables",
           "status": "IMPLEMENTADO",
           "detail": "La sesión permanece estable mientras cambia el motor: Ollama, Copilot, Codex/OpenAI y otros conectores."
+        },
+        {
+          "title": "Separación Framework / clientes",
+          "status": "PROPUESTO",
+          "detail": "Plan interactivo enlazado desde el mapa: docs/architecture/framework-cli-app-separation-plan.html. El objetivo es conservar sesión, ejecución y evidencia en el Framework y adaptar CLI, App y hosts por contratos compartidos."
         }
       ]
     },

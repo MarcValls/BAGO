@@ -1,0 +1,762 @@
+{
+  "schema": "bago.capability-inventory-current.v1",
+  "candidate_head": "b9b2eda8f21be16f5ade510b5f069abe09ae5387",
+  "surface_sha256": "e5558324b436c03cb6f8470522951b05ff468fd673cfdbdde433c6f557fcf908",
+  "status": "FROZEN_STATIC_SURFACE",
+  "live_execution": "NOT_RUN",
+  "capabilities": [
+    {
+      "capability_id": "C01",
+      "name": "Estado de sesión",
+      "description_observable": "La consulta conserva identidad/provider/model y añade binding de workspace, conversaciones y contrato. No se ha probado migración del active.json del MVP.",
+      "owner_current": "SessionManager",
+      "modules_current": [
+        "backend/.bago/api/handlers_session.py"
+      ],
+      "entrypoints_routes_current": "GET /session; /status; /session",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C02",
+      "name": "Guardar, cargar y recuperar sesión",
+      "description_observable": "La restauración usa project_root duradero; el backend conserva autoridad sobre la activación.",
+      "owner_current": "SessionManager + ContextStore",
+      "modules_current": [
+        "backend/.bago/chat/commands.py"
+      ],
+      "entrypoints_routes_current": "/save; /load; sesiones API",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_chat_command_load_workspace.py",
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C03",
+      "name": "Chat y streaming",
+      "description_observable": "Se conserva chat y se añaden streaming e identidad/reintentos del turno. Test actual no presente en v4.11.10.",
+      "owner_current": "SessionManager.send + chat_turns",
+      "modules_current": [
+        "backend/.bago/api/handlers_chat.py"
+      ],
+      "entrypoints_routes_current": "POST /chat; POST /chat/stream",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_chat_turn_idempotency.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C04",
+      "name": "Cambiar proveedor/modelo",
+      "description_observable": "La ruta mantiene el cambio mediante SwitchEngine; equivalencia total de validaciones no ejecutada.",
+      "owner_current": "SwitchEngine",
+      "modules_current": [
+        "backend/.bago/api/handlers_switch.py"
+      ],
+      "entrypoints_routes_current": "POST /switch; /switch; /models",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C05",
+      "name": "Comandos por HTTP",
+      "description_observable": "Alias explícito conserva el acceso. La carga del módulo distingue chat.commands de bago_core.commands.",
+      "owner_current": "chat.commands.execute",
+      "modules_current": [
+        "backend/.bago/api/legacy_aliases.py"
+      ],
+      "entrypoints_routes_current": "POST /command → /api/v1/commands",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_sprint_4_surfaces.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C06",
+      "name": "Workspace y operaciones de proyecto",
+      "description_observable": "Las rutas antiguas tienen alias. Las mutaciones actuales añaden autorización; no es una pérdida por renombrado.",
+      "owner_current": "handlers_workspace / ProjectWriteEffectAdapter",
+      "modules_current": [
+        "backend/.bago/api/legacy_aliases.py"
+      ],
+      "entrypoints_routes_current": "/workspaces → /workspace/list; /workspace/{init,link,seed,sync} → /project/*",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_workspace_seed_contract.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C07",
+      "name": "Historial y conversaciones",
+      "description_observable": "El historial se amplía con conversaciones, archivo y scope de workspace; el test conserva migración legacy→main.",
+      "owner_current": "ContextStore",
+      "modules_current": [
+        "backend/.bago/api/handlers_conversations.py"
+      ],
+      "entrypoints_routes_current": "GET /history; /conversations; /workspace/conversation",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_conversation_contract.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C08",
+      "name": "Escribir archivos desde API",
+      "description_observable": "La escritura directa se sustituye por efecto gobernado y fallo cerrado sin Permit.",
+      "owner_current": "ExecutionGateway / owner de archivos",
+      "modules_current": [
+        "backend/.bago/api/handlers_files.py"
+      ],
+      "entrypoints_routes_current": "POST /files/write",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_files_write_workspace_scope.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C09",
+      "name": "Ejecutar planes materiales",
+      "description_observable": "Antes podían completarse pasos informativos o conversación run_command. Ahora el executor requiere executed, evidencia y receipt_id.",
+      "owner_current": "PlanEngine + ExecutionGateway",
+      "modules_current": [
+        "backend/.bago/core/plan_engine.py"
+      ],
+      "entrypoints_routes_current": "POST /plans/<id>/execute",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C10",
+      "name": "Autopilot: texto considerado evidencia",
+      "description_observable": "El handler sigue tratando texto del modelo como ejecución. Probe con PlanEngine real: done y receipt_id vacío; respuesta vacía deja blocked con ok=true. El test citado cubre el motor, no directamente este handler.",
+      "owner_current": "chat.commands.cmd_autopilot",
+      "modules_current": [
+        "backend/.bago/chat/commands.py"
+      ],
+      "entrypoints_routes_current": "/autopilot",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "state": "UNKNOWN",
+      "evidence": "FUNCTION_BOUNDARY_REPRODUCED",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C11",
+      "name": "Límite de 20 pasos de autopilot",
+      "description_observable": "Con 25 pasos, el handler antiguo hace 21 llamadas al stub (plan+20); el actual hace 26 (plan+25). No se atribuye a un commit de retirada ni se confunde rama histórica con ancestro.",
+      "owner_current": "chat.commands.cmd_autopilot",
+      "modules_current": [
+        "backend/.bago/chat/commands.py"
+      ],
+      "entrypoints_routes_current": "/autopilot",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "state": "PARTIAL",
+      "evidence": "FUNCTION_BOUNDARY_REPRODUCED",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C12",
+      "name": "Ciclo spawn/list/run/kill de agentes",
+      "description_observable": "4aa0eb66 redirige list/run/describe/plan al kit, mientras spawn/kill/status siguen en spiral_agent. Requiere probar continuidad de identidad entre registros.",
+      "owner_current": "spiral_agent + agent_kit_cli",
+      "modules_current": [
+        "backend/bago_core/commands/cmd_tools.py"
+      ],
+      "entrypoints_routes_current": "bago agent spawn/list/run/kill",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_orchestration_tools.py"
+      ],
+      "state": "PARTIAL",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C13",
+      "name": "Navegador persistente y snapshot DOM",
+      "description_observable": "La fuente histórica despacha un controller Playwright. El registro actual carece de /browser. Los smokes DOM y browse de directorios no prueban sustitución equivalente. No se ha demostrado funcionamiento histórico en vivo.",
+      "owner_current": "Owner actual equivalente no localizado",
+      "modules_current": [
+        "backend/.bago/chat/commands.py"
+      ],
+      "entrypoints_routes_current": "Histórico /browser open/snapshot/click/fill/eval; sin registro actual",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "UNKNOWN",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C14",
+      "name": "Node Control",
+      "description_observable": "Las operaciones actuales añaden identidad instalación/pieza y modos. No hay prueba de que el catálogo de capabilities haya reemplazado Node Control.",
+      "owner_current": "Node Control",
+      "modules_current": [
+        "backend/bago_core/node_control_cli.py"
+      ],
+      "entrypoints_routes_current": "bago node status/validate/pieces/connect/disconnect/set-mode",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_node_control_split.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C15",
+      "name": "Evidencia de trabajo",
+      "description_observable": "La palabra evidence abarca owners y contratos distintos del índice MVP. Una cadena textual histórica no equivale a un receipt material actual.",
+      "owner_current": "Evidence bundles / claim ledger / receipts",
+      "modules_current": [
+        "backend/bago_core/evidence_cli.py"
+      ],
+      "entrypoints_routes_current": "bago evidence; bago claim; node evidence",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "PARTIAL",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C16",
+      "name": "RL shadow, entrenamiento y evaluación",
+      "description_observable": "Se conserva can_execute=False. Entrenamiento y evaluación amplían observación; no conceden ejecución autónoma.",
+      "owner_current": "RLBridge + rl_policies",
+      "modules_current": [
+        "backend/.bago/api/handlers_rl.py"
+      ],
+      "entrypoints_routes_current": "/rl/status; /rl/shadow; train/eval",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_rl_contract.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C17",
+      "name": "Memoria y KB",
+      "description_observable": "Memoria añade búsqueda/embeddings; KB mantiene identidad propia. Mutaciones actuales usan autorización. No es el catálogo de capabilities.",
+      "owner_current": "handlers_memory + handlers_kv",
+      "modules_current": [
+        "backend/.bago/api/handlers_memory.py"
+      ],
+      "entrypoints_routes_current": "/memory/*; /api/v1/kb",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_kv_integration_contract.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C18",
+      "name": "Capability packages y pipelines ejecutables",
+      "description_observable": "Primera presencia entre tags locales seleccionados: v4.8.2, ausente en v4.8.0/.1. Ya exigía confirmación y receipt. Gobierno posterior amplía/restringe ejecución. Precede al inventario read_only observado en v4.9.0.",
+      "owner_current": "CapabilityPackageImportEffectAdapter + ExecutionGateway",
+      "modules_current": [
+        "backend/.bago/core/capability_packages.py"
+      ],
+      "entrypoints_routes_current": "/api/v1/capability-packages/*",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_capability_packages.py",
+        "backend/tests/test_capability_import_gateway.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C19",
+      "name": "Capability de inventario read_only",
+      "description_observable": "Sin diff en capability_contract.py entre v4.9.0 y HEAD. Una capability de inventario no enumera toda la capacidad histórica del Framework.",
+      "owner_current": "capability_contract",
+      "modules_current": [
+        "backend/.bago/api/capability_contract.py"
+      ],
+      "entrypoints_routes_current": "GET /api/v1/capabilities",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_capability_contract.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C20",
+      "name": "Schedules y delegación",
+      "description_observable": "La programación persiste; la ejecución requiere delegación/permiso actuales. Confirmación guardada no equivale a autoridad vigente.",
+      "owner_current": "schedule_registry + ExecutionGateway",
+      "modules_current": [
+        "backend/.bago/api/handlers_schedule.py"
+      ],
+      "entrypoints_routes_current": "/schedule/*",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_schedule_registry.py",
+        "backend/tests/test_schedule_delegation.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C21",
+      "name": "Copilot como proveedor CLI",
+      "description_observable": "El transporte existe; el test exige plan mode, denegar shell/write y desactivar MCP. No prueba integración BAGO como host Copilot.",
+      "owner_current": "CopilotAdapter + cli_bridge",
+      "modules_current": [
+        "backend/.bago/providers/copilot.py"
+      ],
+      "entrypoints_routes_current": "Provider chat mediante CLI",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_cli_bridge_contract.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C22",
+      "name": "Pi provider",
+      "description_observable": "El adapter se conserva sin diff; disponibilidad de Pi en esta máquina no comprobada.",
+      "owner_current": "BagoPiProviderAdapter",
+      "modules_current": [
+        "backend/.bago/integrations/pi/provider_adapter.py"
+      ],
+      "entrypoints_routes_current": "Provider adapter (habilitación no probada)",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C23",
+      "name": "Pi ejecutor delegado",
+      "description_observable": "Provider y runner ya coexistían. Digest, revisión y pi_finished forman parte del contrato; IO/proceso han evolucionado.",
+      "owner_current": "Pi AgentRunner",
+      "modules_current": [
+        "backend/.bago/integrations/pi/agent_runner.py"
+      ],
+      "entrypoints_routes_current": "Agent runner Fase 3",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/integrations/pi/test_agent_runner.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C24",
+      "name": "Taxonomía rol/workflow/sesión",
+      "description_observable": "El vocabulario continúa; estados de pipeline se añaden de forma separada. Capability package no ha borrado la taxonomía.",
+      "owner_current": "Canon + role_factory",
+      "modules_current": [
+        "backend/.bago/core/canon/TAXONOMIA.md"
+      ],
+      "entrypoints_routes_current": "Contratos de rol y workflow",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "IMPLEMENTED",
+      "evidence": "DOCUMENT_CONTRACT_ONLY",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C25",
+      "name": "Control headless de sesiones",
+      "description_observable": "El alias top-level desaparece; módulo list/create/etc permanece. Compatibilidad de invocación CLI requiere decisión explícita.",
+      "owner_current": "bago_core.session_control",
+      "modules_current": [
+        "backend/bago_core/session_control.py"
+      ],
+      "entrypoints_routes_current": "Antes bago session; ahora módulo session_control",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "state": "PARTIAL",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C26",
+      "name": "Workflow/orquestación",
+      "description_observable": "El workflow selector v3 y los task briefs actuales representan modelos distintos. No se da por preservado todo el contrato v3.",
+      "owner_current": "orchestrator_v4",
+      "modules_current": [
+        "backend/bago_core/launcher.py"
+      ],
+      "entrypoints_routes_current": "bago orchestrate; /orchestrate",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_orchestration_tools.py"
+      ],
+      "state": "PARTIAL",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C27",
+      "name": "issues-gh anunciado por el parser",
+      "description_observable": "El parser lo acepta, _DISPATCH_TABLE lo omite y _dispatch imprime ayuda y devuelve 0. Probe reproduce el retorno. No se clasifica LOST porque el defecto ya existía.",
+      "owner_current": "Sin handler en dispatcher",
+      "modules_current": [
+        "backend/bago_core/parsers_sections.py"
+      ],
+      "entrypoints_routes_current": "bago issues-gh take",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "UNKNOWN",
+      "evidence": "FUNCTION_BOUNDARY_REPRODUCED",
+      "confidence": "HIGH"
+    },
+    {
+      "capability_id": "C28",
+      "name": "Mutaciones GitHub por HTTP",
+      "description_observable": "El alias sigue, pero setup devuelve 410 intencionalmente. process admite git_identity; flujo completo UI alternativo no ejecutado. v4.8.7 es rama no ancestral.",
+      "owner_current": "Desktop/process authorization; owner process",
+      "modules_current": [
+        "backend/.bago/api/handlers_github.py"
+      ],
+      "entrypoints_routes_current": "POST /github/setup-git → /github/setup",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_github_api_contract.py"
+      ],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C29",
+      "name": "Cancelación de interpretación histórica",
+      "description_observable": "Cancelar invocaba interpretar de nuevo. Corregido antes de v4.11.0. No demuestra que hubiese una cancelación funcional perdida.",
+      "owner_current": "handlers_interpret",
+      "modules_current": [
+        "backend/.bago/api/legacy_aliases.py"
+      ],
+      "entrypoints_routes_current": "Antes POST /interpretations/{id}/cancel → /interpret; alias retirado",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "IMPLEMENTED",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C30",
+      "name": "Detalle de interpretación por ID",
+      "description_observable": "El handler devuelve colección y no consulta ID; client.ts:721 espera objeto individual. Sin callsites UI encontrados: impacto visible no demostrado.",
+      "owner_current": "handlers_interpret + API client",
+      "modules_current": [
+        "backend/.bago/api/legacy_aliases.py"
+      ],
+      "entrypoints_routes_current": "GET /interpretations/{id} → /interpret/history",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "PARTIAL",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C31",
+      "name": "Prompt del rol crece por ciclo",
+      "description_observable": "No hay símbolos spiral_index/RoleSpiralBuilder en backend rastreado. No hay ancestro común local entre v3.5.0 y HEAD: no se atribuye una eliminación accidental.",
+      "owner_current": "No equivalente demostrado; SpiralAgent actual rota pasos",
+      "modules_current": [
+        "backend/.bago/tools/spiral_agent.py"
+      ],
+      "entrypoints_routes_current": "Histórico RoleSpiralBuilder",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "UNKNOWN",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C32",
+      "name": "Selección adaptativa band/channel/hz",
+      "description_observable": "El router actual de modelos no demuestra selección por deriva/presión/coherencia del prompt. La rama v3.5.0 está desconectada del HEAD local.",
+      "owner_current": "No equivalente demostrado",
+      "modules_current": [
+        "backend/bago_core/providers/routing.py"
+      ],
+      "entrypoints_routes_current": "Histórico SignalMetrics.band/channel/hz",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "UNKNOWN",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C33",
+      "name": "ModelGate direct/fallback/degrade",
+      "description_observable": "Existe fallback dentro del proveedor y auto-switch. Falta equivalencia demostrada de FALLBACK_CHAIN entre providers y los resultados direct/fallback/degrade.",
+      "owner_current": "session_adapters_mixin + repl_model_router",
+      "modules_current": [
+        "backend/.bago/core/session_adapters_mixin.py"
+      ],
+      "entrypoints_routes_current": "Selección/fallback de modelo",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [
+        "backend/tests/test_router_session_model.py"
+      ],
+      "state": "PARTIAL",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C34",
+      "name": "Familia CLI autonomous",
+      "description_observable": "Desaparece la familia CLI. Startup evolution y loop sobreviven, con autorización para herramientas mutantes. /autopilot no equivale a todas las operaciones anteriores.",
+      "owner_current": "autonomous_loop / repl_startup / comandos de sesión",
+      "modules_current": [
+        "backend/.bago/core/autonomous_loop.py"
+      ],
+      "entrypoints_routes_current": "Histórico bago autonomous; actuales /evolve, /autopilot y módulo autonomous_loop",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "UNKNOWN",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C35",
+      "name": "Registro de workspaces con nombre por CLI",
+      "description_observable": "workspace_registry.py histórico no localizado actualmente. Picker y binding existen; equivalencia con registro multi-workspace con nombre no demostrada.",
+      "owner_current": "Project/workspace binding actual",
+      "modules_current": [
+        "backend/.bago/api/api_dispatch.py"
+      ],
+      "entrypoints_routes_current": "Histórico bago workspace; actuales /workspace/* y picker",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "UNKNOWN",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C36",
+      "name": "Federación de conocimiento por CLI",
+      "description_observable": "knowledge_federation.py no localizado en backend actual. La memoria local no demuestra federación de fuentes remotas.",
+      "owner_current": "Sin owner actual de federación identificado",
+      "modules_current": [
+        "backend/.bago/chat/memory_commands.py"
+      ],
+      "entrypoints_routes_current": "Histórico bago knowledge",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "UNKNOWN",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C37",
+      "name": "Arrancar host C++ de referencia",
+      "description_observable": "cpp_runtime_host no localizado. cpp-local sigue como cliente configurable; no se declara perdido todo el provider.",
+      "owner_current": "CppLocalAdapter cliente HTTP",
+      "modules_current": [
+        "backend/.bago/providers/cpp_local.py"
+      ],
+      "entrypoints_routes_current": "Histórico bago cpp-runtime; provider cpp-local conservado",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "UNKNOWN",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C38",
+      "name": "Administrar chains desde terminal",
+      "description_observable": "Electron mantiene registry de chains y escritura gobernada. No se demostró paridad de todos los subcomandos list/show/import/export/validate/stage/step.",
+      "owner_current": "Electron manager settings / chain_registry",
+      "modules_current": [
+        "backend/electron/preload.cjs"
+      ],
+      "entrypoints_routes_current": "Histórico bago chain; bridge read/write chains.json",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "UNKNOWN",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    },
+    {
+      "capability_id": "C39",
+      "name": "Release jobs headless por CLI",
+      "description_observable": "El script release-job-cli.cjs desaparece. Manager/IPC y rutas backend mantienen operaciones; no se declara perdido el subsistema de release.",
+      "owner_current": "Electron release service + gateway",
+      "modules_current": [
+        "backend/electron/ipc-service.cjs"
+      ],
+      "entrypoints_routes_current": "Histórico bago release-job; IPC list/preflight/start/cancel/resume/install/rollback",
+      "effects_associated": "Owner/ruta identificados; material effect NOT_RUN.",
+      "authorization_required": "Según contrato del owner; runtime NOT_RUN.",
+      "preconditions": "Static reachability traced; live preconditions NOT_RUN.",
+      "evidence_receipt_expected": "Receipt/contract where owner requires it; live receipt NOT_RUN.",
+      "tests_current": [],
+      "state": "UNKNOWN",
+      "evidence": "SOURCE_TRACED",
+      "confidence": "MEDIUM"
+    }
+  ]
+}

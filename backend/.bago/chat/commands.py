@@ -28,6 +28,8 @@ Comandos soportados:
 
 from __future__ import annotations
 
+AUTOPILOT_MAX_STEPS = 20
+
 import json
 import os
 import sys
@@ -990,7 +992,7 @@ def cmd_autopilot(mgr: SessionManager, engine: SwitchEngine, args: list[str]) ->
 
     messages = [f"📋 Plan generado ({len(plan.steps)} pasos):", plan.to_text(), "", "🚀 Ejecutando..."]
 
-    for step in plan.steps:
+    for step in plan.steps[:AUTOPILOT_MAX_STEPS]:
         mgr.plan_engine.mark_step(step, "running")
         step_prompt = f"Ejecuta este paso del plan: {step.description}"
         result = mgr.send(step_prompt)
@@ -1004,7 +1006,11 @@ def cmd_autopilot(mgr: SessionManager, engine: SwitchEngine, args: list[str]) ->
             messages.append(f"  ⧖ Paso {step.number}: {step.description}")
             messages.append("    → bloqueado por falta de evidencia")
 
-    if any(step.status == "blocked" for step in plan.steps):
+    unprocessed = plan.steps[AUTOPILOT_MAX_STEPS:]
+    if unprocessed:
+        plan.status = "stopped"
+        messages.append(f"⏸ Plan detenido tras {AUTOPILOT_MAX_STEPS} pasos; quedan {len(unprocessed)} pasos pendientes.")
+    elif any(step.status == "blocked" for step in plan.steps):
         plan.status = "blocked"
     elif any(step.status == "failed" for step in plan.steps):
         plan.status = "failed"

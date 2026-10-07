@@ -15,6 +15,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from bago_core.resolver import add_piece_paths, load_piece_module
+from bago_core.node_control_tui_io import _prompt_choice
 
 BAGO_ROOT = Path(__file__).resolve().parents[2]
 add_piece_paths("core.package", "chat.package", "providers.package", "api.package", "tools.package")
@@ -295,8 +296,31 @@ def cmd_chat(args: argparse.Namespace) -> int:
             require_identity=True,
         )
     except (OSError, RuntimeError) as exc:
-        print(f"BAGO no puede iniciar el chat: {exc}", file=sys.stderr)
-        return 2
+        if not (hasattr(sys.stdin, "isatty") and sys.stdin.isatty() and hasattr(sys.stdout, "isatty") and sys.stdout.isatty()):
+            print(f"BAGO no puede iniciar el chat: {exc}", file=sys.stderr)
+            return 2
+        print(f"{exc}")
+        print("BAGO necesita un proyecto concreto. Selecciona una carpeta para continuar.")
+        bootstrap = _headless_project_root() / "project-picker"
+        bootstrap.mkdir(parents=True, exist_ok=True)
+        picker = BagoREPL(
+            provider=getattr(args, "provider", "ollama-cloud") or "ollama-cloud",
+            model=getattr(args, "model", "deepseek-v3.1:671b") or "deepseek-v3.1:671b",
+            base_path=str(bootstrap),
+            state_root=str(_resolve_state_root()),
+            startup_prompt=False,
+            require_project_identity=False,
+        )
+        try:
+            picker._project_wizard(Path(args.base_path), force_picker=True)
+            candidate = Path(getattr(picker.mgr, "project_root", "")).expanduser().resolve()
+        finally:
+            picker.mgr.close()
+        try:
+            project_root = SessionManager._validate_project_root(candidate, require_identity=True)
+        except (OSError, RuntimeError):
+            print("No se seleccionó un proyecto válido. BAGO permanecerá cerrado.", file=sys.stderr)
+            return 2
 
     args.base_path = str(project_root)
 
@@ -424,26 +448,15 @@ def cmd_llm(args: argparse.Namespace) -> int:
 
     if not provider:
         if hasattr(sys.stdin, "isatty") and sys.stdin.isatty():
-            print("Providers instalados/configurados:")
-            for idx, item in enumerate(installed, 1):
-                print(f"  {idx}. {item['name']} ({len(item['models'])} modelos)")
-            print("Providers disponibles para configurar:")
-            for item in inventory:
-                if not item["installed"]:
-                    print(f"  - {item['name']}")
+            pending = [item for item in inventory if not item["installed"]]
+            options = [f"{item['name']} · {len(item['models'])} modelos" for item in installed]
+            options.extend(f"Configurar {item['name']}" for item in pending)
             default_provider = ConfigManager(base_path=args.base_path, state_root=str(state_root)).default_provider
-            choice = input(f"Elige provider instalado/configurado [{default_provider}]: ").strip()
-            if not choice:
-                provider = default_provider
-            else:
-                try:
-                    provider = installed[int(choice) - 1]["name"]
-                except Exception:
-                    if choice in all_names:
-                        provider = choice
-                    else:
-                        print("Seleccion invalida.")
-                        return 1
+            default_index = next((i for i, item in enumerate(installed) if item["name"] == default_provider), 0)
+            idx = _prompt_choice("Provider para la sesion", options, default_index)
+            if idx < 0:
+                return 1
+            provider = installed[idx]["name"] if idx < len(installed) else pending[idx - len(installed)]["name"]
         elif installed:
             cm = ConfigManager(base_path=args.base_path, state_root=str(state_root))
             provider = cm.default_provider

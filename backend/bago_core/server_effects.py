@@ -380,6 +380,10 @@ def download_release_bundle(
 
     download_root = Path(_update_root()).expanduser().resolve()
 
+    from update_manager import _update_root
+
+    download_root = Path(_update_root()).expanduser().resolve()
+
     request = build_execution_request(
         effect_id="release.download",
         actor_kind="server",

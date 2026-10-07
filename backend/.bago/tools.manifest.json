@@ -1,7 +1,7 @@
 {
   "version": "3",
   "generated_by": "auto",
-  "tool_count": 32,
+  "tool_count": 33,
   "tools": {
     "auto_heal": {
       "file": "auto_heal.py",
@@ -162,6 +162,29 @@
       "file": "validate_syntax.py",
       "sha256": "801341aeec1ba38418fc44ca3f06397b9d8b5915a5592d8c51b2bd4ebb31e4f0",
       "cmd": "validate-syntax"
+    },
+    "runtime_control": {
+      "file": "runtime_control.py",
+      "cmd": "runtime-control",
+      "description": "Arranca, detiene o consulta el backend BAGO y puede abrir su UI local mediante el servicio gobernado.",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "start",
+              "start_and_open",
+              "status",
+              "stop"
+            ],
+            "description": "Accion fija del servicio BAGO"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      }
     }
   }
 }

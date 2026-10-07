@@ -10,7 +10,7 @@
 [![Python CI](https://img.shields.io/badge/python_CI-3.14-blue)]()
 [![Node](https://img.shields.io/badge/node-22.12.0-green)]()
 [![README truth](https://img.shields.io/badge/README-generated%20%2B%20drift--checked-blueviolet)]()
-[![License](https://img.shields.io/badge/license-Proprietary-red)]()
+[![License](https://img.shields.io/badge/license-MIT-green)]()
 
 ### Estado canonico generado
 
@@ -165,11 +165,11 @@ Las peticiones mutables usan `WorldStateSnapshot` v1, ligado a la sesión, works
 El trabajo actual sigue `backend/docs/contracts/execution_gateway_unification_plan.v1.md`:
 
 ### Seguridad de distribución
-- La release pública v4.11.1 incluye `bago-4.11.1-setup.exe` firmado con Authenticode SHA-256.
+- La release pública v4.11.3 incluye `bago-4.11.3-setup.exe` firmado con Authenticode SHA-256.
 - El SHA-256 publicado del instalador es `5066db72146e3231afd18312f44948bccb2116dc23e107e4a24a721005d50e92`.
 - La siguiente release mayor prevista será **BAGO 5.0**; `release_version.txt` conserva la versión vigente hasta que esa release se publique.
 - Las proyecciones de rutas, migración y versión se verifican contra drift en CI.
-- Los cambios posteriores de `main` no se consideran parte del instalador v4.11.1 hasta que exista una nueva release/tag y sus gates correspondientes.
+- Los cambios posteriores de `main` no se consideran parte del instalador v4.11.3 hasta que exista una nueva release/tag y sus gates correspondientes.
 | Fase | Estado actual | Objetivo |
 |---|---|---|
 | P1 | Implementada | Effect Registry + inventario de effect sinks |
@@ -320,7 +320,7 @@ El candidato de la siguiente release es [v4.11.10](https://github.com/MarcValls/
 - La instalación queda fijada a una referencia Git inmutable (`InstallRef`) en lugar de `main`
 Usa la release correspondiente en [GitHub Releases](https://github.com/MarcValls/BAGO/releases). La identidad del artefacto, su firma y su SHA-256 son propiedades de esa release concreta y deben verificarse allí; no se infieren del estado de `main`.
 
-La línea 4.11.1 incorporó el fix del rollback del instalador: el NSIS finaliza una instalación sana con `-Finalize`, limpia el backup `.BAGO-rollback` solo tras éxito completo y falla cerrado si esa limpieza no puede completarse.
+La línea 4.11.3 incorporó el fix del rollback del instalador: el NSIS finaliza una instalación sana con `-Finalize`, limpia el backup `.BAGO-rollback` solo tras éxito completo y falla cerrado si esa limpieza no puede completarse.
 
 Para refrescar `releases/compiled/runtime` tras un bloque de cambios sin
 reconstruir el instalador, usa `releases/build-installer.ps1 -RuntimeOnly`;
@@ -443,7 +443,7 @@ python scripts/verify_version_consistency.py
 | Área | Estado | Notas |
 |---|---|---|
 | Runtime core | Verificable | Canonical CI y suites backend/frontend ligadas al SHA |
-| Release Windows v4.11.1 | ✅ Publicada | Instalador Authenticode SHA-256 firmado + sidecar SHA-256 |
+| Release Windows v4.11.3 | ✅ Publicada | Instalador Authenticode SHA-256 firmado + sidecar SHA-256 |
 | `main` post-release | En desarrollo gobernado | Contiene P1–P4; requiere nueva release para distribuirse como artefacto publicado |
 | Ciclo de vida Electron | Verificable en CI | Packaged Electron smoke forma parte de Canonical CI |
 | UI React | Verificable | Build, typecheck y tests en CI |
@@ -477,7 +477,7 @@ npm run test:frontend
 
 | Versión | Fecha | Artefactos |
 |---|---|---|
-| [v4.11.1](https://github.com/MarcValls/BAGO/releases/tag/v4.11.1) | 2026-09-10 | `bago-4.11.1-setup.exe` + `.sha256` — Authenticode SHA-256 firmado; fix de rollback |
+| [v4.11.3](https://github.com/MarcValls/BAGO/releases/tag/v4.11.3) | 2026-09-10 | `bago-4.11.3-setup.exe` + `.sha256` — Authenticode SHA-256 firmado; fix de rollback |
 | [v4.11.0](https://github.com/MarcValls/BAGO/releases/tag/v4.11.0) | 2026-09-10 | `bago-4.11.0-setup.exe` (pre-release, sin firmar) |
 | [v4.10.0](https://github.com/MarcValls/BAGO/releases/tag/v4.10.0) | 2026-09-05 | `bago-4.10.0-setup.exe` · `bago-4.10.0-distribution.zip` (pre-release, sin firmar) |
 | [v4.9.3](https://github.com/MarcValls/BAGO/releases/tag/v4.9.3) | 2026-09-01 | `bago-4.9.3-setup.exe` |

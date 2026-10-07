@@ -194,6 +194,10 @@ class ProjectSeedRuntimeTests(unittest.TestCase):
     def test_terminal_bago_exec_can_seed_project(self) -> None:
         env = dict(os.environ)
         with tempfile.TemporaryDirectory() as auth_td:
+            workspace = Path(auth_td) / "workspace"
+            workspace.mkdir()
+            (workspace / "README.md").write_text("# Isolated seed smoke\n", encoding="utf-8")
+            (workspace / "main.py").write_text("print('smoke')\n", encoding="utf-8")
             env["BAGO_STATE_ROOT"] = str(Path(auth_td) / "authorization")
             proc = subprocess.run(
                 [
@@ -201,7 +205,7 @@ class ProjectSeedRuntimeTests(unittest.TestCase):
                     "-m",
                     "bago_core.launcher",
                     "--base-path",
-                    str(REPO),
+                    str(workspace),
                     "exec",
                     "/project",
                     "seed",
@@ -216,10 +220,10 @@ class ProjectSeedRuntimeTests(unittest.TestCase):
                 env=env,
             )
 
-        self.assertEqual(proc.returncode, 0, msg=proc.stdout + "\n" + proc.stderr)
-        self.assertIn("Seeded workspace at:", proc.stdout)
-        self.assertIn("Working set size:", proc.stdout)
-        self.assertTrue((REPO / ".gabo" / "seed.meta.json").is_file())
+            self.assertEqual(proc.returncode, 0, msg=proc.stdout + "\n" + proc.stderr)
+            self.assertIn("Seeded workspace at:", proc.stdout)
+            self.assertIn("Working set size:", proc.stdout)
+            self.assertTrue((workspace / ".gabo" / "seed.meta.json").is_file())
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ Los adapters de LLM solo leen/escriben a través de él.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 import threading
@@ -27,6 +28,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+
+_logger = logging.getLogger("bago.context_store")
 
 from bago_core.atomic_json import append_text_durable, read_json, write_json_atomic, write_text_atomic
 
@@ -189,6 +192,9 @@ class ContextStore:
         self._meta: dict[str, Any] = {}
         self._conversation_local = threading.local()
 
+        self.recovery_errors: list[dict[str, Any]] = []
+        self._corrupt_paths: set[Path] = set()
+
         self._load_all()
 
     # ── Factory methods ──────────────────────────────────────────────────────
@@ -258,9 +264,9 @@ class ContextStore:
         return _conversation_id(scoped or self._meta.get("active_conversation_id"))
 
     @contextmanager
-    def conversation_scope(self, conversation_id: str):
-        """Fija la conversación para el hilo actual durante un envío."""
-        target = self.require_conversation(conversation_id)
+    def conversation_scope(self, conversation_id: str, *, allow_archived: bool = False):
+        """Bind this thread; only an already-started turn may continue archived."""
+        target = self.require_conversation(conversation_id, allow_archived=allow_archived)
         previous = getattr(self._conversation_local, "conversation_id", "")
         self._conversation_local.conversation_id = target
         try:
@@ -318,14 +324,14 @@ class ContextStore:
             result.append(item)
         return sorted(result, key=lambda item: (bool(item["active"]), str(item.get("updated_at", ""))), reverse=True)
 
-    def require_conversation(self, conversation_id: str) -> str:
+    def require_conversation(self, conversation_id: str, *, allow_archived: bool = False) -> str:
         if not self._meta.get("conversations"):
             self.ensure_conversation_state()
         target = _conversation_id(conversation_id)
         conversations = self._meta.get("conversations")
         if not isinstance(conversations, dict) or target not in conversations:
             raise ValueError(f"Conversación no encontrada: {target}")
-        if bool(conversations[target].get("archived", False)):
+        if bool(conversations[target].get("archived", False)) and not allow_archived:
             raise ValueError(f"Conversación archivada: {target}")
         return target
 
@@ -415,6 +421,7 @@ class ContextStore:
     def mark_good(self, index: int = -1) -> bool:
         """Marca un mensaje del historial como 'good' (importante, no diluible)."""
         with self._lock:
+            self._guard_rewrite(self._context_path)
             messages = [message for message in self._messages if _conversation_id(message.conversation_id) == self.active_conversation_id]
             if not messages or abs(index) > len(messages):
                 return False
@@ -448,6 +455,7 @@ class ContextStore:
 
     def clear_history(self) -> None:
         with self._lock:
+            self._guard_rewrite(self._context_path)
             target = self.active_conversation_id
             self._messages = [message for message in self._messages if _conversation_id(message.conversation_id) != target]
             self._write_jsonl(self._context_path, (message.to_dict() for message in self._messages))
@@ -539,6 +547,8 @@ class ContextStore:
     # ── Persistence helpers ───────────────────────────────────────────────────
 
     def _load_all(self) -> None:
+        self.recovery_errors = []
+        self._corrupt_paths.clear()
         self._messages = self._load_jsonl(self._context_path, ContextMessage.from_dict)
         self._timeline = self._load_jsonl(self._timeline_path, TimelineEvent.from_dict)
         self._tokens = self._load_json(self._tokens_path, default={})
@@ -550,21 +560,67 @@ class ContextStore:
         items: list = []
         if not path.exists():
             return items
-        with path.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    items.append(factory(json.loads(line)))
-                except Exception:
-                    pass
+        # I/O failures are not empty history: propagate instead of permitting
+        # a subsequent rewrite based on an incomplete load.
+        raw = path.read_bytes()
+        for line_no, raw_line in enumerate(raw.split(b"\n"), start=1):
+            line = raw_line.rstrip(b"\n").rstrip(b"\r")
+            if not line.strip():
+                continue
+            try:
+                text = line.decode("utf-8")
+            except UnicodeDecodeError:
+                self._record_recovery_error(path, line_no, "utf8-decode")
+                self._corrupt_paths.add(path)
+                continue
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                self._record_recovery_error(path, line_no, "json-syntax")
+                self._corrupt_paths.add(path)
+                continue
+            try:
+                item = factory(data)
+                fields = ("role", "content") if isinstance(item, ContextMessage) else ("kind", "title", "detail")
+                if any(not isinstance(getattr(item, field), str) for field in fields):
+                    raise ValueError("Invalid text field")
+                items.append(item)
+            except (KeyError, TypeError, ValueError, AttributeError):
+                self._record_recovery_error(path, line_no, "schema")
+                self._corrupt_paths.add(path)
         return items
 
+    def _record_recovery_error(self, path: Path, line: int, reason: str) -> None:
+        self.recovery_errors.append({
+            "path": str(path),
+            "line": line,
+            "reason": reason,
+        })
+        _logger.warning(
+            "Corrupt context record skipped during recovery: path=%r line=%d reason=%r",
+            str(path), line, reason
+        )
+
+    def _guard_rewrite(self, path: Path) -> None:
+        if path in self._corrupt_paths:
+            raise RuntimeError(
+                f"Refusing destructive rewrite of {path.name} loaded with corruption; "
+                f"see recovery_errors. Append-only operations remain allowed."
+            )
+
     def _append_jsonl(self, path: Path, obj: dict) -> None:
-        append_text_durable(path, json.dumps(obj, ensure_ascii=False) + "\n")
+        separator = ""
+        if path in self._corrupt_paths and path.exists() and path.stat().st_size:
+            # Retain a torn final record verbatim, but don't concatenate the
+            # next valid record onto its unterminated bytes.
+            with path.open("rb") as source:
+                source.seek(-1, 2)
+                if source.read(1) != b"\n":
+                    separator = "\n"
+        append_text_durable(path, separator + json.dumps(obj, ensure_ascii=False) + "\n")
 
     def _write_jsonl(self, path: Path, items: Iterable[dict[str, Any]]) -> None:
+        self._guard_rewrite(path)
         lines = [json.dumps(item, ensure_ascii=False) for item in items]
         write_text_atomic(path, "\n".join(lines) + ("\n" if lines else ""))
 
@@ -598,6 +654,7 @@ class ContextStore:
         usar un modelo ligero para resumir.
         """
         with self._lock:
+            self._guard_rewrite(self._context_path)
             target = self.active_conversation_id
             active_messages = [message for message in self._messages if _conversation_id(message.conversation_id) == target]
             if len(active_messages) <= target_messages:

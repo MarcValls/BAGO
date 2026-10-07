@@ -1,0 +1,226 @@
+{
+  "utc": "2026-10-01T15:13:04.9521524Z",
+  "scope": "REGISTERED_ONLY_NOT_SELECTED_PROVIDER",
+  "mutations_enabled": false,
+  "selected_provider_verified": false,
+  "providers": [
+    {
+      "clsid": "{01A30791-40AE-4653-AB2E-FD210019AE88}",
+      "name": "Automatic Redeployment Credential Provider",
+      "server": "C:\\WINDOWS\\system32\\mgmtrefreshcredprov.dll",
+      "exists": true,
+      "sha256": "905A3FD93AEA6CBBF5DFCBA1C4E4117EC37788F43AECC06FBB0A314EC004F5EB",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{1b283861-754f-4022-ad47-a5eaaa618894}",
+      "name": "Smartcard Reader Selection Provider",
+      "server": "C:\\WINDOWS\\system32\\SmartcardCredentialProvider.dll",
+      "exists": true,
+      "sha256": "7178D028751409D614CDDBC1ED52FC6511F6CB3B5CA2023CBB05F502FAD94FFB",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{1ee7337f-85ac-45e2-a23c-37c753209769}",
+      "name": "Smartcard WinRT Provider",
+      "server": "C:\\WINDOWS\\system32\\SmartcardCredentialProvider.dll",
+      "exists": true,
+      "sha256": "7178D028751409D614CDDBC1ED52FC6511F6CB3B5CA2023CBB05F502FAD94FFB",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{2135f72a-90b5-4ed3-a7f1-8bb705ac276a}",
+      "name": "PicturePasswordLogonProvider",
+      "server": "C:\\WINDOWS\\system32\\credprovslegacy.dll",
+      "exists": true,
+      "sha256": "8AB1A0ED25FDB565F369DBDD9AD9FD42C803916089EF4CC61065DB0B5B8B339E",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{25CBB996-92ED-457e-B28C-4774084BD562}",
+      "name": "GenericProvider",
+      "server": "C:\\WINDOWS\\system32\\credprovs.dll",
+      "exists": true,
+      "sha256": "96342D93EF62B4DF086D9B146AE260921F50A9FDFC7583963CFBC2333BF226C4",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{27FBDB57-B613-4AF2-9D7E-4FA7A66C21AD}",
+      "name": "TrustedSignal Credential Provider",
+      "server": "C:\\WINDOWS\\system32\\TrustedSignalCredProv.dll",
+      "exists": true,
+      "sha256": "1A9A24CD134E115C9F147ACBE9924176C4E15D219C5DEED05055A6A970ABFCE2",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{3dd6bec0-8193-4ffe-ae25-e08e39ea4063}",
+      "name": "NPProvider",
+      "server": "C:\\WINDOWS\\system32\\credprovs.dll",
+      "exists": true,
+      "sha256": "96342D93EF62B4DF086D9B146AE260921F50A9FDFC7583963CFBC2333BF226C4",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{48B4E58D-2791-456C-9091-D524C6C706F2}",
+      "name": "Secondary Authentication Factor Credential Provider",
+      "server": "C:\\Windows\\System32\\devicengccredprov.dll",
+      "exists": true,
+      "sha256": "CC647A84EA87C28BF7A339BE1C1983228723F3F76CE3DCA4AC717CC12655DF2E",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{600e7adb-da3e-41a4-9225-3c0399e88c0c}",
+      "name": "CngCredUICredentialProvider",
+      "server": "C:\\WINDOWS\\system32\\cngcredui.dll",
+      "exists": true,
+      "sha256": "72131F7486914B7B02743334EDE08A92DF22132D4E5722488A756930778B9F0D",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{60b78e88-ead8-445c-9cfd-0b87f74ea6cd}",
+      "name": "PasswordProvider",
+      "server": "C:\\WINDOWS\\system32\\credprovs.dll",
+      "exists": true,
+      "sha256": "96342D93EF62B4DF086D9B146AE260921F50A9FDFC7583963CFBC2333BF226C4",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{8AF662BF-65A0-4D0A-A540-A338A999D36F}",
+      "name": "FaceCredentialProvider",
+      "server": "C:\\Windows\\System32\\FaceCredentialProvider.dll",
+      "exists": true,
+      "sha256": "BE458C9411070138A66EC893687A5746320DBDC4C66C7B7DF10A5B9DF8AC252A",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{8FD7E19C-3BF7-489B-A72C-846AB3678C96}",
+      "name": "Smartcard Credential Provider",
+      "server": "C:\\WINDOWS\\system32\\SmartcardCredentialProvider.dll",
+      "exists": true,
+      "sha256": "7178D028751409D614CDDBC1ED52FC6511F6CB3B5CA2023CBB05F502FAD94FFB",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{94596c7e-3744-41ce-893e-bbf09122f76a}",
+      "name": "Smartcard Pin Provider",
+      "server": "C:\\WINDOWS\\system32\\SmartcardCredentialProvider.dll",
+      "exists": true,
+      "sha256": "7178D028751409D614CDDBC1ED52FC6511F6CB3B5CA2023CBB05F502FAD94FFB",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{BEC09223-B018-416D-A0AC-523971B639F5}",
+      "name": "WinBio Credential Provider",
+      "server": "C:\\WINDOWS\\System32\\BioCredProv.dll",
+      "exists": true,
+      "sha256": "ED6B1D23487241E00A193AF65F717B03574804F1EED5235348C337D2551D08EA",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{C5D7540A-CD51-453B-B22B-05305BA03F07}",
+      "name": "Cloud Experience Credential Provider",
+      "server": "C:\\Windows\\System32\\cxcredprov.dll",
+      "exists": true,
+      "sha256": "24FA15C1B463915BBC50A6D1EA63CB2CFA00E663EF41E495F86C49C20BB0DB16",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{C885AA15-1764-4293-B82A-0586ADD46B35}",
+      "name": "IrisCredentialProvider",
+      "server": "C:\\Windows\\System32\\FaceCredentialProvider.dll",
+      "exists": true,
+      "sha256": "BE458C9411070138A66EC893687A5746320DBDC4C66C7B7DF10A5B9DF8AC252A",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{cb82ea12-9f71-446d-89e1-8d0924e1256e}",
+      "name": "PINLogonProvider",
+      "server": "C:\\WINDOWS\\system32\\credprovslegacy.dll",
+      "exists": true,
+      "sha256": "8AB1A0ED25FDB565F369DBDD9AD9FD42C803916089EF4CC61065DB0B5B8B339E",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{D6886603-9D2F-4EB2-B667-1971041FA96B}",
+      "name": "NGC Credential Provider",
+      "server": "C:\\Windows\\System32\\ngccredprov.dll",
+      "exists": true,
+      "sha256": "9DD2A4F58506FC80EE85DB3A14D7387C863B9825C12F83458305D668AB4D4F91",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{e74e57b0-6c6d-44d5-9cda-fb2df5ed7435}",
+      "name": "CertCredProvider",
+      "server": "C:\\WINDOWS\\system32\\certCredProvider.dll",
+      "exists": true,
+      "sha256": "78256E90FBBC3918A975C83A70C6FBB38980095B5D0F7D8D6B3101F70F7C1E39",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{f64945df-4fa9-4068-a2fb-61af319edd33}",
+      "name": "RdpCredentialProvider",
+      "server": "C:\\WINDOWS\\system32\\rdpcredentialprovider.dll",
+      "exists": true,
+      "sha256": "86053A75EB249C29419E40FEFDE42DB9C7541A8EF873BF8C0B59672BAEA80AFA",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{F8A0B131-5F68-486c-8040-7E8FC3C85BB6}",
+      "name": "WLIDCredentialProvider",
+      "server": "C:\\WINDOWS\\system32\\wlidcredprov.dll",
+      "exists": true,
+      "sha256": "08B23024715AE890E9C483B7F2C469A620709AEA2981630B0335470FFF5B24EC",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "clsid": "{F8A1793B-7873-4046-B2A7-1F318747F427}",
+      "name": "FIDO Credential Provider",
+      "server": "C:\\WINDOWS\\system32\\fidocredprov.dll",
+      "exists": true,
+      "sha256": "8440DE7028303B3876C2CB8AEA75D60E4D3FE0598E76814255FD1FFAAECDAFC8",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    }
+  ],
+  "apis": [
+    {
+      "path": "C:\\WINDOWS\\System32\\credui.dll",
+      "sha256": "43C6DADE298908BC140E721698960D8163C4835C3723C41088F69203E229F7B6",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "path": "C:\\WINDOWS\\System32\\secur32.dll",
+      "sha256": "431AC7F960847784CFF8235B3E61359283070788810D43F1690EC9AEBB9D4A81",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    {
+      "path": "C:\\WINDOWS\\System32\\advapi32.dll",
+      "sha256": "BDE5F0E6F36A706A8A2E0FAB1B362EEA267AA6EE9F18AAB1F899F38888C21280",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    }
+  ]
+}

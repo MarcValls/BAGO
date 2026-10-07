@@ -1,4 +1,4 @@
-"""Load and normalize the BAGO agent pack from an external catalog."""
+"""Load and normalize agent definitions from a BAGO-local or configured catalog."""
 
 from __future__ import annotations
 
@@ -50,7 +50,9 @@ def default_catalog_path() -> Path:
         return Path(configured).expanduser()
     if any(candidate.is_dir() for candidate in _bundled_catalog_candidates()):
         return _repository_root()
-    return Path.home() / "BAGO_AGENTIC_DATA_LAB" / "agents"
+    # Keep a degraded/partial install bound to this BAGO repository. Never
+    # silently turn a sibling research checkout into a runtime dependency.
+    return _repository_root()
 
 
 DEFAULT_CATALOG_PATH = default_catalog_path()

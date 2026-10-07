@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import renderer as R
+from repl_utils import terminal_supports_unicode
 
 
 def _bago_install_root() -> Path | None:
@@ -181,7 +182,10 @@ def format_category_lines(data: dict[str, Any], category: str) -> list[str]:
     if category == "tools":
         lines = []
         for t in data["tools"]:
-            mark = "🤖" if t["llm_invocable"] else "🔧"
+            if terminal_supports_unicode():
+                mark = "🤖" if t["llm_invocable"] else "🔧"
+            else:
+                mark = "[LLM]" if t["llm_invocable"] else "[CLI]"
             stab = f"[{t['stability']}]" if t["stability"] and t["stability"] != "experimental" else ""
             schema_tag = " +schema" if t["has_schema"] else ""
             lines.append(f"{mark} /{t['cmd']}  —  {t['description'][:55]}{schema_tag}  {stab}")

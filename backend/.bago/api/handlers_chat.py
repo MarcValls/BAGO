@@ -12,8 +12,9 @@ The threading concern lives entirely in this module \u2014 callers just
 get a RequestContext. Uses RequestContext for everything else.
 """
 from __future__ import annotations
-import threading
+import copy
 import time
+from contextlib import nullcontext
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -43,53 +44,75 @@ def _inject_manager_context(message: str, body: dict[str, Any]) -> str:
     return f"[BAGO_CTX:{'; '.join(parts)}]\n{message}"
 
 
-def _send_with_watchdog(ctx, ai_message: str, timeout_s: float, *, internal: bool = False) -> tuple[str | None, dict | None, float]:
-    """Run mgr.send(ai_message) on a background thread with a timeout.
+def _capture_turn_state(manager, *, internal: bool) -> dict[str, Any]:
+    receipt = getattr(manager, "last_receipt", None)
+    receipt_payload = receipt.to_dict() if receipt is not None and not internal else None
+    metadata = receipt_payload.get("metadata", {}) if isinstance(receipt_payload, dict) else {}
+    store = getattr(manager, "store", None)
+    status = getattr(manager, "status", None)
+    history = getattr(store, "get_history", None)
+    return copy.deepcopy({
+        "session_id": getattr(manager, "session_id", ""),
+        "provider": getattr(manager, "provider", ""),
+        "model": getattr(manager, "model", ""),
+        "conversation_id": getattr(store, "active_conversation_id", None),
+        "history_count": len(history()) if callable(history) else 0,
+        "context_receipt": receipt_payload,
+        "response_state": "done" if internal else str(getattr(manager, "last_response_state", "done") or "done"),
+        "clarification": None if internal else getattr(manager, "last_clarification", None),
+        "task_contract": metadata.get("task_contract") if isinstance(metadata, dict) else None,
+        "internal": internal,
+        "binding": status() if callable(status) else {},
+    })
 
-    Returns (response, error_payload, elapsed_ms). Exactly one of
-    `response` or `error_payload` is non-None on success vs. timeout.
-    """
-    started = time.time()
-    if timeout_s <= 0:
-        try:
+
+def _send_with_watchdog(
+    ctx,
+    ai_message: str,
+    timeout_s: float,
+    *,
+    internal: bool = False,
+    turn_id: str = "",
+    conversation_id: str | None = None,
+    conversation_bound: bool = False,
+) -> tuple[str | None, dict | None, float]:
+    """Timeout stops waiting, not execution; return an idempotent operation ID."""
+    from chat_turns import turn_store
+    started = time.monotonic()
+    store = getattr(ctx.session_mgr, "store", None)
+    scope = getattr(store, "conversation_scope", None)
+    if not conversation_bound:
+        conversation_id = getattr(store, "active_conversation_id", None)
+
+    def send_bound():
+        with scope(conversation_id) if callable(scope) else nullcontext():
             method = ctx.session_mgr.send_internal if internal else ctx.session_mgr.send
-            return method(ai_message), None, (time.time() - started) * 1000
-        except Exception as exc:
-            return None, {"ok": False, "error": f"Error interno: {exc}"}, (time.time() - started) * 1000
+            response = method(ai_message)
+            return response, _capture_turn_state(ctx.session_mgr, internal=internal)
 
-    done = threading.Event()
-    worker_result: dict[str, Any] = {}
-    worker_exc: dict[str, BaseException] = {}
-
-    def _runner() -> None:
-        try:
-            method = ctx.session_mgr.send_internal if internal else ctx.session_mgr.send
-            worker_result["response"] = method(ai_message)
-        except BaseException as exc:  # propagate after the wait
-            worker_exc["exc"] = exc
-        finally:
-            done.set()
-
-    t = threading.Thread(target=_runner, daemon=True)
-    t.start()
-    finished = done.wait(timeout=timeout_s)
+    turn = turn_store(ctx.session_mgr).get_or_start(
+        ai_message, internal, conversation_id, send_bound, turn_id=turn_id,
+    )
+    ctx.chat_turn = turn
+    finished = turn.done.wait(timeout=timeout_s if timeout_s > 0 else None)
+    elapsed = (time.monotonic() - started) * 1000
     if not finished:
         return None, {
             "ok": False,
-            "error": (
-                f"El modelo no respondi\u00f3 en {timeout_s:g}s "
-                "(timeout). Posible cuelgue del provider o del modelo."
-            ),
+            "error": "La espera expiró; el turno sigue en curso. Consulta el mismo turn_id; no inicies otro turno.",
             "chat_timeout_s": timeout_s,
             "timed_out": True,
-        }, (time.time() - started) * 1000
+            "response_state": "running",
+            "turn_id": turn.turn_id,
+            "conversation_id": turn.conversation_id,
+            "retry_with_same_turn_id": True,
+        }, elapsed
+    if turn.error:
+        return None, {**turn.error, "turn_id": turn.turn_id, "response_state": "failed"}, turn.elapsed_ms
+    return turn.response, None, turn.elapsed_ms
 
-    if worker_exc:
-        return None, {"ok": False, "error": f"Error interno: {worker_exc['exc']}"}, (time.time() - started) * 1000
-    return worker_result.get("response"), None, (time.time() - started) * 1000
 
-
-def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
+def _handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
     from request_context import build_context
     from event_bus import emit
     from error_payload_filter import (
@@ -103,19 +126,60 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
         ctx.send_json(503, {"error": "SessionManager no disponible"})
         return
 
+    from chat_turns import ChatTurnError, turn_store
+    turn_id = str(body.get("turn_id") or "").strip()
     raw_message = body.get("message", "")
+    internal = body.get("internal") is True
+    turn_conversation_id = None
+    if turn_id:
+        try:
+            previous = turn_store(ctx.session_mgr).lookup(turn_id)
+        except ChatTurnError as exc:
+            ctx.send_json(404, {"ok": False, "code": exc.code, "error": str(exc), "turn_id": turn_id})
+            return
+        if "conversation_id" in body and body.get("conversation_id") != previous.conversation_id:
+            ctx.send_json(409, {
+                "ok": False,
+                "code": "chat_turn_request_mismatch",
+                "error": "El turno pertenece a otra conversación.",
+                "turn_id": turn_id,
+            })
+            return
+        turn_conversation_id = previous.conversation_id
+        # A poll may contain only turn_id. Supplied content must still match.
+        if "message" not in body:
+            raw_message = previous.message
+            internal = previous.internal
+            ai_message = previous.message
+        else:
+            ai_message = _inject_manager_context(raw_message, body) if isinstance(raw_message, str) else ""
+    else:
+        ai_message = _inject_manager_context(raw_message, body) if isinstance(raw_message, str) else ""
     if not isinstance(raw_message, str) or not raw_message.strip():
         ctx.send_json(400, {"error": "Campo 'message' requerido"})
         return
 
     message = raw_message
-    ai_message = _inject_manager_context(message, body)
     channel = ctx.channel(body)
-    internal = body.get("internal") is True
     pre_state = ctx.session_mgr.status()
     timeout_s = float(ctx.chat_timeout_s or 0.0)
 
-    response, error_payload, elapsed_ms = _send_with_watchdog(ctx, ai_message, timeout_s, internal=internal)
+    try:
+        response, error_payload, elapsed_ms = _send_with_watchdog(
+            ctx,
+            ai_message,
+            timeout_s,
+            internal=internal,
+            turn_id=turn_id,
+            conversation_id=turn_conversation_id,
+            conversation_bound=bool(turn_id),
+        )
+    except ChatTurnError as exc:
+        ctx.send_json(404 if exc.code == "chat_turn_not_found" else 409, {
+            "ok": False, "code": exc.code, "error": str(exc), "turn_id": exc.turn_id,
+            "response_state": "running" if exc.code == "chat_turn_in_progress" else "blocked",
+        })
+        return
 
     if error_payload is not None:
         error_payload.setdefault("provider", ctx.session_mgr.provider)
@@ -154,27 +218,14 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
         else:
             user_response = response
 
-        current_receipt = ctx.session_mgr.last_receipt
-        # The receipt is canonical session evidence. Some adapters update the
-        # existing object in place, so object identity cannot determine whether
-        # it belongs in the public response. Internal turns remain private.
-        receipt_payload = current_receipt.to_dict() if current_receipt is not None and not internal else None
-        receipt_metadata = receipt_payload.get("metadata", {}) if isinstance(receipt_payload, dict) else {}
-        response_state = "done" if internal else str(getattr(ctx.session_mgr, "last_response_state", "done") or "done")
+        # Snapshot in the worker's conversation scope; a later turn/switch may
+        # have changed manager.last_receipt by the time this result is polled.
         payload = {
+            **copy.deepcopy(ctx.chat_turn.snapshot),
             "ok": True,
             "response": user_response,
-            "session_id": ctx.session_mgr.session_id,
-            "provider": ctx.session_mgr.provider,
-            "model": ctx.session_mgr.model,
-            "history_count": len(ctx.session_mgr.store.get_history()),
             "chat_latency_ms": elapsed_ms,
-            "context_receipt": receipt_payload,
-            "response_state": response_state,
-            "clarification": None if internal else getattr(ctx.session_mgr, "last_clarification", None),
-            "task_contract": receipt_metadata.get("task_contract") if isinstance(receipt_metadata, dict) else None,
-            "internal": internal,
-            "binding": ctx.session_mgr.status(),
+            "turn_id": ctx.chat_turn.turn_id,
         }
         if leaked_error is not None:
             payload["diagnostic"] = leaked_error["diagnostic"]
@@ -224,3 +275,21 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
         )
         ctx.send_json(500, payload)
         emit("chat.failed", {"session_id": ctx.session_mgr.session_id, "error": payload["error"]})
+
+
+def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
+    """Trace the inbound agent request; the worker inherits this context."""
+    import hashlib
+
+    from runtime_observability import traced_span
+
+    attributes = {
+        "http.request.method": str(getattr(handler, "command", "POST")),
+        "bago.request.digest": hashlib.sha256(
+            str(body.get("message") or "").encode("utf-8", errors="replace")
+        ).hexdigest(),
+        "bago.conversation_id": str(body.get("conversation_id") or ""),
+        "bago.chat.retry": bool(body.get("turn_id")),
+    }
+    with traced_span("bago.agent.request", attributes):
+        _handle(handler, body)

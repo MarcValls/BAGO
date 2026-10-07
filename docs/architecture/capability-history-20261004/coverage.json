@@ -1,0 +1,15 @@
+{
+  "local_version_tags": 55,
+  "route_metadata_tags": 24,
+  "current_routes": 153,
+  "current_test_literal_routes": 58,
+  "tests_executed": false,
+  "remote_tags_refreshed": false,
+  "limits": [
+    "Local tags only; tag existence does not imply published release",
+    "Legacy inline route dispatch requires manual reconstruction",
+    "Parser tokens are not fully qualified CLI routes",
+    "Route registration and test literals do not prove live functionality",
+    "Semantic matrix is manually traced separately from route extraction"
+  ]
+}

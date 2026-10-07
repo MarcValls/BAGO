@@ -1,0 +1,1024 @@
+{
+  "schema": "bago.capability-preservation-matrix.v1",
+  "candidate_head": "b9b2eda8f21be16f5ade510b5f069abe09ae5387",
+  "surface_sha256": "e5558324b436c03cb6f8470522951b05ff468fd673cfdbdde433c6f557fcf908",
+  "classifications": [
+    "PRESERVED",
+    "EXTENDED",
+    "RESTRICTED_INTENTIONALLY",
+    "REPLACED_EQUIVALENTLY",
+    "REPLACED_NON_EQUIVALENTLY",
+    "REMOVED_INTENTIONALLY",
+    "ACCIDENTALLY_LOST",
+    "UNKNOWN"
+  ],
+  "records": [
+    {
+      "capability_id": "C01",
+      "capability_name": "Estado de sesión",
+      "introduced_version": "v4.0.0-mvp",
+      "last_known_full_version": "v4.8.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "EXTENDED",
+      "historical_owner": "SessionManager",
+      "current_owner": "SessionManager",
+      "historical_routes": "GET /session; /status; /session",
+      "current_routes": "GET /session; /status; /session",
+      "historical_tests": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.0.0-mvp:.bago/core/session.py:12",
+        "v4.5.0:.bago/api/bridge.py:253",
+        "v4.8.0:backend/.bago/core/session_manager.py:102",
+        "backend/.bago/api/handlers_session.py:20",
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; SCOPED"
+    },
+    {
+      "capability_id": "C02",
+      "capability_name": "Guardar, cargar y recuperar sesión",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "EXTENDED",
+      "historical_owner": "SessionManager + ContextStore",
+      "current_owner": "SessionManager + ContextStore",
+      "historical_routes": "/save; /load; sesiones API",
+      "current_routes": "/save; /load; sesiones API",
+      "historical_tests": [
+        "backend/tests/test_chat_command_load_workspace.py",
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_chat_command_load_workspace.py",
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:.bago/chat/commands.py::cmd_save/cmd_load",
+        "backend/.bago/chat/commands.py:398",
+        "backend/tests/test_chat_command_load_workspace.py",
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; SCOPED"
+    },
+    {
+      "capability_id": "C03",
+      "capability_name": "Chat y streaming",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "EXTENDED",
+      "historical_owner": "SessionManager.send + chat_turns",
+      "current_owner": "SessionManager.send + chat_turns",
+      "historical_routes": "POST /chat; POST /chat/stream",
+      "current_routes": "POST /chat; POST /chat/stream",
+      "historical_tests": [
+        "backend/tests/test_chat_turn_idempotency.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_chat_turn_idempotency.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:.bago/api/bridge.py:368",
+        "backend/.bago/api/handlers_chat.py:115",
+        "backend/tests/test_chat_turn_idempotency.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; SCOPED"
+    },
+    {
+      "capability_id": "C04",
+      "capability_name": "Cambiar proveedor/modelo",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "PRESERVED",
+      "historical_owner": "SwitchEngine",
+      "current_owner": "SwitchEngine",
+      "historical_routes": "POST /switch; /switch; /models",
+      "current_routes": "POST /switch; /switch; /models",
+      "historical_tests": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:.bago/api/bridge.py:450",
+        "backend/.bago/api/handlers_switch.py:20",
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; SCOPED"
+    },
+    {
+      "capability_id": "C05",
+      "capability_name": "Comandos por HTTP",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.8.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "REPLACED_EQUIVALENTLY",
+      "historical_owner": "chat.commands.execute",
+      "current_owner": "chat.commands.execute",
+      "historical_routes": "POST /command → /api/v1/commands",
+      "current_routes": "POST /command → /api/v1/commands",
+      "historical_tests": [
+        "backend/tests/test_sprint_4_surfaces.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_sprint_4_surfaces.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:.bago/api/bridge.py:413",
+        "v4.8.0:backend/contracts/api_routes.generated.json",
+        "backend/.bago/api/legacy_aliases.py:55",
+        "backend/tests/test_sprint_4_surfaces.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_COMPATIBILITY_ALIAS; SCOPED"
+    },
+    {
+      "capability_id": "C06",
+      "capability_name": "Workspace y operaciones de proyecto",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.8.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "REPLACED_EQUIVALENTLY",
+      "historical_owner": "handlers_workspace / ProjectWriteEffectAdapter",
+      "current_owner": "handlers_workspace / ProjectWriteEffectAdapter",
+      "historical_routes": "/workspaces → /workspace/list; /workspace/{init,link,seed,sync} → /project/*",
+      "current_routes": "/workspaces → /workspace/list; /workspace/{init,link,seed,sync} → /project/*",
+      "historical_tests": [
+        "backend/tests/test_workspace_seed_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_workspace_seed_contract.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.8.0:backend/contracts/api_routes.generated.json",
+        "backend/.bago/api/legacy_aliases.py:49",
+        "backend/tests/test_workspace_seed_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_ALIAS_AND_AUTHORIZATION; SCOPED"
+    },
+    {
+      "capability_id": "C07",
+      "capability_name": "Historial y conversaciones",
+      "introduced_version": "v4.9.0",
+      "last_known_full_version": "v4.9.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "EXTENDED",
+      "historical_owner": "ContextStore",
+      "current_owner": "ContextStore",
+      "historical_routes": "GET /history; /conversations; /workspace/conversation",
+      "current_routes": "GET /history; /conversations; /workspace/conversation",
+      "historical_tests": [
+        "backend/tests/test_conversation_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_conversation_contract.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:.bago/api/bridge.py:268",
+        "v4.9.0:backend/tests/test_conversation_contract.py",
+        "backend/.bago/api/handlers_conversations.py:15",
+        "backend/tests/test_conversation_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; SCOPED"
+    },
+    {
+      "capability_id": "C08",
+      "capability_name": "Escribir archivos desde API",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.11.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "RESTRICTED_INTENTIONALLY",
+      "historical_owner": "ExecutionGateway / owner de archivos",
+      "current_owner": "ExecutionGateway / owner de archivos",
+      "historical_routes": "POST /files/write",
+      "current_routes": "POST /files/write",
+      "historical_tests": [
+        "backend/tests/test_files_write_workspace_scope.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_files_write_workspace_scope.py"
+      ],
+      "restriction_reason": "La escritura directa se sustituye por efecto gobernado y fallo cerrado sin Permit.",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.8.0:backend/.bago/api/handlers_files.py:375",
+        "v4.11.0:backend/.bago/api/handlers_files.py:400",
+        "backend/.bago/api/handlers_files.py:400",
+        "backend/tests/test_files_write_workspace_scope.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_SECURITY_CONTRACT; SCOPED"
+    },
+    {
+      "capability_id": "C09",
+      "capability_name": "Ejecutar planes materiales",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.9.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "RESTRICTED_INTENTIONALLY",
+      "historical_owner": "PlanEngine + ExecutionGateway",
+      "current_owner": "PlanEngine + ExecutionGateway",
+      "historical_routes": "POST /plans/<id>/execute",
+      "current_routes": "POST /plans/<id>/execute",
+      "historical_tests": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "restriction_reason": "Antes podían completarse pasos informativos o conversación run_command. Ahora el executor requiere executed, evidencia y receipt_id.",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.8.0:backend/.bago/core/plan_engine.py::execute_plan",
+        "v4.9.0:backend/.bago/api/handlers_jobs.py:306",
+        "backend/.bago/core/plan_engine.py:224",
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_TRUTH_CONTRACT; SCOPED"
+    },
+    {
+      "capability_id": "C10",
+      "capability_name": "Autopilot: texto considerado evidencia",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "UNKNOWN",
+      "classification": "UNKNOWN",
+      "historical_owner": "chat.commands.cmd_autopilot",
+      "current_owner": "chat.commands.cmd_autopilot",
+      "historical_routes": "/autopilot",
+      "current_routes": "/autopilot",
+      "historical_tests": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:.bago/chat/commands.py::cmd_autopilot",
+        "backend/.bago/chat/commands.py:976",
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "confidence": "HIGH",
+      "notes": "NO_FIX_IN_THIS_AUDIT; SCOPED"
+    },
+    {
+      "capability_id": "C11",
+      "capability_name": "Límite de 20 pasos de autopilot",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "PARTIAL",
+      "classification": "ACCIDENTALLY_LOST",
+      "historical_owner": "chat.commands.cmd_autopilot",
+      "current_owner": "chat.commands.cmd_autopilot",
+      "historical_routes": "/autopilot",
+      "current_routes": "/autopilot",
+      "historical_tests": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:.bago/chat/commands.py::cmd_autopilot (max_steps=20)",
+        "backend/.bago/chat/commands.py:991",
+        "backend/tests/test_plan_engine_contract.py"
+      ],
+      "confidence": "HIGH",
+      "notes": "NOT_ESTABLISHED; SCOPED"
+    },
+    {
+      "capability_id": "C12",
+      "capability_name": "Ciclo spawn/list/run/kill de agentes",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "PARTIAL",
+      "classification": "REPLACED_NON_EQUIVALENTLY",
+      "historical_owner": "spiral_agent + agent_kit_cli",
+      "current_owner": "spiral_agent + agent_kit_cli",
+      "historical_routes": "bago agent spawn/list/run/kill",
+      "current_routes": "bago agent spawn/list/run/kill",
+      "historical_tests": [
+        "backend/tests/test_orchestration_tools.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_orchestration_tools.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_agent",
+        "4aa0eb66:backend/bago_core/commands/cmd_tools.py",
+        "backend/bago_core/commands/cmd_tools.py:147",
+        "backend/tests/test_orchestration_tools.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_REPLACEMENT_COMPATIBILITY_INTENT_UNKNOWN; SCOPED"
+    },
+    {
+      "capability_id": "C13",
+      "capability_name": "Navegador persistente y snapshot DOM",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "UNKNOWN",
+      "classification": "UNKNOWN",
+      "historical_owner": "Owner actual equivalente no localizado",
+      "current_owner": "Owner actual equivalente no localizado",
+      "historical_routes": "Histórico /browser open/snapshot/click/fill/eval; sin registro actual",
+      "current_routes": "Histórico /browser open/snapshot/click/fill/eval; sin registro actual",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:.bago/chat/commands.py::cmd_browser",
+        "45e0b4d9 (introducción de Playwright persistente)",
+        "backend/.bago/chat/commands.py:1153"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; UNRESOLVED_CONCEPTUAL_REPLACEMENT"
+    },
+    {
+      "capability_id": "C14",
+      "capability_name": "Node Control",
+      "introduced_version": "v4.0.0-mvp",
+      "last_known_full_version": "v4.8.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "EXTENDED",
+      "historical_owner": "Node Control",
+      "current_owner": "Node Control",
+      "historical_routes": "bago node status/validate/pieces/connect/disconnect/set-mode",
+      "current_routes": "bago node status/validate/pieces/connect/disconnect/set-mode",
+      "historical_tests": [
+        "backend/tests/test_node_control_split.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_node_control_split.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.0.0-mvp:.bago/core/cli.py::cmd_nodes",
+        "v4.8.0:backend/bago_core/node_control_cli.py",
+        "backend/bago_core/node_control_cli.py:102",
+        "backend/tests/test_node_control_split.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; SCOPED"
+    },
+    {
+      "capability_id": "C15",
+      "capability_name": "Evidencia de trabajo",
+      "introduced_version": "v4.0.0-mvp",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "PARTIAL",
+      "classification": "REPLACED_NON_EQUIVALENTLY",
+      "historical_owner": "Evidence bundles / claim ledger / receipts",
+      "current_owner": "Evidence bundles / claim ledger / receipts",
+      "historical_routes": "bago evidence; bago claim; node evidence",
+      "current_routes": "bago evidence; bago claim; node evidence",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.0.0-mvp:.bago/core/cli.py::cmd_evidence",
+        "v4.5.0:bago_core/launcher.py",
+        "backend/bago_core/evidence_cli.py:83"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "DOCUMENTED_CONTRACT_EVOLUTION; SCOPED"
+    },
+    {
+      "capability_id": "C16",
+      "capability_name": "RL shadow, entrenamiento y evaluación",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.9.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "EXTENDED",
+      "historical_owner": "RLBridge + rl_policies",
+      "current_owner": "RLBridge + rl_policies",
+      "historical_routes": "/rl/status; /rl/shadow; train/eval",
+      "current_routes": "/rl/status; /rl/shadow; train/eval",
+      "historical_tests": [
+        "backend/tests/test_rl_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_rl_contract.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:.bago/api/bridge.py:518",
+        "v4.9.0:backend/tests/test_rl_contract.py",
+        "backend/.bago/api/handlers_rl.py:33",
+        "backend/tests/test_rl_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_SHADOW_BOUNDARY; SCOPED"
+    },
+    {
+      "capability_id": "C17",
+      "capability_name": "Memoria y KB",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.10.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "EXTENDED",
+      "historical_owner": "handlers_memory + handlers_kv",
+      "current_owner": "handlers_memory + handlers_kv",
+      "historical_routes": "/memory/*; /api/v1/kb",
+      "current_routes": "/memory/*; /api/v1/kb",
+      "historical_tests": [
+        "backend/tests/test_kv_integration_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_kv_integration_contract.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.8.0:backend/contracts/api_routes.generated.json",
+        "v4.10.0:backend/contracts/api_routes.generated.json",
+        "backend/.bago/api/handlers_memory.py:17",
+        "backend/tests/test_kv_integration_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; SCOPED"
+    },
+    {
+      "capability_id": "C18",
+      "capability_name": "Capability packages y pipelines ejecutables",
+      "introduced_version": "v4.8.2",
+      "last_known_full_version": "v4.8.2",
+      "current_status": "IMPLEMENTED",
+      "classification": "EXTENDED",
+      "historical_owner": "CapabilityPackageImportEffectAdapter + ExecutionGateway",
+      "current_owner": "CapabilityPackageImportEffectAdapter + ExecutionGateway",
+      "historical_routes": "/api/v1/capability-packages/*",
+      "current_routes": "/api/v1/capability-packages/*",
+      "historical_tests": [
+        "backend/tests/test_capability_packages.py",
+        "backend/tests/test_capability_import_gateway.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_capability_packages.py",
+        "backend/tests/test_capability_import_gateway.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.8.2:backend/.bago/core/capability_packages.py:1",
+        "backend/.bago/core/capability_packages.py:584",
+        "backend/tests/test_capability_packages.py",
+        "backend/tests/test_capability_import_gateway.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_PACKAGE_CONTRACT; SCOPED"
+    },
+    {
+      "capability_id": "C19",
+      "capability_name": "Capability de inventario read_only",
+      "introduced_version": "v4.9.0",
+      "last_known_full_version": "v4.9.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "PRESERVED",
+      "historical_owner": "capability_contract",
+      "current_owner": "capability_contract",
+      "historical_routes": "GET /api/v1/capabilities",
+      "current_routes": "GET /api/v1/capabilities",
+      "historical_tests": [
+        "backend/tests/test_capability_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_capability_contract.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.9.0:backend/.bago/api/capability_contract.py:20",
+        "backend/.bago/api/capability_contract.py:90",
+        "backend/tests/test_capability_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_READ_ONLY_CONTRACT; SCOPED"
+    },
+    {
+      "capability_id": "C20",
+      "capability_name": "Schedules y delegación",
+      "introduced_version": "v4.9.0",
+      "last_known_full_version": "v4.9.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "RESTRICTED_INTENTIONALLY",
+      "historical_owner": "schedule_registry + ExecutionGateway",
+      "current_owner": "schedule_registry + ExecutionGateway",
+      "historical_routes": "/schedule/*",
+      "current_routes": "/schedule/*",
+      "historical_tests": [
+        "backend/tests/test_schedule_registry.py",
+        "backend/tests/test_schedule_delegation.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_schedule_registry.py",
+        "backend/tests/test_schedule_delegation.py"
+      ],
+      "restriction_reason": "La programación persiste; la ejecución requiere delegación/permiso actuales. Confirmación guardada no equivale a autoridad vigente.",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.9.0:backend/tests/test_schedule_registry.py",
+        "backend/.bago/api/handlers_schedule.py:271",
+        "backend/tests/test_schedule_registry.py",
+        "backend/tests/test_schedule_delegation.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_DELEGATION_CONTRACT; SCOPED"
+    },
+    {
+      "capability_id": "C21",
+      "capability_name": "Copilot como proveedor CLI",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.8.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "RESTRICTED_INTENTIONALLY",
+      "historical_owner": "CopilotAdapter + cli_bridge",
+      "current_owner": "CopilotAdapter + cli_bridge",
+      "historical_routes": "Provider chat mediante CLI",
+      "current_routes": "Provider chat mediante CLI",
+      "historical_tests": [
+        "backend/tests/test_cli_bridge_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_cli_bridge_contract.py"
+      ],
+      "restriction_reason": "El transporte existe; el test exige plan mode, denegar shell/write y desactivar MCP. No prueba integración BAGO como host Copilot.",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.8.0:backend/.bago/providers/copilot.py:37",
+        "backend/.bago/providers/copilot.py:39",
+        "backend/tests/test_cli_bridge_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_PROVIDER_CONTRACT; SCOPED"
+    },
+    {
+      "capability_id": "C22",
+      "capability_name": "Pi provider",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.8.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "PRESERVED",
+      "historical_owner": "BagoPiProviderAdapter",
+      "current_owner": "BagoPiProviderAdapter",
+      "historical_routes": "Provider adapter (habilitación no probada)",
+      "current_routes": "Provider adapter (habilitación no probada)",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.8.0:backend/.bago/integrations/pi/provider_adapter.py:224",
+        "backend/.bago/integrations/pi/provider_adapter.py:224"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_PHASE1_BOUNDARY; SCOPED"
+    },
+    {
+      "capability_id": "C23",
+      "capability_name": "Pi ejecutor delegado",
+      "introduced_version": "v4.8.0",
+      "last_known_full_version": "v4.8.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "EXTENDED",
+      "historical_owner": "Pi AgentRunner",
+      "current_owner": "Pi AgentRunner",
+      "historical_routes": "Agent runner Fase 3",
+      "current_routes": "Agent runner Fase 3",
+      "historical_tests": [
+        "backend/tests/integrations/pi/test_agent_runner.py"
+      ],
+      "current_tests": [
+        "backend/tests/integrations/pi/test_agent_runner.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.8.0:backend/.bago/integrations/pi/agent_runner.py",
+        "backend/.bago/integrations/pi/agent_runner.py:71",
+        "backend/tests/integrations/pi/test_agent_runner.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_PHASE3_BOUNDARY; SCOPED"
+    },
+    {
+      "capability_id": "C24",
+      "capability_name": "Taxonomía rol/workflow/sesión",
+      "introduced_version": "v3.5.0",
+      "last_known_full_version": "v3.5.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "PRESERVED",
+      "historical_owner": "Canon + role_factory",
+      "current_owner": "Canon + role_factory",
+      "historical_routes": "Contratos de rol y workflow",
+      "current_routes": "Contratos de rol y workflow",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v3.5.0:.bago/core/canon/TAXONOMIA.md",
+        "backend/.bago/core/canon/TAXONOMIA.md"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_TAXONOMY; SCOPED"
+    },
+    {
+      "capability_id": "C25",
+      "capability_name": "Control headless de sesiones",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "PARTIAL",
+      "classification": "REPLACED_NON_EQUIVALENTLY",
+      "historical_owner": "bago_core.session_control",
+      "current_owner": "bago_core.session_control",
+      "historical_routes": "Antes bago session; ahora módulo session_control",
+      "current_routes": "Antes bago session; ahora módulo session_control",
+      "historical_tests": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_session",
+        "backend/bago_core/session_control.py:162",
+        "backend/tests/test_session_recovery_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; SCOPED"
+    },
+    {
+      "capability_id": "C26",
+      "capability_name": "Workflow/orquestación",
+      "introduced_version": "v3.2-kernel",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "PARTIAL",
+      "classification": "REPLACED_NON_EQUIVALENTLY",
+      "historical_owner": "orchestrator_v4",
+      "current_owner": "orchestrator_v4",
+      "historical_routes": "bago orchestrate; /orchestrate",
+      "current_routes": "bago orchestrate; /orchestrate",
+      "historical_tests": [
+        "backend/tests/test_orchestration_tools.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_orchestration_tools.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v3.2-kernel:.bago/tools/tool_registry.py",
+        "v4.5.0:bago_core/launcher.py",
+        "backend/bago_core/launcher.py:118",
+        "backend/tests/test_orchestration_tools.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; UNRESOLVED_CONCEPTUAL_EQUIVALENCE"
+    },
+    {
+      "capability_id": "C27",
+      "capability_name": "issues-gh anunciado por el parser",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "UNKNOWN",
+      "classification": "UNKNOWN",
+      "historical_owner": "Sin handler en dispatcher",
+      "current_owner": "Sin handler en dispatcher",
+      "historical_routes": "bago issues-gh take",
+      "current_routes": "bago issues-gh take",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:bago_core/parsers_sections.py (issues-gh)",
+        "v4.5.0:bago_core/launcher.py (sin dispatch)",
+        "backend/bago_core/parsers_sections.py:374"
+      ],
+      "confidence": "HIGH",
+      "notes": "NOT_ESTABLISHED; SCOPED"
+    },
+    {
+      "capability_id": "C28",
+      "capability_name": "Mutaciones GitHub por HTTP",
+      "introduced_version": "v4.8.7",
+      "last_known_full_version": "v4.8.7",
+      "current_status": "IMPLEMENTED",
+      "classification": "RESTRICTED_INTENTIONALLY",
+      "historical_owner": "Desktop/process authorization; owner process",
+      "current_owner": "Desktop/process authorization; owner process",
+      "historical_routes": "POST /github/setup-git → /github/setup",
+      "current_routes": "POST /github/setup-git → /github/setup",
+      "historical_tests": [
+        "backend/tests/test_github_api_contract.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_github_api_contract.py"
+      ],
+      "restriction_reason": "El alias sigue, pero setup devuelve 410 intencionalmente. process admite git_identity; flujo completo UI alternativo no ejecutado. v4.8.7 es rama no ancestral.",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.8.7:backend/.bago/api/handlers_github.py:506",
+        "backend/.bago/api/handlers_github.py:325",
+        "backend/tests/test_github_api_contract.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_FAIL_CLOSED_TEST; SCOPED"
+    },
+    {
+      "capability_id": "C29",
+      "capability_name": "Cancelación de interpretación histórica",
+      "introduced_version": "v4.9.0",
+      "last_known_full_version": "v4.10.0",
+      "current_status": "IMPLEMENTED",
+      "classification": "REPLACED_EQUIVALENTLY",
+      "historical_owner": "handlers_interpret",
+      "current_owner": "handlers_interpret",
+      "historical_routes": "Antes POST /interpretations/{id}/cancel → /interpret; alias retirado",
+      "current_routes": "Antes POST /interpretations/{id}/cancel → /interpret; alias retirado",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.9.0:backend/.bago/api/legacy_aliases.py:70",
+        "v4.10.0:backend/.bago/api/legacy_aliases.py:70",
+        "fa3f2d3c (corrige el alias)",
+        "backend/.bago/api/legacy_aliases.py:66"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "EXPLICIT_BUG_FIX; SCOPED"
+    },
+    {
+      "capability_id": "C30",
+      "capability_name": "Detalle de interpretación por ID",
+      "introduced_version": "v4.9.0",
+      "last_known_full_version": "v4.9.0",
+      "current_status": "PARTIAL",
+      "classification": "REPLACED_NON_EQUIVALENTLY",
+      "historical_owner": "handlers_interpret + API client",
+      "current_owner": "handlers_interpret + API client",
+      "historical_routes": "GET /interpretations/{id} → /interpret/history",
+      "current_routes": "GET /interpretations/{id} → /interpret/history",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.9.0:backend/.bago/api/legacy_aliases.py",
+        "backend/.bago/api/legacy_aliases.py:72"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; SCOPED"
+    },
+    {
+      "capability_id": "C31",
+      "capability_name": "Prompt del rol crece por ciclo",
+      "introduced_version": "v3.5.0",
+      "last_known_full_version": "v3.5.0",
+      "current_status": "UNKNOWN",
+      "classification": "UNKNOWN",
+      "historical_owner": "No equivalente demostrado; SpiralAgent actual rota pasos",
+      "current_owner": "No equivalente demostrado; SpiralAgent actual rota pasos",
+      "historical_routes": "Histórico RoleSpiralBuilder",
+      "current_routes": "Histórico RoleSpiralBuilder",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v3.5.0:.bago/tools/role_embedded.py:53",
+        "v3.5.0:tests/test_v35_features.py:62",
+        "backend/.bago/tools/spiral_agent.py:279"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; UNRESOLVED_CONCEPTUAL_REPLACEMENT"
+    },
+    {
+      "capability_id": "C32",
+      "capability_name": "Selección adaptativa band/channel/hz",
+      "introduced_version": "v3.5.0",
+      "last_known_full_version": "v3.5.0",
+      "current_status": "UNKNOWN",
+      "classification": "UNKNOWN",
+      "historical_owner": "No equivalente demostrado",
+      "current_owner": "No equivalente demostrado",
+      "historical_routes": "Histórico SignalMetrics.band/channel/hz",
+      "current_routes": "Histórico SignalMetrics.band/channel/hz",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v3.5.0:.bago/core/prompt_router.py:21",
+        "v3.5.0:tests/test_v35_features.py:17",
+        "backend/bago_core/providers/routing.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; UNRESOLVED_CONCEPTUAL_REPLACEMENT"
+    },
+    {
+      "capability_id": "C33",
+      "capability_name": "ModelGate direct/fallback/degrade",
+      "introduced_version": "v3.5.0",
+      "last_known_full_version": "v3.5.0",
+      "current_status": "PARTIAL",
+      "classification": "REPLACED_NON_EQUIVALENTLY",
+      "historical_owner": "session_adapters_mixin + repl_model_router",
+      "current_owner": "session_adapters_mixin + repl_model_router",
+      "historical_routes": "Selección/fallback de modelo",
+      "current_routes": "Selección/fallback de modelo",
+      "historical_tests": [
+        "backend/tests/test_router_session_model.py"
+      ],
+      "current_tests": [
+        "backend/tests/test_router_session_model.py"
+      ],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v3.5.0:.bago/tools/model_gate.py",
+        "v3.5.0:tests/test_v35_features.py:108",
+        "backend/.bago/core/session_adapters_mixin.py:118",
+        "backend/tests/test_router_session_model.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; PARTIAL_REPLACEMENT"
+    },
+    {
+      "capability_id": "C34",
+      "capability_name": "Familia CLI autonomous",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "UNKNOWN",
+      "classification": "UNKNOWN",
+      "historical_owner": "autonomous_loop / repl_startup / comandos de sesión",
+      "current_owner": "autonomous_loop / repl_startup / comandos de sesión",
+      "historical_routes": "Histórico bago autonomous; actuales /evolve, /autopilot y módulo autonomous_loop",
+      "current_routes": "Histórico bago autonomous; actuales /evolve, /autopilot y módulo autonomous_loop",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_autonomous",
+        "backend/.bago/core/autonomous_loop.py:801"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; PARTIAL_REPLACEMENT"
+    },
+    {
+      "capability_id": "C35",
+      "capability_name": "Registro de workspaces con nombre por CLI",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "UNKNOWN",
+      "classification": "UNKNOWN",
+      "historical_owner": "Project/workspace binding actual",
+      "current_owner": "Project/workspace binding actual",
+      "historical_routes": "Histórico bago workspace; actuales /workspace/* y picker",
+      "current_routes": "Histórico bago workspace; actuales /workspace/* y picker",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_workspace",
+        "backend/.bago/api/api_dispatch.py:60"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; UNRESOLVED_CONCEPTUAL_REPLACEMENT"
+    },
+    {
+      "capability_id": "C36",
+      "capability_name": "Federación de conocimiento por CLI",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "UNKNOWN",
+      "classification": "UNKNOWN",
+      "historical_owner": "Sin owner actual de federación identificado",
+      "current_owner": "Sin owner actual de federación identificado",
+      "historical_routes": "Histórico bago knowledge",
+      "current_routes": "Histórico bago knowledge",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_knowledge",
+        "backend/.bago/chat/memory_commands.py"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; UNRESOLVED_CONCEPTUAL_REPLACEMENT"
+    },
+    {
+      "capability_id": "C37",
+      "capability_name": "Arrancar host C++ de referencia",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "UNKNOWN",
+      "classification": "REMOVED_INTENTIONALLY",
+      "historical_owner": "CppLocalAdapter cliente HTTP",
+      "current_owner": "CppLocalAdapter cliente HTTP",
+      "historical_routes": "Histórico bago cpp-runtime; provider cpp-local conservado",
+      "current_routes": "Histórico bago cpp-runtime; provider cpp-local conservado",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:bago_core/commands/cmd_system.py::cmd_cpp_runtime",
+        "fa949059 (parser retira cpp-runtime frente al padre)",
+        "backend/.bago/providers/cpp_local.py:49"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "REMOVAL_COMMIT_IDENTIFIED_INTENT_UNRESOLVED; SCOPED"
+    },
+    {
+      "capability_id": "C38",
+      "capability_name": "Administrar chains desde terminal",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "UNKNOWN",
+      "classification": "UNKNOWN",
+      "historical_owner": "Electron manager settings / chain_registry",
+      "current_owner": "Electron manager settings / chain_registry",
+      "historical_routes": "Histórico bago chain; bridge read/write chains.json",
+      "current_routes": "Histórico bago chain; bridge read/write chains.json",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_chain",
+        "backend/electron/preload.cjs:171"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; PARTIAL_REPLACEMENT"
+    },
+    {
+      "capability_id": "C39",
+      "capability_name": "Release jobs headless por CLI",
+      "introduced_version": "v4.5.0",
+      "last_known_full_version": "v4.5.0",
+      "current_status": "UNKNOWN",
+      "classification": "UNKNOWN",
+      "historical_owner": "Electron release service + gateway",
+      "current_owner": "Electron release service + gateway",
+      "historical_routes": "Histórico bago release-job; IPC list/preflight/start/cancel/resume/install/rollback",
+      "current_routes": "Histórico bago release-job; IPC list/preflight/start/cancel/resume/install/rollback",
+      "historical_tests": [],
+      "current_tests": [],
+      "restriction_reason": "",
+      "replacement_capability_id": null,
+      "evidence": [
+        "v4.5.0:bago_core/commands/cmd_tools.py::cmd_release_job",
+        "backend/electron/ipc-service.cjs:61"
+      ],
+      "confidence": "MEDIUM",
+      "notes": "NOT_ESTABLISHED; PARTIAL_REPLACEMENT"
+    }
+  ]
+}

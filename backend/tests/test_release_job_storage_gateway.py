@@ -18,7 +18,10 @@ from execution_adapters.release_job_archive import ReleaseJobArchiveEffectAdapte
 
 
 def _user_root() -> Path:
-    return Path(os.environ.get("BAGO_USER_ROOT") or Path.cwd()).resolve()
+    value = os.environ.get("BAGO_USER_ROOT")
+    if not value:
+        raise RuntimeError("BAGO_USER_ROOT must be set to an isolated test directory")
+    return Path(value).resolve()
 
 
 def _context() -> ExecutionContext:
@@ -95,7 +98,6 @@ def test_release_job_storage_http_routes_dispatch_to_canonical_adapters(tmp_path
     monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path))
     class StorageManager:
         session_id = "release-job-manager"
-        base_path = tmp_path
 
     monkeypatch.setattr(api_state, "get_mgr", lambda handler: StorageManager())
 
@@ -141,7 +143,8 @@ def test_release_job_storage_http_routes_dispatch_to_canonical_adapters(tmp_path
     (ReleaseJobStateEffectAdapter(), "release.job.persist", {"state": {"id": "release-1"}}),
     (ReleaseJobLogEffectAdapter(), "release.job.log.append", {"record": {"level": "invalid"}}),
 ])
-def test_job_storage_adapters_reject_direct_non_gateway_calls(adapter, effect_id, arguments):
+def test_job_storage_adapters_reject_direct_non_gateway_calls(adapter, effect_id, arguments, tmp_path, monkeypatch):
+    monkeypatch.setenv("BAGO_USER_ROOT", str(tmp_path))
     request = _request(effect_id, "release-1", arguments)
     with pytest.raises(ExecutionGatewayError):
         adapter.execute(request, ExecutionContext())
@@ -283,7 +286,6 @@ def test_release_job_archive_api_uses_boundary_challenge_approve_and_gateway(tmp
 
     class Manager:
         session_id = "release-archive-api-session"
-        base_path = tmp_path
 
     monkeypatch.setattr(api_state, "get_mgr", lambda handler: Manager())
 

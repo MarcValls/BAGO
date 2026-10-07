@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "contract_version": "bago.package/v1",
+  "kind": "capability",
+  "execution_mode": "executable",
+  "id": "local.context-handoff",
+  "name": "Continuidad de sesión",
+  "version": "1.0.0",
+  "description": "Formatea estado, decisiones y siguiente paso en una herencia contextual explícita.",
+  "author": "BAGO",
+  "definition": "definitions/capability.json",
+  "entrypoint": "runtime/run.py",
+  "permissions": [],
+  "compatibility": {
+    "bago_package": "^1.0"
+  },
+  "dependencies": [],
+  "files": [
+    {
+      "path": "definitions/capability.json",
+      "size": 1372,
+      "sha256": "732c5a9ec0ad5bb7f01805c0b24ef46990234b93c5ac64c1e85f8ab8c4a72ea3"
+    },
+    {
+      "path": "docs/README.md",
+      "size": 923,
+      "sha256": "d0d2910bf5477ee7ef21d0043de7d22ed0c35ed9dbda5e145d377146fd82f5ec"
+    },
+    {
+      "path": "examples/input.json",
+      "size": 597,
+      "sha256": "b74e9eeeec7efbc9604e37667843f094ab021634060ae700509f5ae63b4c2134"
+    },
+    {
+      "path": "runtime/run.py",
+      "size": 1442,
+      "sha256": "23bd78c1c2bf91a248d5a70fc517788dd3d8dd106400e66eec633d9e4e369602"
+    },
+    {
+      "path": "schemas/input.schema.json",
+      "size": 1019,
+      "sha256": "676dc26a85808d1bdfb4f31802f955d228dff64e2fdf3f7eae4544186c503e07"
+    }
+  ]
+}

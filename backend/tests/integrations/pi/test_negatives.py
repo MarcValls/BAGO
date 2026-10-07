@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-import tempfile
 import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -54,7 +53,15 @@ from conftest import run_fake_sidecar
 # The repository itself contains trusted development sources such as
 # ``.agents``. Preflight must reject those in a real workspace, so fixtures
 # use an isolated scope rather than the checkout root.
-_TEST_SCOPE = Path(tempfile.mkdtemp(prefix="bago-pi-scope-"))
+_TEST_SCOPE: Path | None = None
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _isolated_test_scope(tmp_path_factory):
+    global _TEST_SCOPE
+    _TEST_SCOPE = tmp_path_factory.mktemp("bago-pi-scope")
+    yield
+    _TEST_SCOPE = None
 
 
 def _valid_request(
@@ -62,6 +69,8 @@ def _valid_request(
     extra: dict[str, Any] | None = None,
     capabilities: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    if _TEST_SCOPE is None:
+        raise RuntimeError("isolated pytest scope fixture is not active")
     now = datetime.now(timezone.utc)
     future = (now + timedelta(seconds=60)).isoformat()
     base: dict[str, Any] = {

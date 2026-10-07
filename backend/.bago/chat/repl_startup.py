@@ -32,6 +32,7 @@ if str(CHAT_DIR) not in sys.path:
 
 import renderer as R
 from version import CURRENT as BAGO_VERSION
+from switch_engine import SwitchEngine
 from repl_utils import (
     load_keybinds,
     read_key,
@@ -40,6 +41,10 @@ from repl_utils import (
     restore_windows_console,
     fit,
     draw_navigate,
+    navigation_hint,
+    ui_glyph,
+    terminal_supports_unicode,
+    clear_terminal,
 )
 
 # Ajustes editables desde /config
@@ -221,7 +226,7 @@ class BagoReplStartupMixin:
             return None
         if not (sys.stdin.isatty() and sys.stdout.isatty()):
             return None
-        hint = hint or self.keybinds.get("_hint", "↑↓ navegar   Enter seleccionar   Esc/q cancelar")
+        hint = hint or (self.keybinds.get("_hint") if terminal_supports_unicode() else navigation_hint())
         vt_ok = enable_vt()
         selected = 0
         drawn = draw_navigate(title, labels, selected, hint)
@@ -242,6 +247,8 @@ class BagoReplStartupMixin:
                     return None
                 else:
                     continue
+                if not vt_ok:
+                    clear_terminal(False)
                 drawn = draw_navigate(title, labels, selected, hint, redraw_lines=drawn if vt_ok else 0)
         finally:
             restore_windows_console()
@@ -253,24 +260,9 @@ class BagoReplStartupMixin:
         if not (hasattr(sys.stdout, "isatty") and sys.stdout.isatty()):
             return
 
-        info = getattr(self.mgr, "_init_info", {})
         prompt_enabled = bool(getattr(self, "_startup_prompt_enabled", True))
-        if not info.get("corrected") and not prompt_enabled:
+        if not prompt_enabled:
             return
-        if info.get("corrected"):
-            print(R.info("¿Quieres elegir otro modelo? (s/n)"), end=" ")
-            choice = self._timed_input("", timeout=15)
-            if choice is None or choice.strip().lower() not in ("s", "si", "y", "yes"):
-                return
-        else:
-            print(R.info(f"Provider actual: {R.bold(self.mgr.provider)}/{R.bold(self.mgr.model)}"))
-            if prompt_enabled:
-                print(R.dim("Presiona Enter para continuar, o escribe 'cambiar' para elegir otro:"), end=" ")
-            else:
-                print(R.dim("Escribe 'cambiar' para elegir otro provider/modelo, o Enter para continuar:"), end=" ")
-            choice = self._timed_input("", timeout=15)
-            if choice is None or choice.strip().lower() not in ("cambiar", "change", "c"):
-                return
 
         providers = self.mgr.available_providers()
         configured = [p for p in providers if p["configured"]]
@@ -278,21 +270,13 @@ class BagoReplStartupMixin:
             print(R.error("No hay providers configurados."))
             return
 
-        print(R.bold("\nProviders configurados:"))
-        for i, p in enumerate(configured, 1):
-            print(f"  {R.accent(str(i))} {p['name']} ({len(p['models'])} modelos)")
-        print(R.dim("  0 Cancelar"))
-
-        sel = self._timed_input(R.dim("Elige: "), timeout=30)
-        if sel is None or sel.strip() == "0":
-            return
-        try:
-            idx = int(sel.strip()) - 1
-            if idx < 0 or idx >= len(configured):
-                print(R.error("Selección inválida."))
-                return
-        except ValueError:
-            print(R.error("Debes introducir un número."))
+        labels = [
+            f"{item['name']} {ui_glyph('·', '-')} {len(item['models'])} modelos"
+            f"{' ' + ui_glyph('·', '-') + ' actual' if item['name'] == self.mgr.provider else ''}"
+            for item in configured
+        ]
+        idx = self._navigate(f"Provider {ui_glyph('·', '-')} {navigation_hint()}", labels)
+        if idx is None:
             return
 
         prov = configured[idx]
@@ -301,26 +285,15 @@ class BagoReplStartupMixin:
             print(R.warn("Este provider no tiene modelos disponibles."))
             return
 
-        print(R.bold(f"\nModelos disponibles en {prov['name']}:"))
-        for i, m in enumerate(models[:10], 1):
-            print(f"  {R.accent(str(i))} {m}")
-        if len(models) > 10:
-            print(R.dim(f"   ... y {len(models) - 10} más."))
-        print(R.dim("  0 Cancelar"))
-
-        sel = self._timed_input(R.dim("Elige: "), timeout=30)
-        if sel is None or sel.strip() == "0":
-            return
-        try:
-            idx = int(sel.strip()) - 1
-            if idx < 0 or idx >= len(models):
-                print(R.error("Selección inválida."))
-                return
-        except ValueError:
-            print(R.error("Debes introducir un número."))
+        model_labels = [
+            f"{model}{' ' + ui_glyph('·', '-') + ' actual' if prov['name'] == self.mgr.provider and model == self.mgr.model else ''}"
+            for model in models
+        ]
+        model_idx = self._navigate(f"Modelo de {prov['name']} {ui_glyph('·', '-')} {navigation_hint()}", model_labels)
+        if model_idx is None:
             return
 
-        new_model = models[idx]
+        new_model = models[model_idx]
         # El usuario acaba de escoger explícitamente provider y modelo: no
         # bloquear el arranque por una equivalencia aún no catalogada.
         result = self.mgr.switch(prov["name"], new_model, force=True)

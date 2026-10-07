@@ -1,5 +1,9 @@
 # BAGO 4.8.4 Release - Tarea Completada
 
+> **Registro histórico.** La release 4.8.4 está supersedida. Los scripts que
+> aparecen abajo se conservaron en `releases/archive/v4.8.4/` y no deben
+> ejecutarse para publicar o modificar releases actuales.
+
 **Fecha**: 2026-08-10 05:07 UTC+2  
 **Usuario**: MarcValls  
 **Sesión**: agent/ux-workspace-release-closure  
@@ -69,8 +73,8 @@ b3c6d9e - Update: BAGO 4.8.4 final release binaries and checksums from v4.8.4 ta
 - `releases/bago-4.8.4-distribution.zip.sha256` - Checksum del paquete
 - `releases/BAGO-4.8.4.exe.sha256` - Checksum del ejecutable
 - `releases/BAGO-4.8.4-VERIFICATION.md` - Documentación de verificación
-- `update-release-v4.8.4.ps1` - Script PowerShell para actualizar release
-- `update-release-v4.8.4.sh` - Script Bash para actualizar release
+- `releases/archive/v4.8.4/update-release-v4.8.4.ps1` - Script PowerShell histórico, retirado
+- `releases/archive/v4.8.4/update-release-v4.8.4.sh` - Script Bash histórico, retirado
 
 ### 4. GitHub Release Status
 
@@ -98,17 +102,9 @@ Install-BAGO-4.8.4.ps1
 
 Para actualizar GitHub Release con los binarios correctos, ejecute:
 
-**Windows (PowerShell)**:
-```powershell
-cd C:\Users\AMTEC_Terminal_1º\BAGO
-.\update-release-v4.8.4.ps1
-```
-
-**Linux/macOS**:
-```bash
-cd ~/BAGO
-bash update-release-v4.8.4.sh
-```
+Los comandos de publicación descritos en esta sección están retirados. Los
+scripts se preservan en `releases/archive/v4.8.4/` y **no deben ejecutarse**:
+modifican assets remotos de GitHub para una release antigua.
 
 ---
 

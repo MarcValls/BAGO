@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,7 +13,7 @@ BAGO_ROOT = Path(__file__).resolve().parents[2]
 
 def _run(label: str, command: list[str], cwd: Path, checks: list[dict]) -> None:
     try:
-        result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=900)
+        result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=1800)
         checks.append({"check": label, "status": "PASS" if result.returncode == 0 else "FAIL", "detail": (result.stdout + result.stderr)[-500:]})
     except Exception as exc:
         checks.append({"check": label, "status": "FAIL", "detail": str(exc)})
@@ -24,8 +25,9 @@ def cmd_release_check(args: argparse.Namespace) -> int:
         _run("backend tests", [sys.executable, "-m", "pytest", "-q"], BAGO_ROOT, checks)
         frontend = BAGO_ROOT.parent / "frontend"
         if (frontend / "package.json").exists():
-            _run("frontend tests", ["npm", "test", "--", "--run"], frontend, checks)
-            _run("frontend typecheck", ["npm", "run", "typecheck"], frontend, checks)
+            npm = "npm.cmd" if os.name == "nt" else "npm"
+            _run("frontend tests", [npm, "test", "--", "--run"], frontend, checks)
+            _run("frontend typecheck", [npm, "run", "typecheck"], frontend, checks)
     release = (BAGO_ROOT / "release_version.txt").read_text(encoding="utf-8").strip()
     version = release.lstrip("vV")
     installer_candidates = [

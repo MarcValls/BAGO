@@ -1,0 +1,95 @@
+{
+  "goal_id": "CRIT-HOST-HELPER-IPC-20260930",
+  "status": "BLOCKED",
+  "task": "Design and verify authenticated IPC between the signed MSIX host and elevated helper",
+  "baseline": {
+    "head": "b10178bf8a13d0035079e989e46c36760dbd2a46",
+    "branch": "fix/spbe-runtime-fix1-20260927",
+    "worktree_dirty": true,
+    "worktree_fingerprint_before_goal_files": "fd67b957a0715ade12612cafd63b6cb9a8bd0111176a4814af65cd83ff4343ae",
+    "porcelain_entries_before_goal_files": 7857
+  },
+  "selected_direction": "Not selected yet. Compare and prove a Windows IPC protocol; existing Boundary -> consumed Permit -> Gateway -> owner remains the sole authority chain.",
+  "current_candidate": {
+    "fingerprint": "a7e9f4140a23f22cfe5009e17ddd8c88459e5e7c8cb33e3551d95239d25dfb0b",
+    "head": "b10178bf8a13d0035079e989e46c36760dbd2a46",
+    "upstream": null
+  },
+  "triage": {
+    "result": "READY_FOR_PLANNING_WITH_PRODUCTION_BLOCKER",
+    "observed_gap": "SystemInstallEffectAdapter writes a user-writable JSON helper ticket; install-v4.ps1 reads that ticket and ledger, then self-elevates. No mutually authenticated in-memory peer channel exists.",
+    "source_evidence": [
+      "backend/.bago/core/execution_adapters/system_install.py:151-222,239-323",
+      "backend/install-v4.ps1:170-281,344-385",
+      "backend/docs/contracts/bootstrap_authority.v1.md: authenticated helper handoff gap"
+    ],
+    "host_installation_remains_disabled": true,
+    "material_effects_run": false
+  },
+  "protocol": {
+    "state": "PROPOSAL_NOT_SELECTED",
+    "candidate": "one-shot local IPC with OS-validated process identities",
+    "open_checks": [
+      "actual host/helper process identity and creation-instance binding",
+      "package identity, publisher and helper integrity verification",
+      "UAC cancellation and retry semantics",
+      "alternate administrator credential behavior",
+      "same-user process injection threat boundary",
+      "replay, TOCTOU and target drift"
+    ]
+  },
+  "blocks": [
+    {
+      "id": "IPC-POSITIVE-OS-PEER-PROOF",
+      "status": "BLOCKED",
+      "reason": "The immutable P1 goal explicitly prohibits MSIX activation, while its acceptance requires a positive test of package identity and the actual elevated host-helper path. A non-packaged mock cannot prove that property.",
+      "required_evidence": "A harmless, no-op Windows integration test from the signed packaged host through UAC to the helper, capturing both OS-reported peer identities; no selected-target or registry/shortcut effect. This requires an explicitly authorized test-build/activation scope in a successor goal."
+    },
+    {
+      "id": "INDEPENDENT-SECURITY-REVIEW",
+      "status": "REVIEW_EXECUTED_BLOCKED",
+      "reason": "Fresh-context reviewer pass completed with verdict BLOCKED; findings 1-4 identify unresolved production/authentication and evidence gaps."
+    },
+    {
+      "id": "PROTOCOL-OPEN-THREATS",
+      "status": "BLOCKED",
+      "reason": "ShellExecuteEx process-handle behavior for this exact UAC path, package-publisher verification from the helper, alternate-admin ACL behavior, and process-injection boundary remain unproven."
+    }
+  ],
+  "executed_blocks": [
+    {
+      "block": "P2-1 protocol proposal",
+      "status": "EXECUTED",
+      "artifact": ".bago/runtime/HOST_HELPER_IPC_DESIGN_20260930.md",
+      "sha256": "cbd2e4b7cb4e57b7dead52869ce60a1d2e5c39dabc7b2e1c0a96df8a6d35985f",
+      "result": "Candidate one-shot named-pipe design documented as PROPOSED/NOT_CANON/NOT_VERIFIED; no production code changed."
+    }
+  ],
+  "gates": {
+    "design_document_utf8_and_whitespace": "PASS",
+    "goal_status_json": "PASS",
+    "tracked_git_diff_check": "PASS",
+    "adversarial_tests": "NOT_RUN",
+    "windows_noop_ipc_test": "BLOCKED_NOT_RUN",
+    "independent_security_review": "EXECUTED; verdict BLOCKED",
+    "material_effects": "NONE",
+    "msix_activation": "NONE"
+  },
+  "inspector": {
+    "agent": "reviewer",
+    "context": "fresh read-only subagent; no edits/tests/build/UAC/activation",
+    "verdict": "BLOCKED",
+    "valid_findings": [
+      "Production still transports the ticket/request through user-writable JSON and command-line arguments.",
+      "MSIX host source has no IPC or elevated helper peer-verification implementation.",
+      "Package publisher and helper script identity validation are incomplete/unproven.",
+      "No adversarial tests or no-op Windows UAC integration evidence exists."
+    ],
+    "disputed_finding": "Inspector claimed the LOCAL pipe namespace and default DACL statement were inaccurate. Checked against Microsoft Learn: packaged-app IPC explicitly requires LOCAL\\ in the named pipe; CreateNamedPipe and Named Pipe Security docs explicitly describe the default ACL as read-accessible to Everyone and anonymous. That finding is not accepted; source links are in HOST_HELPER_IPC_DESIGN_20260930.md.",
+    "review_scope_limit": "Review covered proposal and source only; it did not validate runtime behavior or production closure."
+  },
+  "next_action": "Create a successor immutable goal with explicit authorization for a signed test build/package activation and harmless no-op UAC IPC test. Resolve peer/package/publisher/script identity and process-injection threat checks; address the independent review's valid findings before production integration. Keep installation disabled until then.",
+  "p0_task_pipeline_tools": "Slash commands /plan and /bago-p0-triage are unavailable in this API harness; phases are being followed manually and sequentially.",
+  "updated_at": "2026-09-30",
+  "closure": "BLOCKED; protocol proposal is executed, not selected or verified. Existing P0 remains OPEN."
+}

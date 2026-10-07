@@ -27,6 +27,7 @@ import json
 import os
 import sys
 import hashlib
+import inspect
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +63,17 @@ def _repository_session_id(root: Path) -> str:
     return "repository:" + hashlib.sha256(str(canonical).encode("utf-8")).hexdigest()[:20]
 
 
+def _call_cli_effect(request: Any, *, confirmation_text: str, manager: Any) -> Any:
+    """Call the canonical CLI gateway while tolerating test doubles without manager kwarg."""
+    kwargs: dict[str, Any] = {"confirmation_text": confirmation_text}
+    try:
+        if "manager" in inspect.signature(execute_cli_effect).parameters:
+            kwargs["manager"] = manager
+    except (TypeError, ValueError):
+        kwargs["manager"] = manager
+    return execute_cli_effect(request, **kwargs)
+
+
 def _execute_repository_mutation(
     root: Path,
     *,
@@ -91,7 +103,7 @@ def _execute_repository_mutation(
         scope="workspace",
         world_state_authority=root,
     )
-    result, _authorization = execute_cli_effect(
+    result, _authorization = _call_cli_effect(
         request,
         confirmation_text=(
             f"{operation} debt guard {resource} en {canonical}; "
@@ -186,7 +198,7 @@ def _staged_python_files(root: Path) -> list[Path]:
         scope="workspace",
         world_state_authority=canonical,
     )
-    result, _authorization = execute_cli_effect(
+    result, _authorization = _call_cli_effect(
         request, confirmation_text=f"leer los archivos staged para Debt Guard en {canonical}",
         manager=canonical,
     )

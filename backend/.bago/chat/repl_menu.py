@@ -170,6 +170,31 @@ class BagoReplMenuMixin:
     def _run_menu_item(self, item: dict[str, Any]) -> bool:
         command_line = item["command"]
         wizard = item.get("wizard")
+        keyboard_choices = {
+            "/commands": [("", "Catalogo humano"), ("json", "Catalogo JSON")],
+            "/context": [(value, value) for value in ("inspect", "attach", "measure", "benchmark", "certify", "history", "calibrate", "tune")],
+            "/train": [(value, value) for value in ("split", "all", "fallos")],
+        }
+        if not wizard and command_line in keyboard_choices:
+            choices = keyboard_choices[command_line]
+            idx = self._navigate(f"{command_line} - elige una opcion", [label for _value, label in choices])
+            if idx is None:
+                return True
+            value = choices[idx][0]
+            return self._handle_command(command_line if not value else f"{command_line} {value}")
+        # Finite-choice commands must open their keyboard wizard instead of
+        # falling through to the legacy free-text args_prompt path.
+        keyboard_wizards = {
+            "/switch": "switch",
+            "/models": "switch",
+            "/providers": "switch",
+            "/credentials": "credentials",
+            "/mode": "mode",
+            "/allow": "approval-allow",
+            "/deny": "approval-deny",
+        }
+        if not wizard and command_line in keyboard_wizards:
+            wizard = keyboard_wizards[command_line]
         if wizard:
             return self._run_wizard(wizard)
         if item.get("confirm"):
@@ -197,6 +222,9 @@ class BagoReplMenuMixin:
         handlers = {
             "credentials": self._credential_wizard,
             "switch": self._switch_wizard,
+            "mode": self._mode_wizard,
+            "approval-allow": lambda: self._approval_wizard("allow"),
+            "approval-deny": lambda: self._approval_wizard("deny"),
             "agent": self._agent_wizard,
             "load": self._load_wizard,
             "feedback": self._feedback_wizard,
@@ -213,6 +241,28 @@ class BagoReplMenuMixin:
             print(R.error(f"Asistente desconocido: {name}"))
             return True
         return handler()
+
+    def _mode_wizard(self) -> bool:
+        if not self._wizard_tty_ok("/mode [B|A|G|O]"):
+            return True
+        labels = ["B - Base", "A - Analyze", "G - Govern", "O - Operate"]
+        values = ["B", "A", "G", "O"]
+        idx = self._navigate("Modo BAGO", labels)
+        if idx is None:
+            return True
+        return self._handle_command(f"/mode {values[idx]}")
+
+    def _approval_wizard(self, action: str) -> bool:
+        if not self._wizard_tty_ok(f"/{action} [once|always]"):
+            return True
+        if action == "allow":
+            labels, values = ["Aprobar una vez", "Aprobar siempre"], ["once", "always"]
+        else:
+            labels, values = ["Rechazar una vez", "Pedir confirmacion"], ["once", "ask"]
+        idx = self._navigate(f"/{action} - elige una politica", labels)
+        if idx is None:
+            return True
+        return self._handle_command(f"/{action} {values[idx]}")
 
     def _wizard_tty_ok(self, manual_hint: str) -> bool:
         if sys.stdin.isatty() and sys.stdout.isatty():
@@ -322,7 +372,7 @@ class BagoReplMenuMixin:
                 lines.append(R.warn("  (sin modelos listados)"))
             else:
                 for idx, item in enumerate(catalog[:12]):
-                    marker = "❯" if focus == "model" and idx == model_idx else " "
+                    marker = ">" if focus == "model" and idx == model_idx else " "
                     current = "●" if provider["name"] == self.mgr.provider and item["id"] == self.mgr.model else "○"
                     staged = "✓" if idx == model_idx else " "
                     avail = "✓" if item.get("available", True) else "✗"
@@ -507,7 +557,7 @@ class BagoReplMenuMixin:
                 lines.append(R.warn(notice))
             lines.append("")
             for idx, (key, typ, desc) in enumerate(items):
-                marker = "❯" if idx == selected else " "
+                marker = ">" if idx == selected else " "
                 dirty = "*" if staged.get(key) != original.get(key) else " "
                 value = _display_value(key, typ)
                 line = f"{marker} {dirty} {key:<34} {value:<18} {desc}"
@@ -691,11 +741,40 @@ class BagoReplMenuMixin:
         sid = items[idx][0]
         return self._handle_command(f"/load {sid}")
 
-    def _project_wizard(self, project_root: Path) -> bool:
+    def _project_wizard(self, project_root: Path, force_picker: bool = False) -> bool:
         if not self._wizard_tty_ok("/project [analyze|status|init|link]"):
             return True
         mod = _load_tool_module("project_memory", "project_memory.py")
         detected_root = Path(project_root).expanduser().resolve()
+
+        def _choose_directory(start: Path) -> Path | None:
+            current = start if start.is_dir() else Path.cwd().resolve()
+            while True:
+                try:
+                    children = sorted(
+                        (item for item in current.iterdir() if item.is_dir() and not item.name.startswith(".")),
+                        key=lambda item: item.name.lower(),
+                    )
+                except OSError as exc:
+                    print(R.warn(f"No se puede leer {current}: {exc}"))
+                    return None
+                labels = [f"Usar este directorio · {current}"]
+                if current.parent != current:
+                    labels.append("Subir al directorio padre")
+                labels.extend(f"Abrir · {item.name}" for item in children)
+                idx = self._navigate(f"Elegir proyecto · {current}", labels)
+                if idx is None:
+                    return None
+                if idx == 0:
+                    return current
+                if current.parent != current and idx == 1:
+                    current = current.parent
+                    continue
+                child_index = idx - (2 if current.parent != current else 1)
+                if 0 <= child_index < len(children):
+                    current = children[child_index]
+                else:
+                    return None
 
         def _bind(root: Path) -> None:
             try:
@@ -703,6 +782,14 @@ class BagoReplMenuMixin:
                 print(R.ok(f"Proyecto activo: {root}"))
             except Exception as exc:
                 print(R.warn(f"No se pudo activar el proyecto: {exc}"))
+
+        if force_picker:
+            chosen = _choose_directory(detected_root)
+            if chosen is None:
+                print(R.dim("Selector de proyecto cancelado."))
+                return True
+            _bind(chosen)
+            return True
 
         labels = [
             f"Usar esta ruta como proyecto activo y analizar ({detected_root.name})" if detected_root != project_root else f"Usar este directorio como proyecto activo y analizar ({project_root.name})",
@@ -741,17 +828,8 @@ class BagoReplMenuMixin:
                 print(R.warn("No se pudo vincular el proyecto."))
             return True
         if idx == 4:
-            try:
-                raw = input(R.dim("Ruta del proyecto: ")).strip()
-            except (EOFError, KeyboardInterrupt):
-                print()
-                return True
-            if not raw:
-                print(R.dim("Ruta vacía."))
-                return True
-            chosen = Path(raw).expanduser().resolve()
-            if not chosen.exists() or not chosen.is_dir():
-                print(R.warn(f"Ruta inválida: {chosen}"))
+            chosen = _choose_directory(detected_root)
+            if chosen is None:
                 return True
             _bind(chosen)
             data = mod.analyze_data(chosen)
@@ -818,14 +896,22 @@ class BagoReplMenuMixin:
             if not tools:
                 lines.append(R.warn("  (sin herramientas registradas)"))
             else:
-                for idx, item in enumerate(tools):
+                height = shutil.get_terminal_size((120, 36)).lines
+                visible_count = max(5, height - 15)
+                start = min(max(0, selected - visible_count // 2), max(0, len(tools) - visible_count))
+                end = min(len(tools), start + visible_count)
+                if start:
+                    lines.append(R.dim("  ^ more above"))
+                for idx, item in enumerate(tools[start:end], start=start):
                     name = str(item[0])
                     tool = item[1]
                     desc = _snippet(str(getattr(tool, "description", "") or ""), width=cols - 32)
-                    line = fit(f"  {name:<28} {desc}", cols)
+                    line = fit(f"  {'>' if idx == selected else ' '} {name:<27} {desc}", cols)
                     if idx == selected:
                         line = R.colorize(line, R.Color.BG_CYAN, R.Color.BLACK, R.Color.BOLD)
                     lines.append(line)
+                if end < len(tools):
+                    lines.append(R.dim("  v more below"))
             lines.append("")
             if pending:
                 lines.append(R.bold("Pendientes"))
@@ -1038,7 +1124,7 @@ class BagoReplMenuMixin:
             lines.append("")
             lines.append(R.bold("Lista"))
             for idx, row in enumerate(recent):
-                marker = "❯" if idx == selected else " "
+                marker = ">" if idx == selected else " "
                 staged = "✗" if int(row["id"]) in staged_delete else " "
                 when = str(row.get("created_at", ""))[:19]
                 source = str(row.get("source_session", "") or "—")[:12]

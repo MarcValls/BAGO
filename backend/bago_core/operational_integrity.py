@@ -1,6 +1,7 @@
 """Cross-domain operational integrity contracts for BAGO.
 
 These objects govern claims and closure; they do not execute product actions.
+The claim/evidence boundary contract is backend/docs/contracts/claim_verification_boundaries.v1.md.
 """
 
 from __future__ import annotations
@@ -18,6 +19,12 @@ from typing import Iterable, Mapping
 
 LIFECYCLE = ("PROPOSED", "PREPARED", "EXECUTED", "VERIFIED", "VALIDATED")
 GATE_STATES = {"PASS", "FAIL", "NOT_RUN", "BLOCKED"}
+EVIDENCE_BOUNDARIES = {
+    "COMMAND_EXECUTION",
+    "TARGET_STATE",
+    "VISIBLE_RENDER",
+    "EXTERNAL_ACCEPTANCE",
+}
 
 
 @dataclass(frozen=True)
@@ -52,6 +59,19 @@ class EvidenceRecord:
     artifact_sha256: tuple[str, ...] = ()
     receipt_id: str = ""
     gate_receipt: str = ""
+    observed_boundary: str = "COMMAND_EXECUTION"
+
+
+class EvidenceBoundaryPolicy:
+    """Evidence proves only the boundary at which it was observed."""
+
+    @staticmethod
+    def observes(record: EvidenceRecord, required_boundary: str) -> bool:
+        return (
+            record.observed_boundary in EVIDENCE_BOUNDARIES
+            and required_boundary in EVIDENCE_BOUNDARIES
+            and record.observed_boundary == required_boundary
+        )
 
 
 class EvidencePolicy:
@@ -73,6 +93,7 @@ class EvidencePolicy:
             or len(record.artifact_sha256) != len(record.artifacts)
             or record.candidate is None
             or not record.candidate.immutable
+            or record.observed_boundary not in EVIDENCE_BOUNDARIES
         ):
             return False
         for artifact, expected in zip(record.artifacts, record.artifact_sha256):
@@ -108,19 +129,29 @@ class EvidencePolicy:
             and derived.candidate == record.candidate
             and derived.artifact_sha256 == record.artifact_sha256
             and derived.receipt_id == record.receipt_id
+            and derived.observed_boundary == record.observed_boundary
             and Path(derived.gate_receipt).resolve() == receipt
         )
 
 
 class TruthPolicy:
     @staticmethod
-    def can_claim_verified(record: EvidenceRecord) -> bool:
-        return EvidencePolicy.material(record)
+    def can_claim_verified(record: EvidenceRecord, *, required_boundary: str = "COMMAND_EXECUTION") -> bool:
+        return (
+            EvidenceBoundaryPolicy.observes(record, required_boundary)
+            and EvidencePolicy.material(record)
+        )
 
     @staticmethod
-    def can_claim_validated(record: EvidenceRecord, *, closure_complete: bool, independent_review: bool) -> bool:
+    def can_claim_validated(
+        record: EvidenceRecord,
+        *,
+        closure_complete: bool,
+        independent_review: bool,
+        required_boundary: str = "COMMAND_EXECUTION",
+    ) -> bool:
         return (
-            TruthPolicy.can_claim_verified(record)
+            TruthPolicy.can_claim_verified(record, required_boundary=required_boundary)
             and closure_complete
             and independent_review
             and record.candidate is not None
@@ -130,7 +161,15 @@ class TruthPolicy:
 
 class StateTransitionPolicy:
     @staticmethod
-    def permits(current: str, target: str, *, evidence: EvidenceRecord | None = None, closure_complete: bool = False, independent_review: bool = False) -> bool:
+    def permits(
+        current: str,
+        target: str,
+        *,
+        evidence: EvidenceRecord | None = None,
+        closure_complete: bool = False,
+        independent_review: bool = False,
+        required_boundary: str = "COMMAND_EXECUTION",
+    ) -> bool:
         current = current.upper()
         target = target.upper()
         if current not in LIFECYCLE or target not in LIFECYCLE:
@@ -138,12 +177,15 @@ class StateTransitionPolicy:
         if LIFECYCLE.index(target) > LIFECYCLE.index(current) + 1:
             return False
         if target == "VERIFIED":
-            return evidence is not None and TruthPolicy.can_claim_verified(evidence)
+            return evidence is not None and TruthPolicy.can_claim_verified(
+                evidence, required_boundary=required_boundary
+            )
         if target == "VALIDATED":
             return evidence is not None and TruthPolicy.can_claim_validated(
                 evidence,
                 closure_complete=closure_complete,
                 independent_review=independent_review,
+                required_boundary=required_boundary,
             )
         return True
 

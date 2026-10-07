@@ -350,7 +350,7 @@ def test_session_manager_has_guardrails():
     """SessionManager must initialize PathGuard, ToolLogger, and ClaimValidator."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f4-init",
             provider="ollama-local",
@@ -371,7 +371,7 @@ def test_session_manager_tool_logger_persists_file():
     """SessionManager must create a tool_log.jsonl file in state dir."""
     from session_manager import SessionManager
     with tempfile.TemporaryDirectory() as td:
-        ws = tempfile.mkdtemp()
+        ws = tempfile.mkdtemp(dir=td)
         mgr = SessionManager(
             session_id="test-f4-log",
             provider="ollama-local",

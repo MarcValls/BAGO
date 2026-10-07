@@ -82,7 +82,8 @@ def _make_manager(tmp_path: str, workspace: str, provider: str = "fake-provider"
 
 def test_context_receipt_and_envelope_capture_workspace_state():
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         source = Path(workspace) / "module_a.py"
         source.write_text("def ping():\n    return 'pong'\n", encoding="utf-8")
         mgr, sm = _make_manager(td, workspace)
@@ -118,7 +119,8 @@ def test_context_receipt_and_envelope_capture_workspace_state():
 
 def test_context_pack_uses_real_workspace_fragment():
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         source = Path(workspace) / "module_b.py"
         source.write_text("VALUE = 42\n", encoding="utf-8")
         mgr, sm = _make_manager(td, workspace, provider="fake-pack")
@@ -136,7 +138,8 @@ def test_context_pack_uses_real_workspace_fragment():
 
 def test_workspace_retrieval_finds_hidden_file_not_open():
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         hidden = Path(workspace) / "notes" / "hidden_fact.md"
         hidden.parent.mkdir(parents=True, exist_ok=True)
         hidden.write_text("CANON-SECRET-81\n", encoding="utf-8")
@@ -196,7 +199,8 @@ def test_workspace_retrieval_finds_hidden_file_not_open():
 
 def test_workspace_retrieval_can_be_disabled():
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         hidden = Path(workspace) / "notes" / "hidden_fact.md"
         hidden.parent.mkdir(parents=True, exist_ok=True)
         hidden.write_text("CANON-SECRET-82\n", encoding="utf-8")
@@ -256,7 +260,8 @@ def test_workspace_retrieval_can_be_disabled():
 
 def test_workspace_retrieval_reflects_mutated_file_content():
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         target = Path(workspace) / "notes" / "hidden_fact.md"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("CANON-SECRET-83\n", encoding="utf-8")
@@ -335,7 +340,8 @@ def test_workspace_retrieval_reflects_mutated_file_content():
 
 def test_context_invalidate_and_tune_are_gated():
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         mgr, sm = _make_manager(td, workspace, provider="fake-gate")
         try:
             mgr.send("hola")
@@ -354,7 +360,8 @@ def test_context_invalidate_and_tune_are_gated():
 
 def test_context_history_reports_recent_state():
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         mgr, sm = _make_manager(td, workspace, provider="fake-history")
         try:
             mgr.send("hola")
@@ -371,7 +378,8 @@ def test_context_history_reports_recent_state():
 
 def test_context_certify_detects_model_and_provider_mutation():
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         mgr, sm = _make_manager(td, workspace, provider="fake-mutate")
         try:
             mgr.send("hola")
@@ -394,7 +402,8 @@ def test_context_certify_detects_model_and_provider_mutation():
 
 def test_context_benchmark_records_budget_and_samples():
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         mgr, sm = _make_manager(td, workspace, provider="fake-bench")
         try:
             report = mgr.benchmark_context(4)
@@ -411,7 +420,8 @@ def test_context_benchmark_records_budget_and_samples():
 
 def test_cognitive_benchmark_passes_with_scripted_adversarial_responses():
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         evidence_file = Path(workspace) / ".bago" / "core" / "session_manager.py"
         evidence_file.parent.mkdir(parents=True, exist_ok=True)
         evidence_file.write_text("X = 7\n", encoding="utf-8")
@@ -436,7 +446,8 @@ def test_cognitive_benchmark_passes_with_scripted_adversarial_responses():
 
 def test_cognitive_benchmark_detects_hallucination_and_tool_mutation():
     with tempfile.TemporaryDirectory() as td:
-        workspace = tempfile.mkdtemp()
+        workspace = Path(td) / "workspace"
+        workspace.mkdir()
         mgr, sm = _make_manager(td, workspace, provider="inventado-provider")
         try:
             report = mgr.benchmark_cognitive(1)

@@ -11,6 +11,7 @@ import ctypes
 import hashlib
 import os
 import re
+import stat
 import sys
 from ctypes import wintypes
 from pathlib import Path
@@ -103,6 +104,18 @@ def _key_read_candidates(key: str) -> tuple[Path, ...]:
     return user_read_candidates(Path("secrets") / _safe_key_name(key))
 
 
+class SecretStoreError(RuntimeError):
+    """Base error for canonical secret entries that cannot be read safely."""
+
+
+class SecretStoreReadError(SecretStoreError):
+    """A secret entry exists but its bytes cannot be read safely."""
+
+
+class SecretDecryptionError(SecretStoreError):
+    """A secret entry exists but cannot be decrypted or decoded."""
+
+
 class SecretStore:
     """Read-only OS-bound secret store; writes belong to ``credential.write``."""
 
@@ -124,15 +137,48 @@ class SecretStore:
         raise RuntimeError("La escritura directa de secretos está deshabilitada; use credential.write.")
 
     def get_secret(self, key: str) -> Optional[str]:
+        """Return ``None`` only when every canonical/legacy candidate is absent.
+
+        A present but unreadable or undecryptable candidate raises a typed error
+        instead of allowing callers to select an older credential.
+        """
         for path in _key_read_candidates(key):
-            if not path.exists():
+            try:
+                metadata = path.lstat()
+            except FileNotFoundError:
                 continue
-            cipher = path.read_bytes()
+            except OSError:
+                raise SecretStoreReadError(
+                    "Canonical secret entry cannot be inspected."
+                ) from None
+            is_junction = getattr(path, "is_junction", None)
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or path.is_symlink()
+                or bool(is_junction and is_junction())
+                or bool(getattr(metadata, "st_file_attributes", 0) & 0x400)
+            ):
+                raise SecretStoreReadError(
+                    "Canonical secret entry is not a regular file."
+                )
+            try:
+                cipher = path.read_bytes()
+            except OSError:
+                raise SecretStoreReadError(
+                    "Canonical secret entry cannot be read."
+                ) from None
             try:
                 plain = _dpapi_unprotect(cipher) if self._platform_is_windows() else _fallback_unprotect(cipher)
+                value = plain.decode("utf-8")
             except Exception:
-                continue
-            return plain.decode("utf-8", errors="replace")
+                raise SecretDecryptionError(
+                    "Canonical secret entry cannot be decrypted."
+                ) from None
+            if not value:
+                raise SecretDecryptionError(
+                    "Canonical secret entry contains no usable value."
+                )
+            return value
         return None
 
     def delete_secret(self, key: str) -> bool:

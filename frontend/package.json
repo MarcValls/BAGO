@@ -2,6 +2,7 @@
   "name": "bago-control-plane-ui",
   "private": true,
   "version": "4.11.10",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "vite build",

@@ -44,6 +44,10 @@ Copy-Item (Join-Path $payload 'backend/bago_core') (Join-Path $authority 'bago_c
 Copy-Item (Join-Path $payload 'backend/.bago/contracts') (Join-Path $authority 'contracts') -Recurse
 $null = New-Item -ItemType Directory -Path (Join-Path $stage 'payload')
 Copy-Item (Join-Path $payload '*') (Join-Path $stage 'payload') -Recurse
+$notices = Join-Path $repo 'third_party_notices'
+if (-not (Test-Path (Join-Path $notices 'README.md'))) { throw 'Third-party notices bundle is missing.' }
+Copy-Item $notices (Join-Path $stage 'third_party_notices') -Recurse
+Copy-Item $notices (Join-Path $stage 'payload/third_party_notices') -Recurse
 Remove-Item (Join-Path $stage 'payload/backend/.bago/core') -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $stage 'payload/backend/.bago/api') -Recurse -Force -ErrorAction SilentlyContinue
 Get-ChildItem (Join-Path $stage 'payload') -Directory -Force -Recurse | Where-Object { $_.Name -like '.pytest-tmp*' -or $_.Name -in @('__pycache__','.pytest_cache','.mypy_cache') } | Sort-Object FullName -Descending | Remove-Item -Recurse -Force

@@ -1,0 +1,135 @@
+{
+  "platform": "Windows-10-10.0.19045-SP0",
+  "python": "3.14.5",
+  "probe_sha256": "3d8c9967efa16c80d21d83b60e4ed33afd61e0e2e60165f9f1ad081d2e25552a",
+  "scope": "TxF native scratch only; no production eligibility",
+  "cases": [
+    {
+      "case": "commit",
+      "expected": {
+        "volume": 2339306905297686904,
+        "file_id": "06ac1400000006000000000000000000"
+      },
+      "actual": {
+        "volume": 2339306905297686904,
+        "file_id": "06ac1400000006000000000000000000"
+      },
+      "content_digest": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb",
+      "admission": "IDENTITY_MATCH",
+      "contenders": [
+        {
+          "action": "write",
+          "ok": false,
+          "winerror": 32
+        },
+        {
+          "action": "replace",
+          "ok": false,
+          "winerror": 32
+        },
+        {
+          "action": "parent_rename",
+          "ok": false,
+          "winerror": 32
+        }
+      ],
+      "contenders_after_handle_close": [
+        {
+          "action": "write",
+          "ok": false,
+          "winerror": 32
+        },
+        {
+          "action": "replace",
+          "ok": false,
+          "winerror": 6800
+        },
+        {
+          "action": "parent_rename",
+          "ok": false,
+          "winerror": 32
+        }
+      ],
+      "replace": {
+        "api": "MoveFileTransactedW",
+        "ok": true,
+        "winerror": 0
+      },
+      "commit": {
+        "ok": true,
+        "winerror": 0
+      },
+      "visible_content_hex": "6166746572"
+    },
+    {
+      "case": "wrong_identity",
+      "expected": {
+        "volume": 2339306905297686904,
+        "file_id": "00000000000000000000000000000000"
+      },
+      "actual": {
+        "volume": 2339306905297686904,
+        "file_id": "0aac1400000006000000000000000000"
+      },
+      "content_digest": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb",
+      "admission": "DENY_IDENTITY_MISMATCH",
+      "rollback_ok": true,
+      "visible_content_hex": "6265666f7265"
+    },
+    {
+      "case": "rollback",
+      "expected": {
+        "volume": 2339306905297686904,
+        "file_id": "10ac1400000006000000000000000000"
+      },
+      "actual": {
+        "volume": 2339306905297686904,
+        "file_id": "10ac1400000006000000000000000000"
+      },
+      "content_digest": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb",
+      "admission": "IDENTITY_MATCH",
+      "contenders": [
+        {
+          "action": "write",
+          "ok": false,
+          "winerror": 32
+        },
+        {
+          "action": "replace",
+          "ok": false,
+          "winerror": 32
+        },
+        {
+          "action": "parent_rename",
+          "ok": false,
+          "winerror": 32
+        }
+      ],
+      "contenders_after_handle_close": [
+        {
+          "action": "write",
+          "ok": false,
+          "winerror": 32
+        },
+        {
+          "action": "replace",
+          "ok": false,
+          "winerror": 6800
+        },
+        {
+          "action": "parent_rename",
+          "ok": false,
+          "winerror": 32
+        }
+      ],
+      "replace": {
+        "api": "MoveFileTransactedW",
+        "ok": true,
+        "winerror": 0
+      },
+      "rollback_ok": true,
+      "visible_content_hex": "6265666f7265"
+    }
+  ],
+  "run": "C:\\Users\\AMTEC_Terminal_1\u00ba\\BAGO\\artifacts\\ieb-proof-20261001\\txf-40133d23664a421ea6f76ea8ea66a4f7"
+}

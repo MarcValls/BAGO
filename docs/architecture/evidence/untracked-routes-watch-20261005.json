@@ -1,0 +1,1196 @@
+{
+  "schema": "bago.untracked-route-watch.v1",
+  "created_at_utc": "2026-10-05T14:00:41.582513+00:00",
+  "baseline": {
+    "git_head": "aec40891271310281a165214ed0fb5da4733c029",
+    "git_branch": "publish/worktree-groups-20261003-7f5d47a6",
+    "untracked_route_count": 128,
+    "content_hashed_count": 127,
+    "presence_only_count": 1,
+    "total_hashed_bytes": 6568916,
+    "algorithm": "SHA-256 per accessible regular file plus Git untracked path membership"
+  },
+  "watch_roots": [
+    ".goals/backend-audit-remediation-b10178bf",
+    "artifacts"
+  ],
+  "excluded_watch_files": [
+    "docs/architecture/evidence/untracked-routes-watch-20261005.json",
+    "scripts/check_untracked_route_watch.py"
+  ],
+  "scope_note": "Checks listed paths for untracked membership; accessible regular files are also checked by size and SHA-256. Detects newly appearing untracked paths under watch_roots. Classification is based on path, filename, extension and limited metadata, not a full semantic or provenance audit. The reserved Windows path nul is presence-only because normal file APIs cannot stat/open it.",
+  "classification_counts": {
+    "anomalous_unresolved_file": 1,
+    "audit_collection_metadata": 1,
+    "credui_probe_launcher": 2,
+    "credui_probe_source": 2,
+    "diagnostic_log": 3,
+    "diagnostic_trace": 2,
+    "evidence_report": 1,
+    "inventory_error_output": 1,
+    "inventory_probe_script": 1,
+    "inventory_report_output": 1,
+    "msix_build_receipt": 3,
+    "msix_signed_install_receipt": 1,
+    "probe_observation_record": 12,
+    "probe_script": 2,
+    "provider_inventory_snapshot": 1,
+    "release_package_checksum": 1,
+    "signing_candidate_manifest": 1,
+    "synthetic_filesystem_fixture": 92
+  },
+  "entries": [
+    {
+      "path": ".goals/backend-audit-remediation-b10178bf/backend-full-final.log",
+      "classification": "diagnostic_log",
+      "classification_basis": "Backend audit/remediation log; inferred from directory and extension.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 1964,
+      "sha256": "431c6805bc753cf3ae9e43274dea894aae164afd888bbb9705ff61838df3114e"
+    },
+    {
+      "path": ".goals/backend-audit-remediation-b10178bf/baseline-diagnostic.jsonl",
+      "classification": "diagnostic_trace",
+      "classification_basis": "JSONL diagnostic stream for backend audit remediation; inferred from directory and extension.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 1819974,
+      "sha256": "8f146d0ff079a2609308621c88e9c857c2b9c065008e6deb50c9a59d7cea04aa"
+    },
+    {
+      "path": ".goals/backend-audit-remediation-b10178bf/baseline-diagnostic.log",
+      "classification": "diagnostic_log",
+      "classification_basis": "Backend audit/remediation log; inferred from directory and extension.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 384440,
+      "sha256": "8f21930909179f6e53b3512222de12143d7cc5f1d244168452674f05cc30551c"
+    },
+    {
+      "path": ".goals/backend-audit-remediation-b10178bf/candidate-diagnostic.jsonl",
+      "classification": "diagnostic_trace",
+      "classification_basis": "JSONL diagnostic stream for backend audit remediation; inferred from directory and extension.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 1842994,
+      "sha256": "2bda8cb5d9e6e3f8e60a6a943e5adb42d1ade8de18cf4577b39b432ba30717e2"
+    },
+    {
+      "path": ".goals/backend-audit-remediation-b10178bf/candidate-diagnostic.log",
+      "classification": "diagnostic_log",
+      "classification_basis": "Backend audit/remediation log; inferred from directory and extension.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 323013,
+      "sha256": "882364f7dcb58fc6f7608c7fe3e20c437dc7277f0e64e8b8f5e403e7c74d96c0"
+    },
+    {
+      "path": ".goals/backend-audit-remediation-b10178bf/collection.txt",
+      "classification": "audit_collection_metadata",
+      "classification_basis": "Audit collection metadata; inferred from directory and filename.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 175075,
+      "sha256": "7690056bdc47115776e80c9108c009a00a5d012615ddf12d14655720217b7d41"
+    },
+    {
+      "path": "artifacts/bago-4.11.3-signpath-candidate-unsigned-v3.zip.sha256",
+      "classification": "release_package_checksum",
+      "classification_basis": "Checksum sidecar for a release candidate package.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 114,
+      "sha256": "3732ad1311e5f2e9b80b1c3b3f831ebca383e14475880ab48b990e74d91cdf63"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/probe_windows_commit_identity.py",
+      "classification": "probe_script",
+      "classification_basis": "Python probe source associated with IEB decision evidence.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 7026,
+      "sha256": "b20e9fa52cfe8cae5d755ae116481f771d0cd2fa7f5c3bdaad80cb53cbc26dac"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-1572f39ff3694d05ba6ffbcd2aaf089e/baseline_relative/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-1572f39ff3694d05ba6ffbcd2aaf089e/baseline_relative/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/baseline_relative/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/baseline_relative/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/deny_delete_posix/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/deny_delete_posix/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/deny_delete_posix/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 17,
+      "sha256": "961334c091ed130e1dde5a6a94d4d4d6665eefc237f12dba5895264e5b91a6ab"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/deny_delete_replace/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/deny_delete_replace/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/deny_delete_replace/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 17,
+      "sha256": "961334c091ed130e1dde5a6a94d4d4d6665eefc237f12dba5895264e5b91a6ab"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations for a recorded run.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 4614,
+      "sha256": "b0fa96dc2a06fe8e2b4dcc8f90dc1c87f5d8759bf701ff830c8e50b399242402"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/share_delete_competitor_then_commit/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/share_delete_posix/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/share_delete_posix/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/share_delete_replace/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/share_delete_replace/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-d73c49e77ac64515ae4fc210c503f071/share_delete_replace/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 17,
+      "sha256": "961334c091ed130e1dde5a6a94d4d4d6665eefc237f12dba5895264e5b91a6ab"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/baseline_relative/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/baseline_relative/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/baseline_relative/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 17,
+      "sha256": "961334c091ed130e1dde5a6a94d4d4d6665eefc237f12dba5895264e5b91a6ab"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/deny_delete_posix/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/deny_delete_posix/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/deny_delete_posix/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 17,
+      "sha256": "961334c091ed130e1dde5a6a94d4d4d6665eefc237f12dba5895264e5b91a6ab"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/deny_delete_replace/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/deny_delete_replace/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/deny_delete_replace/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 17,
+      "sha256": "961334c091ed130e1dde5a6a94d4d4d6665eefc237f12dba5895264e5b91a6ab"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations for a recorded run.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 4297,
+      "sha256": "f449c0050666174766a59ddafd018f7f1a2e9e0b893f66cf09cbfcb78c928c50"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/share_delete_competitor_then_commit/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/share_delete_competitor_then_commit/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/share_delete_competitor_then_commit/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 17,
+      "sha256": "961334c091ed130e1dde5a6a94d4d4d6665eefc237f12dba5895264e5b91a6ab"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/share_delete_posix/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/share_delete_posix/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/share_delete_posix/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 17,
+      "sha256": "961334c091ed130e1dde5a6a94d4d4d6665eefc237f12dba5895264e5b91a6ab"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/share_delete_replace/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 19,
+      "sha256": "e1ce231481927e8e703df080cd577b8b057e3bcc10cc133943de9fdb2861cc77"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/share_delete_replace/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 16,
+      "sha256": "a2db6570d74f5b17a67891b3e417b7fc118c8c3d59e059371ae15037df7619a6"
+    },
+    {
+      "path": "artifacts/ieb-decisions-20261001/run-f8e56bbc304347188a1d21b1256706a4/share_delete_replace/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded IEB scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 17,
+      "sha256": "961334c091ed130e1dde5a6a94d4d4d6665eefc237f12dba5895264e5b91a6ab"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/CredUiProbe/CredUiProbe.csproj",
+      "classification": "credui_probe_source",
+      "classification_basis": "C# Windows Credential UI probe source/project.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 294,
+      "sha256": "be764c9bbd8499a683ba0c5e3b01f786e7fb6c1927ffc02f4cfb17dff48e52a2"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/CredUiProbe/Program.cs",
+      "classification": "credui_probe_source",
+      "classification_basis": "C# Windows Credential UI probe source/project.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 11154,
+      "sha256": "d850a3b40f8d6249984e5381b8efbfb5652afcb082291b4d1025b4d51f7eb847"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/REPORT.md",
+      "classification": "evidence_report",
+      "classification_basis": "Human-readable IEB proof report.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 8087,
+      "sha256": "c845aed084dd254a2913053498b33490aa429c423a984a3acf13a0edd8d5e6c5"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/Run-CredUI-Once.cmd",
+      "classification": "credui_probe_launcher",
+      "classification_basis": "Launcher for the one-shot Windows Credential UI probe.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 122,
+      "sha256": "3dafe24769f6e51e6f2319d47822ab5d039e66419bd25c195b5fc118e7ffad08"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/Run-CredUI-Once.ps1",
+      "classification": "credui_probe_launcher",
+      "classification_basis": "Launcher for the one-shot Windows Credential UI probe.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 775,
+      "sha256": "8720c07e79bfaca22c437ebfc32ed5e0eaf23b275b3c97b04dd55bab1774b56e"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/credui-04de9608d08144729a2999c13639bc80/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 952,
+      "sha256": "42bef205632e992c56ed3360f8c0129e0e4e22d6e5b528b83b0c619944361cb2"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/credui-5a6cd04b27ad4fa399e5b58f581b2da7/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 1443,
+      "sha256": "cbf1cefdc1ca204258d3192b1657763feab4e24a58c18c891010acdc61a85666"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/credui-6a830e2009524803a56d53650387cb7e/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 1126,
+      "sha256": "750370307a95bcf729dde071d218ac28287d0c95de139f4c057a9f1150cbdbac"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/credui-a7b09cf013d64cb7b160475f4a453e90/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 1476,
+      "sha256": "323b1dc84014b49d2b40f16f2a9e6b948cf8b2f648856ae56d82e910e436974d"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/credui-d9731afe2a5e4ff3a9ebf126638808eb/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 1666,
+      "sha256": "58899ad31cd6d249a74013bf643d9a7690978cda9a29d638360ea69e28016a4c"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/probe_txf_identity.py",
+      "classification": "probe_script",
+      "classification_basis": "Python transaction identity probe source.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 12227,
+      "sha256": "dc329bed6841382051b4832c8f42e040748f96f3102ef1068af1a33be55f7d13"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/provider-inventory.json",
+      "classification": "provider_inventory_snapshot",
+      "classification_basis": "Machine-readable provider inventory snapshot.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 10355,
+      "sha256": "61b9f7582385a98e426cf82bdcdb4d7d0fdc07294bbe26660af4e34f6848ab1b"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/provider_inventory.ps1",
+      "classification": "inventory_probe_script",
+      "classification_basis": "PowerShell provider inventory collection script.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 2192,
+      "sha256": "b92a07a6a7dacd53d014e34eff7804c327e92df0623d985aa1861bfc9795feff"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-40133d23664a421ea6f76ea8ea66a4f7/commit/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-40133d23664a421ea6f76ea8ea66a4f7/commit/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-40133d23664a421ea6f76ea8ea66a4f7/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 3581,
+      "sha256": "7afa5cf142c54b8e5ce8973970711dbf5e03501d499990c3b550b1d0d9c8738d"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-40133d23664a421ea6f76ea8ea66a4f7/rollback/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-40133d23664a421ea6f76ea8ea66a4f7/rollback/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-40133d23664a421ea6f76ea8ea66a4f7/rollback/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-40133d23664a421ea6f76ea8ea66a4f7/wrong_identity/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-40133d23664a421ea6f76ea8ea66a4f7/wrong_identity/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-40133d23664a421ea6f76ea8ea66a4f7/wrong_identity/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-8ac99571011440fa8ca7716b3f288efb/commit/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-8ac99571011440fa8ca7716b3f288efb/commit/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-8ac99571011440fa8ca7716b3f288efb/commit/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-8ac99571011440fa8ca7716b3f288efb/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 2790,
+      "sha256": "2c32964e8f5f983d9fb0ab7ccbb5dc6c5a129120bb5e718c3e46219dd835aa93"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-8ac99571011440fa8ca7716b3f288efb/rollback/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-8ac99571011440fa8ca7716b3f288efb/rollback/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-8ac99571011440fa8ca7716b3f288efb/rollback/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-8ac99571011440fa8ca7716b3f288efb/wrong_identity/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-8ac99571011440fa8ca7716b3f288efb/wrong_identity/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-8ac99571011440fa8ca7716b3f288efb/wrong_identity/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/commit/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/commit/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/content_drift/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/content_drift/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/content_drift/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 25,
+      "sha256": "11a90cc706987df1593823829784b3da7c8283298b3ad7d5d9fecd2e3ecfc3e4"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/control-parent_rename-moved/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/control-parent_rename-moved/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/control-replace/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/control-write/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/control-write/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/identity_drift/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/identity_drift/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/identity_drift/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 6328,
+      "sha256": "b8b6b57eebe428f3d1d4ff14088e7024d6d44ac90917352c3e0164a0dcf15750"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/rollback/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/rollback/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-a2fc153314b44578a68111b043e37a6f/rollback/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-cf50fcc232c4482baf630d4a48f717fb/commit/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-cf50fcc232c4482baf630d4a48f717fb/commit/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-cf50fcc232c4482baf630d4a48f717fb/commit/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-cf50fcc232c4482baf630d4a48f717fb/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 2790,
+      "sha256": "a8b9d3147f6be8d266133c1d0d782ddc67b108df41449664147cfdca0c05f12a"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-cf50fcc232c4482baf630d4a48f717fb/rollback/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-cf50fcc232c4482baf630d4a48f717fb/rollback/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-cf50fcc232c4482baf630d4a48f717fb/rollback/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-cf50fcc232c4482baf630d4a48f717fb/wrong_identity/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-cf50fcc232c4482baf630d4a48f717fb/wrong_identity/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-cf50fcc232c4482baf630d4a48f717fb/wrong_identity/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/commit/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/commit/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/content_drift/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/content_drift/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/content_drift/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 25,
+      "sha256": "11a90cc706987df1593823829784b3da7c8283298b3ad7d5d9fecd2e3ecfc3e4"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/control-parent_rename-moved/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/control-parent_rename-moved/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/control-replace/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/control-write/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/control-write/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/identity_drift/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/identity_drift/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/identity_drift/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/observations.json",
+      "classification": "probe_observation_record",
+      "classification_basis": "Machine-readable probe observations.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 7417,
+      "sha256": "b41077dfe488f93a67fd265cd56c0a5c3fc83a589b1bcac8fed5071601d9ad6a"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/rollback/intruder.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 8,
+      "sha256": "aedad4dfac4747d17e5d2323b7e25954e2c46a2be524653fe4a13861206c45f3"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/rollback/staged.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 5,
+      "sha256": "f39592393ef0859cb196a52693d2cea00fb2df784b3c04ae54aa7cadb8e562f8"
+    },
+    {
+      "path": "artifacts/ieb-proof-20261001/txf-e8f94c68083d4e9782da9110adae2eb4/rollback/target.txt",
+      "classification": "synthetic_filesystem_fixture",
+      "classification_basis": "Small target/intruder/staged fixture used by a recorded transaction scenario.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 6,
+      "sha256": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb"
+    },
+    {
+      "path": "artifacts/msix-test-20260930-pi/build-receipt.json",
+      "classification": "msix_build_receipt",
+      "classification_basis": "MSIX test build receipt; not independently revalidated here.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 507,
+      "sha256": "258ef22f75acc7529b7f61b8e04631f8aeedbca531e0873a0931d5141a57bd12"
+    },
+    {
+      "path": "artifacts/msix-test-20260930/build-receipt.json",
+      "classification": "msix_build_receipt",
+      "classification_basis": "MSIX test build receipt; not independently revalidated here.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 528,
+      "sha256": "bce6aa582536a168d59653ce6b2829c881e0fff2cdd236ec08b546d947b545fb"
+    },
+    {
+      "path": "artifacts/msix-ui-close-20260930/build-receipt.json",
+      "classification": "msix_build_receipt",
+      "classification_basis": "MSIX test build receipt; not independently revalidated here.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 508,
+      "sha256": "c7320de880bb808c150e52e49c8b456490cf1e3b7b0d189740ae28465881d22d"
+    },
+    {
+      "path": "artifacts/msix-ui-close-20260930/signed-install-receipt.json",
+      "classification": "msix_signed_install_receipt",
+      "classification_basis": "Receipt named as the result of a signed test installation; not independently revalidated here.",
+      "classification_confidence": "medium",
+      "content_check": "sha256",
+      "size_bytes": 1769,
+      "sha256": "6cff5b0a9983ad4cc5c94b952357293d1328975036585c24742d965c8226bc00"
+    },
+    {
+      "path": "artifacts/signpath-candidate-4.11.3-unsigned-20261003/candidate-manifest.json",
+      "classification": "signing_candidate_manifest",
+      "classification_basis": "Manifest for the SignPath candidate directory.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 248392,
+      "sha256": "dd0828a35b1f012c5a8db8c628fbc0e777443152e1958af23e51b8b3f8e70d32"
+    },
+    {
+      "path": "backend/inventory.err",
+      "classification": "inventory_error_output",
+      "classification_basis": "Generated inventory stderr capture; currently empty.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "backend/inventory_report.json",
+      "classification": "inventory_report_output",
+      "classification_basis": "Generated machine-readable inventory report; inferred from filename.",
+      "classification_confidence": "high",
+      "content_check": "sha256",
+      "size_bytes": 1677914,
+      "sha256": "886c719300e1b09b5efe3b8eddf44a3d004955eb9c304505ddbd7236c58888ec"
+    },
+    {
+      "path": "nul",
+      "classification": "anomalous_unresolved_file",
+      "classification_basis": "Git reports this reserved Windows device name as a route, but normal Python file APIs cannot stat/open it; content and purpose unresolved.",
+      "classification_confidence": "high",
+      "content_check": "untracked_presence_only",
+      "size_bytes": null,
+      "sha256": null
+    }
+  ]
+}

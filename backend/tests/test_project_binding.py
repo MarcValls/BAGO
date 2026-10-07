@@ -237,12 +237,13 @@ def test_project_wizard_rebinds_selected_path(tmp_path, monkeypatch):
     class DummyREPL:
         def __init__(self):
             self.mgr = DummyMgr()
+            self.choices = iter((4, 2, 0))
 
         def _wizard_tty_ok(self, *_args):
             return True
 
         def _navigate(self, *_args):
-            return 4
+            return next(self.choices)
 
     repl = DummyREPL()
     monkeypatch.setattr(repl_menu, "_load_tool_module", lambda name, filename: SimpleNamespace(
@@ -252,8 +253,6 @@ def test_project_wizard_rebinds_selected_path(tmp_path, monkeypatch):
     ))
     monkeypatch.setattr(repl_menu.R, "warn", lambda text: text)
     monkeypatch.setattr(repl_menu.R, "dim", lambda text: text)
-    monkeypatch.setattr(builtins, "input", lambda prompt="": str(project))
-
     assert repl_menu.BagoReplMenuMixin._project_wizard(repl, Path(tmp_path)) is True
 
     assert calls == [project]

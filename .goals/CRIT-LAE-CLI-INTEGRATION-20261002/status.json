@@ -1,0 +1,44 @@
+{
+  "goal_id": "CRIT-LAE-CLI-INTEGRATION-20261002",
+  "status": "EXECUTED",
+  "scope": [
+    "backend/bago_core/layered_artifact_engine.py",
+    "backend/bago_core/commands/cmd_layer.py",
+    "backend/bago_core/parsers_sections.py",
+    "backend/bago_core/launcher.py",
+    "backend/tests/test_layer_cli.py"
+  ],
+  "behavior": [
+    "init",
+    "propose",
+    "authorize",
+    "apply",
+    "STALE_PARENT",
+    "rebase",
+    "receipt",
+    "show",
+    "project-preview",
+    "project-write-with-explicit-allow",
+    "projection-stale-parent-rejection"
+  ],
+  "checks": [
+    {
+      "command": "python -m pytest -q backend/tests/test_layer_cli.py",
+      "result": "1 passed",
+      "scope": "focused CLI test"
+    },
+    {
+      "command": "python .bago/bin/bago.py verify -- python -m pytest -q -p no:cacheprovider --basetemp=.run/lae-cli-phase2-r2 backend/tests/test_layer_cli.py",
+      "result": "PASS; 2 passed",
+      "scope": "candidate-bound BAGO verification"
+    },
+    {
+      "command": "python -m py_compile ...",
+      "result": "PASS",
+      "scope": "new engine, command, parser and launcher modules"
+    }
+  ],
+  "runtime_integration": "EXECUTED_CANDIDATE_ONLY",
+  "projection_boundary": ".bago/layers/projections only; --allow-write required",
+  "global_validation": "NOT_RUN"
+}

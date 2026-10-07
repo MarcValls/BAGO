@@ -149,15 +149,34 @@ def write_file_effect(manager: Any, raw_path: str, content: str) -> dict[str, An
             code="filesystem_write_failed",
         ) from exc
 
-    digest = hashlib.sha256(target.read_bytes()).hexdigest()
-    receipt_id = "filesystem-write:sha256:" + hashlib.sha256(
-        f"{target}|{digest}".encode("utf-8")
-    ).hexdigest()
+    from runtime_observability import set_attributes, traced_span
+
+    with traced_span("bago.artifact.verify", {
+        "bago.artifact.kind": target.suffix.lower().lstrip(".") or "file",
+        "bago.artifact.bytes_expected": len(payload),
+    }) as verification_span:
+        verified_bytes = target.read_bytes()
+        digest = hashlib.sha256(verified_bytes).hexdigest()
+        receipt_id = "filesystem-write:sha256:" + hashlib.sha256(
+            f"{target}|{digest}".encode("utf-8")
+        ).hexdigest()
+        set_attributes(verification_span, {
+            "bago.artifact.exists": target.is_file(),
+            "bago.artifact.bytes_observed": len(verified_bytes),
+            "bago.artifact.sha256": digest,
+            "bago.artifact.matches_written_content": verified_bytes == payload,
+            "bago.receipt_id": receipt_id,
+        })
+        if verified_bytes != payload:
+            raise FilesystemEffectError(
+                "El artefacto no coincide con el contenido autorizado después de escribir.",
+                code="filesystem_write_readback_mismatch",
+            )
     try:
         relative = str(target.relative_to(write_root)).replace("\\", "/")
     except ValueError:
         relative = str(target)
-    return {
+    result = {
         "ok": True,
         "executed": True,
         "effect_id": "filesystem.write",
@@ -170,6 +189,7 @@ def write_file_effect(manager: Any, raw_path: str, content: str) -> dict[str, An
         "evidence": [f"file_sha256:{digest}", f"path:{target}"],
         "receipt_id": receipt_id,
     }
+    return result
 
 
 def read_file_effect(manager: Any, raw_path: str) -> dict[str, Any]:
