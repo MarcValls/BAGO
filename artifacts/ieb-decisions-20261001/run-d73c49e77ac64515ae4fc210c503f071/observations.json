@@ -1,0 +1,152 @@
+{
+  "scope": "bounded native rename observation; not sandbox acceptance",
+  "api": "NtSetInformationFile(FileRenameInformationEx=65); relative retained parent",
+  "platform": "Windows-10-10.0.19045-SP0",
+  "python": "3.14.5",
+  "probe_sha256": "b20e9fa52cfe8cae5d755ae116481f771d0cd2fa7f5c3bdaad80cb53cbc26dac",
+  "scratch": "artifacts\\ieb-decisions-20261001\\run-d73c49e77ac64515ae4fc210c503f071",
+  "cases": [
+    {
+      "case": "baseline_relative",
+      "held_share": null,
+      "rename_flags": 1,
+      "authorized_target_id": null,
+      "competitor": null,
+      "commit": {
+        "ok": true,
+        "ntstatus": "0x00000000",
+        "winerror": 0
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "e8d60b0000000d000000000000000000"
+      },
+      "held_identity_after": null,
+      "visible_content_hex": "617574686f72697a65642d6166746572"
+    },
+    {
+      "case": "deny_delete_replace",
+      "held_share": 1,
+      "rename_flags": 1,
+      "authorized_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "10d70b00000014000000000000000000"
+      },
+      "competitor": null,
+      "commit": {
+        "ok": false,
+        "ntstatus": "0xc0000022",
+        "winerror": 5
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "10d70b00000014000000000000000000"
+      },
+      "held_identity_after": {
+        "volume": 2339306905297686904,
+        "file_id": "10d70b00000014000000000000000000"
+      },
+      "visible_content_hex": "617574686f72697a65642d6265666f7265"
+    },
+    {
+      "case": "deny_delete_posix",
+      "held_share": 1,
+      "rename_flags": 3,
+      "authorized_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "63d70b0000000d000000000000000000"
+      },
+      "competitor": null,
+      "commit": {
+        "ok": false,
+        "ntstatus": "0xc0000043",
+        "winerror": 32
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "63d70b0000000d000000000000000000"
+      },
+      "held_identity_after": {
+        "volume": 2339306905297686904,
+        "file_id": "63d70b0000000d000000000000000000"
+      },
+      "visible_content_hex": "617574686f72697a65642d6265666f7265"
+    },
+    {
+      "case": "share_delete_replace",
+      "held_share": 5,
+      "rename_flags": 1,
+      "authorized_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "8dd70b0000000d000000000000000000"
+      },
+      "competitor": null,
+      "commit": {
+        "ok": false,
+        "ntstatus": "0xc0000022",
+        "winerror": 5
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "8dd70b0000000d000000000000000000"
+      },
+      "held_identity_after": {
+        "volume": 2339306905297686904,
+        "file_id": "8dd70b0000000d000000000000000000"
+      },
+      "visible_content_hex": "617574686f72697a65642d6265666f7265"
+    },
+    {
+      "case": "share_delete_posix",
+      "held_share": 5,
+      "rename_flags": 3,
+      "authorized_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "a6d70b00000022000000000000000000"
+      },
+      "competitor": null,
+      "commit": {
+        "ok": true,
+        "ntstatus": "0x00000000",
+        "winerror": 0
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "a7d70b0000002c000000000000000000"
+      },
+      "held_identity_after": {
+        "volume": 2339306905297686904,
+        "file_id": "a6d70b00000022000000000000000000"
+      },
+      "visible_content_hex": "617574686f72697a65642d6166746572"
+    },
+    {
+      "case": "share_delete_competitor_then_commit",
+      "held_share": 5,
+      "rename_flags": 3,
+      "authorized_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "aad70b00000011000000000000000000"
+      },
+      "competitor": {
+        "ok": true,
+        "ntstatus": "0x00000000",
+        "winerror": 0
+      },
+      "commit": {
+        "ok": true,
+        "ntstatus": "0x00000000",
+        "winerror": 0
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "add70b0000001e000000000000000000"
+      },
+      "held_identity_after": {
+        "volume": 2339306905297686904,
+        "file_id": "aad70b00000011000000000000000000"
+      },
+      "visible_content_hex": "617574686f72697a65642d6166746572"
+    }
+  ]
+}

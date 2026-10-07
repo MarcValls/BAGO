@@ -1,0 +1,144 @@
+{
+  "scope": "bounded native rename observation; not sandbox acceptance",
+  "platform": "Windows-10-10.0.19045-SP0",
+  "python": "3.14.5",
+  "probe_sha256": "1ae8ec39dcd8f73f6672f821cbcfba4f049bb4def50a44af345cd2d52292371a",
+  "scratch": "artifacts\\ieb-decisions-20261001\\run-f8e56bbc304347188a1d21b1256706a4",
+  "cases": [
+    {
+      "case": "baseline_relative",
+      "held_share": null,
+      "rename_flags": 1,
+      "authorized_target_id": null,
+      "competitor": null,
+      "commit": {
+        "ok": false,
+        "winerror": 87
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "19d40b00000017000000000000000000"
+      },
+      "held_identity_after": null,
+      "visible_content_hex": "617574686f72697a65642d6265666f7265"
+    },
+    {
+      "case": "deny_delete_replace",
+      "held_share": 1,
+      "rename_flags": 1,
+      "authorized_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "8ed40b00000048000000000000000000"
+      },
+      "competitor": null,
+      "commit": {
+        "ok": false,
+        "winerror": 87
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "8ed40b00000048000000000000000000"
+      },
+      "held_identity_after": {
+        "volume": 2339306905297686904,
+        "file_id": "8ed40b00000048000000000000000000"
+      },
+      "visible_content_hex": "617574686f72697a65642d6265666f7265"
+    },
+    {
+      "case": "deny_delete_posix",
+      "held_share": 1,
+      "rename_flags": 3,
+      "authorized_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "d7d40b00000011000000000000000000"
+      },
+      "competitor": null,
+      "commit": {
+        "ok": false,
+        "winerror": 87
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "d7d40b00000011000000000000000000"
+      },
+      "held_identity_after": {
+        "volume": 2339306905297686904,
+        "file_id": "d7d40b00000011000000000000000000"
+      },
+      "visible_content_hex": "617574686f72697a65642d6265666f7265"
+    },
+    {
+      "case": "share_delete_replace",
+      "held_share": 5,
+      "rename_flags": 1,
+      "authorized_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "67d50b0000000d000000000000000000"
+      },
+      "competitor": null,
+      "commit": {
+        "ok": false,
+        "winerror": 87
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "67d50b0000000d000000000000000000"
+      },
+      "held_identity_after": {
+        "volume": 2339306905297686904,
+        "file_id": "67d50b0000000d000000000000000000"
+      },
+      "visible_content_hex": "617574686f72697a65642d6265666f7265"
+    },
+    {
+      "case": "share_delete_posix",
+      "held_share": 5,
+      "rename_flags": 3,
+      "authorized_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "6ed50b0000000d000000000000000000"
+      },
+      "competitor": null,
+      "commit": {
+        "ok": false,
+        "winerror": 87
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "6ed50b0000000d000000000000000000"
+      },
+      "held_identity_after": {
+        "volume": 2339306905297686904,
+        "file_id": "6ed50b0000000d000000000000000000"
+      },
+      "visible_content_hex": "617574686f72697a65642d6265666f7265"
+    },
+    {
+      "case": "share_delete_competitor_then_commit",
+      "held_share": 5,
+      "rename_flags": 3,
+      "authorized_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "74d50b0000000d000000000000000000"
+      },
+      "competitor": {
+        "ok": false,
+        "winerror": 87
+      },
+      "commit": {
+        "ok": false,
+        "winerror": 87
+      },
+      "visible_target_id": {
+        "volume": 2339306905297686904,
+        "file_id": "74d50b0000000d000000000000000000"
+      },
+      "held_identity_after": {
+        "volume": 2339306905297686904,
+        "file_id": "74d50b0000000d000000000000000000"
+      },
+      "visible_content_hex": "617574686f72697a65642d6265666f7265"
+    }
+  ]
+}

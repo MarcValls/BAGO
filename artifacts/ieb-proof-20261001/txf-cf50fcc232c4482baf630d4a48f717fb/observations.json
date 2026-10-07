@@ -1,0 +1,98 @@
+{
+  "platform": "Windows-10-10.0.19045-SP0",
+  "python": "3.14.5",
+  "probe_sha256": "2ceb88c6479a21901b18ccbdf47d7aeb0cd29e6e636a9928dbbc5c9cd46e00bc",
+  "scope": "TxF native scratch only; no production eligibility",
+  "cases": [
+    {
+      "case": "commit",
+      "expected": {
+        "volume": 2339306905297686904,
+        "file_id": "a8731600000021000000000000000000"
+      },
+      "actual": {
+        "volume": 2339306905297686904,
+        "file_id": "a8731600000021000000000000000000"
+      },
+      "content_digest": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb",
+      "admission": "IDENTITY_MATCH",
+      "contenders": [
+        {
+          "action": "write",
+          "ok": false,
+          "winerror": 32
+        },
+        {
+          "action": "replace",
+          "ok": false,
+          "winerror": 32
+        },
+        {
+          "action": "parent_rename",
+          "ok": false,
+          "winerror": 32
+        }
+      ],
+      "replace": {
+        "ok": false,
+        "ntstatus": "0xc0000043",
+        "winerror": 32
+      },
+      "rollback_ok": true,
+      "visible_content_hex": "6265666f7265"
+    },
+    {
+      "case": "wrong_identity",
+      "expected": {
+        "volume": 2339306905297686904,
+        "file_id": "00000000000000000000000000000000"
+      },
+      "actual": {
+        "volume": 2339306905297686904,
+        "file_id": "bc98160000000f000000000000000000"
+      },
+      "content_digest": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb",
+      "admission": "DENY_IDENTITY_MISMATCH",
+      "rollback_ok": true,
+      "visible_content_hex": "6265666f7265"
+    },
+    {
+      "case": "rollback",
+      "expected": {
+        "volume": 2339306905297686904,
+        "file_id": "209b160000000d000000000000000000"
+      },
+      "actual": {
+        "volume": 2339306905297686904,
+        "file_id": "209b160000000d000000000000000000"
+      },
+      "content_digest": "6db7d803e74f1ffa7d8f5adc0bf95b3e15bf4c8373fffadf546227cc6c6742cb",
+      "admission": "IDENTITY_MATCH",
+      "contenders": [
+        {
+          "action": "write",
+          "ok": false,
+          "winerror": 32
+        },
+        {
+          "action": "replace",
+          "ok": false,
+          "winerror": 32
+        },
+        {
+          "action": "parent_rename",
+          "ok": false,
+          "winerror": 32
+        }
+      ],
+      "replace": {
+        "ok": false,
+        "ntstatus": "0xc0000043",
+        "winerror": 32
+      },
+      "rollback_ok": true,
+      "visible_content_hex": "6265666f7265"
+    }
+  ],
+  "run": "C:\\Users\\AMTEC_Terminal_1\u00ba\\BAGO\\artifacts\\ieb-proof-20261001\\txf-cf50fcc232c4482baf630d4a48f717fb"
+}

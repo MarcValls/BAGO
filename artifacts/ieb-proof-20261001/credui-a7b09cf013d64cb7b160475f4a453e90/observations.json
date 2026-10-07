@@ -1,0 +1,19 @@
+{
+  "started_utc": "2026-10-01T15:47:38.5806944Z",
+  "os": "Microsoft Windows NT 10.0.19045.0",
+  "mutations_enabled": false,
+  "selected_provider_clsid_verified": false,
+  "rendering_verified": false,
+  "verifier_authenticated": false,
+  "credential_plaintext_unpacked": false,
+  "secure_prompt_flags": "0x1010",
+  "expected_sid_hash": "856ee9250c184495ebfdc662a39f558ea74876018ba3a682ca3f5cc3967bcfa6",
+  "launch_sid_hash": "f6b43cf455ce713ca229d8b65466ef5bb60353bf248052af13cbfca0863dd733",
+  "binary_sha256": "ec85540ff8043822ca04c9b31c71c04fec9fb46ca653ab15ce6f0734665aed28",
+  "source_sha256": "d850a3b40f8d6249984e5381b8efbfb5652afcb082291b4d1025b4d51f7eb847",
+  "descriptor": "BAGO IEB: PRUEBA SIN CAMBIOS EN BAGO. Nonce 5029cc5c4d744d7893aa1814f12dcdf6\nPrincipal SID SHA256 856ee9250c184495ebfdc662a39f558ea74876018ba3a682ca3f5cc3967bcfa6; Negotiate; flags 0x1010",
+  "descriptor_sha256": "500b24a565307b2197ceeb23f0de28bd181b24ab64f8efbad149248b50d2b5a3",
+  "display_text": "BAGO IEB: PRUEBA SIN CAMBIOS EN BAGO. Nonce 5029cc5c4d744d7893aa1814f12dcdf6\nPrincipal SID SHA256 856ee9250c184495ebfdc662a39f558ea74876018ba3a682ca3f5cc3967bcfa6; Negotiate; flags 0x1010\nSHA256 500b24a565307b2197ceeb23f0de28bd181b24ab64f8efbad149248b50d2b5a3\nUn intento: Windows crea sesion de autenticacion; un fallo puede contar para bloqueo de cuenta.",
+  "verdict": "LAUNCH_PRINCIPAL_DRIFT_DENIED_BEFORE_PROMPT",
+  "finished_utc": "2026-10-01T15:47:38.5865158Z"
+}
