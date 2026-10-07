@@ -1,0 +1,17 @@
+{
+  "memory_root": "D:\\IA_MEMORIA",
+  "transport": "stdio",
+  "host": "127.0.0.1",
+  "port": 8765,
+  "max_read_bytes": 524288,
+  "max_results": 20,
+  "allowed_extensions": [
+    ".md",
+    ".txt",
+    ".json",
+    ".jsonl",
+    ".yaml",
+    ".yml",
+    ".toml"
+  ]
+}

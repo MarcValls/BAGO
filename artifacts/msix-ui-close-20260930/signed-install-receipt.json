@@ -1,0 +1,40 @@
+{
+  "schema": "bago.local-msix-smoke-receipt.v1",
+  "scope": "diagnostic UI-close observation only; not bootstrap P0 validation",
+  "candidate_head": "b10178bf8a13d0035079e989e46c36760dbd2a46",
+  "branch": "fix/spbe-runtime-fix1-20260927",
+  "candidate_dirty": true,
+  "payload_export": "C:\\bago-msix-payload-20260930",
+  "unsigned_build_receipt": "build-receipt.json",
+  "unsigned_package_sha256": "fa9b0ed24e5b00123d98d93ec7c63011c2e0872cdd1a2798f4adf486e60f844b",
+  "signed_package": "BAGO-Bootstrap-4.11.1.msix",
+  "signed_package_sha256": "e09d2dd3e48979c44802ad896fdfd74cf54467cae4a2b34e1227ba3328a3eaeb",
+  "signature": {
+    "verification": "PASS (scripts/sign-msix-test.ps1 / SignTool verify /pa)",
+    "publisher_subject": "CN=BAGO Release 4.11.1 Local Signer",
+    "certificate_thumbprint": "01FFC685AB7065E2C0288564ECD1415DD5415D25",
+    "production_trust": false
+  },
+  "installation": {
+    "package_full_name": "BAGO.Bootstrap_4.11.1.0_x64__tgme4m47zxgpt",
+    "status": "Ok",
+    "aumid": "BAGO.Bootstrap_tgme4m47zxgpt!BagoBootstrap"
+  },
+  "activation": {
+    "local_time": "2026-09-30T16:19:26",
+    "pid": 16112,
+    "process_start_local": "2026-09-30T16:19:27",
+    "log_path": "%LOCALAPPDATA%\\BAGO\\logs\\bootstrap-host.log",
+    "session_id": "09eed125-286",
+    "session_created_utc": "2026-09-30T14:19:41.819302+00:00",
+    "observation_seconds": 90,
+    "observed_state": "window title BAGO Bootstrap; process alive/responding at end",
+    "close_event": "NOT_OBSERVED",
+    "close_reason": "UNRESOLVED; the observed run did not close"
+  },
+  "checks": {
+    "dotnet_host_build": "PASS; 0 warnings, 0 errors",
+    "backend_tests": "PASS; python -m pytest -q backend/tests/test_msix_bootstrap.py; 3 passed",
+    "git_diff_check": "PASS"
+  }
+}
