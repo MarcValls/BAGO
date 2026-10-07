@@ -23,6 +23,13 @@ from execution_claims import (
     execution_resource_key,
     execution_claim_store_for,
 )
+from runtime_observability import (
+    execution_attributes,
+    record_error as record_observability_error,
+    result_receipt_id,
+    set_attributes as set_observability_attributes,
+    traced_span,
+)
 
 
 class EffectAdapterRegistry:
@@ -237,6 +244,39 @@ class ExecutionGateway:
         request: ExecutionRequest,
         context: ExecutionContext | None = None,
     ) -> tuple[Any, dict[str, Any]]:
+        with traced_span(
+            "bago.execution_gateway.execute",
+            execution_attributes(request),
+        ) as span:
+            try:
+                result, authorization = self._execute_authorized(
+                    permit_token=permit_token,
+                    request=request,
+                    context=context,
+                )
+            except BaseException as exc:
+                record_observability_error(span, exc)
+                raise
+            set_observability_attributes(
+                span,
+                {
+                    "bago.authorization.state": authorization.get("state"),
+                    "bago.authorization.permit_id": authorization.get("permit_id"),
+                    "bago.authorization.decision_id": authorization.get("decision_id"),
+                    "bago.authorization.proof_id": authorization.get("proof_id"),
+                    "bago.receipt_id": result_receipt_id(result),
+                    "bago.execution.outcome": "success",
+                },
+            )
+            return result, authorization
+
+    def _execute_authorized(
+        self,
+        *,
+        permit_token: str,
+        request: ExecutionRequest,
+        context: ExecutionContext | None = None,
+    ) -> tuple[Any, dict[str, Any]]:
         # Resolve first so a configuration error does not consume a valid Permit.
         adapter = self.adapters.resolve(request.effect_id)
         if self._is_server_policy_only(adapter, request.effect_id):
@@ -246,10 +286,23 @@ class ExecutionGateway:
             )
         caller_context = context or ExecutionContext()
         self._validate_world_state(request, caller_context, adapter)
-        authorization = self.boundary.consume_permit(
-            permit_token=permit_token,
-            request=request,
-        )
+        with traced_span(
+            "bago.authorization.consume_permit",
+            execution_attributes(request),
+        ) as authorization_span:
+            authorization = self.boundary.consume_permit(
+                permit_token=permit_token,
+                request=request,
+            )
+            set_observability_attributes(
+                authorization_span,
+                {
+                    "bago.authorization.state": authorization.get("state"),
+                    "bago.authorization.permit_id": authorization.get("permit_id"),
+                    "bago.authorization.decision_id": authorization.get("decision_id"),
+                    "bago.authorization.proof_id": authorization.get("proof_id"),
+                },
+            )
         # Durable claim storage can create its SQLite database and parent
         # directory. Resolve it only after the parent Permit has been consumed
         # so an invalid/replayed request has no filesystem effect.
@@ -311,7 +364,7 @@ class ExecutionGateway:
         )
         if install_claim is None:
             self._validate_world_state(request, trusted_context, adapter)
-            result = adapter.execute(request, trusted_context)
+            result = self._execute_adapter(adapter, request, trusted_context)
             return result, authorization
         try:
             result = claim_store.execute_if_valid(
@@ -332,7 +385,28 @@ class ExecutionGateway:
         adapter: EffectAdapter, request: ExecutionRequest, context: ExecutionContext
     ) -> Any:
         ExecutionGateway._validate_world_state(request, context, adapter)
-        return adapter.execute(request, context)
+        return ExecutionGateway._execute_adapter(adapter, request, context)
+
+    @staticmethod
+    def _execute_adapter(
+        adapter: EffectAdapter, request: ExecutionRequest, context: ExecutionContext
+    ) -> Any:
+        attributes = execution_attributes(request)
+        attributes["bago.adapter.type"] = type(adapter).__name__
+        with traced_span("bago.adapter.execute", attributes) as span:
+            try:
+                result = adapter.execute(request, context)
+            except BaseException as exc:
+                record_observability_error(span, exc)
+                raise
+            set_observability_attributes(
+                span,
+                {
+                    "bago.receipt_id": result_receipt_id(result),
+                    "bago.execution.outcome": "success",
+                },
+            )
+            return result
 
     @staticmethod
     def _validate_world_state(
@@ -388,6 +462,37 @@ class ExecutionGateway:
         request: ExecutionRequest,
         context: ExecutionContext | None = None,
     ) -> tuple[Any, dict[str, Any]]:
+        with traced_span(
+            "bago.execution_gateway.server_policy",
+            execution_attributes(request),
+        ) as span:
+            try:
+                result, authorization = self._execute_server_owned(
+                    request=request,
+                    context=context,
+                )
+            except BaseException as exc:
+                record_observability_error(span, exc)
+                raise
+            set_observability_attributes(
+                span,
+                {
+                    "bago.authorization.state": authorization.get("state"),
+                    "bago.authorization.kind": authorization.get("kind"),
+                    "bago.authorization.decision_id": authorization.get("decision_id"),
+                    "bago.authorization.proof_id": authorization.get("proof_id"),
+                    "bago.receipt_id": result_receipt_id(result),
+                    "bago.execution.outcome": "success",
+                },
+            )
+            return result, authorization
+
+    def _execute_server_owned(
+        self,
+        *,
+        request: ExecutionRequest,
+        context: ExecutionContext | None = None,
+    ) -> tuple[Any, dict[str, Any]]:
         """Dispatch one canonical policy effect without a user Permit.
 
         This path is intentionally narrower than ``execute``: only adapters
@@ -404,10 +509,23 @@ class ExecutionGateway:
             )
         caller_context = context or ExecutionContext()
         self._validate_world_state(request, caller_context, adapter)
-        try:
-            authorization = self.boundary.authorize_server_policy(request)
-        except AuthorizationError as exc:
-            raise ExecutionGatewayError(str(exc), code=exc.code) from exc
+        with traced_span(
+            "bago.authorization.server_policy",
+            execution_attributes(request),
+        ) as authorization_span:
+            try:
+                authorization = self.boundary.authorize_server_policy(request)
+            except AuthorizationError as exc:
+                raise ExecutionGatewayError(str(exc), code=exc.code) from exc
+            set_observability_attributes(
+                authorization_span,
+                {
+                    "bago.authorization.state": authorization.get("state"),
+                    "bago.authorization.kind": authorization.get("kind"),
+                    "bago.authorization.decision_id": authorization.get("decision_id"),
+                    "bago.authorization.proof_id": authorization.get("proof_id"),
+                },
+            )
         trusted_context = caller_context
         trusted_services = dict(trusted_context.services)
         trusted_services["_authorization"] = authorization
@@ -418,7 +536,7 @@ class ExecutionGateway:
             world_state_authority_root=trusted_context.world_state_authority_root,
         )
         self._validate_world_state(request, trusted_context, adapter)
-        result = adapter.execute(request, trusted_context)
+        result = self._execute_adapter(adapter, request, trusted_context)
         return result, authorization
 
     @staticmethod
@@ -429,6 +547,37 @@ class ExecutionGateway:
         return bool(getattr(adapter, "server_policy_only", False))
 
     def execute_nested(
+        self,
+        *,
+        parent_request: ExecutionRequest,
+        child_request: ExecutionRequest,
+        context: ExecutionContext,
+    ) -> tuple[Any, dict[str, Any]]:
+        attributes = execution_attributes(child_request)
+        attributes["bago.parent_request_id"] = str(parent_request.request_id or "")
+        with traced_span("bago.execution_gateway.nested", attributes) as span:
+            try:
+                result, authorization = self._execute_nested(
+                    parent_request=parent_request,
+                    child_request=child_request,
+                    context=context,
+                )
+            except BaseException as exc:
+                record_observability_error(span, exc)
+                raise
+            set_observability_attributes(
+                span,
+                {
+                    "bago.authorization.state": authorization.get("state"),
+                    "bago.authorization.permit_id": authorization.get("permit_id"),
+                    "bago.authorization.decision_id": authorization.get("decision_id"),
+                    "bago.receipt_id": result_receipt_id(result),
+                    "bago.execution.outcome": "success",
+                },
+            )
+            return result, authorization
+
+    def _execute_nested(
         self,
         *,
         parent_request: ExecutionRequest,
@@ -705,7 +854,7 @@ class ExecutionGateway:
     ) -> Any:
         """Revalidate the current authority at the last Gateway boundary."""
         self._validate_world_state(request, context, adapter)
-        return adapter.execute(request, context)
+        return ExecutionGateway._execute_adapter(adapter, request, context)
 
 
 __all__ = [

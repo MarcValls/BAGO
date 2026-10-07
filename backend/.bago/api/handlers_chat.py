@@ -112,7 +112,7 @@ def _send_with_watchdog(
     return turn.response, None, turn.elapsed_ms
 
 
-def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
+def _handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
     from request_context import build_context
     from event_bus import emit
     from error_payload_filter import (
@@ -275,3 +275,21 @@ def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
         )
         ctx.send_json(500, payload)
         emit("chat.failed", {"session_id": ctx.session_mgr.session_id, "error": payload["error"]})
+
+
+def handle(handler: "BaseHTTPRequestHandler", body: dict[str, Any]) -> None:
+    """Trace the inbound agent request; the worker inherits this context."""
+    import hashlib
+
+    from runtime_observability import traced_span
+
+    attributes = {
+        "http.request.method": str(getattr(handler, "command", "POST")),
+        "bago.request.digest": hashlib.sha256(
+            str(body.get("message") or "").encode("utf-8", errors="replace")
+        ).hexdigest(),
+        "bago.conversation_id": str(body.get("conversation_id") or ""),
+        "bago.chat.retry": bool(body.get("turn_id")),
+    }
+    with traced_span("bago.agent.request", attributes):
+        _handle(handler, body)

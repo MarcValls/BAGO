@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 import copy
+import hashlib
 from dataclasses import dataclass, field
 import threading
 import time
@@ -32,6 +33,7 @@ class ChatTurn:
     stream_events: list[dict[str, Any]] = field(default_factory=list)
     stream_done: dict[str, Any] | None = None
     stream_status: str = ""
+    trace_context: Any = field(default=None, repr=False)
 
 
 class ChatTurnError(ValueError):
@@ -81,14 +83,50 @@ class ChatTurnStore:
                 oldest = next(iter(self._turns))
                 del self._turns[oldest]
             turn = ChatTurn(uuid.uuid4().hex, message, internal, conversation_id, kind=kind)
+            try:
+                from runtime_observability import capture_trace_context
+
+                turn.trace_context = capture_trace_context()
+            except Exception:
+                turn.trace_context = None
             self._turns[turn.turn_id] = turn
             self._active = turn
 
             def run() -> None:
                 try:
-                    turn.response, turn.snapshot = runner()
+                    from runtime_observability import attach_trace_context, set_attributes, traced_span
+
+                    context = attach_trace_context(turn.trace_context)
+                    span_context = traced_span("bago.agent.turn", {
+                        "bago.turn_id": turn.turn_id,
+                        "bago.conversation_id": turn.conversation_id or "",
+                        "bago.turn.kind": turn.kind,
+                        "bago.request.digest": hashlib.sha256(turn.message.encode("utf-8", errors="replace")).hexdigest(),
+                    })
+                except Exception:
+                    from contextlib import nullcontext
+
+                    context, span_context = nullcontext(), nullcontext(None)
+                    set_attributes = lambda *_args, **_kwargs: None
+                try:
+                    with context:
+                        with span_context as span:
+                            set_attributes(span, {"bago.session_id": getattr(getattr(runner, "__self__", None), "session_id", "")})
+                            try:
+                                turn.response, turn.snapshot = runner()
+                                receipt = turn.snapshot.get("context_receipt", {}) if isinstance(turn.snapshot, dict) else {}
+                                set_attributes(span, {
+                                    "bago.turn.status": "completed",
+                                    "bago.response.digest": hashlib.sha256((turn.response or "").encode("utf-8", errors="replace")).hexdigest(),
+                                    "bago.receipt_id": str(receipt.get("receipt_id") or receipt.get("envelope_id") or "") if isinstance(receipt, dict) else "",
+                                    "bago.response.state": str(turn.snapshot.get("response_state") or "done") if isinstance(turn.snapshot, dict) else "done",
+                                })
+                            except BaseException as exc:
+                                turn.error = {"ok": False, "error": f"Error interno: {exc}"}
+                                raise
                 except BaseException as exc:
-                    turn.error = {"ok": False, "error": f"Error interno: {exc}"}
+                    if turn.error is None:
+                        turn.error = {"ok": False, "error": f"Error interno: {exc}"}
                 finally:
                     with self._lock:
                         turn.elapsed_ms = (time.monotonic() - turn.started) * 1000
