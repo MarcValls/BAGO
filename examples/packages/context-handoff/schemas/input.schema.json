@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "project": {"type": "string", "minLength": 1},
+    "agent_role": {"type": "string", "minLength": 1},
+    "work_item": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "minLength": 1},
+    "cycle": {"type": "string", "minLength": 1},
+    "status": {"type": "string", "enum": ["ON", "HANDOFF", "OFF", "CANON", "DRAFT"]},
+    "result": {"type": "string"},
+    "decisions": {"type": "string", "description": "Una decisión por línea."},
+    "open_items": {"type": "string", "description": "Un pendiente por línea."},
+    "next_role": {"type": "string"},
+    "next_instruction": {"type": "string"},
+    "inherited_context": {"type": "string"},
+    "sources": {"type": "string", "description": "Una fuente por línea."},
+    "success_criteria": {"type": "string"}
+  },
+  "required": ["project", "agent_role", "work_item", "version", "cycle", "status", "result"],
+  "additionalProperties": false
+}

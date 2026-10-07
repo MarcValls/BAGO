@@ -1,0 +1,16 @@
+{
+  "project": "BAGO",
+  "agent_role": "MEM",
+  "work_item": "capability-integration",
+  "version": "v1.0",
+  "cycle": "C01",
+  "status": "HANDOFF",
+  "result": "Created a reviewable continuity handoff.",
+  "decisions": "Keep source material immutable.",
+  "open_items": "Run the receiving session tests.",
+  "next_role": "CRIT",
+  "next_instruction": "Review the result and source bindings.",
+  "inherited_context": "This output summarizes only the supplied fields.",
+  "sources": "SRG continuity templates",
+  "success_criteria": "The next session can identify current state and next action."
+}
